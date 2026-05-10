@@ -85,6 +85,30 @@ Press `Ctrl+Space` to open Spacemap.
 
 ---
 
+### Cell styles
+
+`CELL_STYLE` controls how windows are drawn inside each cell:
+
+| Value | Description |
+|-------|-------------|
+| `rects` | Colored rectangles scaled from real window geometry (default) |
+| `icons` | App icons positioned at each window's scaled location |
+
+```bash
+CELL_STYLE=rects   # default
+CELL_STYLE=icons
+```
+
+**`CELL_STYLE=rects`**
+
+<img width="752" height="476" alt="rects style" src="https://github.com/user-attachments/assets/1ee3e85c-12e4-4f34-a265-cb9f9fd69b56" />
+
+**`CELL_STYLE=icons`**
+
+<img width="718" height="464" alt="icons style" src="https://github.com/user-attachments/assets/5d35aa23-d5ef-4da1-8a74-df7278b43112" />
+
+Run `make distconfig` to write a fresh config with `icons` active and `rects` commented out.
+
 ## Usage
 
 | Action | Result |
