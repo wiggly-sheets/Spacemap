@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 /// CellView displays a single space/cell in the grid.
 ///
