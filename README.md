@@ -92,11 +92,13 @@ Press `Ctrl+Space` to open Spacemap.
 | Value | Description |
 |-------|-------------|
 | `rects` | Colored rectangles scaled from real window geometry (default) |
-| `icons` | App icons positioned at each window's scaled location |
+| `icons` | App icons at each visible window's scaled position; all apps on the workspace shown as a small icon strip at the bottom |
+| `hybrid` | Colored rectangles (like `rects`) plus a small icon strip at the bottom showing all apps on the workspace |
 
 ```bash
 CELL_STYLE=rects   # default
 CELL_STYLE=icons
+CELL_STYLE=hybrid
 ```
 
 **`CELL_STYLE=rects`**
