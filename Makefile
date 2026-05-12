@@ -164,7 +164,7 @@ archive: app
 	mkdir -p $(STAGE)
 	cp -R $(APP_BUNDLE) $(STAGE)/
 	codesign --force --deep --sign - $(STAGE)/$(APP_BUNDLE)
-	cd $(STAGE) && zip -r --symlinks ../$(ARCHIVE) .
+	zip -r --symlinks $(ARCHIVE) $(STAGE)
 	rm -rf $(STAGE)
 	@echo ""
 	@echo "Artifact: $(ARCHIVE)"
