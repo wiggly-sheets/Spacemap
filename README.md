@@ -101,12 +101,12 @@ CELL_STYLE=icons
 CELL_STYLE=hybrid
 ```
 
-## Install ( in 3 steps )
+## Install ( in 5 steps )
 1. Install Pre-Requesits 
 2. Install spacemap
-3. Cofigure skhd 
-4. Configure spacemap
-`ctrl space`
+3. Grant Accessibility Permission
+4. Configure skhd 
+5. Configure spacemap
 
 **Step 1: Install Pre-Requesits**
 ```
@@ -120,7 +120,16 @@ brew tap jsheffie/tap
 brew install --cask jsheffie/tap/spacemap
 ```
 
-**Step 3: Configure skhd**
+**Step 3: Grant Accessibility Permission**
+
+Launch spacemap once to trigger the permission prompt:
+```bash
+open /Applications/spacemap.app
+```
+
+Then go to **System Settings → Privacy & Security → Accessibility** and enable spacemap. The Ctrl+Space hotkey activates automatically — no restart needed.
+
+**Step 4: Configure skhd**
 
 Copy the 8×2 grid keymap into your skhd config:
 ```bash
@@ -133,7 +142,7 @@ Then restart skhd:
 skhd --restart-service
 ```
 
-**Step 4: Configure spacemap**
+**Step 5: Configure spacemap**
 
 ```bash
 mkdir -p ~/.config/spacemap
