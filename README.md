@@ -117,7 +117,7 @@ brew install asmvik/formulae/skhd
 **Step 2: Install spacemap**
 ```
 brew tap jsheffie/tap
-brew install --cask spacemap
+brew install spacemap
 ```
 
 **Step 3: Configure skhd**

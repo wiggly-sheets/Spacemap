@@ -159,6 +159,23 @@ _dmg:
 	@echo "Created $(OUTPUT)"
 	@echo "SHA-256:  $$(shasum -a 256 $(OUTPUT) | awk '{print $$1}')"
 
+archive: app
+	rm -rf $(STAGE) $(ARCHIVE)
+	mkdir -p $(STAGE)
+	cp -R $(APP_BUNDLE) $(STAGE)/
+	codesign --force --deep --sign - $(STAGE)/$(APP_BUNDLE)
+	cd $(STAGE) && zip -r --symlinks ../$(ARCHIVE) .
+	rm -rf $(STAGE)
+	@echo ""
+	@echo "Artifact: $(ARCHIVE)"
+	@echo "SHA-256:  $$(shasum -a 256 $(ARCHIVE) | awk '{print $$1}')"
+	@echo ""
+	@echo "Next: go to https://github.com/jsheffie/spacemap/releases/new"
+	@echo "  1. Tag: v$(VERSION)"
+	@echo "  2. Click 'Generate release notes'"
+	@echo "  3. Attach $(ARCHIVE)"
+	@echo "  4. Copy the SHA-256 above into Formula/spacemap.rb in homebrew-tap"
+
 install: app
 	mkdir -p $(INSTALL_PATH)/Contents/MacOS
 	mkdir -p $(INSTALL_PATH)/Contents/Frameworks
