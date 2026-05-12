@@ -101,9 +101,54 @@ CELL_STYLE=icons
 CELL_STYLE=hybrid
 ```
 
-Run `make distconfig` to write a fresh config with `icons` active and `rects` commented out.
+## Install ( in 3 steps )
+1. Install Pre-Requesits 
+2. Install spacemap
+3. Cofigure skhd 
+4. Configure spacemap
+`ctrl space`
 
-## Usage
+**Step 1: Install Pre-Requesits**
+```
+brew install asmvik/formulae/yabai
+brew install asmvik/formulae/skhd
+```
+
+**Step 2: Install spacemap**
+```
+brew tap jsheffie/tap
+brew install --cask spacemap
+```
+
+**Step 3: Configure skhd**
+
+Copy the 8×2 grid keymap into your skhd config:
+```bash
+curl -fsSL https://raw.githubusercontent.com/jsheffie/spacemap/main/docs/skhd-configurations/skhdrc-8-by-2 \
+  > ~/.config/skhd/skhdrc
+```
+
+Then restart skhd:
+```bash
+skhd --restart-service
+```
+
+**Step 4: Configure spacemap**
+
+```bash
+mkdir -p ~/.config/spacemap
+cat > ~/.config/spacemap/config << 'EOF'
+GRID_COLS=8
+GRID_ROWS=2
+CELL_STYLE=hybrid
+EOF
+```
+
+Press `Ctrl+Space` to open spacemap.
+
+
+## Build Requirements
+- Xcode Command Line Tools (`xcode-select --install`)
 
 | Action | Result |
 |--------|--------|
