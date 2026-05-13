@@ -68,6 +68,14 @@ struct HotkeyConfig {
     static let `default` = HotkeyConfig(keyCode: 121, modifiers: .maskControl)
 }
 
+struct HotkeyConfig {
+    var keyCode: CGKeyCode
+    var modifiers: CGEventFlags
+
+    // Default: Ctrl+Page Down
+    static let `default` = HotkeyConfig(keyCode: 121, modifiers: .maskControl)
+}
+
 struct GridConfig {
     var cols: Int
     var rows: Int

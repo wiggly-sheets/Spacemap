@@ -198,6 +198,12 @@ enum ConfigReader {
                 case "off": updateMode = .off
                 default: updateMode = .notify
                 }
+            case "HOTKEY":
+                if let parsed = parseHotkey(value) {
+                    hotkey = parsed
+                } else {
+                    print("spacemap: unrecognized HOTKEY '\(value)', using default")
+                }
             default: break
             }
         }
