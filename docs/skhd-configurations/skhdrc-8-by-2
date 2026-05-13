@@ -25,12 +25,13 @@ ctrl - 7 : /opt/homebrew/bin/yabai -m space --focus 7
 ctrl - 8 : /opt/homebrew/bin/yabai -m space --focus 8
 
 # Direct jumps: Ctrl+q..i → bottom row D9..D16  (keys below 1..8 on keyboard)
-ctrl - q : /opt/homebrew/bin/yabai -m space --focus 9
-ctrl - w : /opt/homebrew/bin/yabai -m space --focus 10
+ctrl + alt - q : /opt/homebrew/bin/yabai -m space --focus 9
+# ctrl w is a keystroke for closing chrome window
+ctrl + alt - w : /opt/homebrew/bin/yabai -m space --focus 10
 # ctrl - e is a common ( go to end of line keymap )
 ctrl + alt - e : /opt/homebrew/bin/yabai -m space --focus 11
-ctrl - r : /opt/homebrew/bin/yabai -m space --focus 12
-ctrl - t : /opt/homebrew/bin/yabai -m space --focus 13
-ctrl - y : /opt/homebrew/bin/yabai -m space --focus 14
-ctrl - u : /opt/homebrew/bin/yabai -m space --focus 15
-ctrl - i : /opt/homebrew/bin/yabai -m space --focus 16
+ctrl + alt - r : /opt/homebrew/bin/yabai -m space --focus 12
+ctrl + alt - t : /opt/homebrew/bin/yabai -m space --focus 13
+ctrl + alt - y : /opt/homebrew/bin/yabai -m space --focus 14
+ctrl + alt - u : /opt/homebrew/bin/yabai -m space --focus 15
+ctrl + alt - i : /opt/homebrew/bin/yabai -m space --focus 16
