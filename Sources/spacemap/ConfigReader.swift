@@ -205,7 +205,11 @@ enum ConfigReader {
                     print("spacemap: unrecognized HOTKEY '\(value)', using default")
                 }
             case "SOCKET_HEALTH_INTERVAL":
-                if let v = Int(value), v > 0 { socketHealthInterval = v }
+                if let v = Int(value), v > 0 {
+                    socketHealthInterval = v
+                } else {
+                    print("spacemap: invalid SOCKET_HEALTH_INTERVAL '\(value)', using default")
+                }
             default: break
             }
         }
