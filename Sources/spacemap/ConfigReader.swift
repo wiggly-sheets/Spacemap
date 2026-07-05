@@ -210,8 +210,63 @@ enum ConfigReader {
                 } else {
                     print("spacemap: invalid SOCKET_HEALTH_INTERVAL '\(value)', using default")
                 }
-            default: break
-            }
+            case "UI_SCALE":
+                if let v = Double(value), v >= 0.1 && v <= 1.0 {
+                    uiScale = v
+                } else {
+                    print("spacemap: invalid UI_SCALE '\(value)', using default")
+                }
+            case "AUTO_HIDE_TIMEOUT":
+                if let v = Int(value), v >= 0 {
+                    autoHideTimeout = v
+                } else {
+                    print("spacemap: invalid AUTO_HIDE_TIMEOUT '\(value)', using default")
+                }
+            case "THEME":
+                theme = value
+            case "SHOW_MODE":
+                switch value {
+                case "active": showMode = .active
+                default:        showMode = .all
+                }
+            case "MAX_SPACES":
+                if let v = Int(value), v >= 1 && v <= 16 {
+                    maxSpaces = v
+                } else {
+                    print("spacemap: invalid MAX_SPACES '\(value)', using default")
+                }
+            case "BACKGROUND_ALPHA":
+                if let v = Double(value), v >= 0.0 && v <= 1.0 {
+                    backgroundAlpha = v
+                } else {
+                    print("spacemap: invalid BACKGROUND_ALPHA '\(value)', using default")
+                }
+case "MODE":
+                 switch value.lowercased() {
+                 case "light": mode = .light
+                 case "dark":  mode = .dark
+                 case "auto": mode = .automatic
+                 default:     mode = .automatic
+                 }
+             case "ICON_SCALE":
+                 if let v = Double(value), v >= 0.5 && v <= 2.0 {
+                     iconScale = v
+                 } else {
+                     print("spacemap: invalid ICON_SCALE '\(value)', using default")
+                 }
+             case "SHOW_NAMES":
+                  showNames = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+             case "SPACE_NAMES":
+                 // Parse format: "1:Name,2:Name,3:Name"
+                 let pairs = value.components(separatedBy: ",")
+                 for pair in pairs {
+                     let parts = pair.components(separatedBy: ":")
+                     if parts.count == 2, let id = Int(parts[0].trimmingCharacters(in: .whitespaces)) {
+                         spaceNames[id] = parts[1].trimmingCharacters(in: .whitespaces)
+                     }
+                 }
+             default: break
+             }
         }
 
         // Resolve .custom sentinel (0,0) after all values are parsed

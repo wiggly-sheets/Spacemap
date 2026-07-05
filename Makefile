@@ -176,6 +176,16 @@ archive: app
 	@echo "  3. Attach $(ARCHIVE)"
 	@echo "  4. Copy the SHA-256 above into Formula/spacemap.rb in homebrew-tap"
 
+dmg: app
+	rm -rf $(DMG_STAGE) $(DMG)
+	mkdir -p $(DMG_STAGE)
+	cp -R $(APP_BUNDLE) $(DMG_STAGE)/
+	ln -s /Applications $(DMG_STAGE)/Applications
+	hdiutil create -volname "$(APP_NAME)" -srcfolder $(DMG_STAGE) -ov -format UDZO $(DMG)
+	rm -rf $(DMG_STAGE)
+	@echo "Created $(DMG)"
+	@echo "SHA-256:  $$(shasum -a 256 $(DMG) | awk '{print $$1}')"
+
 install: app
 	mkdir -p $(INSTALL_PATH)/Contents/MacOS
 	mkdir -p $(INSTALL_PATH)/Contents/Frameworks
@@ -209,6 +219,17 @@ install-cli: install
 	@echo "Installing CLI symlink to /usr/local/bin/spacemap..."
 	@mkdir -p /usr/local/bin
 	@ln -sf $(INSTALL_PATH)/Contents/MacOS/spacemap /usr/local/bin/spacemap
+	@echo "CLI installed. Run 'spacemap --help' for usage."
+
+uninstall-cli:
+	@echo "Removing CLI symlink from /usr/local/bin/spacemap..."
+	@rm -f /usr/local/bin/spacemap
+	@echo "CLI uninstalled."
+
+install-cli: install
+	@echo "Installing CLI symlink to /usr/local/bin/spacemap..."
+	@mkdir -p /usr/local/bin
+	@ln -sf $(INSTALL_PATH)/Contents/MacOS/$(APP_NAME) /usr/local/bin/spacemap
 	@echo "CLI installed. Run 'spacemap --help' for usage."
 
 uninstall-cli:

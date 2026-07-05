@@ -1,0 +1,25 @@
+# 8x2 grid with rectangle cell style (default layout)
+GRID_COLS=8
+GRID_ROWS=2
+CELL_STYLE=rects
+
+# Default UI scale
+UI_SCALE=1.0
+
+# Default theme
+THEME=default
+BACKGROUND_ALPHA=0.3
+
+# Auto-hide 5 seconds after space changes stop
+AUTO_HIDE_TIMEOUT=5
+
+# Default hotkey (Ctrl+Page Down)
+HOTKEY=ctrl+pgdn
+
+SOCKET_HEALTH_INTERVAL=60
+
+SHOW_MODE=all
+MAX_SPACES=16
+
+MODE=auto
+ICON_SCALE=1.0

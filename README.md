@@ -80,6 +80,8 @@ GRID_ROWS=2
 CELL_STYLE=icons
 EOF
 ```
+ 
+## Example configs
 
 Press `Ctrl+Space` to open Spacemap.
 
@@ -96,9 +98,11 @@ Press `Ctrl+Space` to open Spacemap.
 | `hybrid` | Colored rectangles (like `rects`) plus a small icon strip at the bottom showing all apps on the workspace |
 
 ```bash
-CELL_STYLE=rects   # default
-CELL_STYLE=icons
-CELL_STYLE=hybrid
+# 4x4 hybrid grid (compact)
+cp docs/config-examples/spacemap-config-4x4-hybrid ~/.config/spacemap/config
+
+# 8x2 rects grid (classic)
+cp docs/config-examples/spacemap-config-8x2-rects ~/.config/spacemap/config
 ```
 
 ## Install ( in 5 steps )
@@ -119,6 +123,8 @@ brew install asmvik/formulae/skhd
 brew tap jsheffie/tap
 brew install --cask jsheffie/tap/spacemap
 ```
+
+Or download the DMG from [releases](https://github.com/jsheffie/spacemap/releases), open it, and drag `spacemap.app` to the Applications symlink. On first launch, spacemap will ask if you want to move itself to /Applications.
 
 **Step 3: Grant Accessibility Permission**
 

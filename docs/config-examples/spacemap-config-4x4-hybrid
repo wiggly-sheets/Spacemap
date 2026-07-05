@@ -1,0 +1,30 @@
+# 4x4 grid with hybrid cell style (colored rects + app icon strip)
+GRID_COLS=4
+GRID_ROWS=4
+CELL_STYLE=hybrid
+
+# 50% UI scale
+UI_SCALE=0.5
+
+# GitHub theme with 0.8 background opacity
+THEME=github
+BACKGROUND_ALPHA=0.8
+
+# Auto-hide 2 seconds after space changes stop
+AUTO_HIDE_TIMEOUT=2
+
+# Toggle hotkey
+HOTKEY=ctrl+space
+
+# Socket health check interval
+SOCKET_HEALTH_INTERVAL=60
+
+# Show all spaces (up to 8)
+SHOW_MODE=all
+MAX_SPACES=8
+
+# Follow system light/dark mode
+MODE=auto
+
+# Default app icon size
+ICON_SCALE=1.0

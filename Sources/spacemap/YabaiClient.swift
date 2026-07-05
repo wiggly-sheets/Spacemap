@@ -124,7 +124,7 @@ enum YabaiClient {
         let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
         return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus)
     }
-
+    
     private static func shell(_ args: String...) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: args[0])
