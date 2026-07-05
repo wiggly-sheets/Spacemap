@@ -199,7 +199,7 @@ var body: some View {
             let w = max(window.cgFrame.width * scaleX, 14)
             let h = max(window.cgFrame.height * scaleY, 14)
             let iconSize = min(w, h)
-
+            
             if let icon = appIcon(for: window.app) {
                 Image(nsImage: icon)
                     .resizable()
