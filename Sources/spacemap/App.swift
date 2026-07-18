@@ -583,27 +583,7 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
             let currentStatus = service.status
             let newEnabled = currentStatus != .enabled
             
-            if newEnabled {
-                do {
-                    try service.register()
-                } catch {
-                    let alert = NSAlert()
-                    alert.alertStyle = .critical
-                    alert.messageText = "Cannot enable Launch at Login"
-                    alert.informativeText = "Please try again or enable it manually in System Settings > General > Login Items."
-                    alert.runModal()
-                }
-            } else {
-                do {
-                    try service.unregister()
-                } catch {
-                    let alert = NSAlert()
-                    alert.alertStyle = .critical
-                    alert.messageText = "Cannot disable Launch at Login"
-                    alert.informativeText = "Please disable it manually in System Settings."
-                    alert.runModal()
-                }
-            }
+            setLoginAtLogin(enabled: newEnabled)
             
             // Update menu item state
             if let menu = statusItem?.menu {
@@ -623,17 +603,18 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
         }
     }
 
-    private func setupLaunchAtLogin(enable: Bool) {
+    private func setLoginAtLogin(enabled: Bool) {
         if #available(macOS 13, *) {
             let service = SMAppService.mainApp
             do {
-                if enable {
+                if enabled {
                     try service.register()
                 } else {
                     try service.unregister()
                 }
             } catch {
-                print("Failed to \(enable ? "enable" : "disable") launch at login: \(error)")
+                let actionString = enabled ? "enable" : "disable"
+                print("Failed to \(actionString) launch at login: \(error)")
             }
         } else {
             print("Launch at login requires macOS 13 or later")
@@ -707,7 +688,52 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
         
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
-            setupLaunchAtLogin(enable: true)
+            setLoginAtLogin(enabled: true)
+        }
+    }
+
+    private func printVersionAndExit() {
+        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+            print("spacemap \(version)")
+        } else {
+            print("spacemap 1.0.0")
+        }
+        NSApp.terminate(nil)
+    }
+
+    private func printHelpAndExit() {
+        let help = """
+        Usage: spacemap [OPTIONS]
+
+        Options:
+          --version          Print the version and exit
+          --trigger          Toggle the HUD visibility and exit
+          --show-menu        Show the menu bar dropdown (app continues running)
+          --settings         Open the settings window directly (app continues running)
+          --config           Open the config file in the default editor and exit
+          --help             Print this help and exit
+
+        Without any options, spacemap launches and waits for the hotkey (Ctrl+Space) to toggle the HUD.
+        """
+        print(help)
+        NSApp.terminate(nil)
+    }
+
+    private func openConfigAndExit() {
+        let configPath = NSString(string: "~/.config/spacemap/config").expandingTildeInPath
+        let url = URL(fileURLWithPath: configPath)
+        NSWorkspace.shared.open(url)
+        NSApp.terminate(nil)
+    }
+
+    private func setupForTriggerAndExit() {
+        // For --trigger, we still need minimal setup to toggle the HUD
+        NSApp.setActivationPolicy(.prohibited)
+        setupMenubar()
+        // Delay slightly so TCC/LaunchServices finishes registering the app
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.hud.toggle()
+            NSApp.terminate(nil)
         }
     }
 }
