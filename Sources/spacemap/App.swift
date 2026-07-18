@@ -736,6 +736,42 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
             NSApp.terminate(nil)
         }
     }
+
+    // Ensure a symlink exists in /usr/local/bin for easy CLI access
+    private func ensureSymlink() {
+        let symlinkPath = "/usr/local/bin/spacemap"
+        let executablePath = Bundle.main.bundleURL.path
+        let fileManager = FileManager.default
+        
+        // If symlink exists, check if it points to the correct executable
+        if fileManager.fileExists(atPath: symlinkPath) {
+            do {
+                let destination = try fileManager.destinationOfSymbolicLink(atPath: symlinkPath)
+                if destination == executablePath {
+                    // Symlink is correct, nothing to do
+                    return
+                }
+                // Otherwise, remove and recreate
+                try fileManager.removeItem(atPath: symlinkPath)
+            } catch {
+                // If we cannot determine the destination, we'll recreate
+                do {
+                    try fileManager.removeItem(atPath: symlinkPath)
+                } catch {
+                    // Ignore error
+                }
+            }
+        }
+        
+        // Create the symlink
+        do {
+            try fileManager.createSymbolicLink(atPath: symlinkPath, withDestinationPath: executablePath)
+        } catch {
+            // Silently fail; user may need to create manually or run with appropriate permissions
+            // Optionally log the error
+            NSLog("spacemap: Failed to create symlink at \(symlinkPath): \(error)")
+        }
+    }
 }
 
 @main
