@@ -219,8 +219,9 @@ enum ConfigReader {
             case "AUTO_HIDE_TIMEOUT":
                 if let v = Int(value), v >= 0 {
                     autoHideTimeout = v
+                    print("spacemap/ConfigReader: PARSED autoHideTimeout=\(v) from value='\(value)'")
                 } else {
-                    print("spacemap: invalid AUTO_HIDE_TIMEOUT '\(value)', using default")
+                    print("spacemap/ConfigReader: FAILED to parse AUTO_HIDE_TIMEOUT value='\(value)'")
                 }
             case "THEME":
                 theme = value
