@@ -59,6 +59,53 @@ extension Notification.Name {
 
 // Types CellStyle, ShowMode, ThemeMode, HotkeyConfig, GridConfig defined in Models.swift
 
+struct CustomStepper: View {
+    let steps: [Double]
+    @Binding var value: Double
+    
+    var body: some View {
+        HStack {
+            Button(action: { stepDown() }) {
+                Image(systemName: "minus.circle")
+            }
+            .disabled(currentIndex == 0)
+            
+            Slider(value: Binding(
+                get: { Double(currentIndex) },
+                set: { newIndex in
+                    let idx = max(0, min(steps.count - 1, Int(newIndex.rounded())))
+                    value = steps[idx]
+                }
+            ), in: 0...Double(steps.count - 1), step: 1)
+            
+            Button(action: { stepUp() }) {
+                Image(systemName: "plus.circle")
+            }
+            .disabled(currentIndex == steps.count - 1)
+        }
+    }
+    
+    private var currentIndex: Int {
+        steps.firstIndex(of: value) ?? 0
+    }
+    
+    private func stepDown() {
+        if currentIndex > 0 {
+            value = steps[currentIndex - 1]
+        }
+    }
+    
+    private func stepUp() {
+        if currentIndex < steps.count - 1 {
+            value = steps[currentIndex + 1]
+        }
+    }
+}
+
+extension Notification.Name {
+    static let settingsChanged = Notification.Name("settingsChanged")
+}
+
 struct SettingsView: View {
     @State private var cols: Int = 8
     @State private var rows: Int = 2
