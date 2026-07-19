@@ -106,6 +106,57 @@ extension Notification.Name {
     static let settingsChanged = Notification.Name("settingsChanged")
 }
 
+enum CellStyle: Int, CaseIterable, Identifiable {
+    case rects, icons, hybrid
+    var id: Int { rawValue }
+}
+
+enum ShowMode: String, CaseIterable, Identifiable { case all, active; var id: String { rawValue } }
+enum ThemeMode: String, CaseIterable, Identifiable { case light, dark, auto; var id: String { rawValue } }
+
+struct HotkeyConfig {
+    var keyCode: CGKeyCode
+    var modifiers: CGEventFlags
+
+    static let `default` = HotkeyConfig(keyCode: 121, modifiers: .maskControl)
+}
+
+struct GridConfig {
+    var cols: Int
+    var rows: Int
+    var cellStyle: CellStyle
+    var hotkey: HotkeyConfig
+    var socketHealthInterval: Int
+    var uiScale: Double
+    var autoHideTimeout: Int
+    var theme: String
+    var showMode: ShowMode
+    var maxSpaces: Int
+    var backgroundAlpha: Double
+    var mode: ThemeMode
+    var iconScale: Double
+    var showNames: Bool
+    var spaceNames: [Int: String]
+
+    static let `default` = GridConfig(
+        cols: 8,
+        rows: 2,
+        cellStyle: .rects,
+        hotkey: .default,
+        socketHealthInterval: 60,
+        uiScale: 1.0,
+        autoHideTimeout: 5,
+        theme: "default",
+        showMode: .all,
+        maxSpaces: 16,
+        backgroundAlpha: 0.3,
+        mode: .auto,
+        iconScale: 1.0,
+        showNames: true,
+        spaceNames: [:]
+    )
+}
+
 struct SettingsView: View {
     @State private var cols: Int = 8
     @State private var rows: Int = 2
