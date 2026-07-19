@@ -106,13 +106,13 @@ cp docs/config-examples/spacemap-config-8x2-rects ~/.config/spacemap/config
 ```
 
 ## Install ( in 5 steps )
-1. Install Pre-Requesits 
+1. Install Pre-requisites
 2. Install spacemap
 3. Grant Accessibility Permission
 4. Configure skhd 
 5. Configure spacemap
 
-**Step 1: Install Pre-Requesits**
+**Step 1: Install Pre-requisites**
 ```
 brew install asmvik/formulae/yabai
 brew install asmvik/formulae/skhd
