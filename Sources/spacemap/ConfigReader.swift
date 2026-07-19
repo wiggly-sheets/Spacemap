@@ -243,10 +243,10 @@ enum ConfigReader {
                 }
 case "MODE":
                  switch value.lowercased() {
-                 case "light": mode = .light
-                 case "dark":  mode = .dark
-                 case "auto": mode = .automatic
-                 default:     mode = .automatic
+              case "light": mode = .light
+              case "dark":  mode = .dark
+              case "auto", "automatic": mode = .auto
+              default:     mode = .auto
                  }
              case "ICON_SCALE":
                  if let v = Double(value), v >= 0.5 && v <= 2.0 {
