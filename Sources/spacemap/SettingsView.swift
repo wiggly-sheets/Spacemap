@@ -155,7 +155,7 @@ struct SettingsView: View {
     
     private let configPath = NSString(string: "~/.config/spacemap/config").expandingTildeInPath
 
-    private var maxSpacesOptions: [Int] { Array(1...maxSpaces) }
+    private var maxSpacesOptions: [Int] { Array(1...16) }
 
     private var gridLayouts: [(cols: Int, rows: Int, label: String)] {
         var layouts: [(Int, Int, String)] = []
