@@ -30,6 +30,20 @@
 - **Permissions**: Requires Accessibility permission (prompted on first launch). Screen Recording permission required for thumbnail cell style.
 - **Sparkle Keys**: Stored in login Keychain (generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`). Public key in `sparklesigner.pub`, private key in `sparklesigner.pem`. Both in `.gitignore`. Public key in GitHub Secret `SPARKLE_PUBLIC_KEY`, private key in `SPARKLE_PRIVATE_KEY`.
 
+## Quick Reference for Agents
+- **Entry point**: `Sources/spacemap/App.swift` – sets up menubar, hotkey monitor, socket listener.
+- **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
+- **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
+- **Data**: `YabaiClient.swift` – shells out to `/opt/homebrew/bin/yabai` for spaces/windows; `ConfigReader.swift` – reads `~/.config/spacemap/config`.
+- **Hotkey**: `HotkeyMonitor.swift` – global CGEventTap for toggle.
+- **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
+- **Signals**: `SocketListener.swift` – Unix domain socket for yabai `space_changed` events.
+- **Models**: `Models.swift` – data structs (GridConfig, YabaiSpace, etc.).
+- **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – live‑save config UI.
+- **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
+- **Config**: Stored at `~/.config/spacemap/config`; reloads on HUD open (except HOTKEY needs restart).
+- **Permissions**: Requires Accessibility permission (prompted on first launch).
+
 ## Architecture
 
 ### Tech Stack
