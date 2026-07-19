@@ -122,8 +122,6 @@ class HUDWindowController {
             return
         }
         NSLog("spacemap/HUD: hide() called")
-        // Prevent hotkey toggle during hide
-        isToggling = true
         dragHandler.stop()
         autoHideTimer?.invalidate()
         autoHideTimer = nil
