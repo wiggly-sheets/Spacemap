@@ -268,7 +268,8 @@ var body: some View {
     }
     
     private func thumbnailImage(_ spaceIndex: Int) -> some View {
-        guard let cached = ThumbnailCache.shared.thumbnail(forSpace: spaceIndex) else {
+        guard #available(macOS 14.0, *),
+              let cached = ThumbnailCache.shared.thumbnail(forSpace: spaceIndex) else {
             return AnyView(Color.clear)
         }
         let nsImage = NSImage(cgImage: cached, size: NSSize(width: cached.width, height: cached.height))

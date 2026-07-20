@@ -67,8 +67,30 @@ final class ThumbnailCache {
         }
     }
 
-    /// Clear all cached thumbnails (e.g. on config change).
+    /// Clear all cached thumbnails.
     func clear() {
         queue.sync { cache.removeAll() }
+    }
+
+    private func captureDisplay() async -> CGImage? {
+        do {
+            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+            guard let display = content.displays.first else { return nil }
+
+            let selfWindows = content.windows.filter {
+                $0.owningApplication?.applicationName == "spacemap"
+            }
+
+            let filter = SCContentFilter(display: display, excludingWindows: selfWindows)
+            let config = SCStreamConfiguration()
+            config.width = Int(display.width * 2)
+            config.height = Int(display.height * 2)
+            config.showsCursor = false
+
+            return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        } catch {
+            NSLog("spacemap/ThumbnailCache: SCK error: \(error.localizedDescription)")
+            return nil
+        }
     }
 }
