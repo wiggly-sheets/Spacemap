@@ -257,17 +257,17 @@ case "MODE":
                  }
              case "SHOW_NAMES":
                   showNames = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-             case "SPACE_NAMES":
-                 // Parse format: "1:Name,2:Name,3:Name"
-                 let pairs = value.components(separatedBy: ",")
-                 for pair in pairs {
-                     let parts = pair.components(separatedBy: ":")
-                     if parts.count == 2, let id = Int(parts[0].trimmingCharacters(in: .whitespaces)) {
-                         spaceNames[id] = parts[1].trimmingCharacters(in: .whitespaces)
-                     }
-                 }
-             default: break
-             }
+case "SPACE_NAMES":
+                  // Parse format: "1:Name,2:Name,3:Name"
+                  let pairs = value.components(separatedBy: ",")
+                  for pair in pairs {
+                      let parts = pair.components(separatedBy: ":")
+                      if parts.count == 2, let id = Int(parts[0].trimmingCharacters(in: .whitespaces)) {
+                          spaceNames[id] = parts[1].trimmingCharacters(in: .whitespaces)
+                      }
+                  }
+              default: break
+              }
         }
 
         // Resolve .custom sentinel (0,0) after all values are parsed
