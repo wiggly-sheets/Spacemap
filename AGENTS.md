@@ -40,9 +40,10 @@
 - **Signals**: `SocketListener.swift` – Unix domain socket for yabai `space_changed` events.
 - **Models**: `Models.swift` – data structs (GridConfig, YabaiSpace, etc.).
 - **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – live‑save config UI.
+- **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
 - **Config**: Stored at `~/.config/spacemap/config`; reloads on HUD open (except HOTKEY needs restart).
-- **Permissions**: Requires Accessibility permission (prompted on first launch).
+- **Permissions**: Requires Accessibility permission (prompted on first launch). Screen Recording permission required for thumbnail cell style.
 
 ## Architecture
 

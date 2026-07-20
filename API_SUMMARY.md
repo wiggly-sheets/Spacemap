@@ -10,18 +10,37 @@ Stores parsed configuration values.
 | `cols` | `Int` | `GRID_COLS` |
 | `rows` | `Int` | `GRID_ROWS` |
 | `cellStyle` | `CellStyle` | `CELL_STYLE` |
-| `hotkey` | `String` | `HOTKEY` |
+| `hotkey` | `HotkeyConfig` | `HOTKEY` |
 | `uiScale` | `Double` | `UI_SCALE` |
 | `theme` | `String` | `THEME` |
 | `autoHideTimeout` | `Int` | `AUTO_HIDE_TIMEOUT` |
-| `showMode` | `String` | `SHOW_MODE` |
+| `showMode` | `ShowMode` | `SHOW_MODE` |
 | `maxSpaces` | `Int` | `MAX_SPACES` |
 | `bgAlpha` | `Double` | `BACKGROUND_ALPHA` |
-| `mode` | `String` | `MODE` |
+| `mode` | `ThemeMode` | `MODE` |
 | `iconScale` | `Double` | `ICON_SCALE` |
-| `showNames` | `Bool` | `SHOW_NAMES` |
+| `showSpaceNumbers` | `Bool` | `SHOW_SPACE_NUMBERS` |
+| `showSpaceNames` | `Bool` | `SHOW_SPACE_NAMES` |
+| `showIconStrip` | `Bool` | `SHOW_ICON_STRIP` |
+| `hideMenuBarIcon` | `Bool` | `HIDE_MENUBAR_ICON` |
 | `spaceNames` | `[Int: String]` | `SPACE_NAMES` |
 | `socketHealthInterval` | `Int` | `SOCKET_HEALTH_INTERVAL` |
+
+### `CellStyle` (enum)
+- `.rects` — colored rectangles representing window positions/sizes
+- `.icons` — app icons at window positions
+- `.thumbnails` — live ScreenCaptureKit thumbnails (macOS 14+)
+
+### `ShowMode` (enum)
+- `.all` — show all spaces up to `maxSpaces`
+- `.active` — show only spaces that have windows
+
+### `ThemeMode` (enum)
+- `.light`, `.dark`, `.auto`
+
+### `HotkeyConfig`
+- `keyCode` (Int) — Carbon virtual key code
+- `modifiers` (UInt) — Carbon modifier mask bits
 
 ### `YabaiSpace`
 Represents a yabai desktop from `yabai -m query --spaces`.
@@ -31,24 +50,29 @@ Represents a yabai desktop from `yabai -m query --spaces`.
 ### `YabaiWindow`
 Represents a window from `yabai -m query --windows`.
 
-- `id` (Int), `app` (String), `frame` (CGRect), `space` (Int)
+- `id` (Int), `app` (String), `frame` (CGRect), `space` (Int), `isHidden` (Bool), `isMinimized` (Bool)
+- Computed: `cgFrame` (CGRect) — parsed from frame string
 
 ### `GridState`
 Assembled state for the HUD grid.
 
-- `spaces` ([SpaceCell]) — each with position (row/col), space info, windows
+- `config` (GridConfig), `spaces` ([YabaiSpace]), `windows` ([YabaiWindow]), `displayBounds` (CGRect), `focusedIndex` (Int?)
 
 ### `AppTheme`
 Color theme data for HUD rendering.
 
-- `background`, `focused`, `text`, `dropTarget`, `cellBg`, `cellBgFocused` (all `UInt64` hex)
+- `name` (String), `background` (UInt64), `focused` (UInt64), `text` (UInt64), `dropTarget` (UInt64), `cellBg` (UInt64), `cellBgFocused` (UInt64)
+
+### `SpaceCell`
+Individual cell in the grid.
+
+- `space` (YabaiSpace), `row` (Int), `col` (Int), `windows` ([YabaiWindow])
 
 ## Config System (`ConfigReader.swift`)
 
 ### `ConfigReader`
-Parses `~/.config/spacemap/config` key=value format (supports `#` inline comments).
-- `readConfig()` → `GridConfig`
-- `loadConfig() -> GridConfig` — cached read; re-reads on HUD open (except HOTKEY cached)
+Parses `~/.config/spacemap/config` key=value format (supports `#` inline comments, BOM, CR/LF).
+- `load() -> GridConfig` — reads config, auto-generates if missing, self-heals missing keys
 - `saveConfig(GridConfig)` — persists config back to file, preserving unused keys
 - `createDefaultConfigFile()` — creates file with defaults if missing
 
@@ -59,34 +83,49 @@ Shells out to `/opt/homebrew/bin/yabai`.
 
 - `querySpaces() -> [YabaiSpace]`
 - `queryWindows() -> [YabaiWindow]`
-- `buildGridState(GridConfig) -> GridState`
-- `focusSpace(spaceId: Int)` — switches to a space
-- `moveWindowToSpace(windowId: Int, spaceId: Int)` — moves window
-- `queryActiveDisplay() -> Int`
-- `sendSignal(label: String, event: String, action: String)` — registers yabai signals
+- `buildGridState(config:focusedIndex:) -> GridState`
+- `focusSpace(_ index: Int)` — switches to a space
+- `moveWindow(_ windowId: Int, toSpace spaceIndex: Int)` — moves window
+- `queryFocusedSpaceIndex() -> Int?`
+- `queryFocusedWindow() -> Int?`
+- `isYabaiRunning() -> Bool`
+- `registerSignals(socketPath:)` — registers yabai signals
+- `removeSignals()` — unregisters yabai signals
 
 ## HUD Window (`HUDWindowController.swift`)
 
 ### `HUDWindowController`
 Manages the floating NSPanel overlay.
 
-- `show(animated:)` — fetches data, builds grid, displays HUD, starts auto-hide timer
-- `hide(animated:)` — hides HUD, stops timers
+- `show()` — fetches data, builds grid, displays HUD, starts auto-hide timer
+- `hide()` — hides HUD, stops timers
 - `toggle()` — toggles visibility (guarded by `isToggling` to prevent rapid-press)
 - `refresh()` — re-fetches data and re-renders grid (space_changed signal handler)
-- `refreshState()` — updates active space state without re-creating view (live refresh timer)
-- `autoHideTimer`, `refreshTimer` — timers for auto-hide and live updates
+- `reloadConfig()` — clears cached config, forces re-read on next access
+- `onShowSettings` — callback to open settings window
+
+## Thumbnail Cache (`ThumbnailCache.swift`)
+
+### `ThumbnailCache` (macOS 14+)
+Singleton that captures and caches per-space display thumbnails via ScreenCaptureKit.
+
+- `shared` — singleton instance
+- `captureActiveSpace(spaceIndex:)` — captures active display (excluding spacemap windows), caches `CGImage` keyed by space index
+- `thumbnail(forSpace index: Int) -> CGImage?` — returns cached thumbnail; `nil` if not yet visited
+- `clear()` — clears all cached thumbnails
 
 ## UI Components
 
 ### `GridView` (SwiftUI)
-Grid layout container with `LazyVGrid`, receives `GridState` and `AppTheme`, renders `CellView` for each space.
+Grid layout container with `LazyVGrid`, receives `GridState` and config, renders `CellView` for each space.
 
 ### `CellView` (SwiftUI)
 Per-cell rendering. Supports three `CellStyle` modes:
 - **rects** — scaled window rectangles colored by app name hash
-- **icons** — app icons at window positions + strip at bottom
-- **hybrid** — rectangles + icon strip
+- **icons** — app icons at window positions + strip at bottom (if `showIconStrip`)
+- **thumbnails** — ScreenCaptureKit display thumbnail (requires macOS 14+)
+
+Also renders: space numbers, space names, icon strip, border/fill styling.
 
 ## Event Systems
 
@@ -98,51 +137,55 @@ Per-cell rendering. Supports three `CellStyle` modes:
 
 ### `SocketListener.swift`
 - Unix domain server at `/tmp/spacemap_<username>.socket`
-- Listens for yabai signal commands: `0` (refresh), `1` (show), `2` (hide)
-- Routes callbacks: `onRefresh`, `onShow`, `onHide`, `onSettings`
+- Listens for yabai signal commands: `0` (refresh), `1` (show), `2` (hide), `3` (settings)
+- Routes callbacks: `onRefresh`, `onShow`, `onSettings`
+- Periodic health check via `fcntl(fd, F_GETFD)` + file existence
 
 ### `WindowDragHandler.swift`
 - Second CGEventTap (listenOnly, tailAppend)
 - Tracks mouse drag events while HUD visible
 - Identifies frontmost window via `NSWorkspace.shared.frontmostApplication`
 - Correlates mouse position with cell hit-rectangles
-- Calls `YabaiClient.moveWindowToSpace(windowId, spaceId)` on drop
+- Calls `YabaiClient.moveWindow(_:toSpace:)` on drop
 
 ## App Lifecycle (`App.swift`)
 
 ### Launch sequence
-1. Check yabai is running; if not, show alert and exit
-2. Set activation policy to `.prohibited` (no dock icon)
-3. Create config file if missing (`ConfigReader.createDefaultConfigFile()`)
-4. Create CLI symlink (`ensureSymlink()`)
-5. Set up menubar icon and menu
-6. Initialize hotkey monitor (`HotkeyMonitor`)
-7. Initialize socket listener (`SocketListener`) with callbacks
-8. Prompt for Accessibility permission if not granted
-9. Prompt to move app to Applications if not already there
-10. Register settings notification observer
-11. Set up Settings window menu item (⌘+,)
+1. Ensure CLI symlink exists (`ensureSymlink()`)
+2. Handle CLI flags (`--version`, `--help`, `--config`, `--trigger`, `--show-menu`, `--settings`)
+3. Set activation policy to `.prohibited` (no dock icon)
+4. Check application location; prompt to move to /Applications
+5. Check yabai is running; if not, show alert and exit
+6. Check MRU spaces; if enabled, warn and offer to disable
+7. Set up menubar icon and menu
+8. Delay 1s for TCC registration, then:
+   - Load config, restart hotkey, apply menubar visibility
+   - Set up socket listener with `onRefresh`/`onShow`/`onSettings` callbacks
+   - Register yabai signals
+   - Observe settings changes notification
 
 ### Menubar items
-- Show/Hide Spacemap
-- Launch at Login (toggle with checkmark)
-- Show Space Numbers (toggle with checkmark)
+- Show/Hide Map (with hotkey symbols)
+- Open Accessibility Permissions
+- Open Screen Recording Permissions
+- Restart spacemap (⌘+R)
 - Settings (⌘+,)
+- Launch at Login (toggle with checkmark)
 - Quit
 
 ## Settings Window
 
 ### `SettingsWindowController` (AppKit)
 - Wraps `SettingsView` in NSHostingView inside NSWindow
-- Creates single instance, reuses on open
-- `show()` → orders front
+- Sets activation policy to `.regular` so window receives keyboard focus
 
 ### `SettingsView` (SwiftUI)
-- Form with controls for all config keys
+- Grid section: max spaces, layout, show mode, cell style, space numbers, icon strip
+- Appearance section: theme, background color, transparency, icon scale, UI scale
+- Behavior section: hotkey recorder, socket health interval, auto-hide timeout, hide menubar icon
+- Space Names section: per-space text inputs
 - Live-saves on every change via `onChange` handlers
-- Calls `ConfigReader.saveConfig(GridConfig)` on each change
-- Posts `settingsChanged` notification on save (observed by `App.swift` for hotkey re-registration)
-- Includes space name editor (list of space-name pairs)
+- Posts `settingsChanged` notification on save (observed by AppDelegate)
 
 ## Theme System
 

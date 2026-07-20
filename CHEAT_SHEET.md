@@ -45,7 +45,7 @@
 | `App.swift` | `spacemapApp` | Entry point, menubar, settings window, launch checks |
 | `HUDWindowController.swift` | `HUDWindowController` | NSPanel lifecycle, show/hide, auto-hide timer, state refresh |
 | `GridView.swift` | `GridView` | SwiftUI grid container, cell layout, theme |
-| `CellView.swift` | `CellView` | Per-cell rendering (rects/icons/hybrid), space names |
+| `CellView.swift` | `CellView` | Per-cell rendering (rects/icons/thumbnails), space names |
 | `YabaiClient.swift` | `YabaiClient` | yabai CLI wrapper, space/window queries, signal management |
 | `ConfigReader.swift` | `ConfigReader` | Config parsing with inline comments, SPACE_NAMES support |
 | `HotkeyMonitor.swift` | `HotkeyMonitor` | Global CGEventTap for hotkey capture |
@@ -54,6 +54,7 @@
 | `Models.swift` | `GridConfig`, `YabaiSpace`, etc. | Data structures |
 | `SettingsView.swift` | `SettingsView` | Settings window UI with live-save |
 | `SettingsWindowController.swift` | `SettingsWindowController` | AppKit window wrapper for SettingsView |
+| `ThumbnailCache.swift` | `ThumbnailCache` | ScreenCaptureKit capture, per-space caching (macOS 14+) |
 
 ## Development Workflow
 
@@ -70,6 +71,30 @@
 - **Config changes not taking effect**: Most config reloads on HUD open; HOTKEY requires restart.
 - **yabai not found**: Ensure yabai is installed at `/opt/homebrew/bin/yabai` (Apple Silicon) or create symlink for Intel.
 - **Icon flicker**: Known issue due to re-fetching icons on each render; optimization planned.
+- **Thumbnails not showing**: Requires Screen Recording permission; grant via menubar menu → "Open Screen Recording Permissions".
+
+## Config Keys Reference
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `GRID_COLS` | 8 | Grid columns |
+| `GRID_ROWS` | 2 | Grid rows |
+| `CELL_STYLE` | rects | `rects`, `icons`, or `thumbnails` |
+| `HOTKEY` | ctrl+pgdn | Toggle hotkey (requires restart) |
+| `UI_SCALE` | 1.0 | HUD scale (0.1–1.0) |
+| `THEME` | default | Color theme |
+| `AUTO_HIDE_TIMEOUT` | 5 | Seconds before HUD hides (0=never) |
+| `SHOW_MODE` | all | `all` or `active` spaces |
+| `MAX_SPACES` | 16 | Max spaces to display |
+| `BACKGROUND_ALPHA` | 0.3 | Background transparency |
+| `MODE` | auto | `light`, `dark`, or `auto` |
+| `ICON_SCALE` | 1.0 | Icon size multiplier |
+| `SHOW_SPACE_NUMBERS` | true | Show space numbers in cells |
+| `SHOW_SPACE_NAMES` | true | Show custom space names |
+| `SHOW_ICON_STRIP` | true | Show app icon strip in cells |
+| `HIDE_MENUBAR_ICON` | false | Hide menubar icon |
+| `SPACE_NAMES` | "" | Custom names: `1:Name,2:Name` |
+| `SOCKET_HEALTH_INTERVAL` | 60 | Health check interval (seconds) |
 
 ## Important Notes
 

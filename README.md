@@ -80,6 +80,14 @@ GRID_ROWS=2
 CELL_STYLE=icons
 EOF
 ```
+
+### Space Names
+
+`SPACE_NAMES` assigns custom names to spaces. Names appear in cell centers when `SHOW_SPACE_NAMES=true`.
+
+```bash
+SPACE_NAMES=1:Desktop,2:Dev,3:Media,4:Music
+```
  
 ## Example configs
 
@@ -98,21 +106,21 @@ Press `Ctrl+Space` to open Spacemap.
 | `hybrid` | Colored rectangles (like `rects`) plus a small icon strip at the bottom showing all apps on the workspace |
 
 ```bash
-# 4x4 hybrid grid (compact)
+# 4x4 icons grid (compact)
 cp docs/config-examples/spacemap-config-4x4-hybrid ~/.config/spacemap/config
 
 # 8x2 rects grid (classic)
 cp docs/config-examples/spacemap-config-8x2-rects ~/.config/spacemap/config
 ```
 
-## Install ( in 5 steps )
-1. Install Pre-requisites
+## Install (in 5 steps)
+1. Install prerequisites
 2. Install spacemap
-3. Grant Accessibility Permission
+3. Grant Accessibility permission
 4. Configure skhd 
 5. Configure spacemap
 
-**Step 1: Install Pre-requisites**
+**Step 1: Install prerequisites**
 ```
 brew install asmvik/formulae/yabai
 brew install asmvik/formulae/skhd
@@ -133,7 +141,7 @@ Launch spacemap once to trigger the permission prompt:
 open /Applications/spacemap.app
 ```
 
-Then go to **System Settings → Privacy & Security → Accessibility** and enable spacemap. The Ctrl+Space hotkey activates automatically — no restart needed.
+Then go to **System Settings → Privacy & Security → Accessibility** and enable spacemap. The Ctrl+PgDn hotkey activates automatically — no restart needed.
 
 **Step 4: Configure skhd**
 
@@ -155,11 +163,11 @@ mkdir -p ~/.config/spacemap
 cat > ~/.config/spacemap/config << 'EOF'
 GRID_COLS=8
 GRID_ROWS=2
-CELL_STYLE=hybrid
+CELL_STYLE=icons
 EOF
 ```
 
-Press `Ctrl+Space` to open spacemap.
+Press `Ctrl+PgDn` to open spacemap.
 
 
 ## Build Requirements
