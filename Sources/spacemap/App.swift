@@ -692,6 +692,21 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
         }
     }
 
+    private func showYabaiAlert() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "yabai is not running"
+        alert.informativeText = "spacemap requires yabai to be running. Please start yabai and relaunch spacemap."
+        alert.addButton(withTitle: "Quit")
+        alert.addButton(withTitle: "Open yabai")
+        
+        let response = alert.runModal()
+        if response == .alertSecondButtonReturn {
+            NSWorkspace.shared.open(URL(string: "https://github.com/koekeishiya/yabai")!)
+        }
+        NSApp.terminate(nil)
+    }
+
     private func printVersionAndExit() {
         if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
             print("spacemap \(version)")
