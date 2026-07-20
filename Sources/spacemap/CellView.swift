@@ -122,7 +122,7 @@ var body: some View {
             }
 
             // Show space name (if exists) in center
-            if let name = spaceName, !name.isEmpty {
+            if showSpaceNames, let name = spaceName, !name.isEmpty {
                 Text(name)
                     .font(.system(size: 14 * uiScale, weight: .medium))
                     .foregroundColor(textColor)
