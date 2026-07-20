@@ -268,14 +268,15 @@ var body: some View {
     }
     
     private func thumbnailImage(_ spaceIndex: Int) -> some View {
-        if let cached = ThumbnailCache.shared.thumbnail(forSpace: spaceIndex) {
-            let nsImage = NSImage(cgImage: cached, size: NSSize(width: cached.width, height: cached.height))
-            return AnyView(Image(nsImage: nsImage)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .clipped())
+        guard let cached = ThumbnailCache.shared.thumbnail(forSpace: spaceIndex) else {
+            return AnyView(Color.clear)
         }
-        return AnyView(Color.clear)
+        let nsImage = NSImage(cgImage: cached, size: NSSize(width: cached.width, height: cached.height))
+        return AnyView(Image(nsImage: nsImage)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: cellSize.width, height: cellSize.height)
+            .clipped())
     }
     
     private func appColor(_ name: String) -> Color {

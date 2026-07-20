@@ -66,4 +66,9 @@ final class ThumbnailCache {
             return nil
         }
     }
+
+    /// Clear all cached thumbnails (e.g. on config change).
+    func clear() {
+        queue.sync { cache.removeAll() }
+    }
 }
