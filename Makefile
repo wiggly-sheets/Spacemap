@@ -177,11 +177,11 @@ archive: app
 	@echo "  4. Copy the SHA-256 above into Formula/spacemap.rb in homebrew-tap"
 
 dmg: app
-	rm -rf $(DMG_STAGE) $(DMG)
+	rm -rf $(DMG_STAGE)
 	mkdir -p $(DMG_STAGE)
 	cp -R $(APP_BUNDLE) $(DMG_STAGE)/
-	ln -s /Applications $(DMG_STAGE)/Applications
-	hdiutil create -volname "$(APP_NAME)" -srcfolder $(DMG_STAGE) -ov -format UDZO $(DMG)
+	create-dmg ./$(DMG_STAGE)/$(APP_BUNDLE)
+	mv "$(APP_NAME) $(VERSION).dmg" $(DMG)
 	rm -rf $(DMG_STAGE)
 	@echo "Created $(DMG)"
 	@echo "SHA-256:  $$(shasum -a 256 $(DMG) | awk '{print $$1}')"
