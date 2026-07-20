@@ -8,12 +8,18 @@ struct CGWindowThumbnailCapture {
     /// Attempt to capture a thumbnail for the given space by finding CGWindowIDs
     /// that match the yabai windows on that space, then using CGWindowListCreateImage.
     static func capture(spaceIndex: Int, displayBounds: CGRect, cellSize: CGSize, windows: [YabaiWindow]) -> NSImage? {
-        guard !windows.isEmpty else { return nil }
+        guard !windows.isEmpty else {
+            NSLog("spacemap/CGWindowThumb: no windows for space \(spaceIndex)")
+            return nil
+        }
 
         // Get all on-screen window info from the window server
         guard let windowInfoList = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
+            NSLog("spacemap/CGWindowThumb: failed to get window info list")
             return nil
         }
+
+        NSLog("spacemap/CGWindowThumb: space \(spaceIndex) has \(windows.count) yabai windows, \(windowInfoList.count) CG windows")
 
         // Match yabai windows to CGWindowIDs by app name + approximate position
         var cgWindowIDs: [CGWindowID] = []
@@ -21,10 +27,16 @@ struct CGWindowThumbnailCapture {
             guard !yabaiWin.isHidden, !yabaiWin.isMinimized else { continue }
             if let match = findMatchingCGWindow(yabaiWin, in: windowInfoList) {
                 cgWindowIDs.append(match)
+                NSLog("spacemap/CGWindowThumb: matched '\(yabaiWin.app)' → CGWindowID \(match)")
+            } else {
+                NSLog("spacemap/CGWindowThumb: no match for '\(yabaiWin.app)' frame=(\(Int(yabaiWin.cgFrame.minX)),\(Int(yabaiWin.cgFrame.minY)),\(Int(yabaiWin.cgFrame.width)),\(Int(yabaiWin.cgFrame.height)))")
             }
         }
 
-        guard !cgWindowIDs.isEmpty else { return nil }
+        guard !cgWindowIDs.isEmpty else {
+            NSLog("spacemap/CGWindowThumb: no CGWindowIDs matched for space \(spaceIndex)")
+            return nil
+        }
 
         // Compute union rect of all matched windows (in screen coordinates)
         var unionRect = CGRect.null
@@ -56,7 +68,12 @@ struct CGWindowThumbnailCapture {
                   let w = bounds["Width"], let h = bounds["Height"] else { continue }
 
             let windowRect = CGRect(x: x, y: y, width: w, height: h)
-            guard let windowImage = CGWindowListCreateImage(windowRect, .optionIncludingWindow, windowID, [.boundsIgnoreFraming, .bestResolution]) else { continue }
+            guard let windowImage = CGWindowListCreateImage(windowRect, .optionIncludingWindow, windowID, [.boundsIgnoreFraming, .bestResolution]) else {
+                NSLog("spacemap/CGWindowThumb: CGWindowListCreateImage failed for CGWindowID \(windowID)")
+                continue
+            }
+
+            NSLog("spacemap/CGWindowThumb: captured CGWindowID \(windowID) \(windowImage.width)x\(windowImage.height)")
 
             // Map from screen coordinates to cell coordinates
             // CGWindowListCreateImage returns image in the rect's coordinate space (origin top-left in CG)
@@ -69,7 +86,11 @@ struct CGWindowThumbnailCapture {
             context.draw(windowImage, in: CGRect(x: destX, y: destY, width: destW, height: destH))
         }
 
-        guard let outputCGImage = context.makeImage() else { return nil }
+        guard let outputCGImage = context.makeImage() else {
+            NSLog("spacemap/CGWindowThumb: failed to make output image")
+            return nil
+        }
+        NSLog("spacemap/CGWindowThumb: success! \(outputCGImage.width)x\(outputCGImage.height)")
         let nsImage = NSImage(size: cellSize)
         nsImage.lockFocus()
         if let ctx = NSGraphicsContext.current?.cgContext {
@@ -103,6 +124,8 @@ struct CGWindowThumbnailCapture {
             let cgArea = cgFrame.width * cgFrame.height
             let maxArea = max(yabaiArea, cgArea, 1)
             let score = overlapArea / maxArea
+
+            NSLog("spacemap/CGWindowThumb: candidate '\(ownerName)' CGID=\(windowID) cgFrame=(\(Int(x)),\(Int(y)),\(Int(w)),\(Int(h))) score=\(String(format: "%.2f", score))")
 
             if score > 0.3, (bestMatch == nil || score > bestMatch!.score) {
                 bestMatch = (windowID, Double(score))
