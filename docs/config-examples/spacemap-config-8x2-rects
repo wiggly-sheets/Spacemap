@@ -1,25 +1,31 @@
-# 8x2 grid with rectangle cell style (default layout)
+# Example full config with comments (8x2 rects)
+# GRID_COLS: number of columns (integer >0)
 GRID_COLS=8
+# GRID_ROWS: number of rows (integer >0)
 GRID_ROWS=2
+# CELL_STYLE: rects | icons | hybrid | thumbnails
 CELL_STYLE=rects
-
-# Default UI scale
+# UI_SCALE: UI scaling factor (0.1–1.0)
 UI_SCALE=1.0
-
-# Default theme
+# THEME: theme name (string)
 THEME=default
+# BACKGROUND_ALPHA: background opacity (0.0–1.0)
 BACKGROUND_ALPHA=0.3
-
-# Auto-hide 5 seconds after space changes stop
-AUTO_HIDE_TIMEOUT=5
-
-# Default hotkey (Ctrl+Page Down)
-HOTKEY=ctrl+pgdn
-
-SOCKET_HEALTH_INTERVAL=60
-
-SHOW_MODE=all
-MAX_SPACES=16
-
+# MODE: light | dark | auto
 MODE=auto
+# ICON_SCALE: icon size scale (0.5–2.0)
 ICON_SCALE=1.0
+# SHOW_MODE: all | active
+SHOW_MODE=all
+# MAX_SPACES: max spaces (1–16)
+MAX_SPACES=16
+# AUTO_HIDE_TIMEOUT: seconds (0 disables)
+AUTO_HIDE_TIMEOUT=5
+# HOTKEY: hotkey string, e.g., ctrl+pgdn
+HOTKEY=ctrl+pgdn
+# SHOW_NAMES: true | false
+SHOW_NAMES=true
+# SPACE_NAMES: comma-separated "id:name" pairs
+SPACE_NAMES=1:Desktop,2:Dev,3:Media,4:Music,5:Chat,6:Docs,7:Web,8:Other
+# SOCKET_HEALTH_INTERVAL: seconds between health checks
+SOCKET_HEALTH_INTERVAL=60
