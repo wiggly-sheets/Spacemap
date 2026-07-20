@@ -122,7 +122,7 @@ var body: some View {
             }
 
             // Show space name (if exists) in center
-            if showSpaceNames, let name = spaceName, !name.isEmpty {
+            if let name = spaceName, !name.isEmpty {
                 Text(name)
                     .font(.system(size: 14 * uiScale, weight: .medium))
                     .foregroundColor(textColor)
@@ -309,32 +309,6 @@ var body: some View {
         default: (rr, gg, bb) = (c, 0, x)
         }
         return Color(red: rr + m, green: gg + m, blue: bb + m)
-    }
-    
-    @ViewBuilder
-    private func thumbnailImage(_ spaceIndex: Int) -> some View {
-        if let img = cachedThumbnail(spaceIndex) {
-            Image(nsImage: img)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .clipped()
-        }
-    }
-    
-    private func cachedThumbnail(_ spaceIndex: Int) -> NSImage? {
-        if let img = Self.thumbnailCache[spaceIndex] {
-            return img
-        }
-        let img = SpaceThumbnailCapture.capture(
-            spaceIndex: spaceIndex,
-            displayBounds: displayBounds,
-            cellSize: cellSize,
-            windows: windows
-        )
-        if let img {
-            Self.thumbnailCache[spaceIndex] = img
-        }
-        return img
     }
 }
 
