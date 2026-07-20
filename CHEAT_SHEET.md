@@ -55,6 +55,7 @@
 | `SettingsView.swift` | `SettingsView` | Settings window UI with live-save |
 | `SettingsWindowController.swift` | `SettingsWindowController` | AppKit window wrapper for SettingsView |
 | `ThumbnailCache.swift` | `ThumbnailCache` | ScreenCaptureKit capture, per-space caching (macOS 14+) |
+| `IconCache.swift` | `IconCache` | App icon cache to avoid repeated NSWorkspace lookups |
 
 ## Development Workflow
 
@@ -92,6 +93,7 @@
 | `SHOW_SPACE_NUMBERS` | true | Show space numbers in cells |
 | `SHOW_SPACE_NAMES` | true | Show custom space names |
 | `SHOW_ICON_STRIP` | true | Show app icon strip in cells |
+| `SHOW_MULTI_APP_ICONS` | false | Show one icon per window (true) or per app (false) |
 | `HIDE_MENUBAR_ICON` | false | Hide menubar icon |
 | `SPACE_NAMES` | "" | Custom names: `1:Name,2:Name` |
 | `SOCKET_HEALTH_INTERVAL` | 60 | Health check interval (seconds) |

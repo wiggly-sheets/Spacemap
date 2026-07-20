@@ -264,6 +264,8 @@ case "MODE":
                    showSpaceNames = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
              case "SHOW_ICON_STRIP":
                    showIconStrip = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+             case "SHOW_MULTI_APP_ICONS":
+                   showMultiAppIcons = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
              case "HIDE_MENUBAR_ICON":
                    hideMenuBarIcon = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
              case "SPACE_NAMES":

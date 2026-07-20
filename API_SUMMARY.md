@@ -22,6 +22,7 @@ Stores parsed configuration values.
 | `showSpaceNumbers` | `Bool` | `SHOW_SPACE_NUMBERS` |
 | `showSpaceNames` | `Bool` | `SHOW_SPACE_NAMES` |
 | `showIconStrip` | `Bool` | `SHOW_ICON_STRIP` |
+| `showMultiAppIcons` | `Bool` | `SHOW_MULTI_APP_ICONS` |
 | `hideMenuBarIcon` | `Bool` | `HIDE_MENUBAR_ICON` |
 | `spaceNames` | `[Int: String]` | `SPACE_NAMES` |
 | `socketHealthInterval` | `Int` | `SOCKET_HEALTH_INTERVAL` |
@@ -113,6 +114,15 @@ Singleton that captures and caches per-space display thumbnails via ScreenCaptur
 - `captureActiveSpace(spaceIndex:)` — captures active display (excluding spacemap windows), caches `CGImage` keyed by space index
 - `thumbnail(forSpace index: Int) -> CGImage?` — returns cached thumbnail; `nil` if not yet visited
 - `clear()` — clears all cached thumbnails
+
+## Icon Cache (`IconCache.swift`)
+
+### `IconCache`
+Singleton that caches app icons by name to avoid repeated `NSWorkspace.shared.icon(forFile:)` calls.
+
+- `shared` — singleton instance
+- `icon(for appName: String) -> NSImage?` — returns cached icon; looks up bundle via running applications, caches on first access
+- `clear()` — clears all cached icons
 
 ## UI Components
 
