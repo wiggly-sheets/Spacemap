@@ -272,7 +272,6 @@ var body: some View {
               let cached = ThumbnailCache.shared.thumbnail(forSpace: spaceIndex) else {
             return AnyView(Color.clear)
         }
-        let nsImage = NSImage(cgImage: cached, size: NSSize(width: cached.width, height: cached.height))
         return AnyView(Image(nsImage: nsImage)
             .resizable()
             .aspectRatio(contentMode: .fill)

@@ -69,7 +69,10 @@ final class ThumbnailCache {
 
     /// Clear all cached thumbnails.
     func clear() {
-        queue.sync { cache.removeAll() }
+        queue.sync {
+            cgCache.removeAll()
+            nsCache.removeAll()
+        }
     }
 
     private func captureDisplay() async -> CGImage? {
