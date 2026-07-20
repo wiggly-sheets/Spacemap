@@ -504,7 +504,6 @@ Section(header: Text("Behavior").font(.title).bold()) {
             lastCustomHUDX = config.customHUDX
             lastCustomHUDY = config.customHUDY
         }
-        .formStyle(.grouped)
         .frame(minWidth: 500)
     }
         

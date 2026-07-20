@@ -68,8 +68,7 @@ struct GridView: View {
             spaceLabel: cellSpaceLabel,
             spaceName: cellSpaceName,
             isFocused: cellIsFocused,
-            isDropTarget: cellIsDropTarget,
-            isActive: cellIsActive,
+            isDropTarget: cellIsDropTarget, isActive: cellIsActive,
             windows: cellWindows,
             displayBounds: cellDisplayBounds,
             cellStyle: cellStyle,
@@ -85,6 +84,7 @@ struct GridView: View {
             showExtraWindows: state.config.showExtraWindows
         )
     }
+
     
     static func effectiveScale(for uiScale: Double) -> CGFloat { 0.5 + CGFloat(uiScale) * 3.5 }
     static func effectiveIconScale(for iconScale: Double) -> CGFloat { 0.2 + CGFloat(iconScale) * 0.8 }

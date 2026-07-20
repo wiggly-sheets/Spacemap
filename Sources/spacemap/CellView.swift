@@ -310,6 +310,32 @@ var body: some View {
         }
         return Color(red: rr + m, green: gg + m, blue: bb + m)
     }
+    
+    @ViewBuilder
+    private func thumbnailImage(_ spaceIndex: Int) -> some View {
+        if let img = cachedThumbnail(spaceIndex) {
+            Image(nsImage: img)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .clipped()
+        }
+    }
+    
+    private func cachedThumbnail(_ spaceIndex: Int) -> NSImage? {
+        if let img = Self.thumbnailCache[spaceIndex] {
+            return img
+        }
+        let img = SpaceThumbnailCapture.capture(
+            spaceIndex: spaceIndex,
+            displayBounds: displayBounds,
+            cellSize: cellSize,
+            windows: windows
+        )
+        if let img {
+            Self.thumbnailCache[spaceIndex] = img
+        }
+        return img
+    }
 }
 
 extension Color {
