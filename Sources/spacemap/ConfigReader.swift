@@ -266,9 +266,13 @@ case "MODE":
                    showIconStrip = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
              case "SHOW_MULTI_APP_ICONS":
                    showMultiAppIcons = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-             case "HIDE_MENUBAR_ICON":
-                   hideMenuBarIcon = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-             case "SPACE_NAMES":
+              case "HIDE_MENUBAR_ICON":
+                    hideMenuBarIcon = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+              case "VIM_KEYS":
+                    useVimKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+              case "ARROW_KEYS":
+                    useArrowKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+              case "SPACE_NAMES":
                   // Parse format: "1:Name,2:Name,3:Name"
                   let pairs = value.components(separatedBy: ",")
                   for pair in pairs {
