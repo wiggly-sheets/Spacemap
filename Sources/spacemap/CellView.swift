@@ -268,13 +268,28 @@ var body: some View {
     }
     
     private func thumbnailImage(_ spaceIndex: Int) -> some View {
-        if let img = SpaceThumbnailCapture.capture(spaceIndex: spaceIndex, displayBounds: displayBounds, cellSize: cellSize, windows: windows) {
+        if let img = cachedThumbnail {
             AnyView(Image(nsImage: img)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .clipped())
         } else {
-            AnyView(EmptyView())
+            AnyView(Color.clear.onAppear {
+                loadThumbnailAsync(spaceIndex: spaceIndex)
+            })
+        }
+    }
+    
+    private func loadThumbnailAsync(spaceIndex: Int) {
+        guard cellStyle == .thumbnails else { return }
+        if #available(macOS 14.0, *) {
+            SpaceThumbnailCapture.captureAsync(spaceIndex: spaceIndex, displayBounds: displayBounds, cellSize: cellSize, windows: windows) { img in
+                DispatchQueue.main.async {
+                    cachedThumbnail = img
+                }
+            }
+        } else {
+            cachedThumbnail = SpaceThumbnailCapture.capture(spaceIndex: spaceIndex, displayBounds: displayBounds, cellSize: cellSize, windows: windows)
         }
     }
     
