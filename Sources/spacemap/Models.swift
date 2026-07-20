@@ -260,4 +260,8 @@ struct GridState: Equatable {
     static func == (lhs: GridState, rhs: GridState) -> Bool {
         lhs.focusedIndex == rhs.focusedIndex
     }
+
+    static func == (lhs: GridState, rhs: GridState) -> Bool {
+        lhs.focusedIndex == rhs.focusedIndex
+    }
 }
