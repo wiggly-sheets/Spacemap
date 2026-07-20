@@ -267,6 +267,17 @@ var body: some View {
             .clipped())
     }
     
+    private func thumbnailImage(_ spaceIndex: Int) -> some View {
+        if let img = SpaceThumbnailCapture.capture(spaceIndex: spaceIndex, displayBounds: displayBounds, cellSize: cellSize, windows: windows) {
+            AnyView(Image(nsImage: img)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .clipped())
+        } else {
+            AnyView(EmptyView())
+        }
+    }
+    
     private func appColor(_ name: String) -> Color {
         Self.appColor(name, theme: resolvedTheme, windowCount: windows.count)
     }
