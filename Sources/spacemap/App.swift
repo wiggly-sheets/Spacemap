@@ -693,6 +693,8 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
     }
 
     private func showYabaiAlert() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "yabai is not running"
@@ -714,7 +716,11 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = Pipe()
-        guard (try? process.run()) != nil else { return false }
+        do {
+            try process.run()
+        } catch {
+            return false
+        }
         process.waitUntilExit()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(data: data, encoding: .utf8) ?? ""
@@ -722,6 +728,8 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
     }
 
     private func showMRUAlert() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Spaces Auto-Rearrange Enabled"
@@ -742,6 +750,7 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
             dock.arguments = ["Dock"]
             try? dock.run()
         }
+        NSApp.setActivationPolicy(.prohibited)
     }
 
     private func printVersionAndExit() {
