@@ -34,7 +34,8 @@
 - **Entry point**: `Sources/spacemap/App.swift` – sets up menubar, hotkey monitor, socket listener.
 - **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
 - **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
-- **Data**: `YabaiClient.swift` – shells out to `/opt/homebrew/bin/yabai` for spaces/windows; `ConfigReader.swift` – reads `~/.config/spacemap/config`.
+- **Data**: `YabaiClient.swift` – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows; `ConfigReader.swift` – reads `~/.config/spacemap/config`.
+- **Themes**: `ThemeManager.swift` – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
 - **Hotkey**: `HotkeyMonitor.swift` – global CGEventTap for toggle.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
 - **Signals**: `SocketListener.swift` – Unix domain socket for yabai `space_changed` events.
