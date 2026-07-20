@@ -268,29 +268,14 @@ var body: some View {
     }
     
     private func thumbnailImage(_ spaceIndex: Int) -> some View {
-        if let img = cachedThumbnail {
-            AnyView(Image(nsImage: img)
+        if let cached = ThumbnailCache.shared.thumbnail(forSpace: spaceIndex) {
+            let nsImage = NSImage(cgImage: cached, size: NSSize(width: cached.width, height: cached.height))
+            return AnyView(Image(nsImage: nsImage)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .clipped())
-        } else {
-            AnyView(Color.clear.onAppear {
-                loadThumbnailAsync(spaceIndex: spaceIndex)
-            })
         }
-    }
-    
-    private func loadThumbnailAsync(spaceIndex: Int) {
-        guard cellStyle == .thumbnails else { return }
-        if #available(macOS 14.0, *) {
-            SpaceThumbnailCapture.captureAsync(spaceIndex: spaceIndex, displayBounds: displayBounds, cellSize: cellSize, windows: windows) { img in
-                DispatchQueue.main.async {
-                    cachedThumbnail = img
-                }
-            }
-        } else {
-            cachedThumbnail = SpaceThumbnailCapture.capture(spaceIndex: spaceIndex, displayBounds: displayBounds, cellSize: cellSize, windows: windows)
-        }
+        return AnyView(Color.clear)
     }
     
     private func appColor(_ name: String) -> Color {
