@@ -191,16 +191,16 @@ dmg-universal: app-universal
 _dmg:
 	@rm -rf $(DMG_STAGE)
 	@mkdir -p $(DMG_STAGE)
-	@cp -R $(INPUT) $(DMG_STAGE)/
+	@cp -R $(INPUT) $(DMG_STAGE)/$(APP_NAME).app
 	create-dmg --no-internet-enable \
 		--volname "$(APP_NAME)" \
 		--volicon Sources/spacemap/spacemap.icns \
 		--window-pos 200 120 \
 		--window-size 600 400 \
 		--icon-size 100 \
-		--icon "$(INPUT)" 175 190 \
+		--icon "$(APP_NAME).app" 175 190 \
 		--app-drop-link 425 190 \
-		$(OUTPUT) $(DMG_STAGE)/$(INPUT)
+		$(OUTPUT) $(DMG_STAGE)/$(APP_NAME).app
 	@rm -rf $(DMG_STAGE)
 	@echo "Created $(OUTPUT)"
 	@echo "SHA-256:  $$(shasum -a 256 $(OUTPUT) | awk '{print $$1}')"
