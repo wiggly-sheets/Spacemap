@@ -169,6 +169,38 @@ jobs:
             fi
           done
 
+      - name: Code sign DMGs
+        if: env.CODESIGN_IDENTITY != ''
+        run: |
+          for dmg in spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg; do
+            if [ -f "$dmg" ]; then
+              codesign --force --sign "$CODESIGN_IDENTITY" \
+                --timestamp \
+                "$dmg"
+              echo "Signed $dmg"
+            fi
+          done
+
+      - name: Notarize DMGs
+        if: env.APPLE_ID != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for dmg in spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg; do
+            if [ -f "$dmg" ]; then
+              echo "Notarizing $dmg..."
+              xcrun notarytool submit "$dmg" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_APP_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" \
+                --wait
+              xcrun stapler staple "$dmg"
+              echo "Notarized $dmg"
+            fi
+          done
+
       - name: Generate checksums
         run: |
           cd /Users/runner/work/spacemap/repo
