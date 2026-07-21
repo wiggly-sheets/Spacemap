@@ -191,22 +191,20 @@ var body: some View {
     
     @ViewBuilder
     private func windowIcon(_ window: YabaiWindow) -> some View {
-        if !window.isHidden && !window.isMinimized {
-            let scaleX = cellSize.width / displayBounds.width
-            let scaleY = cellSize.height / displayBounds.height
-            let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
-            let y = (window.cgFrame.minY - displayBounds.minY) * scaleY
-            let w = max(window.cgFrame.width * scaleX, 14)
-            let h = max(window.cgFrame.height * scaleY, 14)
-            let iconSize = min(w, h)
-            
-            if let icon = appIcon(for: window.app) {
-                Image(nsImage: icon)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: iconSize, height: iconSize)
-                    .offset(x: x, y: y)
-            }
+        let scaleX = cellSize.width / displayBounds.width
+        let scaleY = cellSize.height / displayBounds.height
+        let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
+        let y = (window.cgFrame.minY - displayBounds.minY) * scaleY
+        let w = max(window.cgFrame.width * scaleX, 14)
+        let h = max(window.cgFrame.height * scaleY, 14)
+        let iconSize = min(w, h)
+
+        if let icon = appIcon(for: window.app) {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: iconSize, height: iconSize)
+                .offset(x: x, y: y)
         }
     }
     
