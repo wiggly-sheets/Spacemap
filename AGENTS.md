@@ -162,6 +162,13 @@ open spacemap.xcodeproj                 # Open in Xcode
 ```
 Targets: default, arm64, x86_64, universal. Project is regenerated from `Package.swift` — edit SPM, not the `.xcodeproj`.
 
+### Xcode Project
+```bash
+python3 scripts/generate-xcodeproj.py   # Generate from SPM
+open spacemap.xcodeproj                 # Open in Xcode
+```
+Targets: default, arm64, x86_64, universal. Project is regenerated from `Package.swift` — edit SPM, not the `.xcodeproj`.
+
 ### Testing Changes
 1. `make dev1` (uninstalls app)
 2. Remove Spacemap from System Settings → Privacy & Security → Accessibility
