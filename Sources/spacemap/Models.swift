@@ -83,6 +83,8 @@ enum HUDPosition: Equatable, Hashable {
         }
     }
 
+    
+
     /// Returns the panel origin point for the given panel size and screen.
     func point(for panelSize: CGSize, screen: CGRect) -> CGPoint {
         let x: CGFloat
@@ -102,6 +104,18 @@ enum HUDPosition: Equatable, Hashable {
             y = screen.minY + (screen.height - panelSize.height) * py
         }
         return CGPoint(x: x, y: y)
+    }
+}
+enum HUDPositionKind: String, CaseIterable {
+    case center, top, bottom, custom
+
+    init(from position: HUDPosition) {
+        switch position {
+        case .center: self = .center
+        case .top: self = .top
+        case .bottom: self = .bottom
+        case .custom: self = .custom
+        }
     }
 }
 
