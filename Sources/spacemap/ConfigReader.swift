@@ -219,7 +219,6 @@ enum ConfigReader {
             case "AUTO_HIDE_TIMEOUT":
                 if let v = Int(value), v >= 0 {
                     autoHideTimeout = v
-                    print("spacemap/ConfigReader: PARSED autoHideTimeout=\(v) from value='\(value)'")
                 } else {
                     print("spacemap/ConfigReader: FAILED to parse AUTO_HIDE_TIMEOUT value='\(value)'")
                 }
@@ -242,47 +241,45 @@ enum ConfigReader {
                 } else {
                     print("spacemap: invalid BACKGROUND_ALPHA '\(value)', using default")
                 }
-case "MODE":
-                 switch value.lowercased() {
-              case "light": mode = .light
-              case "dark":  mode = .dark
-              case "auto", "automatic": mode = .auto
-              default:     mode = .auto
-                 }
-             case "ICON_SCALE":
-                 if let v = Double(value), v >= 0.5 && v <= 2.0 {
-                     iconScale = v
-                 } else {
-                     print("spacemap: invalid ICON_SCALE '\(value)', using default")
-                 }
-             case "SHOW_SPACE_NUMBERS":
-                  showSpaceNumbers = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-             case "SHOW_NAMES":
-                  // backward compat: treat old SHOW_NAMES as SHOW_SPACE_NUMBERS
-                  showSpaceNumbers = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-             case "SHOW_SPACE_NAMES":
-                   showSpaceNames = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-             case "SHOW_ICON_STRIP":
-                   showIconStrip = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-             case "SHOW_MULTI_APP_ICONS":
-                   showMultiAppIcons = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-              case "HIDE_MENUBAR_ICON":
-                    hideMenuBarIcon = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-              case "VIM_KEYS":
-                    useVimKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-              case "ARROW_KEYS":
-                    useArrowKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-              case "SPACE_NAMES":
-                  // Parse format: "1:Name,2:Name,3:Name"
-                  let pairs = value.components(separatedBy: ",")
-                  for pair in pairs {
-                      let parts = pair.components(separatedBy: ":")
-                      if parts.count == 2, let id = Int(parts[0].trimmingCharacters(in: .whitespaces)) {
-                          spaceNames[id] = parts[1].trimmingCharacters(in: .whitespaces)
-                      }
-                  }
-              default: break
-              }
+            case "MODE":
+                switch value.lowercased() {
+                case "light": mode = .light
+                case "dark":  mode = .dark
+                case "auto", "automatic": mode = .auto
+                default:     mode = .auto
+                }
+            case "ICON_SCALE":
+                if let v = Double(value), v >= 0.5 && v <= 2.0 {
+                    iconScale = v
+                } else {
+                    print("spacemap: invalid ICON_SCALE '\(value)', using default")
+                }
+            case "SHOW_SPACE_NUMBERS":
+                showSpaceNumbers = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "SHOW_NAMES":
+                showSpaceNumbers = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "SHOW_SPACE_NAMES":
+                showSpaceNames = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "SHOW_ICON_STRIP":
+                showIconStrip = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "SHOW_MULTI_APP_ICONS":
+                showMultiAppIcons = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "HIDE_MENUBAR_ICON":
+                hideMenuBarIcon = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "VIM_KEYS":
+                useVimKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "ARROW_KEYS":
+                useArrowKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "SPACE_NAMES":
+                let pairs = value.components(separatedBy: ",")
+                for pair in pairs {
+                    let parts = pair.components(separatedBy: ":")
+                    if parts.count == 2, let id = Int(parts[0].trimmingCharacters(in: .whitespaces)) {
+                        spaceNames[id] = parts[1].trimmingCharacters(in: .whitespaces)
+                    }
+                }
+            default: break
+            }
         }
 
         // Resolve .custom sentinel (0,0) after all values are parsed
