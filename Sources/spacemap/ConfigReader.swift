@@ -249,7 +249,7 @@ enum ConfigReader {
                 default:     mode = .auto
                 }
             case "ICON_SCALE":
-                if let v = Double(value), v >= 0.5 && v <= 2.0 {
+                if let v = Double(value), v >= 0.0 && v <= 1.0 {
                     iconScale = v
                 } else {
                     print("spacemap: invalid ICON_SCALE '\(value)', using default")

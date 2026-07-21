@@ -86,7 +86,12 @@ struct CustomStepper: View {
     }
     
     private var currentIndex: Int {
-        steps.firstIndex(of: value) ?? 0
+        if let idx = steps.firstIndex(of: value) { return idx }
+        var closest = 0
+        for i in 1..<steps.count {
+            if abs(steps[i] - value) < abs(steps[closest] - value) { closest = i }
+        }
+        return closest
     }
     
     private func stepDown() {
