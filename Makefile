@@ -177,14 +177,26 @@ archive: app
 	@echo "  4. Copy the SHA-256 above into Formula/spacemap.rb in homebrew-tap"
 
 dmg: app
-	rm -rf $(DMG_STAGE)
-	mkdir -p $(DMG_STAGE)
-	cp -R $(APP_BUNDLE) $(DMG_STAGE)/
-	create-dmg ./$(DMG_STAGE)/$(APP_BUNDLE)
-	mv "$(APP_NAME) $(VERSION).dmg" $(DMG)
-	rm -rf $(DMG_STAGE)
-	@echo "Created $(DMG)"
-	@echo "SHA-256:  $$(shasum -a 256 $(DMG) | awk '{print $$1}')"
+	@$(MAKE) _dmg INPUT=$(APP_BUNDLE) OUTPUT=$(DMG)
+
+dmg-arm64: app-arm64
+	@$(MAKE) _dmg INPUT=$(APP_NAME)-arm64.app OUTPUT=$(APP_NAME)-$(VERSION)-arm64.dmg
+
+dmg-x86_64: app-x86_64
+	@$(MAKE) _dmg INPUT=$(APP_NAME)-x86_64.app OUTPUT=$(APP_NAME)-$(VERSION)-x86_64.dmg
+
+dmg-universal: app-universal
+	@$(MAKE) _dmg INPUT=$(APP_NAME).app OUTPUT=$(APP_NAME)-$(VERSION)-universal.dmg
+
+_dmg:
+	@rm -rf $(DMG_STAGE)
+	@mkdir -p $(DMG_STAGE)
+	@cp -R $(INPUT) $(DMG_STAGE)/
+	create-dmg --no-internet $(DMG_STAGE)/$(INPUT)
+	@mv "$(APP_NAME) $(VERSION).dmg" $(OUTPUT) 2>/dev/null || true
+	@rm -rf $(DMG_STAGE)
+	@echo "Created $(OUTPUT)"
+	@echo "SHA-256:  $$(shasum -a 256 $(OUTPUT) | awk '{print $$1}')"
 
 install: app
 	mkdir -p $(INSTALL_PATH)/Contents/MacOS
