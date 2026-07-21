@@ -184,7 +184,9 @@ jobs:
               echo "::error::Could not read architecture from $dmg"
               exit 1
             fi
-            if ! echo "$archs" | grep -qw "$expected"; then
+            sorted_actual=$(echo "$archs" | tr ' ' '\n' | sort | tr '\n' ' ' | xargs)
+            sorted_expected=$(echo "$expected" | tr ' ' '\n' | sort | tr '\n' ' ' | xargs)
+            if [ "$sorted_actual" != "$sorted_expected" ]; then
               echo "::error::$dmg contains [$archs], expected [$expected]"
               exit 1
             fi
