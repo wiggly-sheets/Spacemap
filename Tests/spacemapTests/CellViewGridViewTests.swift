@@ -282,4 +282,57 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(minW, 40, accuracy: 0.001)
         XCTAssertEqual(maxW, 320, accuracy: 0.001)
     }
+
+    // MARK: - Scale mapping
+
+    func testEffectiveScaleMinimum() {
+        let s = GridView.effectiveScale(for: 0.0)
+        XCTAssertEqual(s, 0.5, accuracy: 0.001)
+    }
+
+    func testEffectiveScaleMidpoint() {
+        let s = GridView.effectiveScale(for: 0.5)
+        XCTAssertEqual(s, 2.25, accuracy: 0.001)
+    }
+
+    func testEffectiveScaleMaximum() {
+        let s = GridView.effectiveScale(for: 1.0)
+        XCTAssertEqual(s, 4.0, accuracy: 0.001)
+    }
+
+    func testEffectiveScaleMonotonic() {
+        var prev = GridView.effectiveScale(for: 0.0)
+        for i in stride(from: 0.1, through: 1.0, by: 0.1) {
+            let cur = GridView.effectiveScale(for: i)
+            XCTAssertGreaterThan(cur, prev, "scale must increase at \(i)")
+            prev = cur
+        }
+    }
+
+    func testEffectiveIconScaleMinimum() {
+        let s = GridView.effectiveIconScale(for: 0.0)
+        XCTAssertEqual(s, 0.2, accuracy: 0.001)
+    }
+
+    func testEffectiveIconScaleMaximum() {
+        let s = GridView.effectiveIconScale(for: 1.0)
+        XCTAssertEqual(s, 1.0, accuracy: 0.001)
+    }
+
+    func testEffectiveIconScaleMonotonic() {
+        var prev = GridView.effectiveIconScale(for: 0.0)
+        for i in stride(from: 0.1, through: 1.0, by: 0.1) {
+            let cur = GridView.effectiveIconScale(for: i)
+            XCTAssertGreaterThan(cur, prev, "icon scale must increase at \(i)")
+            prev = cur
+        }
+    }
+
+    func testCellWidthRange() {
+        let base: CGFloat = 80
+        let minW = base * GridView.effectiveScale(for: 0.0)
+        let maxW = base * GridView.effectiveScale(for: 1.0)
+        XCTAssertEqual(minW, 40, accuracy: 0.001)
+        XCTAssertEqual(maxW, 320, accuracy: 0.001)
+    }
 }
