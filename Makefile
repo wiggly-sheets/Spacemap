@@ -192,7 +192,14 @@ _dmg:
 	@rm -rf $(DMG_STAGE)
 	@mkdir -p $(DMG_STAGE)
 	@cp -R $(INPUT) $(DMG_STAGE)/
-	create-dmg --no-internet-enable --volname "$(APP_NAME)" $(OUTPUT) $(DMG_STAGE)/$(INPUT)
+	create-dmg --no-internet-enable \
+		--volname "$(APP_NAME)" \
+		--window-pos 200 120 \
+		--window-size 600 400 \
+		--icon-size 100 \
+		--icon "$(INPUT)" 175 190 \
+		--app-drop-link 425 190 \
+		$(OUTPUT) $(DMG_STAGE)/$(INPUT)
 	@rm -rf $(DMG_STAGE)
 	@echo "Created $(OUTPUT)"
 	@echo "SHA-256:  $$(shasum -a 256 $(OUTPUT) | awk '{print $$1}')"
