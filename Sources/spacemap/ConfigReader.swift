@@ -270,6 +270,18 @@ enum ConfigReader {
                 useVimKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
             case "ARROW_KEYS":
                 useArrowKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "CUSTOM_HUD_X":
+                if let v = Double(value), v >= 0.0 && v <= 1.0 {
+                    customHUDX = v
+                } else {
+                    print("spacemap: invalid CUSTOM_HUD_X '\(value)', using default")
+                }
+            case "CUSTOM_HUD_Y":
+                if let v = Double(value), v >= 0.0 && v <= 1.0 {
+                    customHUDY = v
+                } else {
+                    print("spacemap: invalid CUSTOM_HUD_Y '\(value)', using default")
+                }
             case "HUD_POSITION":
                 switch value.lowercased() {
                 case "center": hudPosition = .center

@@ -156,6 +156,16 @@ struct SettingsView: View {
     @State private var updateMode: UpdateMode = .notify
     @State private var previousUpdateMode: UpdateMode = .notify
     
+    private var actualHUDPosition: HUDPosition {
+        switch hudPositionKind {
+        case .center: return .center
+        case .top: return .top
+        case .bottom: return .bottom
+        case .custom: 
+            return .custom(x: lastCustomHUDPosition.x, y: lastCustomHUDPosition.y)
+        }
+    }
+    
     private let socketHealthOptions = [15, 30, 45, 60]
     
     private let configPath = NSString(string: "~/.config/spacemap/config").expandingTildeInPath
