@@ -167,7 +167,7 @@ struct SettingsView: View {
         for c in 1...maxSpaces {
             if maxSpaces % c == 0 {
                 let r = maxSpaces / c
-                layouts.append((c, r, "\(c)×(r))"))
+                layouts.append((c, r, "\(c)×\(r)"))
             }
         }
         return layouts
@@ -493,6 +493,15 @@ Section(header: Text("Behavior").font(.title).bold()) {
                   }
               }
             
+            
+            Section(header: Text("Debug/Advanced").font(.title).bold()) {
+                Picker("Socket Health Interval (s)", selection: $socketHealthInterval) {
+                    ForEach(socketHealthOptions, id: \.self) { v in
+                        Text("\(v)").tag(v as Int)
+                    }
+                }
+                .onChange(of: socketHealthInterval) { _ in saveConfig() }
+            }
             
             Section(header: Text("Debug/Advanced").font(.title).bold()) {
                 Picker("Socket Health Interval (s)", selection: $socketHealthInterval) {
