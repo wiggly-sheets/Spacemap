@@ -192,8 +192,7 @@ _dmg:
 	@rm -rf $(DMG_STAGE)
 	@mkdir -p $(DMG_STAGE)
 	@cp -R $(INPUT) $(DMG_STAGE)/
-	create-dmg --no-internet-enable $(DMG_STAGE)/$(INPUT)
-	@mv "$(APP_NAME) $(VERSION).dmg" $(OUTPUT) 2>/dev/null || true
+	create-dmg --no-internet-enable --volname "$(APP_NAME)" $(OUTPUT) $(DMG_STAGE)/$(INPUT)
 	@rm -rf $(DMG_STAGE)
 	@echo "Created $(OUTPUT)"
 	@echo "SHA-256:  $$(shasum -a 256 $(OUTPUT) | awk '{print $$1}')"
