@@ -270,6 +270,17 @@ enum ConfigReader {
                 useVimKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
             case "ARROW_KEYS":
                 useArrowKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+            case "HUD_POSITION":
+                switch value.lowercased() {
+                case "center": hudPosition = .center
+                case "top": hudPosition = .top
+                case "bottom": hudPosition = .bottom
+                default:
+                    let parts = value.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+                    if parts.count == 2, parts[0] >= 0, parts[0] <= 1, parts[1] >= 0, parts[1] <= 1 {
+                        hudPosition = .custom(x: parts[0], y: parts[1])
+                    }
+                }
             case "SPACE_NAMES":
                 let pairs = value.components(separatedBy: ",")
                 for pair in pairs {

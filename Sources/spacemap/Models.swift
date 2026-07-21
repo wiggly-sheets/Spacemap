@@ -68,6 +68,43 @@ struct HotkeyConfig {
     static let `default` = HotkeyConfig(keyCode: 121, modifiers: .maskControl)
 }
 
+enum HUDPosition: Equatable, Hashable {
+    case center, top, bottom
+    case custom(x: Double, y: Double) // percentage of screen (0.0–1.0)
+
+    static let allPresets: [HUDPosition] = [.center, .top, .bottom]
+
+    var label: String {
+        switch self {
+        case .center: return "Center"
+        case .top: return "Top"
+        case .bottom: return "Bottom"
+        case .custom: return "Custom"
+        }
+    }
+
+    /// Returns the panel origin point for the given panel size and screen.
+    func point(for panelSize: CGSize, screen: CGRect) -> CGPoint {
+        let x: CGFloat
+        let y: CGFloat
+        switch self {
+        case .center:
+            x = screen.midX - panelSize.width / 2
+            y = screen.midY - panelSize.height / 2
+        case .top:
+            x = screen.midX - panelSize.width / 2
+            y = screen.maxY - panelSize.height - 40
+        case .bottom:
+            x = screen.midX - panelSize.width / 2
+            y = screen.minY + 40
+        case .custom(let px, let py):
+            x = screen.minX + (screen.width - panelSize.width) * px
+            y = screen.minY + (screen.height - panelSize.height) * py
+        }
+        return CGPoint(x: x, y: y)
+    }
+}
+
 struct HotkeyConfig {
     var keyCode: CGKeyCode
     var modifiers: CGEventFlags

@@ -543,6 +543,16 @@ Section(header: Text("Behavior").font(.title).bold()) {
         )
     }
     
+    private func customX() -> Double? {
+        if case .custom(let x, _) = hudPosition { return x }
+        return nil
+    }
+
+    private func customY() -> Double? {
+        if case .custom(_, let y) = hudPosition { return y }
+        return nil
+    }
+
     static func hotkeyStringFrom(_ hotkey: HotkeyConfig) -> String {
         var parts: [String] = []
         if hotkey.modifiers.contains(.maskControl) { parts.append("ctrl") }
