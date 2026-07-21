@@ -23,6 +23,7 @@ class HUDWindowController {
     // the thumbnail layout doesn't flicker during a drag and cachedWindows stays stable.
     private var currentState: GridState? = nil
     private var autoHideTimer: Timer?
+    private var pollTimer: Timer?
     private let dragHandler = WindowDragHandler()
     private var lastFocusedSpaceIndex: Int? = nil
     private var isToggling = false   // prevents re-entry during toggle animations
@@ -99,8 +100,20 @@ class HUDWindowController {
         lastFocusedSpaceIndex = state.focusedIndex
         isVisible = true
         resetAutoHideTimer()
+        startPollTimer()
         startSettingsKeyMonitor()
         if case .custom = config.hudPosition { startPanelDragMonitor() }
+    }
+    
+    private func startPollTimer() {
+        pollTimer?.invalidate()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            guard let self, self.isVisible else { return }
+            if let focused = YabaiClient.queryFocusedSpaceIndex(), focused != self.lastFocusedSpaceIndex {
+                self.refreshState()
+                self.resetAutoHideTimer()
+            }
+        }
     }
     
     private func startPollTimer() {
@@ -123,6 +136,8 @@ class HUDWindowController {
         dragHandler.stop()
         autoHideTimer?.invalidate()
         autoHideTimer = nil
+        pollTimer?.invalidate()
+        pollTimer = nil
         
         if let p = panel {
             p.orderOut(nil)
