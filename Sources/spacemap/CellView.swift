@@ -107,10 +107,10 @@ var body: some View {
                     case .simple:     EmptyView()
                     }
                 }
+            }
 
-                if showIconStrip {
-                    iconStrip()
-                }
+            if showIconStrip {
+                iconStrip()
             }
 
             // Show space number at top-left when showNames is enabled
