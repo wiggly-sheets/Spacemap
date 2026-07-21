@@ -257,19 +257,19 @@ enum ConfigReader {
             case "SHOW_SPACE_NUMBERS":
                 showSpaceNumbers = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
             case "SHOW_NAMES":
-                showSpaceNumbers = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+                showSpaceNumbers = parseBool(value)
             case "SHOW_SPACE_NAMES":
-                showSpaceNames = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+                showSpaceNames = parseBool(value)
             case "SHOW_ICON_STRIP":
-                showIconStrip = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+                showIconStrip = parseBool(value)
             case "SHOW_MULTI_APP_ICONS":
-                showMultiAppIcons = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+                showMultiAppIcons = parseBool(value)
             case "HIDE_MENUBAR_ICON":
-                hideMenuBarIcon = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+                hideMenuBarIcon = parseBool(value)
             case "VIM_KEYS":
-                useVimKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+                useVimKeys = parseBool(value)
             case "ARROW_KEYS":
-                useArrowKeys = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
+                useArrowKeys = parseBool(value)
             case "CUSTOM_HUD_X":
                 if let v = Double(value), v >= 0.0 && v <= 1.0 {
                     customHUDX = v
