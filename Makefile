@@ -194,6 +194,7 @@ _dmg:
 	@cp -R $(INPUT) $(DMG_STAGE)/
 	create-dmg --no-internet-enable \
 		--volname "$(APP_NAME)" \
+		--volicon Sources/spacemap/spacemap.icns \
 		--window-pos 200 120 \
 		--window-size 600 400 \
 		--icon-size 100 \
