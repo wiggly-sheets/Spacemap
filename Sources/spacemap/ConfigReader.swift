@@ -287,6 +287,7 @@ enum ConfigReader {
                 case "center": hudPosition = .center
                 case "top": hudPosition = .top
                 case "bottom": hudPosition = .bottom
+                case "custom": hudPosition = .custom(x: 0, y: 0) // sentinel: coordinates set after CUSTOM_HUD_X/Y parsed
                 default:
                     let parts = value.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
                     if parts.count == 2, parts[0] >= 0, parts[0] <= 1, parts[1] >= 0, parts[1] <= 1 {
