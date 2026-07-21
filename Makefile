@@ -192,7 +192,7 @@ _dmg:
 	@rm -rf $(DMG_STAGE)
 	@mkdir -p $(DMG_STAGE)
 	@cp -R $(INPUT) $(DMG_STAGE)/
-	create-dmg --no-internet $(DMG_STAGE)/$(INPUT)
+	create-dmg --no-internet-enable $(DMG_STAGE)/$(INPUT)
 	@mv "$(APP_NAME) $(VERSION).dmg" $(OUTPUT) 2>/dev/null || true
 	@rm -rf $(DMG_STAGE)
 	@echo "Created $(OUTPUT)"
