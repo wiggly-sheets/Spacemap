@@ -59,7 +59,7 @@ Assembled state for the HUD grid.
 
 - `config` (GridConfig), `spaces` ([YabaiSpace]), `windows` ([YabaiWindow]), `displayBounds` (CGRect), `focusedIndex` (Int?)
 
-### `AppTheme`
+### `AppTheme` (Equatable)
 Color theme data for HUD rendering.
 
 - `name` (String), `background` (UInt64), `focused` (UInt64), `text` (UInt64), `dropTarget` (UInt64), `cellBg` (UInt64), `cellBgFocused` (UInt64)
@@ -73,14 +73,15 @@ Individual cell in the grid.
 
 ### `ConfigReader`
 Parses `~/.config/spacemap/config` key=value format (supports `#` inline comments, BOM, CR/LF).
-- `load() -> GridConfig` — reads config, auto-generates if missing, self-heals missing keys
+- `parseConfig(_ lines: [String]) -> GridConfig` — pure function, parses line array into GridConfig
+- `load() -> GridConfig` — reads config file, auto-generates if missing, self-heals missing keys
 - `saveConfig(GridConfig)` — persists config back to file, preserving unused keys
 - `createDefaultConfigFile()` — creates file with defaults if missing
 
 ## Yabai Integration (`YabaiClient.swift`)
 
 ### `YabaiClient`
-Shells out to `/opt/homebrew/bin/yabai`.
+Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/usr/local/bin/yabai` for Intel).
 
 - `querySpaces() -> [YabaiSpace]`
 - `queryWindows() -> [YabaiWindow]`
@@ -200,7 +201,11 @@ Also renders: space numbers, space names, icon strip, border/fill styling.
 ## Theme System
 
 ### Theme colors
-Each theme defines 6 hex colors in `AppTheme` struct. Available themes:
+Each theme defines 6 hex colors in `AppTheme` struct.
+
+- `parseThemeContent(_ content: String) -> AppTheme?` — pure function, parses `.smthemes` file content
+
+Available themes:
 `default`, `tokyonight`, `catppuccin`, `monokai-dark`, `monokai-light`, `dracula`, `ayu`, `github`, `vscode`, `xcode`, `nord`, `atom-one-dark`
 
 Config key: `THEME=themename`

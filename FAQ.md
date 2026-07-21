@@ -39,7 +39,7 @@ Set `HOTKEY=ctrl+shift+s` in config. Requires restart. Supported modifiers: `ctr
 ## Usage
 
 ### How do I open/close the HUD?
-Press the configured hotkey (default: `Ctrl+Space`). Or click the menubar icon → Show/Hide Spacemap.
+Press the configured hotkey (default: `Ctrl+PgDn`). Or click the menubar icon → Show/Hide Spacemap.
 
 ### How do I switch to a workspace?
 Click on any cell in the HUD. The HUD closes and yabai switches to that space.
@@ -62,7 +62,10 @@ Yes. Click the menubar icon → Launch at Login.
 `make run` (build, install, launch). Or `make build` for just the binary, `make app` for the .app bundle.
 
 ### How do I test changes?
-`make dev1` (uninstall) → remove Accessibility permission → code changes → `make dev2` (rebuild, install, launch) → grant permission.
+`make dev1` (uninstall) → remove Accessibility permission → code changes → `make dev2` (rebuild, install, launch) → grant permission. Run unit tests with `make test`.
+
+### How do I run unit tests?
+`make test` or `swift test`. 103 tests across 5 files (hotkey parsing, config, themes, models, grid computation).
 
 ### Why can't I run the binary directly?
 macOS grants Accessibility to the `.app` bundle, not the raw binary. Running it directly fails the trust check.
@@ -84,7 +87,7 @@ Or connect to the socket and send `0` (refresh), `1` (show), `2` (hide).
 3. Restart the app
 
 ### yabai not found error
-Ensure yabai is installed: `which yabai` should show `/opt/homebrew/bin/yabai`. For Intel Macs, create a symlink: `ln -s /usr/local/bin/yabai /opt/homebrew/bin/yabai`.
+yabai is auto-detected at `/opt/homebrew/bin/yabai` (ARM) or `/usr/local/bin/yabai` (Intel). Ensure yabai is installed: `which yabai`.
 
 ### Config not taking effect
 Most config keys reload on HUD open. Close and re-open the HUD (`Ctrl+Space` twice). If it's `HOTKEY`, restart the app.
@@ -97,8 +100,6 @@ Check Console.app for crash logs. Ensure yabai is running (the app checks on lau
 
 ## Known Limitations
 
-- **Apple Silicon only:** yabai path hardcoded to `/opt/homebrew/bin/yabai`; Intel users need a symlink.
 - **Homebrew only:** No other package managers supported.
-- **No unit tests:** Only manual testing.
-- **Icon flicker:** Icons re-fetched on every render; optimization planned.
+- **Icon flicker:** Icons re-fetched on every render; IconCache mitigates.
 - **Drag ambiguity:** Multi-window app drags may fall back to click proximity.

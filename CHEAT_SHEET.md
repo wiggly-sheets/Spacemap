@@ -12,7 +12,11 @@
 | `make clean` | Remove build artifacts |
 | `make config` | Create default config file if missing |
 | `make distconfig` | Overwrite config with defaults |
-| `make dmg` | Build DMG installer |
+| `make dmg` | Build DMG installer (universal) |
+| `make dmg-arm64` | Build ARM64 DMG |
+| `make dmg-x86_64` | Build Intel DMG |
+| `make dmg-universal` | Build universal DMG |
+| `make test` | Run unit tests via swift test |
 | `make install-cli` | Install CLI symlink to `/usr/local/bin/spacemap` |
 | `make uninstall-cli` | Remove CLI symlink |
 | `make permissions` | Show instructions for fixing Accessibility permission |
@@ -70,7 +74,7 @@
 - **Accessibility permission lost after rebuild**: Use `make dev1` → remove from System Settings → `make dev2`.
 - **Hotkey not working**: Ensure Accessibility permission granted; HOTKEY changes require app restart.
 - **Config changes not taking effect**: Most config reloads on HUD open; HOTKEY requires restart.
-- **yabai not found**: Ensure yabai is installed at `/opt/homebrew/bin/yabai` (Apple Silicon) or create symlink for Intel.
+- **yabai not found**: yabai auto-detected at `/opt/homebrew/bin/yabai` (ARM) or `/usr/local/bin/yabai` (Intel).
 - **Icon flicker**: Known issue due to re-fetching icons on each render; optimization planned.
 - **Thumbnails not showing**: Requires Screen Recording permission; grant via menubar menu → "Open Screen Recording Permissions".
 
@@ -102,6 +106,5 @@
 
 - macOS grants Accessibility permission to the `.app` bundle, not the raw binary. Always use `make run` or open `/Applications/spacemap.app`.
 - The app runs with `NSApp.setActivationPolicy(.prohibited)` so it never appears in Dock or Cmd+Tab.
-- yabai path is hardcoded to `/opt/homebrew/bin/yabai`; no PATH search.
-- Config file uses simple `KEY=VALUE` format with inline `#` comments allowed.
+- yabai path auto-detected (ARM + Intel). Config file uses simple `KEY=VALUE` format with inline `#` comments allowed.
 - Space names configurable via `SPACE_NAMES=1:Name,2:Name` format in config.
