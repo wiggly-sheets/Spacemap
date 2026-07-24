@@ -56,19 +56,6 @@ build-universal/
 
 Carthage/Build/
 
-# fastlane
-#
-# It is recommended to not store the screenshots in the git repo.
-# Instead, use fastlane to re-generate the screenshots whenever they are needed.
-# For more information about the recommended setup visit:
-# https://docs.fastlane.tools/best-practices/source-control/#source-control
-
-fastlane/report.xml
-fastlane/Preview.html
-fastlane/screenshots/**/*.png
-fastlane/test_output
-
-.claude
-.opencode
-graphify-out/
-.DS_Store
+# Sparkle signing keys (do not commit)
+sparklesigner.pem
+sparklesigner.pub
