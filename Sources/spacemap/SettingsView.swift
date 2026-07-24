@@ -98,6 +98,7 @@ struct SettingsView: View {
     
     @State private var isRecording = false
     @State private var monitor: Any?
+    @State private var updateMode: UpdateMode = .notify
     
     private let socketHealthOptions = [15, 30, 45, 60]
     
@@ -181,6 +182,7 @@ init() {
         _showExtraWindows = State(initialValue: config.showExtraWindows)
         _spaceNameInputs = State(initialValue: config.spaceNames)
         _gridLayoutIndex = State(initialValue: findBestGridLayoutIndexFor(cols: config.cols, rows: config.rows, maxSpaces: config.maxSpaces))
+        _updateMode = State(initialValue: config.updateMode)
     }
     
     private func findBestGridLayoutIndexFor(cols: Int, rows: Int, maxSpaces: Int) -> Int {
@@ -228,7 +230,8 @@ init() {
             "CUSTOM_HUD_Y=\(lastCustomHUDY)",
             "HUD_POSITION=\(ConfigReader.hudPositionString(hudPosition))",
             "SPACE_NAMES=\(formatSpaceNames())",
-            "LAUNCH_AT_LOGIN=\(launchAtLogin ? "on" : "off")"
+            "LAUNCH_AT_LOGIN=\(launchAtLogin ? "on" : "off")",
+            "UPDATE_MODE=\(updateMode.rawValue)"
         ]
         let content = lines.joined(separator: "\n")
         do {
@@ -417,6 +420,15 @@ Picker("Cell Style", selection: $cellStyle) {
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
+            }
+            
+            Section(header: Text("Updates").font(.title).bold()) {
+                Picker("Automatic Updates", selection: $updateMode) {
+                    Text("Auto (Download & Install)").tag(UpdateMode.auto)
+                    Text("Notify (Check & Prompt)").tag(UpdateMode.notify)
+                    Text("Off").tag(UpdateMode.off)
+                }
+                .onChange(of: updateMode) { _ in saveConfig() }
             }
             
             Section(header: Text("Debug/Advanced").font(.title).bold()) {

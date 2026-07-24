@@ -7,6 +7,7 @@ enum CellStyle: Int, CaseIterable, Identifiable {
 }
 enum ShowMode: String, CaseIterable, Identifiable { case all, active; var id: String { rawValue } }
 enum ThemeMode: String, CaseIterable, Identifiable { case light, dark, auto; var id: String { rawValue } }
+enum UpdateMode: String, CaseIterable, Identifiable { case auto, notify, off; var id: String { rawValue } }
 
 enum HUDPosition: Equatable, Hashable {
     case center, top, bottom
@@ -93,8 +94,9 @@ struct GridConfig {
     var customHUDX: Double = 0.5 // last custom HUD X position (0-1)
     var customHUDY: Double = 0.5 // last custom HUD Y position (0-1)
     var showExtraWindows: Bool // show sublayer=normal windows (may include invisible utility windows)
+    var updateMode: UpdateMode // auto | notify | off
 
-    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false)
+    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false, updateMode: .notify)
 }
 
 struct AppTheme: Equatable {

@@ -1,7 +1,8 @@
 import AppKit
 import ServiceManagement
+import Sparkle
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, SUUpdaterDelegate {
     private let hud = HUDWindowController()
     private var hotkey: HotkeyMonitor?
     private var socketListener: SocketListener?
@@ -9,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
+    private var sparkleUpdater: SUUpdater?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
@@ -94,6 +96,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.restartHotkey(config: config)
                 self.applyMenubarVisibility(config: config)
             }
+
+            // Initialize Sparkle updater
+            self.sparkleUpdater = SUUpdater.shared()
+            self.sparkleUpdater?.delegate = self
+            self.configureSparkleUpdater(updateMode: config.updateMode)
         }
         
         // Handle non-exit CLI arguments (after normal setup)
@@ -468,7 +475,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Ensure a symlink exists in /usr/local/bin for easy CLI access
     private func ensureSymlink() {
         let symlinkPath = "/usr/local/bin/spacemap"
         let executablePath = "/Applications/spacemap.app/Contents/MacOS/spacemap"
@@ -482,6 +488,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             print("spacemap: failed to create symlink at \(symlinkPath): \(error)")
         }
+    }
+
+    private func configureSparkleUpdater(updateMode: UpdateMode) {
+        switch updateMode {
+        case .auto:
+            sparkleUpdater?.automaticallyDownloadsUpdates = true
+            sparkleUpdater?.automaticallyChecksForUpdates = true
+        case .notify:
+            sparkleUpdater?.automaticallyDownloadsUpdates = false
+            sparkleUpdater?.automaticallyChecksForUpdates = true
+        case .off:
+            sparkleUpdater?.automaticallyChecksForUpdates = false
+        }
+    }
+
+    // MARK: - SUUpdaterDelegate
+
+    func updaterDidFinish(_ updater: SUUpdater) {
+        // Update installed and ready to relaunch
+    }
+
+    func updater(_ updater: SUUpdater, didAbortWithError error: Error) {
+        print("Spacemap update error: \(error)")
     }
 }
 

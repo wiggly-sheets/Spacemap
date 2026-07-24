@@ -7,6 +7,9 @@ on:
 permissions:
   contents: write
 
+env:
+  SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
+
 jobs:
   release:
     name: Build & Release
@@ -145,10 +148,54 @@ jobs:
             fi
           done
 
+      - name: Compute Sparkle signature for universal DMG
+        if: env.SPARKLE_PRIVATE_KEY != ''
+        run: |
+          # Write the private key to a file
+          echo "${{ secrets.SPARKLE_PRIVATE_KEY }}" > sparklesigner.pem
+          # Sign the DMG and get base64 signature
+          SIGNATURE=$(openssl dgst -sha256 -sign sparklesigner.pem spacemap-${{ steps.version.outputs.tag }}-universal.dmg | openssl base64 -A)
+          echo "SPARKLE_ED_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
+
       - name: Generate checksums
         run: |
           shasum -a 256 spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg > checksums.txt
           cat checksums.txt
+
+      - name: Generate Sparkle appcast
+        if: env.SPARKLE_PUBLIC_KEY != ''
+        run: |
+          DMG_FILE="spacemap-${{ steps.version.outputs.tag }}-universal.dmg"
+          DMG_SIZE=$(stat -f%z "$DMG_FILE")
+          DMG_HASH=$(shasum -a 256 "$DMG_FILE" | awk '{print $1}')
+          
+          # Generate appcast.xml
+          cat > appcast.xml << APPCAST_EOF
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl plet/elements/1.1/">
+  <channel>
+    <title>spacemap</title>
+    <link>https://zebrium.github.io/spacemap/appcast.xml</link>
+    <description>Most recent changes with links to the binaries.</description>
+    <language>en</language>
+    <item>
+      <title>Version ${{ steps.version.outputs.tag }}</title>
+      <sparkle:version>${{ steps.version.outputs.tag }}</sparkle:version>
+      <sparkle:shortVersionString>${{ steps.version.outputs.tag }}</sparkle:shortVersionString>
+      <enclosure url="https://github.com/jsheffie/spacemap/releases/download/v${{ steps.version.outputs.tag }}/$DMG_FILE" sparkle:edSignature="${{ env.SPARKLE_ED_SIGNATURE }}" length="$DMG_SIZE" type="application/octet-stream" sparkle:architecture="universal"/>
+    </item>
+  </channel>
+</rss>
+APPCAST_EOF
+          
+          # Update existing appcast or create new
+          curl -s https://zebrium.github.io/spacemap/appcast.xml > existing_appcast.xml 2>/dev/null || touch existing_appcast.xml
+          
+          # Prepend new item to existing appcast
+          cat appcast.xml existing_appcast.xml > temp_appcast.xml
+          mv temp_appcast.xml appcast.xml
+          
+          echo "Appcast.xml ready"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -160,6 +207,7 @@ jobs:
             spacemap-*-x86_64.dmg
             spacemap-*-universal.dmg
             checksums.txt
+            appcast.xml
 
       - name: Update Homebrew tap
         if: env.HOMEBREW_TAP_TOKEN != ''

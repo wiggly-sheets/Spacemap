@@ -42,6 +42,11 @@ app: build
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_CONTENTS)/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_CONTENTS)/
 	sed -i '' "s/$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/')/$(VERSION)/g" $(APP_CONTENTS)/Info.plist
+	@# Add Sparkle keys (if SPARKLE_PUBLIC_KEY is set)
+	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
+		/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://zebrium.github.io/spacemap/appcast.xml" $(APP_CONTENTS)/Info.plist 2>/dev/null || true; \
+		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true; \
+	fi
 	cp Sources/spacemap/spacemap.icns $(APP_CONTENTS)/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_CONTENTS)/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_CONTENTS)/Resources/
@@ -52,6 +57,11 @@ app-arm64: build-arm64
 	cp $(BUILD_ARM64)/$(APP_NAME) $(APP_NAME)-arm64.app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME)-arm64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-arm64.app/Contents/Info.plist
+	@# Add Sparkle keys (if SPARKLE_PUBLIC_KEY is set)
+	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
+		/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://zebrium.github.io/spacemap/appcast.xml" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true; \
+		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true; \
+	fi
 	cp Sources/spacemap/spacemap.icns $(APP_NAME)-arm64.app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-arm64.app/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_NAME)-arm64.app/Contents/Resources/
@@ -63,6 +73,11 @@ app-x86_64: build-x86_64
 	cp $(BUILD_X86_64)/$(APP_NAME) $(APP_NAME)-x86_64.app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME)-x86_64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-x86_64.app/Contents/Info.plist
+	@# Add Sparkle keys (if SPARKLE_PUBLIC_KEY is set)
+	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
+		/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://zebrium.github.io/spacemap/appcast.xml" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true; \
+		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true; \
+	fi
 	cp Sources/spacemap/spacemap.icns $(APP_NAME)-x86_64.app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-x86_64.app/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_NAME)-x86_64.app/Contents/Resources/
@@ -74,6 +89,11 @@ app-universal: build-universal
 	cp .build/universal/release/$(APP_NAME) $(APP_NAME).app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME).app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME).app/Contents/Info.plist
+	@# Add Sparkle keys (if SPARKLE_PUBLIC_KEY is set)
+	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
+		/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://zebrium.github.io/spacemap/appcast.xml" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || true; \
+		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || true; \
+	fi
 	cp Sources/spacemap/spacemap.icns $(APP_NAME).app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME).app/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_NAME).app/Contents/Resources/
