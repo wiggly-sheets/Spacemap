@@ -58,6 +58,7 @@ enum ConfigReader {
         var customHUDX = GridConfig.default.customHUDX
         var customHUDY = GridConfig.default.customHUDY
         var showExtraWindows = GridConfig.default.showExtraWindows
+        var updateMode = GridConfig.default.updateMode
 
         for line in text.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -190,6 +191,13 @@ enum ConfigReader {
                         spaceNames[id] = parts[1].trimmingCharacters(in: .whitespaces)
                     }
                 }
+            case "UPDATE_MODE":
+                switch value.lowercased() {
+                case "auto": updateMode = .auto
+                case "notify": updateMode = .notify
+                case "off": updateMode = .off
+                default: updateMode = .notify
+                }
             default: break
             }
         }
@@ -200,7 +208,7 @@ enum ConfigReader {
             hudPosition = .custom(x: customHUDX, y: customHUDY)
         }
 
-        return GridConfig(cols: cols, rows: rows, cellStyle: cellStyle, hotkey: hotkey, socketHealthInterval: socketHealthInterval, uiScale: uiScale, autoHideTimeout: autoHideTimeout, theme: theme, showMode: showMode, maxSpaces: maxSpaces, backgroundAlpha: backgroundAlpha, mode: mode, iconScale: iconScale, showSpaceNumbers: showSpaceNumbers, showSpaceNames: showSpaceNames, showIconStrip: showIconStrip, showMultiAppIcons: showMultiAppIcons, hideMenuBarIcon: hideMenuBarIcon, spaceNames: spaceNames, useVimKeys: useVimKeys, useArrowKeys: useArrowKeys, hudPosition: hudPosition, customHUDX: customHUDX, customHUDY: customHUDY, showExtraWindows: showExtraWindows)
+        return GridConfig(cols: cols, rows: rows, cellStyle: cellStyle, hotkey: hotkey, socketHealthInterval: socketHealthInterval, uiScale: uiScale, autoHideTimeout: autoHideTimeout, theme: theme, showMode: showMode, maxSpaces: maxSpaces, backgroundAlpha: backgroundAlpha, mode: mode, iconScale: iconScale, showSpaceNumbers: showSpaceNumbers, showSpaceNames: showSpaceNames, showIconStrip: showIconStrip, showMultiAppIcons: showMultiAppIcons, hideMenuBarIcon: hideMenuBarIcon, spaceNames: spaceNames, useVimKeys: useVimKeys, useArrowKeys: useArrowKeys, hudPosition: hudPosition, customHUDX: customHUDX, customHUDY: customHUDY, showExtraWindows: showExtraWindows, updateMode: updateMode)
     }
 
     static func hotkeyToString(_ hotkey: HotkeyConfig) -> String {
@@ -314,6 +322,7 @@ let content = """
         CUSTOM_HUD_Y=\(d.customHUDY)
         HUD_POSITION=\(d.hudPosition == .center ? "center" : d.hudPosition == .top ? "top" : d.hudPosition == .bottom ? "bottom" : "custom")        # center | top | bottom | x,y
         SPACE_NAMES=\(d.spaceNames.map { "\($0.key):\($0.value)" }.joined(separator: ","))                  # comma-separated, e.g. "1:Term,2:Code"
+        UPDATE_MODE=\(d.updateMode.rawValue)                   # auto | notify | off
         """
         do {
             try content.write(toFile: path, atomically: true, encoding: .utf8)
@@ -323,7 +332,7 @@ let content = """
         }
     }
 
-    private static func saveConfig(_ config: GridConfig) {
+    static func saveConfig(_ config: GridConfig) {
         let path = NSString(string: "~/.config/spacemap/config").expandingTildeInPath
         let dir = (path as NSString).deletingLastPathComponent
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
@@ -357,6 +366,7 @@ let content = """
         CUSTOM_HUD_Y=\(config.customHUDY)
         HUD_POSITION=\(hudPositionString(config.hudPosition))        # center | top | bottom | custom
         SPACE_NAMES=\(config.spaceNames.map { "\($0.key):\($0.value)" }.joined(separator: ","))                  # comma-separated, e.g. "1:Term,2:Code"
+        UPDATE_MODE=\(config.updateMode.rawValue)                   # auto | notify | off
         """
         do {
             try content.write(toFile: path, atomically: true, encoding: .utf8)

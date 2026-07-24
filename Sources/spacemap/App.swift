@@ -1,7 +1,8 @@
 import AppKit
 import ServiceManagement
+import Sparkle
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private let hud = HUDWindowController()
     private var hotkey: HotkeyMonitor?
     private var socketListener: SocketListener?
@@ -9,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
+    private var sparkleUpdaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
@@ -43,13 +45,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Normal setup (do not run for exit-only CLI args)
         NSApp.setActivationPolicy(.prohibited)
         
-        // Check if app is in /Applications folder, if not, prompt to move
-        checkApplicationLocation()
-        
-        // Ensure symlink exists in /usr/local/bin for easy CLI access
-        ensureSymlink()
-        
-        setupMenubar()
         // Check yabai before doing anything else
         if !YabaiClient.isYabaiRunning() {
             showYabaiAlert()
@@ -59,6 +54,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if isMRUSpacesEnabled() {
             showMRUAlert()
         }
+        
+        // Check if app is in /Applications folder, if not, prompt to move
+        checkApplicationLocation()
+        
+        // Ensure symlink exists in /usr/local/bin for easy CLI access
+        ensureSymlink()
+        
+        setupMenubar()
         
         // Delay slightly so TCC/LaunchServices finishes registering the app
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -94,6 +97,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.restartHotkey(config: config)
                 self.applyMenubarVisibility(config: config)
             }
+
+            // Initialize Sparkle updater
+            self.sparkleUpdaterController = SPUStandardUpdaterController(
+                startingUpdater: true,
+                updaterDelegate: self,
+                userDriverDelegate: nil
+            )
+            self.configureSparkleUpdater(updateMode: config.updateMode)
         }
         
         // Handle non-exit CLI arguments (after normal setup)
@@ -308,6 +319,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showFirstLaunchLaunchAtLoginPrompt()
             defaults.set(true, forKey: "HasAskedLaunchAtLogin")
         }
+        
+        // Ask about update preferences if not asked before
+        let hasAskedUpdate = defaults.bool(forKey: "HasAskedUpdatePreference")
+        if !hasAskedUpdate {
+            showFirstLaunchUpdatePreferencePrompt()
+            defaults.set(true, forKey: "HasAskedUpdatePreference")
+        }
     }
 
     private func showMoveToApplicationsDialog() {
@@ -360,6 +378,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if response == .alertFirstButtonReturn {
             setLoginAtLogin(enabled: true)
         }
+    }
+    
+    private func showFirstLaunchUpdatePreferencePrompt() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = NSLocalizedString("Automatic Updates?", comment: "")
+        alert.informativeText = NSLocalizedString("How would you like spacemap to check for updates?", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Auto (Download & Install)", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Notify (Check & Prompt)", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Off", comment: ""))
+
+        let response = alert.runModal()
+        let updateMode: UpdateMode
+        switch response {
+        case .alertFirstButtonReturn:
+            updateMode = .auto
+        case .alertSecondButtonReturn:
+            updateMode = .notify
+        default:
+            updateMode = .off
+        }
+
+        var config = ConfigReader.load()
+        config.updateMode = updateMode
+        ConfigReader.saveConfig(config)
+        configureSparkleUpdater(updateMode: updateMode)
     }
 
     private func showYabaiAlert() {
@@ -468,7 +512,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // Ensure a symlink exists in /usr/local/bin for easy CLI access
     private func ensureSymlink() {
         let symlinkPath = "/usr/local/bin/spacemap"
         let executablePath = "/Applications/spacemap.app/Contents/MacOS/spacemap"
@@ -482,6 +525,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             print("spacemap: failed to create symlink at \(symlinkPath): \(error)")
         }
+    }
+
+    private func configureSparkleUpdater(updateMode: UpdateMode) {
+        guard let updater = sparkleUpdaterController?.updater else { return }
+        switch updateMode {
+        case .auto:
+            updater.automaticallyDownloadsUpdates = true
+            updater.automaticallyChecksForUpdates = true
+        case .notify:
+            updater.automaticallyDownloadsUpdates = false
+            updater.automaticallyChecksForUpdates = true
+        case .off:
+            updater.automaticallyChecksForUpdates = false
+        }
+    }
+
+    // MARK: - SPUUpdaterDelegate
+
+    func updaterDidFinish(_ updater: SPUUpdater) {
+    }
+
+    func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+        print("Spacemap update error: \(error)")
     }
 }
 
