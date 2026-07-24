@@ -175,7 +175,7 @@ jobs:
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl plet/elements/1.1/">
   <channel>
     <title>spacemap</title>
-    <link>https://zebrium.github.io/spacemap/appcast.xml</link>
+    <link>https://wiggly-sheets.github.io/spacemap/appcast.xml</link>
     <description>Most recent changes with links to the binaries.</description>
     <language>en</language>
     <item>
@@ -189,7 +189,7 @@ jobs:
 APPCAST_EOF
           
           # Update existing appcast or create new
-          curl -s https://zebrium.github.io/spacemap/appcast.xml > existing_appcast.xml 2>/dev/null || touch existing_appcast.xml
+          curl -s https://wiggly-sheets.github.io/spacemap/appcast.xml > existing_appcast.xml 2>/dev/null || touch existing_appcast.xml
           
           # Prepend new item to existing appcast
           cat appcast.xml existing_appcast.xml > temp_appcast.xml
