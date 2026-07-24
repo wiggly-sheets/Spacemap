@@ -10,6 +10,8 @@ DMG       = spacemap-$(VERSION).dmg
 DMG_STAGE = dmgstage
 BUILD_ARM64 = .build/arm64-apple-macosx/release
 BUILD_X86_64 = .build/x86_64-apple-macosx/release
+# Sparkle public key for update verification (set via env or read from sparklesigner.pub)
+SPARKLE_PUBLIC_KEY ?= $(shell cat sparklesigner.pub 2>/dev/null | tr -d '\n')
 
 .PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal generate-xcodeproj test
 
@@ -38,30 +40,30 @@ build-universal: build-arm64 build-x86_64
 
 app: build
 	mkdir -p $(APP_CONTENTS)/MacOS
+	mkdir -p $(APP_CONTENTS)/Frameworks
 	mkdir -p $(APP_CONTENTS)/Resources
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_CONTENTS)/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_CONTENTS)/
 	sed -i '' "s/$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/')/$(VERSION)/g" $(APP_CONTENTS)/Info.plist
-	@# Add Sparkle keys (if SPARKLE_PUBLIC_KEY is set)
-	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
-		/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://zebrium.github.io/spacemap/appcast.xml" $(APP_CONTENTS)/Info.plist 2>/dev/null || true; \
-		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true; \
-	fi
+	/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
+	# Copy Sparkle framework (extract from xcframework structure)
+	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_CONTENTS)/Frameworks/
 	cp Sources/spacemap/spacemap.icns $(APP_CONTENTS)/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_CONTENTS)/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_CONTENTS)/Resources/
 
 app-arm64: build-arm64
 	mkdir -p $(APP_NAME)-arm64.app/Contents/MacOS
+	mkdir -p $(APP_NAME)-arm64.app/Contents/Frameworks
 	mkdir -p $(APP_NAME)-arm64.app/Contents/Resources
 	cp $(BUILD_ARM64)/$(APP_NAME) $(APP_NAME)-arm64.app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME)-arm64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-arm64.app/Contents/Info.plist
-	@# Add Sparkle keys (if SPARKLE_PUBLIC_KEY is set)
-	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
-		/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://zebrium.github.io/spacemap/appcast.xml" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true; \
-		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true; \
-	fi
+	/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
+	# Copy Sparkle framework (extract from xcframework structure)
+	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-arm64.app/Contents/Frameworks/
 	cp Sources/spacemap/spacemap.icns $(APP_NAME)-arm64.app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-arm64.app/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_NAME)-arm64.app/Contents/Resources/
@@ -69,15 +71,15 @@ app-arm64: build-arm64
 
 app-x86_64: build-x86_64
 	mkdir -p $(APP_NAME)-x86_64.app/Contents/MacOS
+	mkdir -p $(APP_NAME)-x86_64.app/Contents/Frameworks
 	mkdir -p $(APP_NAME)-x86_64.app/Contents/Resources
 	cp $(BUILD_X86_64)/$(APP_NAME) $(APP_NAME)-x86_64.app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME)-x86_64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-x86_64.app/Contents/Info.plist
-	@# Add Sparkle keys (if SPARKLE_PUBLIC_KEY is set)
-	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
-		/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://zebrium.github.io/spacemap/appcast.xml" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true; \
-		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true; \
-	fi
+	/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
+	# Copy Sparkle framework (extract from xcframework structure)
+	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-x86_64.app/Contents/Frameworks/
 	cp Sources/spacemap/spacemap.icns $(APP_NAME)-x86_64.app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-x86_64.app/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_NAME)-x86_64.app/Contents/Resources/
@@ -85,15 +87,15 @@ app-x86_64: build-x86_64
 
 app-universal: build-universal
 	mkdir -p $(APP_NAME).app/Contents/MacOS
+	mkdir -p $(APP_NAME).app/Contents/Frameworks
 	mkdir -p $(APP_NAME).app/Contents/Resources
 	cp .build/universal/release/$(APP_NAME) $(APP_NAME).app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME).app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME).app/Contents/Info.plist
-	@# Add Sparkle keys (if SPARKLE_PUBLIC_KEY is set)
-	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
-		/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://zebrium.github.io/spacemap/appcast.xml" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || true; \
-		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || true; \
-	fi
+	/usr/libexec/PlistBuddy -c "Add :SUAppcastURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || true
+	# Copy Sparkle framework (extract from xcframework structure)
+	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME).app/Contents/Frameworks/
 	cp Sources/spacemap/spacemap.icns $(APP_NAME).app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME).app/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_NAME).app/Contents/Resources/
@@ -147,13 +149,14 @@ _dmg:
 
 install: app
 	mkdir -p $(INSTALL_PATH)/Contents/MacOS
+	mkdir -p $(INSTALL_PATH)/Contents/Frameworks
 	mkdir -p $(INSTALL_PATH)/Contents/Resources
 	cp $(APP_CONTENTS)/MacOS/$(APP_NAME) $(INSTALL_PATH)/Contents/MacOS/
 	cp $(APP_CONTENTS)/Info.plist $(INSTALL_PATH)/Contents/
+	cp -R $(APP_CONTENTS)/Frameworks/Sparkle.framework $(INSTALL_PATH)/Contents/Frameworks/
 	cp Sources/spacemap/spacemap.icns $(INSTALL_PATH)/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(INSTALL_PATH)/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(INSTALL_PATH)/Contents/Resources/
-	codesign --force --deep --sign - $(INSTALL_PATH)
 	@echo "Installed to $(INSTALL_PATH)"
 
 run: install

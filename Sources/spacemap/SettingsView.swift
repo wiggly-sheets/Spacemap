@@ -386,50 +386,51 @@ Picker("Cell Style", selection: $cellStyle) {
                 }
             }
             
-            Section(header: Text("Behavior").font(.title).bold()) {
-                HotkeyRecorder(label: "Hotkey", hotkey: $hotkeyString)
-                    .onChange(of: hotkeyString) { _ in saveConfig() }
-                Picker("HUD Position", selection: $hudPositionKind) {
-                    Text("Center").tag(HUDPositionKind.center)
-                    Text("Top").tag(HUDPositionKind.top)
-                    Text("Bottom").tag(HUDPositionKind.bottom)
-                    Text("Custom").tag(HUDPositionKind.custom)
-                }
-                .onChange(of: hudPositionKind) { _ in saveConfig() }
-                if case .custom = hudPosition {
-                    Text("Drag the HUD to reposition. Position is saved automatically.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-                HStack {
-                    Text("Auto-hide Timeout (s) (0 = disabled):")
-                    Spacer()
-                    Text("\(autoHideTimeout)")
-                    Stepper("", value: $autoHideTimeout, in: 0...60)
-                        .labelsHidden()
-                        .onChange(of: autoHideTimeout) { _ in saveConfig() }
-                }
-                Toggle("Navigate with Arrow Keys (←↑↓→)", isOn: $useArrowKeys)
-                    .onChange(of: useArrowKeys) { _ in saveConfig() }
-                Toggle("Navigate with Vim Keys (hjkl)", isOn: $useVimKeys)
-                    .onChange(of: useVimKeys) { _ in saveConfig() }
-                Toggle("Hide Menu Bar Icon", isOn: $hideMenuBarIcon)
-                    .onChange(of: hideMenuBarIcon) { _ in saveConfig() }
-                if hideMenuBarIcon {
-                    Text("Access settings by relaunching the app or pressing ⌘, while the HUD is open.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-            }
+Section(header: Text("Behavior").font(.title).bold()) {
+                 HotkeyRecorder(label: "Hotkey", hotkey: $hotkeyString)
+                     .onChange(of: hotkeyString) { _ in saveConfig() }
+                 Picker("HUD Position", selection: $hudPositionKind) {
+                     Text("Center").tag(HUDPositionKind.center)
+                     Text("Top").tag(HUDPositionKind.top)
+                     Text("Bottom").tag(HUDPositionKind.bottom)
+                     Text("Custom").tag(HUDPositionKind.custom)
+                 }
+                 .onChange(of: hudPositionKind) { _ in saveConfig() }
+                 if case .custom = hudPosition {
+                     Text("Drag the HUD to reposition. Position is saved automatically.")
+                         .font(.footnote)
+                         .foregroundColor(.secondary)
+                 }
+                 HStack {
+                     Text("Auto-hide Timeout (s) (0 = disabled):")
+                     Spacer()
+                     Text("\(autoHideTimeout)")
+                     Stepper("", value: $autoHideTimeout, in: 0...60)
+                         .labelsHidden()
+                         .onChange(of: autoHideTimeout) { _ in saveConfig() }
+                 }
+                 Toggle("Navigate with Arrow Keys (←↑↓→)", isOn: $useArrowKeys)
+                     .onChange(of: useArrowKeys) { _ in saveConfig() }
+                 Toggle("Navigate with Vim Keys (hjkl)", isOn: $useVimKeys)
+                     .onChange(of: useVimKeys) { _ in saveConfig() }
+                 Toggle("Hide Menu Bar Icon", isOn: $hideMenuBarIcon)
+                     .onChange(of: hideMenuBarIcon) { _ in saveConfig() }
+                 if hideMenuBarIcon {
+                     Text("Access settings by relaunching the app or pressing ⌘, while the HUD is open.")
+                         .font(.footnote)
+                         .foregroundColor(.secondary)
+                 }
+                 
+                 Divider()
+                 
+                 Picker("Automatic Updates", selection: $updateMode) {
+                     Text("Auto (Download & Install)").tag(UpdateMode.auto)
+                     Text("Notify (Check & Prompt)").tag(UpdateMode.notify)
+                     Text("Off").tag(UpdateMode.off)
+                 }
+                 .onChange(of: updateMode) { _ in saveConfig() }
+             }
             
-            Section(header: Text("Updates").font(.title).bold()) {
-                Picker("Automatic Updates", selection: $updateMode) {
-                    Text("Auto (Download & Install)").tag(UpdateMode.auto)
-                    Text("Notify (Check & Prompt)").tag(UpdateMode.notify)
-                    Text("Off").tag(UpdateMode.off)
-                }
-                .onChange(of: updateMode) { _ in saveConfig() }
-            }
             
             Section(header: Text("Debug/Advanced").font(.title).bold()) {
                 Picker("Socket Health Interval (s)", selection: $socketHealthInterval) {
