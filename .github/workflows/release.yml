@@ -170,9 +170,9 @@ jobs:
           DMG_HASH=$(shasum -a 256 "$DMG_FILE" | awk '{print $1}')
           
           # Generate appcast.xml
-          cat > appcast.xml << APPCAST_EOF
+          cat > appcast.xml << 'APPCAST_EOF'
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl plet/elements/1.1/">
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>spacemap</title>
     <link>https://wiggly-sheets.github.io/spacemap/appcast.xml</link>
