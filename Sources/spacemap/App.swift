@@ -2,7 +2,7 @@ import AppKit
 import ServiceManagement
 import Sparkle
 
-final class AppDelegate: NSObject, NSApplicationDelegate, SUUpdaterDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private let hud = HUDWindowController()
     private var hotkey: HotkeyMonitor?
     private var socketListener: SocketListener?
@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SUUpdaterDelegate {
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
-    private var sparkleUpdater: SUUpdater?
+    private var sparkleUpdaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
@@ -98,8 +98,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SUUpdaterDelegate {
             }
 
             // Initialize Sparkle updater
-            self.sparkleUpdater = SUUpdater.shared()
-            self.sparkleUpdater?.delegate = self
+            self.sparkleUpdaterController = SPUStandardUpdaterController(
+                startingUpdater: true,
+                updaterDelegate: self,
+                userDriverDelegate: nil
+            )
             self.configureSparkleUpdater(updateMode: config.updateMode)
         }
         
@@ -491,25 +494,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SUUpdaterDelegate {
     }
 
     private func configureSparkleUpdater(updateMode: UpdateMode) {
+        guard let updater = sparkleUpdaterController?.updater else { return }
         switch updateMode {
         case .auto:
-            sparkleUpdater?.automaticallyDownloadsUpdates = true
-            sparkleUpdater?.automaticallyChecksForUpdates = true
+            updater.automaticallyDownloadsUpdates = true
+            updater.automaticallyChecksForUpdates = true
         case .notify:
-            sparkleUpdater?.automaticallyDownloadsUpdates = false
-            sparkleUpdater?.automaticallyChecksForUpdates = true
+            updater.automaticallyDownloadsUpdates = false
+            updater.automaticallyChecksForUpdates = true
         case .off:
-            sparkleUpdater?.automaticallyChecksForUpdates = false
+            updater.automaticallyChecksForUpdates = false
         }
     }
 
-    // MARK: - SUUpdaterDelegate
+    // MARK: - SPUUpdaterDelegate
 
-    func updaterDidFinish(_ updater: SUUpdater) {
-        // Update installed and ready to relaunch
+    func updaterDidFinish(_ updater: SPUUpdater) {
     }
 
-    func updater(_ updater: SUUpdater, didAbortWithError error: Error) {
+    func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
         print("Spacemap update error: \(error)")
     }
 }
