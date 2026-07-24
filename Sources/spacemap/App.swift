@@ -45,13 +45,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Normal setup (do not run for exit-only CLI args)
         NSApp.setActivationPolicy(.prohibited)
         
-        // Check if app is in /Applications folder, if not, prompt to move
-        checkApplicationLocation()
-        
-        // Ensure symlink exists in /usr/local/bin for easy CLI access
-        ensureSymlink()
-        
-        setupMenubar()
         // Check yabai before doing anything else
         if !YabaiClient.isYabaiRunning() {
             showYabaiAlert()
@@ -61,6 +54,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         if isMRUSpacesEnabled() {
             showMRUAlert()
         }
+        
+        // Check if app is in /Applications folder, if not, prompt to move
+        checkApplicationLocation()
+        
+        // Ensure symlink exists in /usr/local/bin for easy CLI access
+        ensureSymlink()
+        
+        setupMenubar()
         
         // Delay slightly so TCC/LaunchServices finishes registering the app
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -318,6 +319,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             showFirstLaunchLaunchAtLoginPrompt()
             defaults.set(true, forKey: "HasAskedLaunchAtLogin")
         }
+        
+        // Ask about update preferences if not asked before
+        let hasAskedUpdate = defaults.bool(forKey: "HasAskedUpdatePreference")
+        if !hasAskedUpdate {
+            showFirstLaunchUpdatePreferencePrompt()
+            defaults.set(true, forKey: "HasAskedUpdatePreference")
+        }
     }
 
     private func showMoveToApplicationsDialog() {
@@ -370,6 +378,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         if response == .alertFirstButtonReturn {
             setLoginAtLogin(enabled: true)
         }
+    }
+    
+    private func showFirstLaunchUpdatePreferencePrompt() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = NSLocalizedString("Automatic Updates?", comment: "")
+        alert.informativeText = NSLocalizedString("How would you like spacemap to check for updates?", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Auto (Download & Install)", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Notify (Check & Prompt)", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Off", comment: ""))
+
+        let response = alert.runModal()
+        let updateMode: UpdateMode
+        switch response {
+        case .alertFirstButtonReturn:
+            updateMode = .auto
+        case .alertSecondButtonReturn:
+            updateMode = .notify
+        default:
+            updateMode = .off
+        }
+
+        var config = ConfigReader.load()
+        config.updateMode = updateMode
+        ConfigReader.saveConfig(config)
+        configureSparkleUpdater(updateMode: updateMode)
     }
 
     private func showYabaiAlert() {
