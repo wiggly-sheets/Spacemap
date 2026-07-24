@@ -197,6 +197,32 @@ APPCAST_EOF
           
           echo "Appcast.xml ready"
 
+      - name: Update docs branch with appcast
+        if: env.SPARKLE_PUBLIC_KEY != ''
+        run: |
+          # Fetch the default branch
+          git fetch origin ${{ github.event.repository.default_branch }}
+          # Checkout the default branch
+          git checkout ${{ github.event.repository.default_branch }}
+          # Ensure docs directory exists
+          mkdir -p docs
+          # Copy the generated appcast.xml
+          cp appcast.xml docs/
+          # Ensure .nojekyll exists
+          if [ ! -f docs/.nojekyll ]; then touch docs/.nojekyll; fi
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Add changes
+          git add docs/appcast.xml docs/.nojekyll
+          # Commit if there are changes
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Sparkle appcast [skip ci]"
+            # Push back
+            git push origin HEAD:${{ github.event.repository.default_branch }}
+          else
+            echo "No changes to appcast"
+          fi
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
