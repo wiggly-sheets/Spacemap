@@ -236,6 +236,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         let settingsWindowController = SettingsWindowController()
         settingsWindowController.showWindow()
+        if let window = settingsWindowController.window {
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification,
+                object: window,
+                queue: .main
+            ) { _ in
+                NSApp.setActivationPolicy(.prohibited)
+            }
+        }
     }
 
     @objc private func toggleLaunchAtLogin() {
