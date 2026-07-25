@@ -197,25 +197,6 @@ jobs:
           chmod +x .github/scripts/generate-appcast.sh
           .github/scripts/generate-appcast.sh
 
-      - name: Update docs branch with appcast
-        if: env.SPARKLE_PUBLIC_KEY != ''
-        run: |
-          cd /Users/runner/work/spacemap/repo
-          git fetch origin ${{ github.event.repository.default_branch }}
-          git checkout -B ${{ github.event.repository.default_branch }} origin/${{ github.event.repository.default_branch }}
-          mkdir -p docs
-          cp appcast.xml docs/
-          if [ ! -f docs/.nojekyll ]; then touch docs/.nojekyll; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/appcast.xml docs/.nojekyll
-          if ! git diff --cached --quiet; then
-            git commit -m "Update Sparkle appcast [skip ci]"
-            git push origin HEAD:${{ github.event.repository.default_branch }}
-          else
-            echo "No changes to appcast"
-          fi
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -274,6 +255,25 @@ jobs:
           git add Casks/spacemap.rb
           git commit -m "spacemap ${VERSION}" || echo "No changes"
           git push
+
+      - name: Update docs branch with appcast
+        if: env.SPARKLE_PUBLIC_KEY != ''
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          git fetch origin ${{ github.event.repository.default_branch }}
+          git checkout -B ${{ github.event.repository.default_branch }} origin/${{ github.event.repository.default_branch }}
+          mkdir -p docs
+          cp appcast.xml docs/
+          if [ ! -f docs/.nojekyll ]; then touch docs/.nojekyll; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/appcast.xml docs/.nojekyll
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Sparkle appcast [skip ci]"
+            git push origin HEAD:${{ github.event.repository.default_branch }}
+          else
+            echo "No changes to appcast"
+          fi
 
       - name: Cleanup keychain
         if: always() && env.KEYCHAIN_PATH != ''
