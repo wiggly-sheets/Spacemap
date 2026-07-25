@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>Spacemap</title>
-    <link>https://wiggly-sheets.github.io/spacemap/appcast.xml</link>
+    <link>https://wiggly-sheets.github.io/Spacemap/appcast.xml</link>
     <description>Most recent changes with links to the binaries.</description>
     <language>en</language>
     <item>
@@ -10,7 +10,7 @@
       <sparkle:version>1.0.10</sparkle:version>
       <sparkle:shortVersionString>1.0.10</sparkle:shortVersionString>
       <sparkle:releaseNotesLink>https://github.com/wiggly-sheets/spacemap/releases/tag/v1.0.10</sparkle:releaseNotesLink>
-      <enclosure url="https://github.com/wiggly-sheets/spacemap/releases/download/v1.0.10/spacemap-1.0.10-universal.dmg" length="1514037" type="application/octet-stream" sparkle:architecture="universal"/>
+      <enclosure url="https://github.com/wiggly-sheets/Spacemap/releases/download/v1.0.10/spacemap-1.0.10-universal.dmg" length="1514035" type="application/octet-stream" sparkle:architecture="universal"/>
     </item>
   </channel>
 </rss>
