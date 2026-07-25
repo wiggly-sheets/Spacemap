@@ -1,8 +1,12 @@
 import Foundation
 import AppKit
 
-enum YabaiClient {
-    private static let yabaiPath: String = {
+final class YabaiClient: WindowManager {
+    static let shared = YabaiClient()
+
+    var type: WindowManagerType { .yabai }
+
+    private let yabaiPath: String = {
         let arm = "/opt/homebrew/bin/yabai"
         let intel = "/usr/local/bin/yabai"
         if FileManager.default.isExecutableFile(atPath: arm) { return arm }
@@ -10,10 +14,12 @@ enum YabaiClient {
         return arm
     }()
 
-    private static var _yabaiRunningCache: (result: Bool, checkedAt: TimeInterval)?
-    private static let yabaiCacheTTL: TimeInterval = 5.0
+    private var _yabaiRunningCache: (result: Bool, checkedAt: TimeInterval)?
+    private let yabaiCacheTTL: TimeInterval = 5.0
 
-    static func isYabaiRunning() -> Bool {
+    private init() {}
+
+    func isRunning() -> Bool {
         let now = ProcessInfo.processInfo.systemUptime
         if let cached = _yabaiRunningCache, now - cached.checkedAt < yabaiCacheTTL {
             return cached.result
@@ -23,64 +29,90 @@ enum YabaiClient {
         _yabaiRunningCache = (result, now)
         return result
     }
-    
-    static func querySpaces() throws -> [YabaiSpace] {
+
+    private func isYabaiRunning() -> Bool { isRunning() }
+
+    func querySpaces() -> [YabaiSpace] {
         guard isYabaiRunning() else { return [] }
-        return try querySpacesRaw()
+        return (try? querySpacesRaw()) ?? []
     }
-    
-    static func queryWindows() throws -> [YabaiWindow] {
+
+    func queryWindows() throws -> [YabaiWindow] {
         guard isYabaiRunning() else { return [] }
         return try queryWindowsRaw()
     }
 
-    private static func querySpacesRaw() throws -> [YabaiSpace] {
+    private func querySpacesRaw() throws -> [YabaiSpace] {
         let output = try shell(yabaiPath, "-m", "query", "--spaces")
         return try JSONDecoder().decode([YabaiSpace].self, from: Data(output.utf8))
     }
 
-    private static func queryWindowsRaw() throws -> [YabaiWindow] {
+    private func queryWindowsRaw() throws -> [YabaiWindow] {
         let output = try shell(yabaiPath, "-m", "query", "--windows")
         return try JSONDecoder().decode([YabaiWindow].self, from: Data(output.utf8))
     }
-    
-    static func queryFocusedWindow() throws -> Int? {
+
+    func queryFocusedWindow() -> Int? {
         guard isYabaiRunning() else { return nil }
-        let output = try shell(yabaiPath, "-m", "query", "--windows", "--window")
+        let output = (try? shell(yabaiPath, "-m", "query", "--windows", "--window")) ?? ""
         guard let data = output.data(using: .utf8),
               let json = try? JSONDecoder().decode(YabaiWindow.self, from: data) else { return nil }
         return json.id
     }
-    
-    static func queryFocusedSpaceIndex() -> Int? {
+
+    func queryFocusedSpaceIndex() -> Int? {
         guard isYabaiRunning() else { return nil }
-        do {
-            let spaces = try querySpacesRaw()
-            return spaces.first { $0.hasFocus }?.index
-        } catch {
-            return nil
-        }
+        return (try? querySpacesRaw())?.first { $0.hasFocus }?.index
     }
-    
-    static func registerSignals(socketPath: String) {
+
+    func startListening(socketPath: String, onRefresh: @escaping () -> Void, onShow: @escaping () -> Void, onSettings: @escaping () -> Void) {
         guard isYabaiRunning() else { return }
+        SocketListener.shared.start(socketPath: socketPath, onRefresh: onRefresh, onShow: onShow, onSettings: onSettings)
         let action = "echo 1 | nc -U \(socketPath)"
         _ = try? shell(yabaiPath, "-m", "signal", "--add",
                        "label=spacemap_space_changed",
                        "event=space_changed",
                        "action=\(action)")
     }
-    
-    static func removeSignals() {
-        guard isYabaiRunning() else { return }
+
+    func stopListening() {
         _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_space_changed")
+        SocketListener.shared.stop()
     }
-    
-    static func focusSpace(_ index: Int) {
+
+    func focusSpace(_ index: Int) {
         _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)")
     }
-    
-    static func showSpacemap() {
+
+    func moveWindow(_ windowID: Int, toSpace spaceIndex: Int) {
+        _ = try? shell(yabaiPath, "-m", "window", "\(windowID)", "--space", "\(spaceIndex)")
+    }
+
+    func buildGridState(config: GridConfig, focusedIndex: Int?) -> GridState {
+        guard isYabaiRunning() else {
+            let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
+            return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
+        }
+        var spaces: [YabaiSpace] = []
+        var windows: [YabaiWindow] = []
+        let group = DispatchGroup()
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            spaces = (try? self.querySpacesRaw()) ?? []
+            group.leave()
+        }
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            windows = (try? self.queryWindowsRaw()) ?? []
+            group.leave()
+        }
+        group.wait()
+        let resolvedFocus = focusedIndex ?? spaces.first { $0.hasFocus }?.index
+        let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
+        return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus)
+    }
+
+    func showSpacemap() {
         let path = "/tmp/spacemap_\(NSUserName()).socket"
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { return }
@@ -96,36 +128,8 @@ enum YabaiClient {
         var buf: [UInt8] = [2]
         _ = write(fd, &buf, buf.count)
     }
-    
-    static func moveWindow(_ windowID: Int, toSpace spaceIndex: Int) {
-        _ = try? shell(yabaiPath, "-m", "window", "\(windowID)", "--space", "\(spaceIndex)")
-    }
-    
-    static func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
-        guard isYabaiRunning() else {
-            let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
-            return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
-        }
-        var spaces: [YabaiSpace] = []
-        var windows: [YabaiWindow] = []
-        let group = DispatchGroup()
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            spaces = (try? querySpacesRaw()) ?? []
-            group.leave()
-        }
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            windows = (try? queryWindowsRaw()) ?? []
-            group.leave()
-        }
-        group.wait()
-        let resolvedFocus = focusedIndex ?? spaces.first { $0.hasFocus }?.index
-        let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
-        return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus)
-    }
 
-    private static func shell(_ args: String...) throws -> String {
+    private func shell(_ args: String...) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: args[0])
         process.arguments = Array(args.dropFirst())

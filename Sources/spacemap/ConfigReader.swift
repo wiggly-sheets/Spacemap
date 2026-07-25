@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import AppKit
 
 enum ConfigReader {
     static var silentMode = false
@@ -59,6 +60,7 @@ enum ConfigReader {
         var customHUDY = GridConfig.default.customHUDY
         var showExtraWindows = GridConfig.default.showExtraWindows
         var updateMode = GridConfig.default.updateMode
+        var windowManager = WindowManagerType(rawValue: "yabai") ?? .yabai
 
         for line in text.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -179,8 +181,8 @@ enum ConfigReader {
                 case "custom": hudPosition = .custom(x: 0, y: 0) // sentinel: coordinates set after CUSTOM_HUD_X/Y parsed
                 default:
                     let parts = value.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
-                    if parts.count == 2, parts[0] >= 0, parts[0] <= 1, parts[1] >= 0, parts[1] <= 1 {
-                        hudPosition = .custom(x: parts[0], y: parts[1])
+                    if parts.count == 2, let x = Double(parts[0]), let y = Double(parts[1]), x >= 0, x <= 1, y >= 0, y <= 1 {
+                        hudPosition = .custom(x: x, y: y)
                     }
                 }
             case "SPACE_NAMES":
@@ -198,109 +200,11 @@ enum ConfigReader {
                 case "off": updateMode = .off
                 default: updateMode = .notify
                 }
-            case "HOTKEY":
-                if let parsed = parseHotkey(value) {
-                    hotkey = parsed
+            case "WINDOW_MANAGER":
+                if let wm = WindowManagerType(rawValue: value) {
+                    windowManager = wm
                 } else {
-                    print("spacemap: unrecognized HOTKEY '\(value)', using default")
-                }
-            case "SOCKET_HEALTH_INTERVAL":
-                if let v = Int(value), v > 0 {
-                    socketHealthInterval = v
-                } else {
-                    print("spacemap: invalid SOCKET_HEALTH_INTERVAL '\(value)', using default")
-                }
-            case "UI_SCALE":
-                if let v = Double(value), v >= 0.1 && v <= 1.0 {
-                    uiScale = v
-                } else {
-                    print("spacemap: invalid UI_SCALE '\(value)', using default")
-                }
-            case "AUTO_HIDE_TIMEOUT":
-                if let v = Int(value), v >= 0 {
-                    autoHideTimeout = v
-                } else {
-                    print("spacemap/ConfigReader: FAILED to parse AUTO_HIDE_TIMEOUT value='\(value)'")
-                }
-            case "THEME":
-                theme = value
-            case "SHOW_MODE":
-                switch value {
-                case "active": showMode = .active
-                default:        showMode = .all
-                }
-            case "MAX_SPACES":
-                if let v = Int(value), v >= 1 && v <= 16 {
-                    maxSpaces = v
-                } else {
-                    print("spacemap: invalid MAX_SPACES '\(value)', using default")
-                }
-            case "BACKGROUND_ALPHA":
-                if let v = Double(value), v >= 0.0 && v <= 1.0 {
-                    backgroundAlpha = v
-                } else {
-                    print("spacemap: invalid BACKGROUND_ALPHA '\(value)', using default")
-                }
-            case "MODE":
-                switch value.lowercased() {
-                case "light": mode = .light
-                case "dark":  mode = .dark
-                case "auto", "automatic": mode = .auto
-                default:     mode = .auto
-                }
-            case "ICON_SCALE":
-                if let v = Double(value), v >= 0.0 && v <= 1.0 {
-                    iconScale = v
-                } else {
-                    print("spacemap: invalid ICON_SCALE '\(value)', using default")
-                }
-            case "SHOW_SPACE_NUMBERS":
-                showSpaceNumbers = (value.lowercased() == "true" || value.lowercased() == "1" || value.lowercased() == "yes")
-            case "SHOW_NAMES":
-                showSpaceNumbers = parseBool(value)
-            case "SHOW_SPACE_NAMES":
-                showSpaceNames = parseBool(value)
-            case "SHOW_ICON_STRIP":
-                showIconStrip = parseBool(value)
-            case "SHOW_MULTI_APP_ICONS":
-                showMultiAppIcons = parseBool(value)
-            case "HIDE_MENUBAR_ICON":
-                hideMenuBarIcon = parseBool(value)
-            case "VIM_KEYS":
-                useVimKeys = parseBool(value)
-            case "ARROW_KEYS":
-                useArrowKeys = parseBool(value)
-            case "CUSTOM_HUD_X":
-                if let v = Double(value), v >= 0.0 && v <= 1.0 {
-                    customHUDX = v
-                } else {
-                    print("spacemap: invalid CUSTOM_HUD_X '\(value)', using default")
-                }
-            case "CUSTOM_HUD_Y":
-                if let v = Double(value), v >= 0.0 && v <= 1.0 {
-                    customHUDY = v
-                } else {
-                    print("spacemap: invalid CUSTOM_HUD_Y '\(value)', using default")
-                }
-            case "HUD_POSITION":
-                switch value.lowercased() {
-                case "center": hudPosition = .center
-                case "top": hudPosition = .top
-                case "bottom": hudPosition = .bottom
-                case "custom": hudPosition = .custom(x: 0, y: 0) // sentinel: coordinates set after CUSTOM_HUD_X/Y parsed
-                default:
-                    let parts = value.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
-                    if parts.count == 2, parts[0] >= 0, parts[0] <= 1, parts[1] >= 0, parts[1] <= 1 {
-                        hudPosition = .custom(x: parts[0], y: parts[1])
-                    }
-                }
-            case "SPACE_NAMES":
-                let pairs = value.components(separatedBy: ",")
-                for pair in pairs {
-                    let parts = pair.components(separatedBy: ":")
-                    if parts.count == 2, let id = Int(parts[0].trimmingCharacters(in: .whitespaces)) {
-                        spaceNames[id] = parts[1].trimmingCharacters(in: .whitespaces)
-                    }
+                    print("spacemap: invalid WINDOW_MANAGER '\(value)', using default")
                 }
             default: break
             }
@@ -312,7 +216,35 @@ enum ConfigReader {
             hudPosition = .custom(x: customHUDX, y: customHUDY)
         }
 
-        return GridConfig(cols: cols, rows: rows, cellStyle: cellStyle, hotkey: hotkey, socketHealthInterval: socketHealthInterval, uiScale: uiScale, autoHideTimeout: autoHideTimeout, theme: theme, showMode: showMode, maxSpaces: maxSpaces, backgroundAlpha: backgroundAlpha, mode: mode, iconScale: iconScale, showSpaceNumbers: showSpaceNumbers, showSpaceNames: showSpaceNames, showIconStrip: showIconStrip, showMultiAppIcons: showMultiAppIcons, hideMenuBarIcon: hideMenuBarIcon, spaceNames: spaceNames, useVimKeys: useVimKeys, useArrowKeys: useArrowKeys, hudPosition: hudPosition, customHUDX: customHUDX, customHUDY: customHUDY, showExtraWindows: showExtraWindows, updateMode: updateMode)
+        return GridConfig(
+            cols: cols,
+            rows: rows,
+            cellStyle: cellStyle,
+            hotkey: hotkey,
+            socketHealthInterval: socketHealthInterval,
+            uiScale: uiScale,
+            autoHideTimeout: autoHideTimeout,
+            theme: theme,
+            showMode: showMode,
+            maxSpaces: maxSpaces,
+            backgroundAlpha: backgroundAlpha,
+            mode: mode,
+            iconScale: iconScale,
+            showSpaceNumbers: showSpaceNumbers,
+            showSpaceNames: showSpaceNames,
+            showIconStrip: showIconStrip,
+            showMultiAppIcons: showMultiAppIcons,
+            hideMenuBarIcon: hideMenuBarIcon,
+            spaceNames: spaceNames,
+            useVimKeys: useVimKeys,
+            useArrowKeys: useArrowKeys,
+            hudPosition: hudPosition,
+            customHUDX: customHUDX,
+            customHUDY: customHUDY,
+            showExtraWindows: showExtraWindows,
+            updateMode: updateMode,
+            windowManager: windowManager
+        )
     }
 
     static func hotkeyToString(_ hotkey: HotkeyConfig) -> String {
@@ -399,8 +331,9 @@ enum ConfigReader {
         backupConfig(path)
         let d = GridConfig.default
         let hotkeyStr = hotkeyToString(d.hotkey)
-        let modeStr = d.mode == .auto ? "auto" : d.mode.rawValue
-let content = """
+        let modeStr = d.mode.rawValue
+        let windowManagerStr = d.windowManager.rawValue
+        let content = """
         GRID_COLS=\(d.cols)
         GRID_ROWS=\(d.rows)
         CELL_STYLE=\(cellStyleName(d.cellStyle))              # rects | icons | thumbnails | simple
@@ -427,6 +360,7 @@ let content = """
         HUD_POSITION=\(d.hudPosition == .center ? "center" : d.hudPosition == .top ? "top" : d.hudPosition == .bottom ? "bottom" : "custom")        # center | top | bottom | x,y
         SPACE_NAMES=\(d.spaceNames.map { "\($0.key):\($0.value)" }.joined(separator: ","))                  # comma-separated, e.g. "1:Term,2:Code"
         UPDATE_MODE=\(d.updateMode.rawValue)                   # auto | notify | off
+        WINDOW_MANAGER=\(windowManagerStr)                     # yabai | aerospace | auto
         """
         do {
             try content.write(toFile: path, atomically: true, encoding: .utf8)
@@ -471,6 +405,7 @@ let content = """
         HUD_POSITION=\(hudPositionString(config.hudPosition))        # center | top | bottom | custom
         SPACE_NAMES=\(config.spaceNames.map { "\($0.key):\($0.value)" }.joined(separator: ","))                  # comma-separated, e.g. "1:Term,2:Code"
         UPDATE_MODE=\(config.updateMode.rawValue)                   # auto | notify | off
+        WINDOW_MANAGER=\(config.windowManager.rawValue)                     # yabai | aerospace | auto
         """
         do {
             try content.write(toFile: path, atomically: true, encoding: .utf8)

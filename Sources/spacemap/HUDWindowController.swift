@@ -37,6 +37,7 @@ class HUDWindowController {
     private var panelDragOffset: CGPoint?  // not used maybe
     private var panelDragOrigin: CGPoint?  // initial panel origin on drag start
     private var isPanelDragging = false
+    var windowManager: WindowManager?  // Injected by AppDelegate
     
     init() {
         dragHandler.onHoverCell = { [weak self] cell in
@@ -47,7 +48,7 @@ class HUDWindowController {
         }
         dragHandler.onDropInCell = { [weak self] windowID, spaceIndex in
             guard let self else { return }
-            YabaiClient.moveWindow(windowID, toSpace: spaceIndex)
+            self.windowManager?.moveWindow(windowID, toSpace: spaceIndex)
             hoveredCell = nil
             refreshState()
             resetAutoHideTimer()
@@ -86,11 +87,15 @@ class HUDWindowController {
         }
         
         // buildGridState derives focusedIndex from spaces query — no separate call needed
-        let state = YabaiClient.buildGridState(config: config)
+        guard let wm = windowManager else {
+            NSLog("spacemap/HUD: windowManager is nil")
+            return
+        }
+        let state = wm.buildGridState(config: config)
         currentState = state
         dragHandler.cachedWindows = state.windows
         // Capture focused window before HUD renders, so drag handler knows what the user had active.
-        if let focusedWindowID = (try? YabaiClient.queryFocusedWindow()) {
+        if let focusedWindowID = wm.queryFocusedWindow() {
             dragHandler.focusedWindowIDAtOpen = focusedWindowID
         }
         refreshThumbnailCache(state: state)
@@ -109,18 +114,7 @@ class HUDWindowController {
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
             guard let self, self.isVisible else { return }
-            if let focused = YabaiClient.queryFocusedSpaceIndex(), focused != self.lastFocusedSpaceIndex {
-                self.refreshState()
-                self.resetAutoHideTimer()
-            }
-        }
-    }
-    
-    private func startPollTimer() {
-        pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            guard let self, self.isVisible else { return }
-            if let focused = YabaiClient.queryFocusedSpaceIndex(), focused != self.lastFocusedSpaceIndex {
+            if let focused = self.windowManager?.queryFocusedSpaceIndex(), focused != self.lastFocusedSpaceIndex {
                 self.refreshState()
                 self.resetAutoHideTimer()
             }
@@ -156,7 +150,7 @@ class HUDWindowController {
         stopPanelDragMonitor()
     }
     
-    // Called by SocketListener — also handles full content refresh (windows moved etc.)
+    // Called by WindowManager's event listener — also handles full content refresh (windows moved etc.)
     func refresh() {
         guard isVisible, panel != nil else { return }
         resetAutoHideTimer()
@@ -165,7 +159,8 @@ class HUDWindowController {
     
     private func refreshState() {
         guard isVisible, let panel else { return }
-        let state = YabaiClient.buildGridState(config: config)
+        guard let wm = windowManager else { return }
+        let state = wm.buildGridState(config: config)
         currentState = state
         dragHandler.cachedWindows = state.windows
         refreshThumbnailCache(state: state)
@@ -177,7 +172,7 @@ class HUDWindowController {
     private func renderState(_ state: GridState, panel: NSPanel) {
         let hovered = hoveredCell
         let gridView = GridView(state: state, hoveredCell: hovered, onSelect: { [weak self] index in
-            YabaiClient.focusSpace(index)
+            self?.windowManager?.focusSpace(index)
             self?.hide()
         }, uiScale: config.uiScale, theme: config.theme)
         let size = gridView.idealSize
@@ -474,9 +469,9 @@ class HUDWindowController {
         }
 
         guard let t = target else { return }
-        YabaiClient.focusSpace(t)
+        windowManager?.focusSpace(t)
     }
-    
+
     private var screenHeight: CGFloat {
         NSScreen.main?.frame.height ?? 0
     }

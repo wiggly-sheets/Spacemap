@@ -15,8 +15,10 @@ class WindowDragHandler {
     var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
     // Cached window list populated at HUD-open time.
     var cachedWindows: [YabaiWindow] = []
-    // The yabai window that had focus when the HUD opened.
+    // The window that had focus when the HUD opened.
     var focusedWindowIDAtOpen: Int? = nil
+    // WindowManager instance for querying window manager (yabai or aerospace)
+    weak var windowManager: WindowManager?
 
     private var lastHoveredCell: Int? = nil
     private var draggedWindowID: Int? = nil
@@ -143,9 +145,22 @@ class WindowDragHandler {
             return focusedWindowIDAtOpen
         }
 
-        var candidates = cachedWindows.filter { $0.app == appName }
+        var candidates: [YabaiWindow] = []
+        if let wm = windowManager {
+            do {
+                let windows = try wm.queryWindows()
+                candidates = windows.filter { $0.app == appName }
+            } catch {
+                // Fallback to cached if query fails
+                candidates = cachedWindows.filter { $0.app == appName }
+            }
+        } else {
+            // No window manager available, use cached
+            candidates = cachedWindows.filter { $0.app == appName }
+        }
+
         if candidates.isEmpty {
-            candidates = ((try? YabaiClient.queryWindows()) ?? []).filter { $0.app == appName }
+            return focusedWindowIDAtOpen
         }
 
         guard !candidates.isEmpty else { return focusedWindowIDAtOpen }
