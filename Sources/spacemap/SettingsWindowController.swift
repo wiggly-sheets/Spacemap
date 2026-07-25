@@ -12,7 +12,7 @@ class SettingsWindowController: NSWindowController {
             defer: false
         )
         window.center()
-        window.title = "spacemap Settings"
+        window.title = "Spacemap Settings"
         window.contentViewController = hostingController
         window.minSize = NSSize(width: 500, height: 400)
         window.maxSize = NSSize(width: 800, height: 10000)

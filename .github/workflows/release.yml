@@ -188,8 +188,10 @@ jobs:
           export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
           export ED_SIGNATURE=""
           if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
-            echo "$SPARKLE_PRIVATE_KEY" > sparklesigner.pem
-            ED_SIGNATURE=$(openssl dgst -sha256 -sign sparklesigner.pem "spacemap-$VERSION-universal.dmg" | openssl base64 -A)
+            # Download Sparkle's sign_update tool
+            curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/2.7.1/Sparkle-2.7.1-bin.tar.xz" | tar -xJ
+            echo "$SPARKLE_PRIVATE_KEY" | ./Sparkle-2.7.1-bin/bin/sign_update --ed-key-file - -p "spacemap-$VERSION-universal.dmg" > sig.txt
+            ED_SIGNATURE=$(cat sig.txt)
             echo "ED_SIGNATURE computed"
           fi
           chmod +x .github/scripts/generate-appcast.sh

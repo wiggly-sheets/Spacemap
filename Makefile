@@ -45,6 +45,7 @@ app: build
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_CONTENTS)/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_CONTENTS)/
 	sed -i '' "s/$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/')/$(VERSION)/g" $(APP_CONTENTS)/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_CONTENTS)/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
@@ -62,6 +63,7 @@ app-arm64: build-arm64
 	cp $(BUILD_ARM64)/$(APP_NAME) $(APP_NAME)-arm64.app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME)-arm64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-arm64.app/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
@@ -80,6 +82,7 @@ app-x86_64: build-x86_64
 	cp $(BUILD_X86_64)/$(APP_NAME) $(APP_NAME)-x86_64.app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME)-x86_64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-x86_64.app/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
@@ -98,6 +101,7 @@ app-universal: build-universal
 	cp .build/universal/release/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_BUNDLE)/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_BUNDLE)/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)

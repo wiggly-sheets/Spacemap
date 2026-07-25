@@ -182,7 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: NSLocalizedString("Settings...", comment: ""), action: #selector(showSettingsWindow), keyEquivalent: ","))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Open Accessibility Permissions (for hotkey)", comment: ""), action: #selector(openAccessibility), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: NSLocalizedString("Open Accessibility Permissions (for hotkeys)", comment: ""), action: #selector(openAccessibility), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: NSLocalizedString("Open Screen Recording Permissions (for thumbnails)", comment: ""), action: #selector(openScreenRecording), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         // Launch at Login

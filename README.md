@@ -148,6 +148,16 @@ AUTO_HIDE_TIMEOUT=5
 #HOTKEY=ctrl+shift+s  # example with multiple modifiers
 ```
 
+### Updates
+
+| Option | Values | Default | Description |
+|--------|--------|---------|-------------|
+| `UPDATE_MODE` | `auto`, `notify`, `off` | `notify` | Automatic update behavior. `auto` downloads and installs without prompting; `notify` checks and prompts; `off` disables updates |
+
+```bash
+UPDATE_MODE=notify
+```
+
 ### Space Names
 
 `SPACE_NAMES` assigns custom names to spaces. Names appear in cell centers when `SHOW_SPACE_NAMES=true`.
@@ -189,6 +199,17 @@ brew install --cask jsheffie/tap/spacemap
 ```
 
 Or download the DMG from [releases](https://github.com/jsheffie/spacemap/releases), open it, and drag `Spacemap.app` to the Applications symlink. On first launch, Spacemap will ask if you want to move itself to /Applications.
+
+**If the app won't open after download**, macOS has quarantined it. Unblock it via:
+
+```bash
+# CLI method (works on all macOS versions)
+xattr -d com.apple.quarantine /Applications/spacemap.app
+```
+
+Or on **macOS 13+**: Open **System Settings → Privacy & Security**, scroll down and click **"Open Anyway"**.
+
+Or on **older macOS**: Right-click `Spacemap.app` → **Open** → click **Open** in the dialog.
 
 **Step 3: Grant Accessibility Permission**
 
