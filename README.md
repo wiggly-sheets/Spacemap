@@ -377,3 +377,12 @@ Yes: `KEY=VALUE # comment` works. The parser strips everything after `#`.
 - **Icon flicker:** Icons re-fetched on every render; IconCache mitigates.
 - **Drag ambiguity:** Multi-window app drags may fall back to click proximity.
 
+## Inspired By
+
+Spacemap draws from these projects:
+- [WindowMaker](https://www.windowmaker.org/)
+- [yabai](https://github.com/koekeishiya/yabai)
+- [skhd](https://github.com/koekeishiya/skhd) / [skhd.zig](https://github.com/jackielii/skhd.zig)
+- [aerospace](https://github.com/nikitabobko/AeroSpace)
+- [YabaiGridSpaces](https://codeberg.org/mikkelricky/hammerspoon/src/branch/main/Spoons/YabaiGridSpaces.spoon?trans-rights=human-rights)
+
