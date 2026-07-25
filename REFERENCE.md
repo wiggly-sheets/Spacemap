@@ -1,4 +1,4 @@
-# spacemap Reference
+# Spacemap Reference
 
 ## Quick Commands
 
@@ -37,7 +37,7 @@
 | File | Purpose |
 |------|---------|
 | `~/.config/spacemap/config` | User configuration (reloads on HUD open, except HOTKEY) |
-| `/Applications/spacemap.app` | Installed application bundle |
+| `/Applications/Spacemap.app` | Installed application bundle |
 | `/usr/local/bin/spacemap` | CLI symlink (if installed) |
 | `/tmp/spacemap_<username>.socket` | Unix domain socket for yabai signals |
 | `Console.app` | View logs (filter by "spacemap") |
@@ -71,7 +71,7 @@
 ## Development Workflow
 
 1. `make dev1` (uninstalls app)
-2. Remove spacemap from System Settings → Privacy & Security → Accessibility
+2. Remove Spacemap from System Settings → Privacy & Security → Accessibility
 3. Make code changes
 4. `make dev2` (rebuilds, reinstalls, launches)
 5. Grant Accessibility permission when prompted

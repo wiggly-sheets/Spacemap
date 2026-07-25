@@ -1,4 +1,4 @@
-# spacemap Roadmap
+# Spacemap Roadmap
 
 A living list of planned features, known bugs, and future improvements for the project. Items are categorized by priority and status.
 
@@ -39,7 +39,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Extracted Pure Functions**: `parseConfig()`, `parseThemeContent()`, `CellView.appColor()`, etc.
 - **i18n Localization**: 14 languages (en, es, de, it, fr, zh-Hans, hi, ar, pt, bn, ru, ja, ko, tr)
 - **Homebrew Tap**: `wiggly-sheets/homebrew-spacemap` with arch-conditional cask, auto-updated on release
-- **DMG Fix**: Arch DMGs always contain `spacemap.app` regardless of arch
+- **DMG Fix**: Arch DMGs always contain `Spacemap.app` regardless of arch
 - **F13-F20 Hotkeys + Hyper/Capslock/Fn Modifiers**: Full keyboard support in config parser
 - **HUD Dual-Layering Fix**: `show()` tears down orphaned panel; `refreshState()` guards on `isVisible`
 - **Simple Cell Style**: Plain empty cells with no window rendering

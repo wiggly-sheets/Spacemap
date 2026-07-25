@@ -1,8 +1,8 @@
-# Contributing to spacemap
+# Contributing to Spacemap
 
 ## Welcome!
 
-We're excited to have you contribute to spacemap. This is a native macOS utility that visualizes yabai workspaces in a floating 2D grid overlay.
+We're excited to have you contribute to Spacemap. This is a native macOS utility that visualizes yabai workspaces in a floating 2D grid overlay.
 
 ## Development Workflow
 
@@ -136,4 +136,4 @@ swift test --filter ConfigTests   # Run a specific test class
 - Accept constructive criticism gracefully
 - Help others learn and grow
 
-Thank you for contributing to spacemap!
+Thank you for contributing to Spacemap!

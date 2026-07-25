@@ -1,8 +1,8 @@
-# spacemap - AGENTS.md
+# Spacemap - AGENTS.md
 
 ## Project Overview
 
-**spacemap** is a native macOS utility that visualizes yabai workspaces in a floating 2D grid overlay. Think of it as a "mission control" for your tiling window manager that doesn't require SIP to be disabled.
+**Spacemap** is a native macOS utility that visualizes yabai workspaces in a floating 2D grid overlay. Think of it as a "mission control" for your tiling window manager that doesn't require SIP to be disabled.
 
 ### What It Does
 - Shows a HUD overlay (toggle with hotkey) displaying your yabai desktops in a configurable grid
@@ -13,20 +13,22 @@
 - Menubar icon for manual show/hide (can be hidden)
 
 ## Quick Reference for Agents
-- **Entry point**: `Sources/spacemap/App.swift` – sets up menubar, hotkey monitor, socket listener.
+- **Entry point**: `Sources/spacemap/App.swift` – sets up menubar, hotkey monitor, socket listener, Sparkle updater.
 - **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
+- **Sparkle updater**: `App.swift` initializes `SPUStandardUpdaterController` with `startingUpdater: false`; `start()` called after config load. Keys generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`.
 - **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
 - **Data**: `YabaiClient.swift` – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows; `ConfigReader.swift` – reads `~/.config/spacemap/config`.
 - **Themes**: `ThemeManager.swift` – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
 - **Hotkey**: `HotkeyMonitor.swift` – global CGEventTap for toggle.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
 - **Signals**: `SocketListener.swift` – Unix domain socket for yabai `space_changed` events.
-- **Models**: `Models.swift` – data structs (GridConfig, YabaiSpace, etc.).
-- **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – live‑save config UI.
+- **Models**: `Models.swift` – data structs (GridConfig, YabaiSpace, UpdateMode, etc.).
+- **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – live‑save config UI with Automatic Updates picker.
 - **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
 - **Config**: Stored at `~/.config/spacemap/config`; reloads on HUD open (except HOTKEY needs restart).
 - **Permissions**: Requires Accessibility permission (prompted on first launch). Screen Recording permission required for thumbnail cell style.
+- **Sparkle Keys**: Stored in login Keychain (generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`). Public key in `sparklesigner.pub`, private key in `sparklesigner.pem`. Both in `.gitignore`. Public key in GitHub Secret `SPARKLE_PUBLIC_KEY`, private key in `SPARKLE_PRIVATE_KEY`.
 
 ## Architecture
 
@@ -136,7 +138,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 
 ### Testing Changes
 1. `make dev1` (uninstalls app)
-2. Remove spacemap from System Settings → Privacy & Security → Accessibility
+2. Remove Spacemap from System Settings → Privacy & Security → Accessibility
 3. Make code changes
 4. `make dev2` (builds, installs, launches)
 5. Grant permission when prompted
