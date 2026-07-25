@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.0.12] - 2026-07-25
+
+### Fixed
+- Release artifacts are built in the GitHub Actions workspace so they are available to the GitHub Release upload action.
+
 ## [1.0.11] - 2026-07-25
 
 ### Added
