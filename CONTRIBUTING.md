@@ -10,13 +10,13 @@ We're excited to have you contribute to Spacemap. This is a native macOS utility
 - macOS 13+ (Ventura or later)
 - Xcode Command Line Tools: `xcode-select --install`
 - yabai installed: `brew install asmvik/formulae/yabai`
-- skhd installed: `brew install asmvik/formulae/skhd`
+- skhd installed: `brew install koekeishiya/formulae/skhd` (or `brew install jackielii/formulae/skhd.zig`)
 
 ### Setup
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/jsheffie/spacemap.git
+   git clone https://github.com/wiggly-sheets/spacemap.git
    cd spacemap
    ```
 
@@ -49,6 +49,7 @@ We're excited to have you contribute to Spacemap. This is a native macOS utility
 | `make dmg` | Build universal DMG |
 | `make dmg-arm64` | Build ARM64 DMG |
 | `make dmg-x86_64` | Build Intel DMG |
+| `make release RELEASE=x.y.z` | Bump version, commit, tag, push (triggers release) |
 
 ## Code Style
 

@@ -80,7 +80,7 @@ Reads from `~/.config/spacemap/config` on every HUD open (no restart needed):
 GRID_COLS=8              # Grid columns
 GRID_ROWS=2              # Grid rows
 CELL_STYLE=rects         # rects | icons | thumbnails
-HOTKEY=ctrl+pgdn         # Toggle hotkey (requires restart)
+HOTKEY=ctrl+space         # Toggle hotkey (requires restart)
 SOCKET_HEALTH_INTERVAL=60  # Socket health check interval (seconds)
 ```
 
@@ -111,6 +111,12 @@ A second CGEventTap (listenOnly, tailAppend) monitors mouse drag events to detec
 
 ## Development Workflow
 
+### Release Checklist
+Before `make release`:
+- [ ] Update CHANGELOG.md with version entry (## [x.y.z] - YYYY-MM-DD)
+- [ ] Update TASKS.md to mark completed items
+- [ ] Run `make test` to verify
+
 ### Build Commands
 ```bash
 make build       # swift build -c release
@@ -127,6 +133,7 @@ make archive     # Build signed archive for release
 make dmg         # Build universal DMG
 make dmg-arm64   # Build ARM64 DMG
 make dmg-x86_64  # Build Intel DMG
+make release RELEASE=x.y.z  # Bump version, commit, tag, push (triggers GitHub Actions release)
 ```
 
 ### Xcode Project
