@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.11] - 2026-07-25
+
+### Added
+- `make release RELEASE=x.y.z` target for one-command releases
+- `scripts/generate-changelog.sh` auto-moves `[Unreleased]` to versioned entry on release
+- CHANGELOG gate in `make release` ensures entries exist before tagging
+- Release checklist in AGENTS.md
+- `VERSION` file as fallback for version derivation
+
+### Fixed
+- Sparkle updater double-start bug — `updater.start()` replaced with idempotent `startUpdater()`
+- Sparkle `sign_update` download URL updated to Sparkle 2.9.4 (2.7.1 was 404)
+- SettingsView redundant config saves on every mode change
+- Empty version strings in Info.plist when git tags missing
+- VERSION derivation falls back to Info.plist when no tags or VERSION file exist
+
 ## [1.0.11] - 2026-07-25
 
 ### Changed
