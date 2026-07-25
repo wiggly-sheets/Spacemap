@@ -19,9 +19,10 @@ jobs:
 
       - name: Fix path capitalization for module cache
         run: |
-          cd ..
-          mv Spacemap spacemap
-          cd spacemap
+          WORKDIR="$PWD"
+          cd /Users/runner/work/spacemap
+          mv Spacemap spacemap 2>/dev/null || true
+          cd "$WORKDIR"
 
       - uses: swift-actions/setup-swift@v2
         with:
