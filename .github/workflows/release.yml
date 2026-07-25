@@ -148,34 +148,29 @@ jobs:
             fi
           done
 
-      - name: Compute Sparkle signature for universal DMG
-        if: env.SPARKLE_PRIVATE_KEY != ''
-        run: |
-          # Write the private key to a file
-          echo "${{ secrets.SPARKLE_PRIVATE_KEY }}" > sparklesigner.pem
-          # Sign the DMG and get base64 signature
-          SIGNATURE=$(openssl dgst -sha256 -sign sparklesigner.pem spacemap-${{ steps.version.outputs.tag }}-universal.dmg | openssl base64 -A)
-          echo "SPARKLE_ED_SIGNATURE=$SIGNATURE" >> $GITHUB_ENV
-
       - name: Generate checksums
         run: |
           shasum -a 256 spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg > checksums.txt
           cat checksums.txt
 
-      - name: Generate Sparkle appcast
+      - name: Generate Sparkle appcast + signature
         if: env.SPARKLE_PUBLIC_KEY != ''
         env:
           VERSION: ${{ steps.version.outputs.tag }}
           DMG_FILE: spacemap-${{ steps.version.outputs.tag }}-universal.dmg
           APPCAST_URL: https://wiggly-sheets.github.io/spacemap/appcast.xml
           RELEASES_URL: https://github.com/wiggly-sheets/spacemap/releases/download/v${{ steps.version.outputs.tag }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
-          export ED_SIGNATURE="${SPARKLE_ED_SIGNATURE}"
-          [ -n "$ED_SIGNATURE" ] || { echo "SPARKLE_ED_SIGNATURE is empty"; exit 1; }
+          export ED_SIGNATURE=""
+          if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "$SPARKLE_PRIVATE_KEY" > sparklesigner.pem
+            ED_SIGNATURE=$(openssl dgst -sha256 -sign sparklesigner.pem "spacemap-$VERSION-universal.dmg" | openssl base64 -A)
+            echo "ED_SIGNATURE computed"
+          fi
           chmod +x .github/scripts/generate-appcast.sh
           .github/scripts/generate-appcast.sh
-          echo "Appcast ready"
 
       - name: Update docs branch with appcast
         if: env.SPARKLE_PUBLIC_KEY != ''
