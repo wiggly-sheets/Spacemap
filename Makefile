@@ -49,6 +49,8 @@ app: build
 	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_CONTENTS)/Frameworks/
+	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_CONTENTS)/MacOS/$(APP_NAME)
 	cp Sources/spacemap/spacemap.icns $(APP_CONTENTS)/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_CONTENTS)/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_CONTENTS)/Resources/
@@ -64,6 +66,8 @@ app-arm64: build-arm64
 	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-arm64.app/Contents/Frameworks/
+	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME)-arm64.app/Contents/MacOS/$(APP_NAME)
 	cp Sources/spacemap/spacemap.icns $(APP_NAME)-arm64.app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-arm64.app/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_NAME)-arm64.app/Contents/Resources/
@@ -80,6 +84,8 @@ app-x86_64: build-x86_64
 	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-x86_64.app/Contents/Frameworks/
+	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME)-x86_64.app/Contents/MacOS/$(APP_NAME)
 	cp Sources/spacemap/spacemap.icns $(APP_NAME)-x86_64.app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-x86_64.app/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_NAME)-x86_64.app/Contents/Resources/
@@ -96,6 +102,8 @@ app-universal: build-universal
 	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME).app/Contents/Frameworks/
+	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME).app/Contents/MacOS/$(APP_NAME)
 	cp Sources/spacemap/spacemap.icns $(APP_NAME).app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME).app/Contents/Resources/AppIcon.icns
 	cp -R Assets.xcassets $(APP_NAME).app/Contents/Resources/
