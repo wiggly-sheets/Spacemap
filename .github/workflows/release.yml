@@ -167,11 +167,12 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.tag }}
           DMG_FILE: spacemap-${{ steps.version.outputs.tag }}-universal.dmg
-          ED_SIGNATURE: ${{ env.SPARKLE_ED_SIGNATURE }}
           APPCAST_URL: https://wiggly-sheets.github.io/spacemap/appcast.xml
           RELEASES_URL: https://github.com/wiggly-sheets/spacemap/releases/download/v${{ steps.version.outputs.tag }}
         run: |
           export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
+          export ED_SIGNATURE="${SPARKLE_ED_SIGNATURE}"
+          [ -n "$ED_SIGNATURE" ] || { echo "SPARKLE_ED_SIGNATURE is empty"; exit 1; }
           chmod +x .github/scripts/generate-appcast.sh
           .github/scripts/generate-appcast.sh
           echo "Appcast ready"
