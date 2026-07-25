@@ -45,11 +45,19 @@ brew install koekeishiya/formulae/skhd
 ```
 
 ### 2. Install Spacemap
+Install spacemap via Homebrew:
 
 ```bash
-brew tap wiggly-sheets/tap
-brew install --cask wiggly-sheets/tap/spacemap
+brew tap wiggly-sheets/spacemap https://github.com/wiggly-sheets/homebrew-spacemap.git
+brew install --cask spacemap
 ```
+
+Or in one step:
+
+```bash
+brew install wiggly-sheets/spacemap/spacemap
+```
+
 
 Or download a DMG from the [releases page](https://github.com/wiggly-sheets/spacemap/releases).
 
