@@ -60,8 +60,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
         
         // Check if MRU spaces is enabled (bad for spacemap)
-        if isMRUSpacesEnabled() {
-            showMRUAlert()
+        DispatchQueue.global(qos: .utility).async {
+            if self.isMRUSpacesEnabled() {
+                DispatchQueue.main.async {
+                    self.showMRUAlert()
+                }
+            }
         }
         
         // Check if app is in /Applications folder, if not, prompt to move
@@ -422,7 +426,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = NSLocalizedString("yabai is not running", comment: "")
-        alert.informativeText = NSLocalizedString("Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap.", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap. See https://github.com/koekeishiya/yabai for installation instructions.", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Quit", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Open yabai", comment: ""))
         

@@ -2,6 +2,20 @@ import Foundation
 import AppKit
 
 enum YabaiClient {
+    private static let yabaiQueue = DispatchQueue(label: "com.spacemap.yabai", qos: .userInitiated)
+    // Keep interactive focus changes out of the state-query queue. A grid
+    // refresh can wait for multiple yabai queries, but keyboard navigation
+    // should never wait behind it.
+    private static let focusQueue = DispatchQueue(label: "com.spacemap.yabai.focus", qos: .userInteractive)
+
+    static func runOnYabaiQueue(_ block: @escaping () -> Void) {
+        yabaiQueue.async(execute: block)
+    }
+
+    static func runOnYabaiQueue(_ workItem: DispatchWorkItem) {
+        yabaiQueue.async(execute: workItem)
+    }
+
     private static let yabaiPath: String = {
         let arm = "/opt/homebrew/bin/yabai"
         let intel = "/usr/local/bin/yabai"
@@ -12,8 +26,11 @@ enum YabaiClient {
 
     private static var _yabaiRunningCache: (result: Bool, checkedAt: TimeInterval)?
     private static let yabaiCacheTTL: TimeInterval = 5.0
+    private static let cacheLock = NSLock()
 
     static func isYabaiRunning() -> Bool {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
         let now = ProcessInfo.processInfo.systemUptime
         if let cached = _yabaiRunningCache, now - cached.checkedAt < yabaiCacheTTL {
             return cached.result
@@ -79,6 +96,10 @@ enum YabaiClient {
     static func focusSpace(_ index: Int) {
         _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)")
     }
+
+    static func focusSpaceAsync(_ index: Int) {
+        focusQueue.async { _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)") }
+    }
     
     static func showSpacemap() {
         let path = "/tmp/spacemap_\(NSUserName()).socket"
@@ -102,7 +123,9 @@ enum YabaiClient {
     }
     
     static func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
-        guard isYabaiRunning() else {
+        // Bypass isYabaiRunning() cache — stale cache returns empty grid silently
+        // Fresh process check instead
+        guard (try? shell("/usr/bin/pgrep", "yabai")).flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }) ?? false else {
             let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
             return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
         }

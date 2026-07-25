@@ -100,15 +100,15 @@ class ThemeManager {
             let file = dir.appendingPathComponent(filename)
             let content = """
             # \(name.capitalized)
-            background=\(hex(theme.background))
-            focused=\(hex(theme.focused))
-            text=\(hex(theme.text))
-            dropTarget=\(hex(theme.dropTarget))
-            cellBg=\(hex(theme.cellBg))
-            cellBgFocused=\(hex(theme.cellBgFocused))
-            rect1=\(hex(theme.rect1))
-            rect2=\(hex(theme.rect2))
-            rect3=\(hex(theme.rect3))
+            background=\(Self.hex(theme.background))
+            focused=\(Self.hex(theme.focused))
+            text=\(Self.hex(theme.text))
+            dropTarget=\(Self.hex(theme.dropTarget))
+            cellBg=\(Self.hex(theme.cellBg))
+            cellBgFocused=\(Self.hex(theme.cellBgFocused))
+            rect1=\(Self.hex(theme.rect1))
+            rect2=\(Self.hex(theme.rect2))
+            rect3=\(Self.hex(theme.rect3))
             """
             try? content.write(to: file, atomically: true, encoding: .utf8)
         }
@@ -131,7 +131,7 @@ class ThemeManager {
         ]
     }
 
-    func hex(_ value: UInt32) -> String {
+    static func hex(_ value: UInt32) -> String {
         let s = String(value, radix: 16)
         return String(repeating: "0", count: max(0, 6 - s.count)) + s
     }
