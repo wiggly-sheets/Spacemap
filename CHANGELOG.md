@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - CLI installation now validates its destination and never removes an unrelated file or symlink at `/usr/local/bin/spacemap`.
 
+### Changed
+- Moved the Command-Line Tool installer below the permission shortcuts in the menu-bar menu.
+
 
 ## [1.0.15] - 2026-07-25
 
