@@ -164,38 +164,17 @@ jobs:
 
       - name: Generate Sparkle appcast
         if: env.SPARKLE_PUBLIC_KEY != ''
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+          DMG_FILE: spacemap-${{ steps.version.outputs.tag }}-universal.dmg
+          ED_SIGNATURE: ${{ env.SPARKLE_ED_SIGNATURE }}
+          APPCAST_URL: https://wiggly-sheets.github.io/spacemap/appcast.xml
+          RELEASES_URL: https://github.com/wiggly-sheets/spacemap/releases/download/v${{ steps.version.outputs.tag }}
         run: |
-          DMG_FILE="spacemap-${{ steps.version.outputs.tag }}-universal.dmg"
-          DMG_SIZE=$(stat -f%z "$DMG_FILE")
-          DMG_HASH=$(shasum -a 256 "$DMG_FILE" | awk '{print $1}')
-          
-          # Generate appcast.xml
-          cat > appcast.xml << 'APPCAST_EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
-  <channel>
-    <title>spacemap</title>
-    <link>https://wiggly-sheets.github.io/spacemap/appcast.xml</link>
-    <description>Most recent changes with links to the binaries.</description>
-    <language>en</language>
-    <item>
-      <title>Version ${{ steps.version.outputs.tag }}</title>
-      <sparkle:version>${{ steps.version.outputs.tag }}</sparkle:version>
-      <sparkle:shortVersionString>${{ steps.version.outputs.tag }}</sparkle:shortVersionString>
-      <enclosure url="https://github.com/jsheffie/spacemap/releases/download/v${{ steps.version.outputs.tag }}/$DMG_FILE" sparkle:edSignature="${{ env.SPARKLE_ED_SIGNATURE }}" length="$DMG_SIZE" type="application/octet-stream" sparkle:architecture="universal"/>
-    </item>
-  </channel>
-</rss>
-APPCAST_EOF
-          
-          # Update existing appcast or create new
-          curl -s https://wiggly-sheets.github.io/spacemap/appcast.xml > existing_appcast.xml 2>/dev/null || touch existing_appcast.xml
-          
-          # Prepend new item to existing appcast
-          cat appcast.xml existing_appcast.xml > temp_appcast.xml
-          mv temp_appcast.xml appcast.xml
-          
-          echo "Appcast.xml ready"
+          export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
+          chmod +x .github/scripts/generate-appcast.sh
+          .github/scripts/generate-appcast.sh
+          echo "Appcast ready"
 
       - name: Update docs branch with appcast
         if: env.SPARKLE_PUBLIC_KEY != ''
