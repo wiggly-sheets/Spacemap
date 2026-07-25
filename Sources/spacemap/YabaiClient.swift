@@ -3,6 +3,10 @@ import AppKit
 
 enum YabaiClient {
     private static let yabaiQueue = DispatchQueue(label: "com.spacemap.yabai", qos: .userInitiated)
+    // Keep interactive focus changes out of the state-query queue. A grid
+    // refresh can wait for multiple yabai queries, but keyboard navigation
+    // should never wait behind it.
+    private static let focusQueue = DispatchQueue(label: "com.spacemap.yabai.focus", qos: .userInteractive)
 
     static func runOnYabaiQueue(_ block: @escaping () -> Void) {
         yabaiQueue.async(execute: block)
@@ -94,7 +98,7 @@ enum YabaiClient {
     }
 
     static func focusSpaceAsync(_ index: Int) {
-        yabaiQueue.async { _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)") }
+        focusQueue.async { _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)") }
     }
     
     static func showSpacemap() {
