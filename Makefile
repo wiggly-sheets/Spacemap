@@ -1,6 +1,6 @@
-APP_NAME = Spacemap
+APP_NAME = spacemap
 BUILD_DIR = .build/release
-APP_BUNDLE = $(APP_NAME).app
+APP_BUNDLE = Spacemap.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
 INSTALL_PATH = /Applications/$(APP_BUNDLE)
 VERSION  := $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || (cat VERSION 2>/dev/null) || echo "0.0.0")
@@ -46,7 +46,7 @@ app: build
 	cp Sources/spacemap/Info.plist $(APP_CONTENTS)/
 	sed -i '' "s/$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/')/$(VERSION)/g" $(APP_CONTENTS)/Info.plist
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_CONTENTS)/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_CONTENTS)/Frameworks/
 	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
@@ -63,7 +63,7 @@ app-arm64: build-arm64
 	cp Sources/spacemap/Info.plist $(APP_NAME)-arm64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-arm64.app/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-arm64.app/Contents/Frameworks/
 	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
@@ -81,7 +81,7 @@ app-x86_64: build-x86_64
 	cp Sources/spacemap/Info.plist $(APP_NAME)-x86_64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-x86_64.app/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-x86_64.app/Contents/Frameworks/
 	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
@@ -92,22 +92,22 @@ app-x86_64: build-x86_64
 	@echo "Built $(APP_NAME)-x86_64.app (Intel)"
 
 app-universal: build-universal
-	mkdir -p $(APP_NAME).app/Contents/MacOS
-	mkdir -p $(APP_NAME).app/Contents/Frameworks
-	mkdir -p $(APP_NAME).app/Contents/Resources
-	cp .build/universal/release/$(APP_NAME) $(APP_NAME).app/Contents/MacOS/
-	cp Sources/spacemap/Info.plist $(APP_NAME).app/Contents/
-	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME).app/Contents/Info.plist
-	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_NAME).app/Contents/Info.plist 2>/dev/null || true
+	mkdir -p $(APP_BUNDLE)/Contents/MacOS
+	mkdir -p $(APP_BUNDLE)/Contents/Frameworks
+	mkdir -p $(APP_BUNDLE)/Contents/Resources
+	cp .build/universal/release/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
+	cp Sources/spacemap/Info.plist $(APP_BUNDLE)/Contents/
+	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_BUNDLE)/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
-	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME).app/Contents/Frameworks/
+	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_BUNDLE)/Contents/Frameworks/
 	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
-	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME).app/Contents/MacOS/$(APP_NAME)
-	cp Sources/spacemap/spacemap.icns $(APP_NAME).app/Contents/Resources/spacemap.icns
-	cp Sources/spacemap/AppIcon.icns $(APP_NAME).app/Contents/Resources/AppIcon.icns
-	cp -R Assets.xcassets $(APP_NAME).app/Contents/Resources/
-	@echo "Built $(APP_NAME).app (Universal: arm64 + x86_64)"
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
+	cp Sources/spacemap/spacemap.icns $(APP_BUNDLE)/Contents/Resources/spacemap.icns
+	cp Sources/spacemap/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
+	cp -R Assets.xcassets $(APP_BUNDLE)/Contents/Resources/
+	@echo "Built $(APP_BUNDLE) (Universal: arm64 + x86_64)"
 
 archive: app
 	rm -rf $(STAGE) $(ARCHIVE)
@@ -141,16 +141,16 @@ dmg-universal: app-universal
 _dmg:
 	@rm -rf $(DMG_STAGE)
 	@mkdir -p $(DMG_STAGE)
-	@cp -R $(INPUT) $(DMG_STAGE)/$(APP_NAME).app
+	@cp -R $(INPUT) $(DMG_STAGE)/Spacemap.app
 	create-dmg --no-internet-enable \
-		--volname "$(APP_NAME)" \
+		--volname "Spacemap" \
 		--volicon Sources/spacemap/spacemap.icns \
 		--window-pos 200 120 \
 		--window-size 600 400 \
 		--icon-size 100 \
-		--icon "$(APP_NAME).app" 175 190 \
+		--icon "Spacemap.app" 175 190 \
 		--app-drop-link 425 190 \
-		$(OUTPUT) $(DMG_STAGE)/$(APP_NAME).app
+		$(OUTPUT) $(DMG_STAGE)/Spacemap.app
 	@rm -rf $(DMG_STAGE)
 	@echo "Created $(OUTPUT)"
 	@echo "SHA-256:  $$(shasum -a 256 $(OUTPUT) | awk '{print $$1}')"
@@ -179,9 +179,10 @@ run: install
 	open $(INSTALL_PATH)
 
 uninstall:
-	-killall $(APP_NAME) 2>/dev/null
+	-killall spacemap 2>/dev/null
 	rm -rf $(INSTALL_PATH)
 	@echo "Removed $(INSTALL_PATH)"
+	@rm -f /usr/local/bin/spacemap
 
 install-cli: install
 	@echo "Installing CLI symlink to /usr/local/bin/spacemap..."
@@ -196,13 +197,13 @@ uninstall-cli:
 
 dev1: uninstall
 	@echo ""
-	@echo "IMPORTANT: macOS will revok Accessibility permission because the binary will change."
+	@echo "IMPORTANT: macOS will revoke Accessibility permission because the binary will change."
 	@echo "Go to System Settings → Privacy & Security → Accessibility"
-	@echo "Remove spacemap (− button), you will be prompted to re-add it when we re-install it."
+	@echo "Remove Spacemap (− button), you will be prompted to re-add it when we re-install it."
 
 dev2: install
 	@# This target kills the app, reinstalls, and relaunches so you just need to re-grant in System Settings.
-	-killall $(APP_NAME) 2>/dev/null
+	-killall spacemap 2>/dev/null
 	@sleep 0.5
 	open $(INSTALL_PATH)
 	@echo ""
@@ -212,9 +213,9 @@ dev2: install
 
 permissions:
 	@echo "If your hotkey stopped working after a reinstall:"
-	@echo "  1. killall spacemap"
+	@echo "  1. killall Spacemap"
 	@echo "  2. System Settings → Privacy & Security → Accessibility"
-	@echo "  3. Click − to remove spacemap"
+	@echo "  3. Click − to remove Spacemap"
 	@echo "  4. make run   (will prompt for permission again)"
 	@echo ""
 	@echo "NEVER run the binary directly — always use 'make run' or 'open $(INSTALL_PATH)'"
@@ -258,8 +259,8 @@ distconfig:
 	@cat ~/.config/spacemap/config
 
 symlink:
-	ln -sf /Applications/spacemap.app/Contents/MacOS/spacemap /usr/local/bin/spacemap
-	@echo "Symlink created: /usr/local/bin/spacemap → /Applications/spacemap.app/Contents/MacOS/spacemap"
+	ln -sf /Applications/Spacemap.app/Contents/MacOS/spacemap /usr/local/bin/spacemap
+	@echo "Symlink created: /usr/local/bin/spacemap → /Applications/Spacemap.app/Contents/MacOS/spacemap"
 	@echo "Note: You may need to run with sudo for /usr/local/bin access"
 
 unsymlink:
