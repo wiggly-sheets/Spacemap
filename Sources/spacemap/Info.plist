@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>spacemap</string>
+    <string>Spacemap</string>
     <key>CFBundleIdentifier</key>
     <string>com.jsheffie.spacemap</string>
     <key>CFBundleVersion</key>
@@ -19,7 +19,7 @@
     <key>LSUIElement</key>
     <true/>
     <key>NSAccessibilityUsageDescription</key>
-    <string>spacemap needs Accessibility access to monitor the Ctrl+Space hotkey globally.</string>
+    <string>Spacemap needs Accessibility access to monitor the Ctrl+Space hotkey globally.</string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSHighResolutionCapable</key>
@@ -27,6 +27,8 @@
     <key>CFBundleIconFile</key>
     <string>spacemap.icns</string>
     <key>NSScreenCaptureUsageDescription</key>
-    <string>spacemap needs screen recording permission to show window thumbnails of each yabai space.</string>
+    <string>Spacemap needs screen recording permission to show window thumbnails of each yabai space.</string>
+    <key>SUFeedURL</key>
+    <string>https://wiggly-sheets.github.io/spacemap/appcast.xml</string>
 </dict>
 </plist>

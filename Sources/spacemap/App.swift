@@ -10,7 +10,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
-    private var sparkleUpdaterController: SPUStandardUpdaterController?
+    private lazy var sparkleUpdaterController: SPUStandardUpdaterController = {
+        SPUStandardUpdaterController(
+            startingUpdater: false,
+            updaterDelegate: self,
+            userDriverDelegate: nil
+        )
+    }()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
@@ -63,6 +69,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         
         setupMenubar()
         
+        // Trigger Sparkle initialization early so updater starts on launch
+        _ = sparkleUpdaterController
+
         // Delay slightly so TCC/LaunchServices finishes registering the app
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             ConfigReader.silentMode = true
@@ -98,16 +107,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 self.applyMenubarVisibility(config: config)
             }
 
-            // Initialize Sparkle updater
-            self.sparkleUpdaterController = SPUStandardUpdaterController(
-                startingUpdater: true,
-                updaterDelegate: self,
-                userDriverDelegate: nil
-            )
             self.configureSparkleUpdater(updateMode: config.updateMode)
         }
-        
-        // Handle non-exit CLI arguments (after normal setup)
         #if !DEBUG
         if args.contains("--show-menu") {
             // Show menu and continue running
@@ -231,7 +232,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc func checkForUpdates() {
-        sparkleUpdaterController?.checkForUpdates(nil)
+        sparkleUpdaterController.checkForUpdates(nil)
     }
 
     private func restartHotkey(config: GridConfig) {
@@ -283,8 +284,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                         }
                         item.state = newStatus ? .on : .off
                         break
-                    }
-                }
+        }
+    }
             }
         }
     }
@@ -533,7 +534,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func configureSparkleUpdater(updateMode: UpdateMode) {
-        guard let updater = sparkleUpdaterController?.updater else { return }
+        let updater = sparkleUpdaterController.updater
         switch updateMode {
         case .auto:
             updater.automaticallyDownloadsUpdates = true
@@ -544,11 +545,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         case .off:
             updater.automaticallyChecksForUpdates = false
         }
+        try? sparkleUpdaterController.updater.start()
     }
 
     // MARK: - SPUUpdaterDelegate
 
-    func updaterDidFinish(_ updater: SPUUpdater) {
+    func feedURL(for updater: SPUUpdater) -> URL? {
+        return URL(string: "https://wiggly-sheets.github.io/spacemap/appcast.xml")
     }
 
     func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
