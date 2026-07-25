@@ -181,8 +181,8 @@ enum ConfigReader {
                 case "custom": hudPosition = .custom(x: 0, y: 0) // sentinel: coordinates set after CUSTOM_HUD_X/Y parsed
                 default:
                     let parts = value.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
-                    if parts.count == 2, let x = Double(parts[0]), let y = Double(parts[1]), x >= 0, x <= 1, y >= 0, y <= 1 {
-                        hudPosition = .custom(x: x, y: y)
+                    if parts.count == 2, parts[0] >= 0, parts[0] <= 1, parts[1] >= 0, parts[1] <= 1 {
+                        hudPosition = .custom(x: parts[0], y: parts[1])
                     }
                 }
             case "SPACE_NAMES":

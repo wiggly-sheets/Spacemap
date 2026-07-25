@@ -32,31 +32,31 @@ final class YabaiClient: WindowManager {
 
     private func isYabaiRunning() -> Bool { isRunning() }
 
-    func querySpaces() -> [YabaiSpace] {
+    func querySpaces() -> [Space] {
         guard isYabaiRunning() else { return [] }
         return (try? querySpacesRaw()) ?? []
     }
 
-    func queryWindows() throws -> [YabaiWindow] {
+    func queryWindows() throws -> [Window] {
         guard isYabaiRunning() else { return [] }
         return try queryWindowsRaw()
     }
 
-    private func querySpacesRaw() throws -> [YabaiSpace] {
+    private func querySpacesRaw() throws -> [Space] {
         let output = try shell(yabaiPath, "-m", "query", "--spaces")
-        return try JSONDecoder().decode([YabaiSpace].self, from: Data(output.utf8))
+        return try JSONDecoder().decode([Space].self, from: Data(output.utf8))
     }
 
-    private func queryWindowsRaw() throws -> [YabaiWindow] {
+    private func queryWindowsRaw() throws -> [Window] {
         let output = try shell(yabaiPath, "-m", "query", "--windows")
-        return try JSONDecoder().decode([YabaiWindow].self, from: Data(output.utf8))
+        return try JSONDecoder().decode([Window].self, from: Data(output.utf8))
     }
 
     func queryFocusedWindow() -> Int? {
         guard isYabaiRunning() else { return nil }
         let output = (try? shell(yabaiPath, "-m", "query", "--windows", "--window")) ?? ""
         guard let data = output.data(using: .utf8),
-              let json = try? JSONDecoder().decode(YabaiWindow.self, from: data) else { return nil }
+              let json = try? JSONDecoder().decode(Window.self, from: data) else { return nil }
         return json.id
     }
 
@@ -93,8 +93,8 @@ final class YabaiClient: WindowManager {
             let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
             return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
         }
-        var spaces: [YabaiSpace] = []
-        var windows: [YabaiWindow] = []
+        var spaces: [Space] = []
+        var windows: [Window] = []
         let group = DispatchGroup()
         group.enter()
         DispatchQueue.global(qos: .userInitiated).async {

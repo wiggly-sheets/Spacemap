@@ -7,8 +7,8 @@ enum WindowManagerType: String, CaseIterable {
 protocol WindowManager: AnyObject {
     var type: WindowManagerType { get }
     func isRunning() -> Bool
-    func querySpaces() -> [YabaiSpace]
-    func queryWindows() throws -> [YabaiWindow]
+    func querySpaces() -> [Space]
+    func queryWindows() throws -> [Window]
     func queryFocusedWindow() -> Int?
     func queryFocusedSpaceIndex() -> Int?
     func buildGridState(config: GridConfig, focusedIndex: Int?) -> GridState

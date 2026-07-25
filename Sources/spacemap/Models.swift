@@ -10,10 +10,8 @@ enum ShowMode: String, CaseIterable, Identifiable { case all, active; var id: St
 enum ThemeMode: String, CaseIterable, Identifiable { case light, dark, auto; var id: String { rawValue } }
 enum UpdateMode: String, CaseIterable, Identifiable { case auto, notify, off; var id: String { rawValue } }
 
-enum Mode: String, CaseIterable, Identifiable {
-    case light, dark, auto
-    var id: String { rawValue }
-}
+// Mode is an alias for ThemeMode (used in GridConfig)
+typealias Mode = ThemeMode
 
 enum HUDPosition: Equatable, Hashable {
     case center, top, bottom
@@ -29,6 +27,37 @@ enum HUDPosition: Equatable, Hashable {
         case .custom: return "Custom"
         }
     }
+
+    func point(for panelSize: CGSize, screen: CGRect) -> CGPoint {
+        switch self {
+        case .center:
+            return CGPoint(x: (screen.width - panelSize.width) / 2,
+                           y: (screen.height - panelSize.height) / 2)
+        case .top:
+            return CGPoint(x: (screen.width - panelSize.width) / 2,
+                           y: screen.height - panelSize.height - 40)
+        case .bottom:
+            return CGPoint(x: (screen.width - panelSize.width) / 2,
+                           y: 40)
+        case .custom(let x, let y):
+            return CGPoint(x: screen.width * x,
+                           y: screen.height * y)
+        }
+    }
+}
+
+enum HUDPositionKind: String, CaseIterable, Identifiable {
+    case center, top, bottom, custom
+    var id: String { rawValue }
+
+    init(from position: HUDPosition) {
+        switch position {
+        case .center: self = .center
+        case .top: self = .top
+        case .bottom: self = .bottom
+        case .custom: self = .custom
+        }
+    }
 }
 
 struct AppTemplate: Equatable {
@@ -41,14 +70,28 @@ struct WindowFrame: Decodable {
     let y: CGFloat
     let width: CGFloat
     let height: CGFloat
+
+    enum CodingKeys: String, CodingKey {
+        case x, y
+        case width = "w"
+        case height = "h"
+    }
+
+    init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
+        self.x = x; self.y = y; self.width = width; self.height = height
+    }
+
+    init(x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat) {
+        self.x = x; self.y = y; self.width = w; self.height = h
+    }
 }
 
-struct YabaiSpace: Decodable {
+struct Space: Decodable {
     let id: Int
     let index: Int
     let display: Int
     let hasFocus: Bool
-    let label: String? // space name from yabai
+    let label: String?
 
     enum CodingKeys: String, CodingKey {
         case id, index, display
@@ -57,7 +100,9 @@ struct YabaiSpace: Decodable {
     }
 }
 
-struct YabaiWindow: Decodable {
+typealias YabaiSpace = Space
+
+struct Window: Decodable {
     let id: Int
     let app: String
     let space: Int
@@ -82,30 +127,32 @@ struct YabaiWindow: Decodable {
     }
 }
 
+typealias YabaiWindow = Window
+
 struct GridState: Equatable {
 
     let config: GridConfig
-    let spaces: [YabaiSpace]
-    let windows: [YabaiWindow]
+    let spaces: [Space]
+    let windows: [Window]
     let displayBounds: CGRect
     let focusedIndex: Int?
     // ponytail: pre-grouped windows by space for O(1) per-cell lookup
-    private let windowsBySpace: [Int: [YabaiWindow]]
+    private let windowsBySpace: [Int: [Window]]
 
-    init(config: GridConfig, spaces: [YabaiSpace], windows: [YabaiWindow], displayBounds: CGRect, focusedIndex: Int?) {
+    init(config: GridConfig, spaces: [Space], windows: [Window], displayBounds: CGRect, focusedIndex: Int?) {
         self.config = config
         self.spaces = spaces
         self.windows = windows
         self.displayBounds = displayBounds
         self.focusedIndex = focusedIndex
-        var grouped: [Int: [YabaiWindow]] = [:]
+        var grouped: [Int: [Window]] = [:]
         for w in windows {
             grouped[w.space, default: []].append(w)
         }
         self.windowsBySpace = grouped
     }
 
-    func windows(forSpace index: Int) -> [YabaiWindow] {
+    func windows(forSpace index: Int) -> [Window] {
         return windowsBySpace[index] ?? []
     }
 
@@ -155,6 +202,36 @@ struct AppTheme: Equatable {
         dropTarget: 0x98c379, cellBg: 0x2c323c, cellBgFocused: 0x3a404a,
         rect1: 0x61afef, rect2: 0x98c379, rect3: 0xc678dd
     )
+    static let monokaiDark = AppTheme(
+        background: 0x272822, focused: 0xf92672, text: 0xf8f8f2,
+        dropTarget: 0xa6e22e, cellBg: 0x3e3d32, cellBgFocused: 0x49483e,
+        rect1: 0xf92672, rect2: 0xa6e22e, rect3: 0x66d9ef
+    )
+    static let monokaiLight = AppTheme(
+        background: 0xf8f8f2, focused: 0xf92672, text: 0x272822,
+        dropTarget: 0xa6e22e, cellBg: 0xf5f5f0, cellBgFocused: 0xe8e8e3,
+        rect1: 0xf92672, rect2: 0xa6e22e, rect3: 0x66d9ef
+    )
+    static let ayu = AppTheme(
+        background: 0x0f1419, focused: 0xe6b450, text: 0xe6e6e6,
+        dropTarget: 0x7fd962, cellBg: 0x141920, cellBgFocused: 0x1c2229,
+        rect1: 0xe6b450, rect2: 0x7fd962, rect3: 0x59c2ff
+    )
+    static let github = AppTheme(
+        background: 0x0d1117, focused: 0x58a6ff, text: 0xc9d1d9,
+        dropTarget: 0x3fb950, cellBg: 0x161b22, cellBgFocused: 0x1c2129,
+        rect1: 0x58a6ff, rect2: 0x3fb950, rect3: 0xbc8cff
+    )
+    static let vscode = AppTheme(
+        background: 0x1e1e1e, focused: 0x007acc, text: 0xd4d4d4,
+        dropTarget: 0x4ec9b0, cellBg: 0x252526, cellBgFocused: 0x2d2d30,
+        rect1: 0x007acc, rect2: 0x4ec9b0, rect3: 0xc586c0
+    )
+    static let xcode = AppTheme(
+        background: 0x1e1e2e, focused: 0x0a84ff, text: 0xcdd6f4,
+        dropTarget: 0x64d2ff, cellBg: 0x313244, cellBgFocused: 0x45475a,
+        rect1: 0x0a84ff, rect2: 0x64d2ff, rect3: 0xff453a
+    )
 }
 
 struct GridConfig {
@@ -183,7 +260,7 @@ struct GridConfig {
     let customHUDX: Double
     let customHUDY: Double
     let showExtraWindows: Bool
-    let updateMode: UpdateMode
+    var updateMode: UpdateMode
     let windowManager: WindowManagerType
 }
 
@@ -224,4 +301,6 @@ extension GridConfig {
 struct HotkeyConfig {
     let keyCode: CGKeyCode
     let modifiers: CGEventFlags
+
+    static let `default` = HotkeyConfig(keyCode: 121, modifiers: .maskControl)
 }

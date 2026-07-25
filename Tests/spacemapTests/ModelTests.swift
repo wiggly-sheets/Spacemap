@@ -4,13 +4,13 @@ import CoreGraphics
 
 final class ModelTests: XCTestCase {
 
-    // MARK: - YabaiSpace decoding
+    // MARK: - Space decoding
 
-    func testDecodeYabaiSpace() throws {
+    func testDecodeSpace() throws {
         let json = """
         {"id":1,"index":1,"display":1,"has-focus":true,"label":"Term"}
         """.data(using: .utf8)!
-        let space = try JSONDecoder().decode(YabaiSpace.self, from: json)
+        let space = try JSONDecoder().decode(Space.self, from: json)
         XCTAssertEqual(space.id, 1)
         XCTAssertEqual(space.index, 1)
         XCTAssertEqual(space.display, 1)
@@ -18,21 +18,21 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(space.label, "Term")
     }
 
-    func testDecodeYabaiSpaceNoLabel() throws {
+    func testDecodeSpaceNoLabel() throws {
         let json = """
         {"id":2,"index":2,"display":1,"has-focus":false}
         """.data(using: .utf8)!
-        let space = try JSONDecoder().decode(YabaiSpace.self, from: json)
+        let space = try JSONDecoder().decode(Space.self, from: json)
         XCTAssertNil(space.label)
     }
 
-    // MARK: - YabaiWindow decoding
+    // MARK: - Window decoding
 
-    func testDecodeYabaiWindow() throws {
+    func testDecodeWindow() throws {
         let json = """
         {"id":10,"app":"Firefox","space":1,"frame":{"x":0,"y":0,"w":800,"h":600},"is-hidden":false,"is-minimized":false,"sub-layer":"below"}
         """.data(using: .utf8)!
-        let window = try JSONDecoder().decode(YabaiWindow.self, from: json)
+        let window = try JSONDecoder().decode(Window.self, from: json)
         XCTAssertEqual(window.id, 10)
         XCTAssertEqual(window.app, "Firefox")
         XCTAssertEqual(window.space, 1)
@@ -42,11 +42,11 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(window.cgFrame, CGRect(x: 0, y: 0, width: 800, height: 600))
     }
 
-    func testDecodeYabaiWindowHidden() throws {
+    func testDecodeWindowHidden() throws {
         let json = """
         {"id":11,"app":"Safari","space":2,"frame":{"x":100,"y":50,"w":400,"h":300},"is-hidden":true,"is-minimized":true,"sub-layer":"normal"}
         """.data(using: .utf8)!
-        let window = try JSONDecoder().decode(YabaiWindow.self, from: json)
+        let window = try JSONDecoder().decode(Window.self, from: json)
         XCTAssertTrue(window.isHidden)
         XCTAssertTrue(window.isMinimized)
         XCTAssertEqual(window.subLayer, "normal")
@@ -56,9 +56,9 @@ final class ModelTests: XCTestCase {
 
     func testGridStateWindowGrouping() {
         let windows = [
-            YabaiWindow(id: 1, app: "A", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "below"),
-            YabaiWindow(id: 2, app: "B", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "below"),
-            YabaiWindow(id: 3, app: "C", space: 2, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "below"),
+            Window(id: 1, app: "A", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "below"),
+            Window(id: 2, app: "B", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "below"),
+            Window(id: 3, app: "C", space: 2, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "below"),
         ]
         let state = GridState(config: .default, spaces: [], windows: windows, displayBounds: .zero, focusedIndex: nil)
         XCTAssertEqual(state.windows(forSpace: 1).count, 2)
@@ -91,13 +91,13 @@ final class ModelTests: XCTestCase {
 
     func testGridConfigDefault() {
         let c = GridConfig.default
-        XCTAssertEqual(c.cols, 8)
+        XCTAssertEqual(c.cols, 10)
         XCTAssertEqual(c.rows, 2)
         XCTAssertEqual(c.cellStyle, .rects)
         XCTAssertEqual(c.theme, "default")
         XCTAssertEqual(c.maxSpaces, 16)
         XCTAssertFalse(c.useVimKeys)
-        XCTAssertFalse(c.useArrowKeys)
+        XCTAssertTrue(c.useArrowKeys)
         XCTAssertEqual(c.hudPosition, .center)
     }
 
@@ -148,7 +148,7 @@ final class ModelTests: XCTestCase {
         let panelSize = CGSize(width: 400, height: 200)
         let point = HUDPosition.custom(x: 0.0, y: 1.0).point(for: panelSize, screen: screen)
         XCTAssertEqual(point.x, 0)
-        XCTAssertEqual(point.y, 880)
+        XCTAssertEqual(point.y, 1080)
     }
 
     // MARK: - AppTheme

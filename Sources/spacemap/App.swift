@@ -461,25 +461,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         NSApp.terminate(nil)
     }
     
+    private func isMRUSpacesEnabled() -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+        process.arguments = ["read", "com.apple.dock", "mru-spaces"]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return false }
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return output == "1"
+    }
+    
+    private func showMRUAlert() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Spaces MRU is Enabled"
+        alert.informativeText = "macOS \"Automatically rearrange Spaces\" is enabled, which conflicts with Spacemap's grid layout. Disable it in System Settings → Desktop & Dock → Mission Control."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        NSApp.setActivationPolicy(.prohibited)
+    }
+    
     private func detectWindowManager() -> WindowManager? {
-        let config = ConfigReader.load()
-        let wmType = WindowManagerType(rawValue: config.windowManager) ?? .auto
-        
-        switch wmType {
-        case .yabai:
+        if YabaiClient.shared.isRunning() {
             return YabaiClient.shared
-        case .aerospace:
+        } else if AeroSpaceClient.shared.isRunning() {
             return AeroSpaceClient.shared
-        case .auto:
-            // Auto-detect: prefer yabai if available, otherwise aerospace
-            if YabaiClient.shared.isRunning() {
-                return YabaiClient.shared
-            } else if AeroSpaceClient.shared.isRunning() {
-                return AeroSpaceClient.shared
-            } else {
-                // Neither is running, default to yabai for alert purposes
-                return YabaiClient.shared
-            }
+        } else {
+            return YabaiClient.shared
         }
     }
     

@@ -17,7 +17,7 @@ struct CellView: View {
     let isFocused: Bool
     let isDropTarget: Bool
     let isActive: Bool
-    let windows: [YabaiWindow]
+    let windows: [Window]
     let displayBounds: CGRect
     let cellStyle: CellStyle
     let onSelect: (Int) -> Void
@@ -34,7 +34,7 @@ struct CellView: View {
     private let showIconStrip: Bool
     private let showMultiAppIcons: Bool
     private let showExtraWindows: Bool
-    private let windowFilter: ([YabaiWindow]) -> [YabaiWindow]
+    private let windowFilter: ([Window]) -> [Window]
 
     private var isDarkMode: Bool {
         switch mode {
@@ -54,7 +54,7 @@ init(spaceIndex: Int,
             isFocused: Bool,
             isDropTarget: Bool,
             isActive: Bool,
-             windows: [YabaiWindow],
+             windows: [Window],
              displayBounds: CGRect,
              cellStyle: CellStyle,
              onSelect: @escaping (Int) -> Void,
@@ -175,7 +175,7 @@ var body: some View {
     }
     
     @ViewBuilder
-    private func windowRect(_ window: YabaiWindow) -> some View {
+    private func windowRect(_ window: Window) -> some View {
         let scaleX = cellSize.width / displayBounds.width
         let scaleY = cellSize.height / displayBounds.height
         let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
@@ -190,7 +190,7 @@ var body: some View {
     }
     
     @ViewBuilder
-    private func windowIcon(_ window: YabaiWindow) -> some View {
+    private func windowIcon(_ window: Window) -> some View {
         let scaleX = cellSize.width / displayBounds.width
         let scaleY = cellSize.height / displayBounds.height
         let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
@@ -237,13 +237,13 @@ var body: some View {
         .padding(.bottom, padding)
     }
     
-    private func uniqueIconWindows() -> [YabaiWindow] {
+    private func uniqueIconWindows() -> [Window] {
         Self.uniqueIconWindows(windows)
     }
 
-    static func uniqueIconWindows(_ windows: [YabaiWindow], showExtraWindows: Bool = false) -> [YabaiWindow] {
+    static func uniqueIconWindows(_ windows: [Window], showExtraWindows: Bool = false) -> [Window] {
         var seen = Set<String>()
-        let filter: (YabaiWindow) -> Bool = showExtraWindows
+        let filter: (Window) -> Bool = showExtraWindows
             ? { !$0.isHidden && !$0.isMinimized }
             : { $0.isRealWindow }
         return windows.filter { filter($0) && seen.insert($0.app).inserted }
@@ -256,18 +256,6 @@ var body: some View {
     private func thumbnailImage(_ spaceIndex: Int) -> some View {
         guard #available(macOS 14.0, *),
               let nsImage = ThumbnailCache.shared.thumbnailNSImage(forSpace: spaceIndex) else {
-            return AnyView(Color.clear)
-        }
-        return AnyView(Image(nsImage: nsImage)
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(width: cellSize.width, height: cellSize.height)
-            .clipped())
-    }
-    
-    private func thumbnailImage(_ spaceIndex: Int) -> some View {
-        guard #available(macOS 14.0, *),
-              let cached = ThumbnailCache.shared.thumbnail(forSpace: spaceIndex) else {
             return AnyView(Color.clear)
         }
         return AnyView(Image(nsImage: nsImage)

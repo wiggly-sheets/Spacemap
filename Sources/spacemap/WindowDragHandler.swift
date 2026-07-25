@@ -14,7 +14,7 @@ class WindowDragHandler {
     // Frames are in CGEvent bottom-left-origin screen coordinates.
     var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
     // Cached window list populated at HUD-open time.
-    var cachedWindows: [YabaiWindow] = []
+    var cachedWindows: [Window] = []
     // The window that had focus when the HUD opened.
     var focusedWindowIDAtOpen: Int? = nil
     // WindowManager instance for querying window manager (yabai or aerospace)
@@ -145,7 +145,7 @@ class WindowDragHandler {
             return focusedWindowIDAtOpen
         }
 
-        var candidates: [YabaiWindow] = []
+        var candidates: [Window] = []
         if let wm = windowManager {
             do {
                 let windows = try wm.queryWindows()

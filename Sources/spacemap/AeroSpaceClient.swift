@@ -39,14 +39,14 @@ final class AeroSpaceClient: WindowManager {
     
     private func isAerospaceRunning() -> Bool { isRunning() }
     
-    func querySpaces() -> [YabaiSpace] {
+    func querySpaces() -> [Space] {
         guard isAerospaceRunning() else { return [] }
         do {
             let workspaces = try fetchWorkspaces()
             let focusedName = (try? fetchFocusedWorkspaceName()) ?? workspaces.first?.name
             
             return workspaces.enumerated().map { index, ws in
-                YabaiSpace(
+                Space(
                     id: index,
                     index: index,
                     display: ws.monitor,
@@ -59,19 +59,18 @@ final class AeroSpaceClient: WindowManager {
         }
     }
     
-    func queryWindows() throws -> [YabaiWindow] {
+    func queryWindows() throws -> [Window] {
         guard isAerospaceRunning() else { return [] }
         let output = try shell(aerospacePath, "list-windows", "--all", "--json")
         let aerospaceWindows = try JSONDecoder().decode([AeroSpaceWindow].self, from: Data(output.utf8))
         
-        let workspaces = (try? fetchWorkspaces()) ?? []
-        let windowManager = AXUIElementCreateApplication(0)
+        let workspaces = try fetchWorkspaces()
         
-        return aerospaceWindows.compactMap { aw -> YabaiWindow? in
+        return aerospaceWindows.compactMap { aw -> Window? in
             let spaceIndex = workspaces.firstIndex { $0.name == aw.workspace } ?? 0
             let frame = getWindowFrame(forApp: aw.appName, windowTitle: aw.windowTitle) ?? WindowFrame(x: 0, y: 0, width: 100, height: 100)
             
-            return YabaiWindow(
+            return Window(
                 id: aw.windowId,
                 app: aw.appName,
                 space: spaceIndex,
@@ -160,7 +159,7 @@ final class AeroSpaceClient: WindowManager {
         do {
             let workspaces = try fetchWorkspaces()
             if index >= 0 && index < workspaces.count {
-                let workspaceName = workspaces[index]
+                let workspaceName = workspaces[index].name
                 _ = try? shell(aerospacePath, "workspace", workspaceName)
             }
         } catch {}
@@ -171,7 +170,7 @@ final class AeroSpaceClient: WindowManager {
         do {
             let workspaces = try fetchWorkspaces()
             if spaceIndex >= 0 && spaceIndex < workspaces.count {
-                let workspaceName = workspaces[spaceIndex]
+                let workspaceName = workspaces[spaceIndex].name
                 _ = try? shell(aerospacePath, "move-node-to-workspace", workspaceName, "--window-id", "\(windowID)")
             }
         } catch {}

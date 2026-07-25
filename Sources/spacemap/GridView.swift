@@ -61,7 +61,7 @@ struct GridView: View {
         let cellDisplayBounds = state.displayBounds
         let cellStyle = state.config.cellStyle
         let cellIsActive = state.spaces.contains { $0.index == spaceIndex }
-        let resolvedTheme = AppTheme.named(theme)
+        let resolvedTheme = ThemeManager.shared.named(theme)
         
         return CellView(
             spaceIndex: cellSpaceIndex,

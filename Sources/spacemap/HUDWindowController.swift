@@ -91,7 +91,7 @@ class HUDWindowController {
             NSLog("spacemap/HUD: windowManager is nil")
             return
         }
-        let state = wm.buildGridState(config: config)
+        let state = wm.buildGridState(config: config, focusedIndex: nil)
         currentState = state
         dragHandler.cachedWindows = state.windows
         // Capture focused window before HUD renders, so drag handler knows what the user had active.
@@ -160,7 +160,7 @@ class HUDWindowController {
     private func refreshState() {
         guard isVisible, let panel else { return }
         guard let wm = windowManager else { return }
-        let state = wm.buildGridState(config: config)
+        let state = wm.buildGridState(config: config, focusedIndex: nil)
         currentState = state
         dragHandler.cachedWindows = state.windows
         refreshThumbnailCache(state: state)

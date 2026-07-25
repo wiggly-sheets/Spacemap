@@ -134,19 +134,19 @@ final class ThemeTests: XCTestCase {
     // MARK: - Named theme lookup
 
     func testNamedDefault() {
-        let theme = AppTheme.named("nonexistent")
+        let theme = ThemeManager.shared.named("nonexistent")
         XCTAssertEqual(theme, AppTheme.default)
     }
 
     func testNamedDefaultExplicit() {
-        let theme = AppTheme.named("default")
+        let theme = ThemeManager.shared.named("default")
         XCTAssertEqual(theme, AppTheme.default)
     }
 
     func testBuiltinThemesExist() {
-        XCTAssertNotEqual(AppTheme.named("tokyo night"), AppTheme.default)
-        XCTAssertNotEqual(AppTheme.named("catppuccin"), AppTheme.default)
-        XCTAssertNotEqual(AppTheme.named("dracula"), AppTheme.default)
-        XCTAssertNotEqual(AppTheme.named("nord"), AppTheme.default)
+        XCTAssertNotEqual(ThemeManager.shared.named("tokyo night"), AppTheme.default)
+        XCTAssertNotEqual(ThemeManager.shared.named("catppuccin"), AppTheme.default)
+        XCTAssertNotEqual(ThemeManager.shared.named("dracula"), AppTheme.default)
+        XCTAssertNotEqual(ThemeManager.shared.named("nord"), AppTheme.default)
     }
 }
