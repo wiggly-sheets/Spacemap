@@ -154,19 +154,25 @@ class HUDWindowController {
     
     private func refreshState() {
         guard isVisible, let panel else { return }
-        let state = YabaiClient.buildGridState(config: config)
-        currentState = state
-        dragHandler.cachedWindows = state.windows
-        refreshThumbnailCache(state: state)
-        renderState(state, panel: panel)
-        updateCellFrames(state: state, panel: panel)
-        lastFocusedSpaceIndex = state.focusedIndex
+        let cfg = config
+        YabaiClient.runOnYabaiQueue {
+            let state = YabaiClient.buildGridState(config: cfg)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isVisible else { return }
+                self.currentState = state
+                self.dragHandler.cachedWindows = state.windows
+                self.refreshThumbnailCache(state: state)
+                self.renderState(state, panel: panel)
+                self.updateCellFrames(state: state, panel: panel)
+                self.lastFocusedSpaceIndex = state.focusedIndex
+            }
+        }
     }
     
     private func renderState(_ state: GridState, panel: NSPanel) {
         let hovered = hoveredCell
         let gridView = GridView(state: state, hoveredCell: hovered, onSelect: { [weak self] index in
-            YabaiClient.focusSpace(index)
+            YabaiClient.focusSpaceAsync(index)
             self?.hide()
         }, uiScale: config.uiScale, theme: config.theme)
         let size = gridView.idealSize
@@ -463,7 +469,7 @@ class HUDWindowController {
         }
 
         guard let t = target else { return }
-        YabaiClient.focusSpace(t)
+        YabaiClient.focusSpaceAsync(t)
     }
     
     private var screenHeight: CGFloat {
