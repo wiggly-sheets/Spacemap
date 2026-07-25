@@ -9,27 +9,29 @@ permissions:
 
 env:
   SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
+  WORKDIR: /Users/runner/work/spacemap/repo
 
 jobs:
   release:
     name: Build & Release
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Fix path capitalization for module cache
+      - name: Checkout to lowercase path
         run: |
-          WORKDIR="$PWD"
-          cd /Users/runner/work/spacemap
-          mv Spacemap spacemap 2>/dev/null || true
-          cd "$WORKDIR"
+          mkdir -p ${{ env.WORKDIR }}
+          git clone --filter=blob:none --no-checkout ${{ github.server_url }}/${{ github.repository }}.git ${{ env.WORKDIR }}
+          cd ${{ env.WORKDIR }}
+          git checkout ${{ github.sha }}
+        shell: bash
 
       - uses: swift-actions/setup-swift@v2
         with:
           swift-version: "5.9"
+          working-directory: ${{ env.WORKDIR }}
 
       - name: Install create-dmg
         run: brew install create-dmg
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Read version
         id: version
@@ -64,19 +66,21 @@ jobs:
 
       - name: Build app bundle (ARM64)
         run: |
-          swift package clean
+          rm -rf .build
           swift build -c release --arch arm64
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Build app bundle (x86_64)
         run: |
-          swift package clean
+          rm -rf .build
           swift build -c release --arch x86_64
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Build app bundle (universal)
         run: |
-          swift package clean
           swift build -c release --arch arm64
           swift build -c release --arch x86_64
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Code sign app bundles
         if: env.CODESIGN_IDENTITY != ''
@@ -90,12 +94,14 @@ jobs:
               echo "Signed $bundle"
             fi
           done
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Create DMGs
         run: |
           make _dmg INPUT=spacemap-arm64.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-arm64.dmg
           make _dmg INPUT=spacemap-x86_64.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-x86_64.dmg
           make _dmg INPUT=Spacemap.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-universal.dmg
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Verify DMG architectures
         run: |
@@ -123,6 +129,7 @@ jobs:
           verify_dmg spacemap-${{ steps.version.outputs.tag }}-arm64.dmg arm64
           verify_dmg spacemap-${{ steps.version.outputs.tag }}-x86_64.dmg x86_64
           verify_dmg spacemap-${{ steps.version.outputs.tag }}-universal.dmg "arm64 x86_64"
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Code sign DMGs
         if: env.CODESIGN_IDENTITY != ''
@@ -135,6 +142,7 @@ jobs:
               echo "Signed $dmg"
             fi
           done
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Notarize DMGs
         if: env.APPLE_ID != ''
@@ -155,18 +163,20 @@ jobs:
               echo "Notarized $dmg"
             fi
           done
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Generate checksums
         run: |
           shasum -a 256 spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg > checksums.txt
           cat checksums.txt
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Generate Sparkle appcast + signature
         if: env.SPARKLE_PUBLIC_KEY != ''
         env:
           VERSION: ${{ steps.version.outputs.tag }}
           DMG_FILE: spacemap-${{ steps.version.outputs.tag }}-universal.dmg
-          APPCAST_URL: https://wiggly-sheets.github.io/Spacemap/appcast.xml
+          APPCAST_URL: https://wiggly-sheets.github.io/spacemap/appcast.xml
           RELEASES_URL: https://github.com/wiggly-sheets/Spacemap/releases/download/v${{ steps.version.outputs.tag }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
@@ -179,33 +189,27 @@ jobs:
           fi
           chmod +x .github/scripts/generate-appcast.sh
           .github/scripts/generate-appcast.sh
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Update docs branch with appcast
         if: env.SPARKLE_PUBLIC_KEY != ''
         run: |
-          # Fetch the default branch
           git fetch origin ${{ github.event.repository.default_branch }}
-          # Checkout the default branch
           git checkout ${{ github.event.repository.default_branch }}
-          # Ensure docs directory exists
           mkdir -p docs
-          # Copy the generated appcast.xml
           cp appcast.xml docs/
-          # Ensure .nojekyll exists
           if [ ! -f docs/.nojekyll ]; then touch docs/.nojekyll; fi
-          # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Add changes
           git add docs/appcast.xml docs/.nojekyll
-          # Commit if there are changes
           if ! git diff --cached --quiet; then
             git commit -m "Update Sparkle appcast [skip ci]"
-            # Push back
             git push origin HEAD:${{ github.event.repository.default_branch }}
           else
             echo "No changes to appcast"
           fi
+        working-directory: ${{ env.WORKDIR }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -217,6 +221,7 @@ jobs:
             spacemap-*-universal.dmg
             checksums.txt
             appcast.xml
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Update Homebrew tap
         if: env.HOMEBREW_TAP_TOKEN != ''
@@ -263,6 +268,7 @@ jobs:
           git add Casks/spacemap.rb
           git commit -m "spacemap ${VERSION}" || echo "No changes"
           git push
+        working-directory: ${{ env.WORKDIR }}
 
       - name: Cleanup keychain
         if: always() && env.KEYCHAIN_PATH != ''
