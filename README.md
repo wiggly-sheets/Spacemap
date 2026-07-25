@@ -1,3 +1,4 @@
+[![Release](https://github.com/wiggly-sheets/Spacemap/actions/workflows/release.yml/badge.svg)](https://github.com/wiggly-sheets/Spacemap/actions/workflows/release.yml)
 # Spacemap
 
 A native macOS utility that shows your yabai workspace grid on demand. Press `Ctrl+PgDn` to toggle a floating overlay showing all your desktops as a 2D grid with window positions highlighted inside each cell.
