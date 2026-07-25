@@ -2,7 +2,6 @@ import SwiftUI
 import Foundation
 import CoreGraphics
 import AppKit
-import ServiceManagement
 import Sparkle
 
 struct CustomStepper: View {
@@ -197,7 +196,7 @@ init() {
                 return idx
             }
         }
-        return layouts.isEmpty ? 0 : 0
+        return 0
     }
     
     private func saveConfig() {
@@ -206,7 +205,6 @@ init() {
         let iconStripStr = showIconStrip ? "on" : "off"
         let multiAppIconsStr = showMultiAppIcons ? "on" : "off"
         let hideMenuBarIconStr = hideMenuBarIcon ? "on" : "off"
-        let launchAtLogin = SMAppService.mainApp.status == .enabled
         let lines = [
             "GRID_COLS=\(cols)",
             "GRID_ROWS=\(rows)",
@@ -233,7 +231,6 @@ init() {
             "CUSTOM_HUD_Y=\(lastCustomHUDY)",
             "HUD_POSITION=\(ConfigReader.hudPositionString(hudPosition))",
             "SPACE_NAMES=\(formatSpaceNames())",
-            "LAUNCH_AT_LOGIN=\(launchAtLogin ? "on" : "off")",
             "UPDATE_MODE=\(updateMode.rawValue)"
         ]
         let content = lines.joined(separator: "\n")
@@ -491,44 +488,7 @@ Section(header: Text("Behavior").font(.title).bold()) {
     }
     
     static func hotkeyStringFrom(_ hotkey: HotkeyConfig) -> String {
-        var parts: [String] = []
-        if hotkey.modifiers.contains(.maskControl) { parts.append("ctrl") }
-        if hotkey.modifiers.contains(.maskCommand) { parts.append("cmd") }
-        if hotkey.modifiers.contains(.maskAlternate) { parts.append("alt") }
-        if hotkey.modifiers.contains(.maskShift) { parts.append("shift") }
-        
-        let keyString: String
-        switch hotkey.keyCode {
-        case 49: keyString = "space"
-        case 48: keyString = "tab"
-        case 36: keyString = "return"
-        case 53: keyString = "escape"
-        case 51: keyString = "delete"
-        case 121: keyString = "pgdn"
-        case 116: keyString = "pgup"
-        case 115: keyString = "home"
-        case 119: keyString = "end"
-        case 123: keyString = "left"
-        case 124: keyString = "right"
-        case 125: keyString = "down"
-        case 126: keyString = "up"
-        case 122: keyString = "f1"
-        case 120: keyString = "f2"
-        case 99:  keyString = "f3"
-        case 118: keyString = "f4"
-        case 96:  keyString = "f5"
-        case 97:  keyString = "f6"
-        case 98:  keyString = "f7"
-        case 100: keyString = "f8"
-        case 101: keyString = "f9"
-        case 109: keyString = "f10"
-        case 103: keyString = "f11"
-        case 111: keyString = "f12"
-        default:
-            keyString = "\(hotkey.keyCode)"
-        }
-        parts.append(keyString)
-        return parts.joined(separator: "+")
+        return ConfigReader.hotkeyToString(hotkey)
     }
 }
 

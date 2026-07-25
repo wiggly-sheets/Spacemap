@@ -43,7 +43,11 @@ struct CellView: View {
         case .auto:  return NSApp.effectiveAppearance.name == .darkAqua
         }
     }
-    
+
+    private var filteredWindows: [YabaiWindow] {
+        windowFilter(windows)
+    }
+
     private var cellSize: CGSize {
         CGSize(width: baseCellWidth * uiScale, height: baseCellHeight * uiScale)
     }
@@ -98,8 +102,7 @@ var body: some View {
                 .fill(backgroundColor)
 
             if cellStyle != .simple {
-                let visibleWindows = windowFilter(windows)
-                ForEach(visibleWindows, id: \.id) { window in
+                ForEach(filteredWindows, id: \.id) { window in
                     switch cellStyle {
                     case .rects:      windowRect(window)
                     case .icons:      windowIcon(window)
@@ -210,7 +213,7 @@ var body: some View {
     
     @ViewBuilder
     private func iconStrip() -> some View {
-        let visible = windowFilter(windows)
+        let visible = filteredWindows
         let icons = showMultiAppIcons ? visible : Self.uniqueIconWindows(visible)
         let ic = iconScale
         let baseIconSize = 12 * uiScale * ic * 2

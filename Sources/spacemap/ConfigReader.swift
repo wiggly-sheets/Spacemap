@@ -212,8 +212,58 @@ enum ConfigReader {
     }
 
     static func hotkeyToString(_ hotkey: HotkeyConfig) -> String {
-        let modifiers = hotkey.modifiers
-        let keyCode = hotkey.keyCode
+        return hotkeyToString(keyCode: hotkey.keyCode, modifiers: hotkey.modifiers)
+    }
+
+    static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
+        switch keyCode {
+        case 49: return "space"
+        case 48: return "tab"
+        case 36: return "return"
+        case 53: return "escape"
+        case 51: return "delete"
+        case 121: return "pgdn"
+        case 116: return "pgup"
+        case 115: return "home"
+        case 119: return "end"
+        case 123: return "left"
+        case 124: return "right"
+        case 125: return "down"
+        case 126: return "up"
+        case 122: return "f1"
+        case 120: return "f2"
+        case 99:  return "f3"
+        case 118: return "f4"
+        case 96:  return "f5"
+        case 97:  return "f6"
+        case 98:  return "f7"
+        case 100: return "f8"
+        case 101: return "f9"
+        case 109: return "f10"
+        case 103: return "f11"
+        case 111: return "f12"
+        case 105: return "f13"
+        case 107: return "f14"
+        case 113: return "f15"
+        case 106: return "f16"
+        case 64:  return "f17"
+        case 79:  return "f18"
+        case 80:  return "f19"
+        case 90:  return "f20"
+        default:
+            let alphanum: [CGKeyCode: String] = [
+                0: "a", 1: "s", 2: "d", 3: "f", 4: "h", 5: "g",
+                6: "z", 7: "x", 8: "c", 9: "v", 11: "b", 12: "q",
+                13: "w", 14: "e", 15: "r", 16: "y", 17: "t", 18: "1",
+                19: "2", 20: "3", 21: "4", 22: "6", 23: "5", 24: "=",
+                25: "9", 26: "7", 27: "-", 28: "8", 29: "0", 31: "o",
+                32: "u", 33: "i", 34: "p", 35: "l", 36: "j", 37: "k", 38: "n", 39: "m"
+            ]
+            return alphanum[keyCode] ?? "unknown"
+        }
+    }
+
+    static func hotkeyToString(keyCode: CGKeyCode, modifiers: CGEventFlags) -> String {
         var modString = ""
         if modifiers.contains(.maskControl) { modString += "ctrl" }
         if modifiers.contains(.maskCommand) {
@@ -231,52 +281,7 @@ enum ConfigReader {
         if modString.isEmpty {
             modString = "none"
         }
-        let keyString: String
-        switch keyCode {
-        case 49: keyString = "space"
-        case 48: keyString = "tab"
-        case 36: keyString = "return"
-        case 53: keyString = "escape"
-        case 51: keyString = "delete"
-        case 121: keyString = "pgdn"
-        case 116: keyString = "pgup"
-        case 115: keyString = "home"
-        case 119: keyString = "end"
-        case 123: keyString = "left"
-        case 124: keyString = "right"
-        case 125: keyString = "down"
-        case 126: keyString = "up"
-        case 122: keyString = "f1"
-        case 120: keyString = "f2"
-        case 99: keyString = "f3"
-        case 118: keyString = "f4"
-        case 96: keyString = "f5"
-        case 97: keyString = "f6"
-        case 98: keyString = "f7"
-        case 100: keyString = "f8"
-        case 101: keyString = "f9"
-        case 109: keyString = "f10"
-        case 103: keyString = "f11"
-        case 111: keyString = "f12"
-        case 105: keyString = "f13"
-        case 107: keyString = "f14"
-        case 113: keyString = "f15"
-        case 106: keyString = "f16"
-        case 64: keyString = "f17"
-        case 79: keyString = "f18"
-        case 80: keyString = "f19"
-        case 90: keyString = "f20"
-        default:
-            let alphanum: [CGKeyCode: String] = [
-                0: "a", 1: "s", 2: "d", 3: "f", 4: "h", 5: "g",
-                6: "z", 7: "x", 8: "c", 9: "v", 11: "b", 12: "q",
-                13: "w", 14: "e", 15: "r", 16: "y", 17: "t", 18: "1",
-                19: "2", 20: "3", 21: "4", 22: "6", 23: "5", 24: "=",
-                25: "9", 26: "7", 27: "-", 28: "8", 29: "0", 31: "o",
-                32: "u", 33: "i", 34: "p", 35: "l", 36: "j", 37: "k", 38: "n", 39: "m"
-            ]
-            keyString = alphanum[keyCode] ?? "unknown"
-        }
+        let keyString = keyCodeToSymbolicString(keyCode)
         return (modString == "none" ? "" : modString + "+") + keyString
     }
 

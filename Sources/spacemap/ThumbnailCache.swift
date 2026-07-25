@@ -56,8 +56,8 @@ final class ThumbnailCache {
 
             let filter = SCContentFilter(display: display, excludingWindows: selfWindows)
             let config = SCStreamConfiguration()
-            config.width = Int(display.width * 2)
-            config.height = Int(display.height * 2)
+            config.width = Int(display.width)
+            config.height = Int(display.height)
             config.showsCursor = false
 
             return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)

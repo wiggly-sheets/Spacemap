@@ -37,6 +37,11 @@ class HUDWindowController {
     private var panelDragOffset: CGPoint?  // not used maybe
     private var panelDragOrigin: CGPoint?  // initial panel origin on drag start
     private var isPanelDragging = false
+    private var refreshWorkItem: DispatchWorkItem?
+    private var isFetching = false  // prevents concurrent fetches
+    private var isPollingFocusedSpace = false
+    private var pendingFocusedSpaceIndex: Int?
+    private var pendingFocusDeadline: Date?
     
     init() {
         dragHandler.onHoverCell = { [weak self] cell in
@@ -81,39 +86,88 @@ class HUDWindowController {
         reloadConfig()
         
         panel = makePanel()
-        guard let panel else { 
-            return
-        }
+        guard let panel else { return }
         
-        // buildGridState derives focusedIndex from spaces query — no separate call needed
-        let state = YabaiClient.buildGridState(config: config)
-        currentState = state
-        dragHandler.cachedWindows = state.windows
-        // Capture focused window before HUD renders, so drag handler knows what the user had active.
-        if let focusedWindowID = (try? YabaiClient.queryFocusedWindow()) {
-            dragHandler.focusedWindowIDAtOpen = focusedWindowID
-        }
-        refreshThumbnailCache(state: state)
-        renderState(state, panel: panel)
-        updateCellFrames(state: state, panel: panel)
-        dragHandler.start()
-        lastFocusedSpaceIndex = state.focusedIndex
+        // Show panel immediately with empty state — don't block main
         isVisible = true
+        renderEmptyState(panel: panel)
         resetAutoHideTimer()
         startPollTimer()
         startSettingsKeyMonitor()
         if case .custom = config.hudPosition { startPanelDragMonitor() }
+        
+        // Fetch data in background, update UI when ready
+        fetchStateAndRender(panel: panel)
     }
     
     private func startPollTimer() {
         pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            guard let self, self.isVisible else { return }
-            if let focused = YabaiClient.queryFocusedSpaceIndex(), focused != self.lastFocusedSpaceIndex {
-                self.refreshState()
-                self.resetAutoHideTimer()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self, self.isVisible, !self.isPollingFocusedSpace else { return }
+            self.isPollingFocusedSpace = true
+            // Do not enqueue another poll while one is waiting behind a refresh.
+            // Otherwise polls can delay interactive focus commands indefinitely.
+            YabaiClient.runOnYabaiQueue { [weak self] in
+                let focused = YabaiClient.queryFocusedSpaceIndex()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.isPollingFocusedSpace = false
+                    guard self.isVisible else { return }
+                    self.handlePolledFocus(focused)
+                }
             }
         }
+    }
+    
+    private func fetchStateAndRender(panel: NSPanel) {
+        // Cancel any pending work and mark as fetching so refreshState can't race
+        refreshWorkItem?.cancel()
+        refreshWorkItem = nil
+        isFetching = true
+        let cfg = config
+        var workCancelled = false
+        let work: DispatchWorkItem = DispatchWorkItem { [weak self] in
+            let state = YabaiClient.buildGridState(config: cfg)
+            let focusedWindowID = try? YabaiClient.queryFocusedWindow()
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                // Guard against stale completions
+                guard !workCancelled, self.isFetching else {
+                    NSLog("spacemap/HUD: fetchStateAndRender cancelled (stale)")
+                    self.isFetching = false
+                    return
+                }
+                self.isFetching = false
+                guard self.isVisible else { return }
+                self.currentState = state
+                self.dragHandler.cachedWindows = state.windows
+                if let fid = focusedWindowID {
+                    self.dragHandler.focusedWindowIDAtOpen = fid
+                }
+                self.refreshThumbnailCache(state: state)
+                self.renderState(state, panel: panel)
+                self.updateCellFrames(state: state, panel: panel)
+                self.lastFocusedSpaceIndex = state.focusedIndex
+                self.dragHandler.start()
+                NSLog("spacemap/HUD: fetchStateAndRender complete, focused=\(state.focusedIndex ?? -1), spaces=\(state.spaces.count), windows=\(state.windows.count)")
+            }
+        }
+        work.notify(queue: .main) { [weak work] in
+            if work?.isCancelled == true { workCancelled = true }
+        }
+        refreshWorkItem = work
+        YabaiClient.runOnYabaiQueue(work)
+    }
+
+    private func renderEmptyState(panel: NSPanel) {
+        let emptyState = GridState(
+            config: config,
+            spaces: [],
+            windows: [],
+            displayBounds: NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440),
+            focusedIndex: nil
+        )
+        renderState(emptyState, panel: panel)
     }
     
     func hide() {
@@ -127,6 +181,8 @@ class HUDWindowController {
         autoHideTimer = nil
         pollTimer?.invalidate()
         pollTimer = nil
+        refreshWorkItem?.cancel()
+        refreshWorkItem = nil
         
         if let p = panel {
             p.orderOut(nil)
@@ -138,6 +194,9 @@ class HUDWindowController {
         isVisible = false
         hoveredCell = nil
         currentState = nil
+        isPollingFocusedSpace = false
+        pendingFocusedSpaceIndex = nil
+        pendingFocusDeadline = nil
         dragHandler.cellFrames = []
         dragHandler.cachedWindows = []
         dragHandler.focusedWindowIDAtOpen = nil
@@ -154,21 +213,42 @@ class HUDWindowController {
     
     private func refreshState() {
         guard isVisible, let panel else { return }
-        let state = YabaiClient.buildGridState(config: config)
-        currentState = state
-        dragHandler.cachedWindows = state.windows
-        refreshThumbnailCache(state: state)
-        renderState(state, panel: panel)
-        updateCellFrames(state: state, panel: panel)
-        lastFocusedSpaceIndex = state.focusedIndex
+        // Debounce: cancel any in-flight work
+        refreshWorkItem?.cancel()
+        refreshWorkItem = nil
+        isFetching = false  // allow fetchStateAndRender to re-fetch
+
+        var workCancelled = false
+        let work: DispatchWorkItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let cfg = self.config
+            let state = YabaiClient.buildGridState(config: cfg)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard !workCancelled, self.isVisible else {
+                    NSLog("spacemap/HUD: refreshState cancelled (stale)")
+                    return
+                }
+                let displayedState = self.statePreservingPendingFocus(state)
+                self.currentState = displayedState
+                self.dragHandler.cachedWindows = displayedState.windows
+                self.refreshThumbnailCache(state: displayedState)
+                self.renderState(displayedState, panel: panel)
+                self.updateCellFrames(state: displayedState, panel: panel)
+                self.lastFocusedSpaceIndex = displayedState.focusedIndex
+                NSLog("spacemap/HUD: refreshState complete, focused=\(displayedState.focusedIndex ?? -1)")
+            }
+        }
+        work.notify(queue: .main) { [weak work] in
+            if work?.isCancelled == true { workCancelled = true }
+        }
+        refreshWorkItem = work
+        YabaiClient.runOnYabaiQueue(work)
     }
     
     private func renderState(_ state: GridState, panel: NSPanel) {
         let hovered = hoveredCell
-        let gridView = GridView(state: state, hoveredCell: hovered, onSelect: { [weak self] index in
-            YabaiClient.focusSpace(index)
-            self?.hide()
-        }, uiScale: config.uiScale, theme: config.theme)
+        let gridView = makeGridView(state: state, hoveredCell: hovered)
         let size = gridView.idealSize
         
         let hv = NSHostingView(rootView: gridView)
@@ -184,6 +264,13 @@ class HUDWindowController {
         }
         
         panel.orderFrontRegardless()
+    }
+
+    private func makeGridView(state: GridState, hoveredCell: Int?) -> GridView {
+        GridView(state: state, hoveredCell: hoveredCell, onSelect: { [weak self] index in
+            YabaiClient.focusSpaceAsync(index)
+            self?.hide()
+        }, uiScale: config.uiScale, theme: config.theme)
     }
     
     private func updateCellFrames(state: GridState, panel: NSPanel) {
@@ -384,7 +471,7 @@ class HUDWindowController {
             let code = UInt16(event.keyCode)
             let mods = event.modifierFlags
             let noModifiers = !mods.contains(.control) && !mods.contains(.command) && !mods.contains(.option)
-            var dir: Direction? = nil
+            var dir: SpaceNavigationDirection? = nil
             if config.useArrowKeys && noModifiers {
                 switch code {
                 case 123: dir = .left
@@ -416,54 +503,82 @@ class HUDWindowController {
         }
     }
 
-    private enum Direction { case left, right, up, down }
+    private func navigateSpace(_ direction: SpaceNavigationDirection) {
+        guard let currentIdx = lastFocusedSpaceIndex, let state = currentState else { return }
+        let cells = SpaceNavigator.navigableSpaceIndices(
+            activeSpaceIndices: state.spaces.map(\.index),
+            maxSpaces: config.maxSpaces
+        )
+        guard let target = SpaceNavigator.destination(
+            from: currentIdx,
+            visibleSpaceIndices: cells,
+            columns: config.cols,
+            direction: direction
+        ) else { return }
 
-    private func navigateSpace(_ direction: Direction) {
-        guard let idx = lastFocusedSpaceIndex else { return }
-        let cols = config.cols
-        let maxN = config.maxSpaces
-        let zero = idx - 1
-        let row = zero / cols
-        let col = zero % cols
-        let rowStart = row * cols + 1
-        var target: Int?
+        NSLog("spacemap/HUD: navigate \(direction) from yabai=\(currentIdx) → target yabai=\(target)")
+        pendingFocusedSpaceIndex = target
+        pendingFocusDeadline = Date().addingTimeInterval(1)
+        YabaiClient.focusSpaceAsync(target)
+        lastFocusedSpaceIndex = target
+        renderPendingFocus(target, in: state)
+        resetAutoHideTimer()
+    }
 
-        switch direction {
-        case .left:
-            if col == 0 {
-                var rowEnd = rowStart + cols - 1
-                if rowEnd > maxN { rowEnd = maxN }
-                target = rowEnd
-            } else {
-                target = idx - 1
+    private func handlePolledFocus(_ focusedIndex: Int?) {
+        if let pending = pendingFocusedSpaceIndex {
+            if focusedIndex == pending {
+                pendingFocusedSpaceIndex = nil
+                pendingFocusDeadline = nil
+                refreshState()
+                return
             }
-        case .right:
-            if col == cols - 1 {
-                target = rowStart
-            } else {
-                let next = idx + 1
-                target = next > maxN ? rowStart : next
+            if pendingFocusDeadline.map({ Date() < $0 }) ?? false {
+                // The focus command is still in flight. Ignore the stale result
+                // so it cannot overwrite the optimistic selection.
+                return
             }
-        case .up, .down:
-            var columnSpaces: [Int] = []
-            var i = col + 1
-            while i <= maxN {
-                columnSpaces.append(i)
-                i += cols
-            }
-            guard let pos = columnSpaces.firstIndex(of: idx) else { return }
-            let n = columnSpaces.count
-            let newPos: Int
-            if direction == .up {
-                newPos = (pos - 1 + n) % n
-            } else {
-                newPos = (pos + 1) % n
-            }
-            target = columnSpaces[newPos]
+            pendingFocusedSpaceIndex = nil
+            pendingFocusDeadline = nil
         }
 
-        guard let t = target else { return }
-        YabaiClient.focusSpace(t)
+        if focusedIndex != lastFocusedSpaceIndex {
+            NSLog("spacemap/HUD: poll detected change last=\(lastFocusedSpaceIndex ?? -1) current=\(focusedIndex ?? -1)")
+            refreshState()
+            resetAutoHideTimer()
+        }
+    }
+
+    private func renderPendingFocus(_ focusedIndex: Int, in state: GridState) {
+        let pendingState = GridState(
+            config: state.config,
+            spaces: state.spaces,
+            windows: state.windows,
+            displayBounds: state.displayBounds,
+            focusedIndex: focusedIndex
+        )
+        currentState = pendingState
+        if let hostingView {
+            hostingView.rootView = makeGridView(state: pendingState, hoveredCell: hoveredCell)
+        } else if let panel {
+            renderState(pendingState, panel: panel)
+        }
+    }
+
+    private func statePreservingPendingFocus(_ state: GridState) -> GridState {
+        guard let pending = pendingFocusedSpaceIndex else { return state }
+        if state.focusedIndex == pending || !(pendingFocusDeadline.map { Date() < $0 } ?? false) {
+            pendingFocusedSpaceIndex = nil
+            pendingFocusDeadline = nil
+            return state
+        }
+        return GridState(
+            config: state.config,
+            spaces: state.spaces,
+            windows: state.windows,
+            displayBounds: state.displayBounds,
+            focusedIndex: pending
+        )
     }
     
     private var screenHeight: CGFloat {
