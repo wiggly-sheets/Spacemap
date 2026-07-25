@@ -123,12 +123,11 @@ final class ThemeTests: XCTestCase {
     // MARK: - hex formatting
 
     func testHexPadding() {
-        let tm = ThemeManager.shared
-        XCTAssertEqual(tm.hex(0), "000000")
-        XCTAssertEqual(tm.hex(0xf), "00000f")
-        XCTAssertEqual(tm.hex(0xff), "0000ff")
-        XCTAssertEqual(tm.hex(0xfff), "000fff")
-        XCTAssertEqual(tm.hex(0xffffff), "ffffff")
+        XCTAssertEqual(ThemeManager.hex(0), "000000")
+        XCTAssertEqual(ThemeManager.hex(0xf), "00000f")
+        XCTAssertEqual(ThemeManager.hex(0xff), "0000ff")
+        XCTAssertEqual(ThemeManager.hex(0xfff), "000fff")
+        XCTAssertEqual(ThemeManager.hex(0xffffff), "ffffff")
     }
 
     // MARK: - Named theme lookup

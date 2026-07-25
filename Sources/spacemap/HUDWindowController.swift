@@ -425,51 +425,75 @@ class HUDWindowController {
     private enum Direction { case left, right, up, down }
 
     private func navigateSpace(_ direction: Direction) {
-        guard let idx = lastFocusedSpaceIndex else { return }
+        guard let currentIdx = lastFocusedSpaceIndex else { return }
         let cols = config.cols
-        let maxN = config.maxSpaces
-        let zero = idx - 1
-        let row = zero / cols
-        let col = zero % cols
-        let rowStart = row * cols + 1
-        var target: Int?
-
+        let maxN = min(config.maxSpaces, 16)
+        
+        // Build visible cell array (same logic as GridView)
+        let all = (1...maxN).map { $0 }
+        let cells: [Int]
+        if config.showMode == .active {
+            let activeSet = Set(currentState?.spaces.map { $0.index } ?? [])
+            cells = all.filter { activeSet.contains($0) }
+        } else {
+            cells = all
+        }
+        guard !cells.isEmpty else { return }
+        
+        guard let pos = cells.firstIndex(of: currentIdx) else {
+            // Current not in visible list — navigate from first
+            let target = cells[0]
+            YabaiClient.focusSpaceAsync(target)
+            lastFocusedSpaceIndex = target
+            resetAutoHideTimer()
+            return
+        }
+        
+        let rowCount = (cells.count + cols - 1) / cols
+        let col = pos % cols
+        let row = pos / cols
+        var targetIdx: Int? = nil
+        
         switch direction {
         case .left:
-            if col == 0 {
-                var rowEnd = rowStart + cols - 1
-                if rowEnd > maxN { rowEnd = maxN }
-                target = rowEnd
+            if col > 0 {
+                targetIdx = cells[pos - 1]
             } else {
-                target = idx - 1
+                // Wrap to end of same row, or previous row end
+                targetIdx = cells[pos + min(cols - 1, cells.count - 1 - row * cols)]
             }
         case .right:
-            if col == cols - 1 {
-                target = rowStart
+            let rowEnd = min((row + 1) * cols - 1, cells.count - 1)
+            if col < cols - 1 && pos < rowEnd {
+                targetIdx = cells[pos + 1]
             } else {
-                let next = idx + 1
-                target = next > maxN ? rowStart : next
+                // Wrap to start of same row
+                targetIdx = cells[row * cols]
             }
-        case .up, .down:
-            var columnSpaces: [Int] = []
-            var i = col + 1
-            while i <= maxN {
-                columnSpaces.append(i)
-                i += cols
+        case .up:
+            var newRow = row - 1
+            let newCol = col
+            if newRow < 0 { newRow = rowCount - 1 }
+            let newPos = newRow * cols + newCol
+            if newPos < cells.count {
+                targetIdx = cells[newPos]
             }
-            guard let pos = columnSpaces.firstIndex(of: idx) else { return }
-            let n = columnSpaces.count
-            let newPos: Int
-            if direction == .up {
-                newPos = (pos - 1 + n) % n
+        case .down:
+            var newRow = row + 1
+            let newCol = col
+            if newRow >= rowCount { newRow = 0 }
+            let newPos = newRow * cols + newCol
+            if newPos < cells.count {
+                targetIdx = cells[newPos]
             } else {
-                newPos = (pos + 1) % n
+                targetIdx = cells[newRow * cols]
             }
-            target = columnSpaces[newPos]
         }
-
-        guard let t = target else { return }
+        
+        guard let t = targetIdx else { return }
         YabaiClient.focusSpaceAsync(t)
+        lastFocusedSpaceIndex = t
+        resetAutoHideTimer()
     }
     
     private var screenHeight: CGFloat {

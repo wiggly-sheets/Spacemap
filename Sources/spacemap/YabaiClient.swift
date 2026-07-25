@@ -18,8 +18,11 @@ enum YabaiClient {
 
     private static var _yabaiRunningCache: (result: Bool, checkedAt: TimeInterval)?
     private static let yabaiCacheTTL: TimeInterval = 5.0
+    private static let cacheLock = NSLock()
 
     static func isYabaiRunning() -> Bool {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
         let now = ProcessInfo.processInfo.systemUptime
         if let cached = _yabaiRunningCache, now - cached.checkedAt < yabaiCacheTTL {
             return cached.result

@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `ConfigReader.keyCodeToSymbolicString(_:)` helper for keyCode→symbolic string conversion
+- `ConfigReader.hotkeyToString(keyCode:modifiers:)` overload for raw keyCode/modifier encoding
+
+### Changed
+- `navigateSpace` now respects visible cells (active showMode, 16-space cap) instead of raw indices
+- `ThemeManager.hex()` is now `static`
+- `SettingsView.hotkeyStringFrom()` delegates to `ConfigReader.hotkeyToString()` (code dedup)
+- `isMRUSpacesEnabled` check deferred to background queue so it no longer blocks startup
+- yabai alert informative text now includes GitHub link
+
+### Fixed
+- `isYabaiRunning()` cache protected with `NSLock` to prevent data races
+- `SettingsWindowController` no longer uses deprecated `setFrameUsingName`/`setFrameAutosaveName` pair
+- `findBestGridLayoutIndexFor` dead conditional `layouts.isEmpty ? 0 : 0` simplified to `0`
+- `ThumbnailCache` captures at 1x display size instead of 2x (perf/memory)
+- `CellView` computed `filteredWindows` once instead of calling `windowFilter` twice per render
+- `LAUNCH_AT_LOGIN` removed from SettingsView config save (handled by ServiceManagement, not file)
+
 
 ## [1.0.12] - 2026-07-25
 
