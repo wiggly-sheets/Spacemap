@@ -10,7 +10,7 @@ We're excited to have you contribute to Spacemap. This is a native macOS utility
 - macOS 13+ (Ventura or later)
 - Xcode Command Line Tools: `xcode-select --install`
 - yabai installed: `brew install asmvik/formulae/yabai`
-- skhd installed: `brew install koekeishiya/formulae/skhd` (or `brew install jackielii/formulae/skhd.zig`)
+- skhd installed: `brew install koekeishiya/formulae/skhd` (or `brew install jackielii/formulae/skhd-zig`)
 
 ### Setup
 
