@@ -8,7 +8,7 @@ DMG_HASH="${DMG_HASH:-}"
 ED_SIGNATURE="${ED_SIGNATURE:-}"
 APP_NAME="${APP_NAME:-Spacemap}"
 APPCAST_URL="${APPCAST_URL:-https://wiggly-sheets.github.io/Spacemap/appcast.xml}"
-RELEASES_URL="${RELEASES_URL:-https://github.com/wiggly-sheets/spacemap/releases/download/v${VERSION}}"
+RELEASES_URL="${RELEASES_URL:-https://github.com/wiggly-sheets/Spacemap/releases/download/v${VERSION}}"
 MAX_ITEMS="${MAX_ITEMS:-5}"
 
 SIGNATURE_ATTR=""
@@ -19,7 +19,7 @@ NEW_ITEM=$(cat << ITEM_EOF
       <title>Version ${VERSION}</title>
       <sparkle:version>${VERSION}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
-      <sparkle:releaseNotesLink>https://github.com/wiggly-sheets/spacemap/releases/tag/v${VERSION}</sparkle:releaseNotesLink>
+      <sparkle:releaseNotesLink>https://github.com/wiggly-sheets/Spacemap/releases/tag/v${VERSION}</sparkle:releaseNotesLink>
       <enclosure url="${RELEASES_URL}/${DMG_FILE}"${SIGNATURE_ATTR} length="${DMG_SIZE}" type="application/octet-stream" sparkle:architecture="universal"/>
     </item>
 ITEM_EOF

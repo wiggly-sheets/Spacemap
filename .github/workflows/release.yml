@@ -69,25 +69,25 @@ jobs:
         run: |
           cd /Users/runner/work/spacemap/repo
           rm -rf .build
-          swift build -c release --arch arm64
+          make app-arm64
 
       - name: Build app bundle (x86_64)
         run: |
           cd /Users/runner/work/spacemap/repo
           rm -rf .build
-          swift build -c release --arch x86_64
+          make app-x86_64
 
       - name: Build app bundle (universal)
         run: |
           cd /Users/runner/work/spacemap/repo
-          swift build -c release --arch arm64
-          swift build -c release --arch x86_64
+          rm -rf .build
+          make app-universal
 
       - name: Code sign app bundles
         if: env.CODESIGN_IDENTITY != ''
         run: |
           cd /Users/runner/work/spacemap/repo
-          for bundle in spacemap-arm64.app spacemap-x86_64.app spacemap.app; do
+          for bundle in spacemap-arm64.app spacemap-x86_64.app Spacemap.app; do
             if [ -d "$bundle" ]; then
               codesign --force --sign "$CODESIGN_IDENTITY" \
                 --options runtime \
@@ -177,7 +177,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.tag }}
           DMG_FILE: spacemap-${{ steps.version.outputs.tag }}-universal.dmg
-          APPCAST_URL: https://wiggly-sheets.github.io/spacemap/appcast.xml
+          APPCAST_URL: https://wiggly-sheets.github.io/Spacemap/appcast.xml
           RELEASES_URL: https://github.com/wiggly-sheets/Spacemap/releases/download/v${{ steps.version.outputs.tag }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |

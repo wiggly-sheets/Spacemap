@@ -551,7 +551,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     // MARK: - SPUUpdaterDelegate
 
     func feedURL(for updater: SPUUpdater) -> URL? {
-        return URL(string: "https://wiggly-sheets.github.io/spacemap/appcast.xml")
+        return URL(string: "https://wiggly-sheets.github.io/Spacemap/appcast.xml")
     }
 
     func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {

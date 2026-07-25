@@ -29,6 +29,6 @@
     <key>NSScreenCaptureUsageDescription</key>
     <string>Spacemap needs screen recording permission to show window thumbnails of each yabai space.</string>
     <key>SUFeedURL</key>
-    <string>https://wiggly-sheets.github.io/spacemap/appcast.xml</string>
+    <string>https://wiggly-sheets.github.io/Spacemap/appcast.xml</string>
 </dict>
 </plist>
