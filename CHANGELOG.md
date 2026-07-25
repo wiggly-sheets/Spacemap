@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Configurable multi-monitor HUD modes: per-display overlays or a unified display map.
+- Unified-grid visibility preference for showing the complete grid on the active display or every display.
+- Separate-HUD visibility preference for showing all displays or only the display with yabai's focused space.
+- Keyboard-navigation display wrapping preference: stay within the focused display or wrap across displays.
+
+### Fixed
+- Cross-display navigation now leaves a display at its grid-wrap edge instead of cycling through that display's spaces.
+- Release automation now verifies the Sparkle public/private key pair before signing, preventing improperly signed updates from being published.
+- Startup now warns when macOS “Displays have separate Spaces” is disabled.
+- HUD reuses a prewarmed grid snapshot so active-space highlighting and app icons appear with the panel instead of a moment later.
+
+### Changed
+- Shifted in-cell space numbers slightly inward for more comfortable padding from the top-left edge.
+
 
 ## [1.0.13] - 2026-07-25
 
@@ -47,6 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release checklist in AGENTS.md
 - `VERSION` file as fallback for version derivation
 
+### Changed
+- Revised installation guidance and refreshed the project icon in the README.
+
 ### Fixed
 - Sparkle updater double-start bug — `updater.start()` replaced with idempotent `startUpdater()`
 - Sparkle `sign_update` download URL updated to Sparkle 2.9.4 (2.7.1 was 404)
@@ -54,21 +72,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empty version strings in Info.plist when git tags missing
 - VERSION derivation falls back to Info.plist when no tags or VERSION file exist
 
-## [1.0.11] - 2026-07-25
+
+## [1.0.10] - 2026-07-24
 
 ### Changed
-- **Changed:** App entry point and lifecycle
-- **Changed:** Settings window
-- **Changed:** appcast.xml
+- Renamed the application and bundle consistently to `Spacemap` / `Spacemap.app` across the app, installer, documentation, and release workflow.
 
-### Documentation
-- **Changed:** User-facing documentation
+### Fixed
+- Release automation now uses stable build-cache paths and publishes appcasts with the correct repository URL and app-bundle capitalization.
 
-### Build
-- **Changed:** Build system
 
-### CI/CD
-- **Changed:** CI/CD pipeline
+## [1.0.9] - 2026-07-24
+
+### Added
+- Sparkle automatic-update support, including update preferences and manual “Check for Updates” controls.
+- Appcast publishing as part of the GitHub release workflow.
+
+### Changed
+- First-launch prompts now appear in a clearer order: yabai, Applications folder, launch at login, then updates.
+
+### Fixed
+- Sparkle is embedded and loaded correctly, with working framework rpaths, signing, feed URLs, and appcast generation.
+
+
+## [1.0.8] - 2026-07-24
+
+### Fixed
+- The app returns to its background-only activation policy after the Settings window closes, preventing a lingering Dock icon.
+
+
+## [1.0.7] - 2026-07-23
+
+### Fixed
+- Icon strips now scale to fit their cells instead of overflowing when many apps are visible.
 
 
 ## [1.0.6] - 2026-07-21

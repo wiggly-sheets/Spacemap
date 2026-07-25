@@ -55,6 +55,10 @@
 | `THEME` | default | Color theme |
 | `AUTO_HIDE_TIMEOUT` | 5 | Seconds before HUD hides (0=never) |
 | `SHOW_MODE` | all | `all` or `active` spaces |
+| `MULTI_MONITOR_HUD_MODE` | unified | `unified` (one grid) or `separate` (one grid per display) |
+| `UNIFIED_HUD_VISIBILITY` | active | In `unified` mode: `all` displays the same grid on every display; `active` displays it only on the focused-space display |
+| `SEPARATE_HUD_VISIBILITY` | all | In `separate` mode: `all` displays every HUD; `active` displays only the focused-space HUD |
+| `DISPLAY_NAVIGATION_WRAP` | within | With arrow/Vim navigation: `within` stays on one display; `between` wraps across displays |
 | `MAX_SPACES` | 16 | Max spaces to display (1–16) |
 | `BACKGROUND_ALPHA` | 0.3 | Background transparency (0=transparent, 1=opaque) |
 | `MODE` | auto | `light`, `dark`, or `auto` |
@@ -92,6 +96,10 @@ Stores parsed configuration values.
 | `theme` | `String` | `THEME` |
 | `autoHideTimeout` | `Int` | `AUTO_HIDE_TIMEOUT` |
 | `showMode` | `ShowMode` | `SHOW_MODE` |
+| `multiMonitorHUDMode` | `MultiMonitorHUDMode` | `MULTI_MONITOR_HUD_MODE` |
+| `unifiedHUDVisibility` | `SeparateHUDVisibility` | `UNIFIED_HUD_VISIBILITY` |
+| `separateHUDVisibility` | `SeparateHUDVisibility` | `SEPARATE_HUD_VISIBILITY` |
+| `displayNavigationWrap` | `DisplayNavigationWrap` | `DISPLAY_NAVIGATION_WRAP` |
 | `maxSpaces` | `Int` | `MAX_SPACES` |
 | `bgAlpha` | `Double` | `BACKGROUND_ALPHA` |
 | `mode` | `ThemeMode` | `MODE` |

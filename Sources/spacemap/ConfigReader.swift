@@ -42,6 +42,10 @@ enum ConfigReader {
         var autoHideTimeout = GridConfig.default.autoHideTimeout
         var theme = GridConfig.default.theme
         var showMode = GridConfig.default.showMode
+        var multiMonitorHUDMode = GridConfig.default.multiMonitorHUDMode
+        var unifiedHUDVisibility = GridConfig.default.unifiedHUDVisibility
+        var separateHUDVisibility = GridConfig.default.separateHUDVisibility
+        var displayNavigationWrap = GridConfig.default.displayNavigationWrap
         var maxSpaces = GridConfig.default.maxSpaces
         var backgroundAlpha = GridConfig.default.backgroundAlpha
         var mode = GridConfig.default.mode
@@ -115,6 +119,26 @@ enum ConfigReader {
                 switch value {
                 case "active": showMode = .active
                 default:        showMode = .all
+                }
+            case "MULTI_MONITOR_HUD_MODE":
+                switch value.lowercased() {
+                case "separate", "per-display", "per_display": multiMonitorHUDMode = .separate
+                default: multiMonitorHUDMode = .unified
+                }
+            case "UNIFIED_HUD_VISIBILITY":
+                switch value.lowercased() {
+                case "all", "all-displays", "all_displays": unifiedHUDVisibility = .all
+                default: unifiedHUDVisibility = .active
+                }
+            case "SEPARATE_HUD_VISIBILITY":
+                switch value.lowercased() {
+                case "active", "active-display", "active_display": separateHUDVisibility = .active
+                default: separateHUDVisibility = .all
+                }
+            case "DISPLAY_NAVIGATION_WRAP":
+                switch value.lowercased() {
+                case "between", "across", "cross-display", "cross_display": displayNavigationWrap = .between
+                default: displayNavigationWrap = .within
                 }
             case "MAX_SPACES":
                 if let v = Int(value), v >= 1 && v <= 16 {
@@ -208,7 +232,7 @@ enum ConfigReader {
             hudPosition = .custom(x: customHUDX, y: customHUDY)
         }
 
-        return GridConfig(cols: cols, rows: rows, cellStyle: cellStyle, hotkey: hotkey, socketHealthInterval: socketHealthInterval, uiScale: uiScale, autoHideTimeout: autoHideTimeout, theme: theme, showMode: showMode, maxSpaces: maxSpaces, backgroundAlpha: backgroundAlpha, mode: mode, iconScale: iconScale, showSpaceNumbers: showSpaceNumbers, showSpaceNames: showSpaceNames, showIconStrip: showIconStrip, showMultiAppIcons: showMultiAppIcons, hideMenuBarIcon: hideMenuBarIcon, spaceNames: spaceNames, useVimKeys: useVimKeys, useArrowKeys: useArrowKeys, hudPosition: hudPosition, customHUDX: customHUDX, customHUDY: customHUDY, showExtraWindows: showExtraWindows, updateMode: updateMode)
+        return GridConfig(cols: cols, rows: rows, cellStyle: cellStyle, hotkey: hotkey, socketHealthInterval: socketHealthInterval, uiScale: uiScale, autoHideTimeout: autoHideTimeout, theme: theme, showMode: showMode, multiMonitorHUDMode: multiMonitorHUDMode, unifiedHUDVisibility: unifiedHUDVisibility, separateHUDVisibility: separateHUDVisibility, displayNavigationWrap: displayNavigationWrap, maxSpaces: maxSpaces, backgroundAlpha: backgroundAlpha, mode: mode, iconScale: iconScale, showSpaceNumbers: showSpaceNumbers, showSpaceNames: showSpaceNames, showIconStrip: showIconStrip, showMultiAppIcons: showMultiAppIcons, hideMenuBarIcon: hideMenuBarIcon, spaceNames: spaceNames, useVimKeys: useVimKeys, useArrowKeys: useArrowKeys, hudPosition: hudPosition, customHUDX: customHUDX, customHUDY: customHUDY, showExtraWindows: showExtraWindows, updateMode: updateMode)
     }
 
     static func hotkeyToString(_ hotkey: HotkeyConfig) -> String {
@@ -311,6 +335,10 @@ let content = """
         AUTO_HIDE_TIMEOUT=\(d.autoHideTimeout)           # 0 = disabled, seconds
         THEME=\(d.theme)
         SHOW_MODE=\(d.showMode.rawValue)                 # all | active
+        MULTI_MONITOR_HUD_MODE=\(d.multiMonitorHUDMode.rawValue)  # unified | separate
+        UNIFIED_HUD_VISIBILITY=\(d.unifiedHUDVisibility.rawValue) # all | active
+        SEPARATE_HUD_VISIBILITY=\(d.separateHUDVisibility.rawValue) # all | active
+        DISPLAY_NAVIGATION_WRAP=\(d.displayNavigationWrap.rawValue) # within | between
         MAX_SPACES=\(d.maxSpaces)
         BACKGROUND_ALPHA=\(d.backgroundAlpha)          # 0.0–1.0
         MODE=\(modeStr)                     # light | dark | auto
@@ -355,6 +383,10 @@ let content = """
         AUTO_HIDE_TIMEOUT=\(config.autoHideTimeout)           # 0 = disabled, seconds
         THEME=\(config.theme)
         SHOW_MODE=\(config.showMode.rawValue)                 # all | active
+        MULTI_MONITOR_HUD_MODE=\(config.multiMonitorHUDMode.rawValue)  # unified | separate
+        UNIFIED_HUD_VISIBILITY=\(config.unifiedHUDVisibility.rawValue) # all | active
+        SEPARATE_HUD_VISIBILITY=\(config.separateHUDVisibility.rawValue) # all | active
+        DISPLAY_NAVIGATION_WRAP=\(config.displayNavigationWrap.rawValue) # within | between
         MAX_SPACES=\(config.maxSpaces)
         BACKGROUND_ALPHA=\(config.backgroundAlpha)          # 0.0–1.0
         MODE=\(config.mode.rawValue)                     # light | dark | auto

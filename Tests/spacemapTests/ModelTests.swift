@@ -26,6 +26,16 @@ final class ModelTests: XCTestCase {
         XCTAssertNil(space.label)
     }
 
+    func testDecodeYabaiDisplay() throws {
+        let json = """
+        {"index":2,"frame":{"x":1440,"y":0,"w":1920,"h":1080},"has-focus":false}
+        """.data(using: .utf8)!
+        let display = try JSONDecoder().decode(YabaiDisplay.self, from: json)
+        XCTAssertEqual(display.index, 2)
+        XCTAssertEqual(display.frame.cgFrame, CGRect(x: 1440, y: 0, width: 1920, height: 1080))
+        XCTAssertFalse(display.hasFocus)
+    }
+
     // MARK: - YabaiWindow decoding
 
     func testDecodeYabaiWindow() throws {
@@ -79,6 +89,32 @@ final class ModelTests: XCTestCase {
         XCTAssertTrue(state.windows(forSpace: 1).isEmpty)
     }
 
+    func testGridStateGroupsSpacesAndUsesOwningDisplayBounds() {
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 2, hasFocus: false, label: nil),
+            YabaiSpace(id: 3, index: 3, display: 1, hasFocus: false, label: nil)
+        ]
+        let displays = [
+            YabaiDisplay(index: 1, frame: .init(x: 0, y: 0, w: 1440, h: 900), hasFocus: true),
+            YabaiDisplay(index: 2, frame: .init(x: 1440, y: 0, w: 1920, h: 1080), hasFocus: false)
+        ]
+        let state = GridState(
+            config: .default,
+            spaces: spaces,
+            windows: [],
+            displayBounds: .zero,
+            focusedIndex: 1,
+            displays: displays
+        )
+
+        XCTAssertEqual(state.populatedDisplayIndices, [1, 2])
+        XCTAssertEqual(state.spaces(forDisplay: 1).map(\.index), [1, 3])
+        XCTAssertEqual(state.spaces(forDisplay: 2).map(\.index), [2])
+        XCTAssertEqual(state.displayIndex(forSpace: 2), 2)
+        XCTAssertEqual(state.displayBounds(forSpace: 2), CGRect(x: 1440, y: 0, width: 1920, height: 1080))
+    }
+
     // MARK: - HotkeyConfig
 
     func testHotkeyConfigDefault() {
@@ -96,6 +132,10 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(c.cellStyle, .rects)
         XCTAssertEqual(c.theme, "default")
         XCTAssertEqual(c.maxSpaces, 16)
+        XCTAssertEqual(c.multiMonitorHUDMode, .unified)
+        XCTAssertEqual(c.unifiedHUDVisibility, .active)
+        XCTAssertEqual(c.separateHUDVisibility, .all)
+        XCTAssertEqual(c.displayNavigationWrap, .within)
         XCTAssertFalse(c.useVimKeys)
         XCTAssertFalse(c.useArrowKeys)
         XCTAssertEqual(c.hudPosition, .center)

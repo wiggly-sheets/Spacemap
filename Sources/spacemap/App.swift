@@ -59,10 +59,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             showYabaiAlert()
         }
         
-        // Check if MRU spaces is enabled (bad for spacemap)
+        // Check the Mission Control settings that keep space locations stable.
+        let needsSeparateSpacesWarning = NSScreen.screens.count > 1 && !NSScreen.screensHaveSeparateSpaces
         DispatchQueue.global(qos: .utility).async {
-            if self.isMRUSpacesEnabled() {
-                DispatchQueue.main.async {
+            let mruSpacesEnabled = self.isMRUSpacesEnabled()
+            DispatchQueue.main.async {
+                if needsSeparateSpacesWarning {
+                    self.showSeparateSpacesAlert()
+                }
+                if mruSpacesEnabled {
                     self.showMRUAlert()
                 }
             }
@@ -85,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             let config = ConfigReader.load()
             self.currentConfig = config
             self.hud.reloadConfig()
+            self.hud.prewarmState()
             self.restartHotkey(config: config)
             self.applyMenubarVisibility(config: config)
             self.hud.onShowSettings = { [weak self] in self?.showSettingsWindow() }
@@ -477,6 +483,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             dock.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
             dock.arguments = ["Dock"]
             try? dock.run()
+        }
+        NSApp.setActivationPolicy(.prohibited)
+    }
+
+    private func showSeparateSpacesAlert() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = NSLocalizedString("Displays Have Separate Spaces Disabled", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap needs Displays have separate Spaces enabled to show and navigate each monitor independently. Enable it in System Settings, then log out and back in before using multi-monitor HUD modes.", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Leave as Is", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Open System Settings", comment: ""))
+
+        if alert.runModal() == .alertSecondButtonReturn {
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
         }
         NSApp.setActivationPolicy(.prohibited)
     }

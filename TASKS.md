@@ -32,7 +32,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Grid-aware Keyboard Navigation**: Arrow keys + vim keys (hjkl) with row/column wrapping
 - **Dynamic yabai Path**: Auto-detects ARM (`/opt/homebrew/bin/yabai`) or Intel (`/usr/local/bin/yabai`) via FileManager
 - **Xcode Project Generation**: `scripts/generate-xcodeproj.py` with 4 architecture targets
-- **Unit Test Suite**: 112 tests across 5 files
+- **Unit Test Suite**: 150 tests across 6 files
 - **GitHub Actions CI/CD**: CI (swift test + build), Release (3 DMGs + checksums), Dependabot
 - **Architecture-specific Builds**: ARM64, x86_64, universal DMGs via `create-dmg`
 - **Theme Bug Fix**: `dropTarget` case-insensitive matching in `.smthemes` parsing
@@ -54,6 +54,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **on/off Boolean Config**: Writes `on`/`off` for booleans; accepts all formats (`true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off`)
 - **Debug/Advanced Settings Section**: Socket Health Interval moved to dedicated section
 - **Settings UI Reorganization**: Reordered Behavior section, moved Space Names under Grid, fixed layout labels
+- **Multi-Monitor HUD Modes**: Unified or separate HUDs, each configurable for all displays or only the focused-space display, with a startup check for macOS separate Spaces
 
 ## 🚀 High Priority
 
@@ -84,7 +85,7 @@ A living list of planned features, known bugs, and future improvements for the p
 | **Drag-to-Swap** | Swap windows between spaces via drag-and-drop within the HUD | 🔄 Planned |
 | **Custom Cell Colors** | Allow per-space/app custom colors in config | 🔄 Planned |
 | **Grid Gap/Padding Customization** | Add config options for spacing between cells | 🔄 Planned |
-| **Multi-Monitor Awareness** | Show workspaces per display in HUD | 🔄 Planned |
+| **Multi-Monitor Awareness** | Unified cross-display grid or one HUD per display | ✅ Done |
 
 ### Performance
 
@@ -117,7 +118,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 | Task | Description | Status |
 |------|-------------|--------|
-| **Unit Tests** | 103 tests across 5 files (HotkeyTests, ConfigTests, ThemeTests, ModelTests, CellViewGridViewTests) | ✅ Done |
+| **Unit Tests** | 150 tests across 6 files (HotkeyTests, ConfigTests, ThemeTests, ModelTests, CellViewGridViewTests, SpaceNavigatorTests) | ✅ Done |
 | **GitHub Actions / CI** | `ci.yml` (swift test + build on push/PR), `release.yml` (3 DMGs + checksums on tag), Dependabot | ✅ Done |
 | **Xcode Project** | Generated from SPM, 4 targets (default, arm64, x86_64, universal) via `scripts/generate-xcodeproj.py` | ✅ Done |
 | **Architecture Builds** | ARM64, x86_64, universal DMGs via `create-dmg` | ✅ Done |
