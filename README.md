@@ -60,7 +60,7 @@ brew install wiggly-sheets/spacemap/spacemap
 
 Upgrade with homebrew using:
 ```bash
-brew update && brew brew upgrade wiggly-sheets/spacemap/spacemap
+brew update && brew upgrade wiggly-sheets/spacemap/spacemap
 ```
 
 
