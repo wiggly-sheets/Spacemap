@@ -7,7 +7,7 @@ DMG_SIZE="${DMG_SIZE:?DMG_SIZE is required}"
 DMG_HASH="${DMG_HASH:-}"
 ED_SIGNATURE="${ED_SIGNATURE:-}"
 APP_NAME="${APP_NAME:-Spacemap}"
-APPcast_URL="${APPcast_URL:-https://wiggly-sheets.github.io/spacemap/appcast.xml}"
+APPCAST_URL="${APPCAST_URL:-https://wiggly-sheets.github.io/spacemap/appcast.xml}"
 RELEASES_URL="${RELEASES_URL:-https://github.com/wiggly-sheets/spacemap/releases/download/v${VERSION}}"
 MAX_ITEMS="${MAX_ITEMS:-5}"
 
@@ -31,7 +31,7 @@ generate_appcast_header() {
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>${APP_NAME}</title>
-    <link>${APPcast_URL}</link>
+    <link>${APPCAST_URL}</link>
     <description>Most recent changes with links to the binaries.</description>
     <language>en</language>
 APPCAST_HEADER_EOF
@@ -50,7 +50,7 @@ generate_new_appcast() {
 
 fetch_existing_appcast() {
     local existing
-    existing=$(curl -s --max-time 30 "${APPcast_URL}" 2>/dev/null || true)
+    existing=$(curl -s --max-time 30 "${APPCAST_URL}" 2>/dev/null || true)
     if [ -z "$existing" ]; then
         generate_new_appcast
         return
