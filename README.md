@@ -58,7 +58,10 @@ Or in one step:
 brew install wiggly-sheets/spacemap/spacemap
 ```
 
-Upgrade with homebrew using `brew update && brew brew upgrade wiggly-sheets/spacemap/spacemap`
+Upgrade with homebrew using:
+```bash
+brew update && brew brew upgrade wiggly-sheets/spacemap/spacemap
+```
 
 
 Or download a DMG from the [releases page](https://github.com/wiggly-sheets/spacemap/releases).
