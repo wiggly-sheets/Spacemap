@@ -514,7 +514,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     private func ensureSymlink() {
         let symlinkPath = "/usr/local/bin/spacemap"
-        let executablePath = "/Applications/spacemap.app/Contents/MacOS/spacemap"
+        let executablePath = "/Applications/Spacemap.app/Contents/MacOS/spacemap"
         let fileManager = FileManager.default
 
         // Always remove any existing symlink first (handles broken/self-referential symlinks)
