@@ -9,7 +9,6 @@ permissions:
 
 env:
   SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
-  WORKDIR: /Users/runner/work/spacemap/repo
 
 jobs:
   release:
@@ -18,24 +17,26 @@ jobs:
     steps:
       - name: Checkout to lowercase path
         run: |
-          mkdir -p ${{ env.WORKDIR }}
-          git clone --filter=blob:none --no-checkout ${{ github.server_url }}/${{ github.repository }}.git ${{ env.WORKDIR }}
-          cd ${{ env.WORKDIR }}
+          WORKDIR="/Users/runner/work/spacemap/repo"
+          mkdir -p "$WORKDIR"
+          git clone --filter=blob:none --no-checkout ${{ github.server_url }}/${{ github.repository }}.git "$WORKDIR"
+          cd "$WORKDIR"
           git checkout ${{ github.sha }}
-        shell: bash
 
       - uses: swift-actions/setup-swift@v2
         with:
           swift-version: "5.9"
-          working-directory: ${{ env.WORKDIR }}
 
       - name: Install create-dmg
-        run: brew install create-dmg
-        working-directory: ${{ env.WORKDIR }}
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          brew install create-dmg
 
       - name: Read version
         id: version
-        run: echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
       - name: Import code signing certificate
         if: env.APPLE_CERTIFICATE_BASE64 != ''
@@ -66,25 +67,26 @@ jobs:
 
       - name: Build app bundle (ARM64)
         run: |
+          cd /Users/runner/work/spacemap/repo
           rm -rf .build
           swift build -c release --arch arm64
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Build app bundle (x86_64)
         run: |
+          cd /Users/runner/work/spacemap/repo
           rm -rf .build
           swift build -c release --arch x86_64
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Build app bundle (universal)
         run: |
+          cd /Users/runner/work/spacemap/repo
           swift build -c release --arch arm64
           swift build -c release --arch x86_64
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Code sign app bundles
         if: env.CODESIGN_IDENTITY != ''
         run: |
+          cd /Users/runner/work/spacemap/repo
           for bundle in spacemap-arm64.app spacemap-x86_64.app spacemap.app; do
             if [ -d "$bundle" ]; then
               codesign --force --sign "$CODESIGN_IDENTITY" \
@@ -94,14 +96,13 @@ jobs:
               echo "Signed $bundle"
             fi
           done
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Create DMGs
         run: |
+          cd /Users/runner/work/spacemap/repo
           make _dmg INPUT=spacemap-arm64.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-arm64.dmg
           make _dmg INPUT=spacemap-x86_64.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-x86_64.dmg
           make _dmg INPUT=Spacemap.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-universal.dmg
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Verify DMG architectures
         run: |
@@ -126,14 +127,15 @@ jobs:
             fi
             echo "OK $dmg → $archs"
           }
+          cd /Users/runner/work/spacemap/repo
           verify_dmg spacemap-${{ steps.version.outputs.tag }}-arm64.dmg arm64
           verify_dmg spacemap-${{ steps.version.outputs.tag }}-x86_64.dmg x86_64
           verify_dmg spacemap-${{ steps.version.outputs.tag }}-universal.dmg "arm64 x86_64"
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Code sign DMGs
         if: env.CODESIGN_IDENTITY != ''
         run: |
+          cd /Users/runner/work/spacemap/repo
           for dmg in spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg; do
             if [ -f "$dmg" ]; then
               codesign --force --sign "$CODESIGN_IDENTITY" \
@@ -142,7 +144,6 @@ jobs:
               echo "Signed $dmg"
             fi
           done
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Notarize DMGs
         if: env.APPLE_ID != ''
@@ -151,6 +152,7 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          cd /Users/runner/work/spacemap/repo
           for dmg in spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg; do
             if [ -f "$dmg" ]; then
               echo "Notarizing $dmg..."
@@ -163,13 +165,12 @@ jobs:
               echo "Notarized $dmg"
             fi
           done
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Generate checksums
         run: |
+          cd /Users/runner/work/spacemap/repo
           shasum -a 256 spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg > checksums.txt
           cat checksums.txt
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Generate Sparkle appcast + signature
         if: env.SPARKLE_PUBLIC_KEY != ''
@@ -180,6 +181,7 @@ jobs:
           RELEASES_URL: https://github.com/wiggly-sheets/Spacemap/releases/download/v${{ steps.version.outputs.tag }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
+          cd /Users/runner/work/spacemap/repo
           export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
           export ED_SIGNATURE=""
           if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
@@ -189,11 +191,11 @@ jobs:
           fi
           chmod +x .github/scripts/generate-appcast.sh
           .github/scripts/generate-appcast.sh
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Update docs branch with appcast
         if: env.SPARKLE_PUBLIC_KEY != ''
         run: |
+          cd /Users/runner/work/spacemap/repo
           git fetch origin ${{ github.event.repository.default_branch }}
           git checkout ${{ github.event.repository.default_branch }}
           mkdir -p docs
@@ -208,7 +210,6 @@ jobs:
           else
             echo "No changes to appcast"
           fi
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -221,13 +222,13 @@ jobs:
             spacemap-*-universal.dmg
             checksums.txt
             appcast.xml
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Update Homebrew tap
         if: env.HOMEBREW_TAP_TOKEN != ''
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
+          cd /Users/runner/work/spacemap/repo
           VERSION="${{ steps.version.outputs.tag }}"
           ARM64_SHA=$(shasum -a 256 spacemap-*-arm64.dmg | awk '{print $1}')
           X86_SHA=$(shasum -a 256 spacemap-*-x86_64.dmg | awk '{print $1}')
@@ -268,7 +269,6 @@ jobs:
           git add Casks/spacemap.rb
           git commit -m "spacemap ${VERSION}" || echo "No changes"
           git push
-        working-directory: ${{ env.WORKDIR }}
 
       - name: Cleanup keychain
         if: always() && env.KEYCHAIN_PATH != ''
