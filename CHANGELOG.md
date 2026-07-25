@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.14] - 2026-07-25
+
 ### Added
 - Configurable multi-monitor HUD modes: per-display overlays or a unified display map.
 - Unified-grid visibility preference for showing the complete grid on the active display or every display.
