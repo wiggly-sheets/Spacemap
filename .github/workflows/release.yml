@@ -58,17 +58,18 @@ jobs:
       - name: Build app bundle (ARM64)
         run: |
           swift package clean
-          make app-arm64
+          swift build -c release --arch arm64
 
       - name: Build app bundle (x86_64)
         run: |
           swift package clean
-          make app-x86_64
+          swift build -c release --arch x86_64
 
       - name: Build app bundle (universal)
         run: |
           swift package clean
-          make app-universal
+          swift build -c release --arch arm64
+          swift build -c release --arch x86_64
 
       - name: Code sign app bundles
         if: env.CODESIGN_IDENTITY != ''
