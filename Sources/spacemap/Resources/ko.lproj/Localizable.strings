@@ -53,33 +53,33 @@
 "Open Accessibility Permissions (for hotkey)" = "\uc811\uc18c\uc131 \uc804\uc6d0 \ud655\uc778 (\ud639\ud0a4 \uc6a9)";
 "Open Screen Recording Permissions (for thumbnails)" = "\ud648 \ub77c\uc774\ube0c \uc804\uc6d0 \ud655\uc778 (\ubb3c\uac74\uc774\ubbf8\uc9c0 \uc6a9)";
 "Launch at Login" = "\ub85c\uadf8\uc778 \uc2dc \uc2dc\uc791";
-"Restart spacemap" = "spacemap \uc7ac\uc2dc\uc791";
-"Quit spacemap" = "spacemap \uc885\ub8cc";
+"Restart Spacemap" = "Spacemap \uc7ac\uc2dc\uc791";
+"Quit Spacemap" = "Spacemap \uc885\ub8cc";
 
 /* App Alerts - Move to Applications */
-"Move spacemap to Applications?" = "spacemap\uc744 \ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c\ud558\uc2dc\uaca0\uc2b5\uace0?";
-"spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "\ucd5c\uc0c1\uc758 \ud37c\ud3ec\uba87\uc2a4\ub97c \uc704\ud574 \ud504\ub85c\uadf8\ub7a8 \ud3f4\ub354\uc5d0\uc11c \uc2dc\uc791\ud574\uc57c \ud569\ub2c8\ub2e4. \uc624\ub298 \ub300\uad6c\ud558\uc2dc\uaca0\uc2b5\uace0?";
+"Move Spacemap to Applications?" = "Spacemap\uc744 \ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c\ud558\uc2dc\uaca0\uc2b5\uace0?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "\ucd5c\uc0c1\uc758 \ud37c\ud3ec\uba87\uc2a4\ub97c \uc704\ud574 \ud504\ub85c\uadf8\ub7a8 \ud3f4\ub354\uc5d0\uc11c \uc2dc\uc791\ud574\uc57c \ud569\ub2c8\ub2e4. \uc624\ub298 \ub300\uad6c\ud558\uc2dc\uaca0\uc2b5\uace0?";
 "Move to Applications" = "\ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c";
 "Cancel" = "\ucde8\uc18c";
 "Moved to Applications" = "\ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c\ub418\uc5c8\uc2b5\ub2c8\ub2e4";
-"spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "spacemap\uc774 \ud504\ub85c\uadf8\ub7a8 \ud3f4\ub354\uc5d0 \ubcf5\uc0ac\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \uc885\ub8cc\ud558\uace0 \uacfc \uc5ec\uadfc\uc5d0\uc11c \uc7ac\uc2dc\uc791\ud574 \uc8fc\uc138\uc694.";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap\uc774 \ud504\ub85c\uadf8\ub7a8 \ud3f4\ub354\uc5d0 \ubcf5\uc0ac\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \uc885\ub8cc\ud558\uace0 \uacfc \uc5ec\uadfc\uc5d0\uc11c \uc7ac\uc2dc\uc791\ud574 \uc8fc\uc138\uc694.";
 "Failed to move" = "\ub300\uad6c \uc2e4\ud328";
-"Could not move spacemap to Applications: %@" = "spacemap\uc744 \ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4: %@";
+"Could not move Spacemap to Applications: %@" = "Spacemap\uc744 \ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4: %@";
 
 /* App Alerts - Launch at Login */
 "Launch at Login?" = "\ub85c\uadf8\uc778 \uc2dc \uc2dc\uc791\ud558\uc2dc\uaca0\uc2b5\uace0?";
-"Would you like spacemap to start automatically when you log in?" = "\ub85c\uadf8\uc778 \uc2dc spacemap\uac00 \uc790\ub3d9\uc73c\ub85c \uc2dc\uc791\ub418\uace0 \uc2f6\uc73c\uc2e4\uace0 \ud558\uc2dc\uaca0\uc2b5\uace0?";
+"Would you like Spacemap to start automatically when you log in?" = "\ub85c\uadf8\uc778 \uc2dc Spacemap\uac00 \uc790\ub3d9\uc73c\ub85c \uc2dc\uc791\ub418\uace0 \uc2f6\uc73c\uc2e4\uace0 \ud558\uc2dc\uaca0\uc2b5\uace0?";
 "Yes" = "\ub300";
 "No" = "\uc54a";
 
 /* App Alerts - yabai not running */
 "yabai is not running" = "yabai\uac00 \uc2dc\uc791\ub418\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4";
-"spacemap requires yabai to be running. Please start yabai and relaunch spacemap." = "spacemap\uc740 \uc2dc\uc791\ub418\ub294 yabai\uac00 \ud544\uc694\ud569\ub2c8\ub2e4. yabai\ub97c \uc2dc\uc791\ud558\uace0 spacemap\uc744 \uc7ac\uc2dc\uc791\ud574 \uc8fc\uc138\uc694.";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap\uc740 \uc2dc\uc791\ub418\ub294 yabai\uac00 \ud544\uc694\ud569\ub2c8\ub2e4. yabai\ub97c \uc2dc\uc791\ud558\uace0 Spacemap\uc744 \uc7ac\uc2dc\uc791\ud574 \uc8fc\uc138\uc694.";
 "Quit" = "\uc885\ub8cc";
 "Open yabai" = "yabai \uc5f4\uae30";
 
 /* App Alerts - MRU Spaces */
 "Spaces Auto-Rearrange Enabled" = "\uc2a4\ud398\uc774\uc2a4 \uc790\ub3d9 \uc7ac\ud0a4\uc6b4 \ud65c\uc131\ud654";
-"spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "\uc548\uc815\uc801 \uadf8\ub9bc \ub808\uc774\uc544\uc6c3\uc744 \uc704\ud574 \uc774\uac83\uc744 \ubb34\uc2dc\ud574\uc57c \ud569\ub2c8\ub2e4. \uc2a4\ud398\uc774\uc2a4\uac00 \uace0\uc815 \uc21c\uc11c\ub85c \uc720\uc9c0\ud558\uc9c0 \uc54a\uc73c\uba74 \uadf8\ub9bc\uc774 \uc2e4\uc2a4\uc801\uc774 \ub418\uc2b5\ub2c8\ub2e4.";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "\uc548\uc815\uc801 \uadf8\ub9bc \ub808\uc774\uc544\uc6c3\uc744 \uc704\ud574 \uc774\uac83\uc744 \ubb34\uc2dc\ud574\uc57c \ud569\ub2c8\ub2e4. \uc2a4\ud398\uc774\uc2a4\uac00 \uace0\uc815 \uc21c\uc11c\ub85c \uc720\uc9c0\ud558\uc9c0 \uc54a\uc73c\uba74 \uadf8\ub9bc\uc774 \uc2e4\uc2a4\uc801\uc774 \ub418\uc2b5\ub2c8\ub2e4.";
 "Leave as Is" = "\uc608\uc0c1 \ub108\ub77c";
 "Fix It" = "\uc216\ucd94\uae30";

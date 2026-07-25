@@ -53,33 +53,33 @@
 "Open Accessibility Permissions (for hotkey)" = "Abrir permiss\u00f5es de acessibilidade (para atalhos)";
 "Open Screen Recording Permissions (for thumbnails)" = "Abrir permiss\u00f5es de grava\u00e7\u00e3o de tela (para miniaturas)";
 "Launch at Login" = "Iniciar ao fazer login";
-"Restart spacemap" = "Reiniciar spacemap";
-"Quit spacemap" = "Sair do spacemap";
+"Restart Spacemap" = "Reiniciar Spacemap";
+"Quit Spacemap" = "Sair do Spacemap";
 
 /* App Alerts - Move to Applications */
-"Move spacemap to Applications?" = "Mover spacemap para Aplicativos?";
-"spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "spacemap deve ser executado da pasta Aplicativos para melhor desempenho. Deseja mov\u00ea-lo agora?";
+"Move Spacemap to Applications?" = "Mover Spacemap para Aplicativos?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap deve ser executado da pasta Aplicativos para melhor desempenho. Deseja mov\u00ea-lo agora?";
 "Move to Applications" = "Mover para Aplicativos";
 "Cancel" = "Cancelar";
 "Moved to Applications" = "Movido para Aplicativos";
-"spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "spacemap foi copiado para a pasta Aplicativos. Por favor, saia e reinicie de l\u00e1.";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap foi copiado para a pasta Aplicativos. Por favor, saia e reinicie de l\u00e1.";
 "Failed to move" = "Falha ao mover";
-"Could not move spacemap to Applications: %@" = "N\u00e3o foi poss\u00edvel mover spacemap para Aplicativos: %@";
+"Could not move Spacemap to Applications: %@" = "N\u00e3o foi poss\u00edvel mover Spacemap para Aplicativos: %@";
 
 /* App Alerts - Launch at Login */
 "Launch at Login?" = "Iniciar ao fazer login?";
-"Would you like spacemap to start automatically when you log in?" = "Deseja que spacemap inicie automaticamente ao fazer login?";
+"Would you like Spacemap to start automatically when you log in?" = "Deseja que Spacemap inicie automaticamente ao fazer login?";
 "Yes" = "Sim";
 "No" = "N\u00e3o";
 
 /* App Alerts - yabai not running */
 "yabai is not running" = "yabai n\u00e3o est\u00e1 em execu\u00e7\u00e3o";
-"spacemap requires yabai to be running. Please start yabai and relaunch spacemap." = "spacemap requer que yabai esteja em execu\u00e7\u00e3o. Por favor, inicie yabai e reinicie spacemap.";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap requer que yabai esteja em execu\u00e7\u00e3o. Por favor, inicie yabai e reinicie Spacemap.";
 "Quit" = "Sair";
 "Open yabai" = "Abrir yabai";
 
 /* App Alerts - MRU Spaces */
 "Spaces Auto-Rearrange Enabled" = "Reorganiza\u00e7\u00e3o autom\u00e1tica de espa\u00e7os ativada";
-"spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "spacemap precisa disso desativado para uma grade est\u00e1vel. Os espa\u00e7os devem permanecer em ordem fixa ou a grade se torna pouco confi\u00e1vel.";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap precisa disso desativado para uma grade est\u00e1vel. Os espa\u00e7os devem permanecer em ordem fixa ou a grade se torna pouco confi\u00e1vel.";
 "Leave as Is" = "Manter como est\u00e1";
 "Fix It" = "Corrigir";

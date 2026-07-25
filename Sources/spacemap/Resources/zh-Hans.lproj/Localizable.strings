@@ -53,33 +53,33 @@
 "Open Accessibility Permissions (for hotkey)" = "\u6253\u5f00\u8f85\u52a9\u529f\u80fd\u6743\u9650\uff08\u7528\u4e8e\u5feb\u6377\u952e\uff09";
 "Open Screen Recording Permissions (for thumbnails)" = "\u6253\u5f00\u5c4f\u5e55\u5f55\u5236\u6743\u9650\uff08\u7528\u4e8e\u7f29\u7565\u56fe\uff09";
 "Launch at Login" = "\u767b\u5f55\u65f6\u542f\u52a8";
-"Restart spacemap" = "\u91cd\u542f spacemap";
-"Quit spacemap" = "\u9000\u51fa spacemap";
+"Restart Spacemap" = "\u91cd\u542f Spacemap";
+"Quit Spacemap" = "\u9000\u51fa Spacemap";
 
 /* App Alerts - Move to Applications */
-"Move spacemap to Applications?" = "\u5c06 spacemap \u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\uff1f";
-"spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "spacemap \u5e94\u4ece\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\u6587\u4ef6\u5939\u8fd0\u884c\u4ee5\u83b7\u5f97\u6700\u4f73\u6027\u80fd\u3002\u662f\u5426\u7acb\u5373\u79fb\u52a8\uff1f";
+"Move Spacemap to Applications?" = "\u5c06 Spacemap \u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\uff1f";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap \u5e94\u4ece\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\u6587\u4ef6\u5939\u8fd0\u884c\u4ee5\u83b7\u5f97\u6700\u4f73\u6027\u80fd\u3002\u662f\u5426\u7acb\u5373\u79fb\u52a8\uff1f";
 "Move to Applications" = "\u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d";
 "Cancel" = "\u53d6\u6d88";
 "Moved to Applications" = "\u5df2\u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d";
-"spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "spacemap \u5df2\u590d\u5236\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\u6587\u4ef6\u5939\u3002\u8bf7\u9000\u51fa\u5e76\u4ece\u90a3\u91cc\u91cd\u65b0\u542f\u52a8\u3002";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap \u5df2\u590d\u5236\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\u6587\u4ef6\u5939\u3002\u8bf7\u9000\u51fa\u5e76\u4ece\u90a3\u91cc\u91cd\u65b0\u542f\u52a8\u3002";
 "Failed to move" = "\u79fb\u52a8\u5931\u8d25";
-"Could not move spacemap to Applications: %@" = "\u65e0\u6cd5\u5c06 spacemap \u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\uff1a%@";
+"Could not move Spacemap to Applications: %@" = "\u65e0\u6cd5\u5c06 Spacemap \u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\uff1a%@";
 
 /* App Alerts - Launch at Login */
 "Launch at Login?" = "\u767b\u5f55\u65f6\u542f\u52a8\uff1f";
-"Would you like spacemap to start automatically when you log in?" = "\u662f\u5426\u5e0c\u671b spacemap \u5728\u767b\u5f55\u65f6\u81ea\u52a8\u542f\u52a8\uff1f";
+"Would you like Spacemap to start automatically when you log in?" = "\u662f\u5426\u5e0c\u671b Spacemap \u5728\u767b\u5f55\u65f6\u81ea\u52a8\u542f\u52a8\uff1f";
 "Yes" = "\u662f";
 "No" = "\u5426";
 
 /* App Alerts - yabai not running */
 "yabai is not running" = "yabai \u672a\u8fd0\u884c";
-"spacemap requires yabai to be running. Please start yabai and relaunch spacemap." = "spacemap \u9700\u8981 yabai \u8fd0\u884c\u3002\u8bf7\u542f\u52a8 yabai \u5e76\u91cd\u65b0\u542f\u52a8 spacemap\u3002";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap \u9700\u8981 yabai \u8fd0\u884c\u3002\u8bf7\u542f\u52a8 yabai \u5e76\u91cd\u65b0\u542f\u52a8 Spacemap\u3002";
 "Quit" = "\u9000\u51fa";
 "Open yabai" = "\u6253\u5f00 yabai";
 
 /* App Alerts - MRU Spaces */
 "Spaces Auto-Rearrange Enabled" = "\u5df2\u542f\u7528\u7a7a\u95f4\u81ea\u52a8\u91cd\u6392";
-"spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "spacemap \u9700\u8981\u7981\u7528\u6b64\u529f\u80fd\u4ee5\u4fdd\u6301\u7f51\u683c\u7a33\u5b9a\u3002\u7a7a\u95f4\u5fc5\u987b\u4fdd\u6301\u56fa\u5b9a\u987a\u5e8f\uff0c\u5426\u5219\u7f51\u683c\u5c06\u4e0d\u53ef\u9760\u3002";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap \u9700\u8981\u7981\u7528\u6b64\u529f\u80fd\u4ee5\u4fdd\u6301\u7f51\u683c\u7a33\u5b9a\u3002\u7a7a\u95f4\u5fc5\u987b\u4fdd\u6301\u56fa\u5b9a\u987a\u5e8f\uff0c\u5426\u5219\u7f51\u683c\u5c06\u4e0d\u53ef\u9760\u3002";
 "Leave as Is" = "\u4fdd\u6301\u73b0\u72b6";
 "Fix It" = "\u4fee\u590d";

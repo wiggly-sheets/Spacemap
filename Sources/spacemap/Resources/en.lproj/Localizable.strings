@@ -53,33 +53,33 @@
 "Open Accessibility Permissions (for hotkey)" = "Open Accessibility Permissions (for hotkey)";
 "Open Screen Recording Permissions (for thumbnails)" = "Open Screen Recording Permissions (for thumbnails)";
 "Launch at Login" = "Launch at Login";
-"Restart spacemap" = "Restart spacemap";
-"Quit spacemap" = "Quit spacemap";
+"Restart Spacemap" = "Restart Spacemap";
+"Quit Spacemap" = "Quit Spacemap";
 
 /* App Alerts - Move to Applications */
-"Move spacemap to Applications?" = "Move spacemap to Applications?";
-"spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "spacemap should be run from the Applications folder for best performance. Would you like to move it there now?";
+"Move Spacemap to Applications?" = "Move Spacemap to Applications?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?";
 "Move to Applications" = "Move to Applications";
 "Cancel" = "Cancel";
 "Moved to Applications" = "Moved to Applications";
-"spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "spacemap has been copied to the Applications folder. Please quit and relaunch from there.";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap has been copied to the Applications folder. Please quit and relaunch from there.";
 "Failed to move" = "Failed to move";
-"Could not move spacemap to Applications: %@" = "Could not move spacemap to Applications: %@";
+"Could not move Spacemap to Applications: %@" = "Could not move Spacemap to Applications: %@";
 
 /* App Alerts - Launch at Login */
 "Launch at Login?" = "Launch at Login?";
-"Would you like spacemap to start automatically when you log in?" = "Would you like spacemap to start automatically when you log in?";
+"Would you like Spacemap to start automatically when you log in?" = "Would you like Spacemap to start automatically when you log in?";
 "Yes" = "Yes";
 "No" = "No";
 
 /* App Alerts - yabai not running */
 "yabai is not running" = "yabai is not running";
-"spacemap requires yabai to be running. Please start yabai and relaunch spacemap." = "spacemap requires yabai to be running. Please start yabai and relaunch spacemap.";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap.";
 "Quit" = "Quit";
 "Open yabai" = "Open yabai";
 
 /* App Alerts - MRU Spaces */
 "Spaces Auto-Rearrange Enabled" = "Spaces Auto-Rearrange Enabled";
-"spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable.";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable.";
 "Leave as Is" = "Leave as Is";
 "Fix It" = "Fix It";

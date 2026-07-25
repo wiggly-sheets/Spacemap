@@ -53,33 +53,33 @@
 "Open Accessibility Permissions (for hotkey)" = "Eri\u015filebilirlik \u0130zinlerini A\u00e7 (klavye k\u0131sayolu i\u00e7in)";
 "Open Screen Recording Permissions (for thumbnails)" = "Ekran Kayd\u0131 \u0130zinlerini A\u00e7 (k\u00fc\u00e7\u00fck resimler i\u00e7in)";
 "Launch at Login" = "Giri\u015fte Ba\u015flat";
-"Restart spacemap" = "spacemap'\u0131 Yeniden Ba\u015flat";
-"Quit spacemap" = "spacemap'\u0131 Kapat";
+"Restart Spacemap" = "Spacemap'\u0131 Yeniden Ba\u015flat";
+"Quit Spacemap" = "Spacemap'\u0131 Kapat";
 
 /* App Alerts - Move to Applications */
-"Move spacemap to Applications?" = "spacemap Uygulamalar'a ta\u015f\u0131ns\u0131n m\u0131?";
-"spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "En iyi performans i\u00e7in Uygulamalar klas\u00f6r\u00fcnden \u00e7al\u0131\u015ft\u0131r\u0131lmal\u0131d\u0131r. \u015eu an ta\u015f\u0131mak ister misiniz?";
+"Move Spacemap to Applications?" = "Spacemap Uygulamalar'a ta\u015f\u0131ns\u0131n m\u0131?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "En iyi performans i\u00e7in Uygulamalar klas\u00f6r\u00fcnden \u00e7al\u0131\u015ft\u0131r\u0131lmal\u0131d\u0131r. \u015eu an ta\u015f\u0131mak ister misiniz?";
 "Move to Applications" = "Uygulamalar'a Ta\u015f\u0131";
 "Cancel" = "\u0130ptal";
 "Moved to Applications" = "Uygulamalar'a Ta\u015f\u0131nd\u0131";
-"spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "spacemap Uygulamalar klas\u00f6r\u00fcne kopyaland\u0131. L\u00fctfen kapat\u0131p oradan yeniden ba\u015flat\u0131n.";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap Uygulamalar klas\u00f6r\u00fcne kopyaland\u0131. L\u00fctfen kapat\u0131p oradan yeniden ba\u015flat\u0131n.";
 "Failed to move" = "Ta\u015f\u0131namad\u0131";
-"Could not move spacemap to Applications: %@" = "spacemap Uygulamalar'a ta\u015f\u0131namad\u0131: %@";
+"Could not move Spacemap to Applications: %@" = "Spacemap Uygulamalar'a ta\u015f\u0131namad\u0131: %@";
 
 /* App Alerts - Launch at Login */
 "Launch at Login?" = "Giri\u015fte ba\u015flat\u0131ls\u0131n m\u0131?";
-"Would you like spacemap to start automatically when you log in?" = "Giri\u015f yapt\u0131\u011f\u0131n\u0131zda spacemap'in otomatik ba\u015flat\u0131lmas\u0131n\u0131 ister misiniz?";
+"Would you like Spacemap to start automatically when you log in?" = "Giri\u015f yapt\u0131\u011f\u0131n\u0131zda Spacemap'in otomatik ba\u015flat\u0131lmas\u0131n\u0131 ister misiniz?";
 "Yes" = "Evet";
 "No" = "Hay\u0131r";
 
 /* App Alerts - yabai not running */
 "yabai is not running" = "yal\u0131 \u00e7al\u0131\u015fm\u0131yor";
-"spacemap requires yabai to be running. Please start yabai and relaunch spacemap." = "spacemap \u00e7al\u0131\u015fan bir yabai gerektirir. L\u00fctfen yabai'\u0131 ba\u015flat\u0131p spacemap'\u0131 yeniden ba\u015flat\u0131n.";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap \u00e7al\u0131\u015fan bir yabai gerektirir. L\u00fctfen yabai'\u0131 ba\u015flat\u0131p Spacemap'\u0131 yeniden ba\u015flat\u0131n.";
 "Quit" = "Kapat";
 "Open yabai" = "yabai'\u0131 A\u00e7";
 
 /* App Alerts - MRU Spaces */
 "Spaces Auto-Rearrange Enabled" = "Alan Otomatik Yeniden D\u00fczenleme Etkin";
-"spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Stabil bir izgara d\u00fczeni i\u00e7in bunun devre d\u0131\u015f\u0131 b\u0131rak\u0131lmas\u0131 gerekir. Alanlar sabit s\u0131rada kalmal\u0131d\u0131r, aksi takdirde izgara g\u00fcvenilir olmaz.";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Stabil bir izgara d\u00fczeni i\u00e7in bunun devre d\u0131\u015f\u0131 b\u0131rak\u0131lmas\u0131 gerekir. Alanlar sabit s\u0131rada kalmal\u0131d\u0131r, aksi takdirde izgara g\u00fcvenilir olmaz.";
 "Leave as Is" = "B\u00f6yle B\u0131rak";
 "Fix It" = "D\u00fczelt";
