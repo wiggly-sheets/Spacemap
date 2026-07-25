@@ -178,6 +178,50 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.showMode, .all)
     }
 
+    func testMultiMonitorHUDModeDefaultsToUnified() {
+        XCTAssertEqual(ConfigReader.parseConfig("").multiMonitorHUDMode, .unified)
+    }
+
+    func testMultiMonitorHUDModeParsesSeparate() {
+        XCTAssertEqual(
+            ConfigReader.parseConfig("MULTI_MONITOR_HUD_MODE=separate").multiMonitorHUDMode,
+            .separate
+        )
+    }
+
+    func testUnifiedHUDVisibilityDefaultsToActive() {
+        XCTAssertEqual(ConfigReader.parseConfig("").unifiedHUDVisibility, .active)
+    }
+
+    func testUnifiedHUDVisibilityParsesAll() {
+        XCTAssertEqual(
+            ConfigReader.parseConfig("UNIFIED_HUD_VISIBILITY=all").unifiedHUDVisibility,
+            .all
+        )
+    }
+
+    func testSeparateHUDVisibilityDefaultsToAll() {
+        XCTAssertEqual(ConfigReader.parseConfig("").separateHUDVisibility, .all)
+    }
+
+    func testSeparateHUDVisibilityParsesActive() {
+        XCTAssertEqual(
+            ConfigReader.parseConfig("SEPARATE_HUD_VISIBILITY=active").separateHUDVisibility,
+            .active
+        )
+    }
+
+    func testDisplayNavigationWrapDefaultsToWithin() {
+        XCTAssertEqual(ConfigReader.parseConfig("").displayNavigationWrap, .within)
+    }
+
+    func testDisplayNavigationWrapParsesBetween() {
+        XCTAssertEqual(
+            ConfigReader.parseConfig("DISPLAY_NAVIGATION_WRAP=between").displayNavigationWrap,
+            .between
+        )
+    }
+
     func testModeLight() {
         let c = ConfigReader.parseConfig("MODE=light")
         XCTAssertEqual(c.mode, .light)

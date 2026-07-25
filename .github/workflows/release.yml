@@ -37,6 +37,11 @@ jobs:
         run: |
           echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
+      - name: Verify Sparkle signing key pair
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: .github/scripts/validate-sparkle-keys.sh
+
       - name: Import code signing certificate
         if: env.APPLE_CERTIFICATE_BASE64 != ''
         env:
@@ -163,7 +168,6 @@ jobs:
           cat checksums.txt
 
       - name: Generate Sparkle appcast + signature
-        if: env.SPARKLE_PUBLIC_KEY != ''
         env:
           VERSION: ${{ steps.version.outputs.tag }}
           DMG_FILE: spacemap-${{ steps.version.outputs.tag }}-universal.dmg
@@ -172,14 +176,14 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
-          export ED_SIGNATURE=""
-          if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
-            # Download Sparkle's sign_update tool
-            curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/2.9.4/Sparkle-2.9.4.tar.xz" | tar -xJ
-            echo "$SPARKLE_PRIVATE_KEY" | ./bin/sign_update --ed-key-file - -p "spacemap-$VERSION-universal.dmg" > sig.txt
-            ED_SIGNATURE=$(cat sig.txt)
-            echo "ED_SIGNATURE computed"
-          fi
+          # Download Sparkle's sign_update tool. The key pair was validated
+          # before the build, so the resulting signature matches the public
+          # key embedded in the app bundle.
+          curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/2.9.4/Sparkle-2.9.4.tar.xz" | tar -xJ
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | ./bin/sign_update --ed-key-file - -p "spacemap-$VERSION-universal.dmg" > sig.txt
+          export ED_SIGNATURE=$(tr -d '\r\n' < sig.txt)
+          test -n "$ED_SIGNATURE"
+          echo "ED_SIGNATURE computed"
           chmod +x .github/scripts/generate-appcast.sh
           .github/scripts/generate-appcast.sh
 
@@ -256,7 +260,6 @@ jobs:
           git push
 
       - name: Update docs branch with appcast
-        if: env.SPARKLE_PUBLIC_KEY != ''
         run: |
           git fetch origin ${{ github.event.repository.default_branch }}
           git checkout -B ${{ github.event.repository.default_branch }} origin/${{ github.event.repository.default_branch }}

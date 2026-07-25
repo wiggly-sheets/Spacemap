@@ -11,7 +11,7 @@ class WindowDragHandler {
     private var runLoopSource: CFRunLoopSource?
 
     // Set by HUDWindowController before the HUD becomes visible.
-    // Frames are in CGEvent bottom-left-origin screen coordinates.
+    // Frames are in Quartz global coordinates (top-left origin of the primary display).
     var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
     // Cached window list populated at HUD-open time.
     var cachedWindows: [YabaiWindow] = []
@@ -129,10 +129,10 @@ class WindowDragHandler {
         return nil
     }
 
-    // AXUIElementCopyElementAtPosition uses top-left-origin; CGEvent uses bottom-left.
+    // AX and CGEvent both use Quartz global coordinates, whose origin is the
+    // upper-left corner of the primary display.
     private func cgToAX(_ cgPoint: CGPoint) -> CGPoint {
-        guard let screen = NSScreen.screens.first else { return cgPoint }
-        return CGPoint(x: cgPoint.x, y: screen.frame.height - cgPoint.y)
+        cgPoint
     }
 
     // Identify the window being dragged using frontmost app at mouseDown time.

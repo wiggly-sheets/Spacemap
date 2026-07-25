@@ -45,6 +45,11 @@ enum YabaiClient {
         guard isYabaiRunning() else { return [] }
         return try querySpacesRaw()
     }
+
+    static func queryDisplays() throws -> [YabaiDisplay] {
+        guard isYabaiRunning() else { return [] }
+        return try queryDisplaysRaw()
+    }
     
     static func queryWindows() throws -> [YabaiWindow] {
         guard isYabaiRunning() else { return [] }
@@ -54,6 +59,11 @@ enum YabaiClient {
     private static func querySpacesRaw() throws -> [YabaiSpace] {
         let output = try shell(yabaiPath, "-m", "query", "--spaces")
         return try JSONDecoder().decode([YabaiSpace].self, from: Data(output.utf8))
+    }
+
+    private static func queryDisplaysRaw() throws -> [YabaiDisplay] {
+        let output = try shell(yabaiPath, "-m", "query", "--displays")
+        return try JSONDecoder().decode([YabaiDisplay].self, from: Data(output.utf8))
     }
 
     private static func queryWindowsRaw() throws -> [YabaiWindow] {
@@ -130,11 +140,17 @@ enum YabaiClient {
             return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
         }
         var spaces: [YabaiSpace] = []
+        var displays: [YabaiDisplay] = []
         var windows: [YabaiWindow] = []
         let group = DispatchGroup()
         group.enter()
         DispatchQueue.global(qos: .userInitiated).async {
             spaces = (try? querySpacesRaw()) ?? []
+            group.leave()
+        }
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            displays = (try? queryDisplaysRaw()) ?? []
             group.leave()
         }
         group.enter()
@@ -145,7 +161,7 @@ enum YabaiClient {
         group.wait()
         let resolvedFocus = focusedIndex ?? spaces.first { $0.hasFocus }?.index
         let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
-        return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus)
+        return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus, displays: displays)
     }
 
     private static func shell(_ args: String...) throws -> String {
