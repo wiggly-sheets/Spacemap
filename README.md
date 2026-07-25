@@ -75,16 +75,7 @@ Or download a DMG from the [releases page](https://github.com/wiggly-sheets/spac
 
 Launch Spacemap once (`open /Applications/spacemap.app`), then enable it in **System Settings → Privacy & Security → Accessibility**.
 
-### 4. Configure Spacemap
-
-```bash
-mkdir -p ~/.config/spacemap
-cat > ~/.config/spacemap/config << 'EOF'
-GRID_COLS=8
-GRID_ROWS=2
-CELL_STYLE=icons
-EOF
-```
+### 4. Open Spacemap
 
 Press `Ctrl+Space` to open Spacemap.
 
