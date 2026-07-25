@@ -172,7 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func setupMenubar() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "square.grid.3x3", accessibilityDescription: "spacemap")
+            button.image = NSImage(systemSymbolName: "square.grid.3x3", accessibilityDescription: "Spacemap")
         }
         let config = currentConfig ?? ConfigReader.load()
         let menu = NSMenu()
@@ -198,10 +198,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
         menu.addItem(launchAtLoginItem)
         menu.addItem(NSMenuItem.separator())
-        let restartItem = NSMenuItem(title: NSLocalizedString("Restart spacemap", comment: ""), action: #selector(restartApp), keyEquivalent: "r")
+        let restartItem = NSMenuItem(title: NSLocalizedString("Restart Spacemap", comment: ""), action: #selector(restartApp), keyEquivalent: "r")
         restartItem.keyEquivalentModifierMask = .command
         menu.addItem(restartItem)
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Quit spacemap", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: NSLocalizedString("Quit Spacemap", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         item.menu = menu
         statusItem = item
     }
@@ -331,8 +331,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func showMoveToApplicationsDialog() {
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = NSLocalizedString("Move spacemap to Applications?", comment: "")
-        alert.informativeText = NSLocalizedString("spacemap should be run from the Applications folder for best performance. Would you like to move it there now?", comment: "")
+        alert.messageText = NSLocalizedString("Move Spacemap to Applications?", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Move to Applications", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
         
@@ -355,13 +355,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             let alert = NSAlert()
             alert.alertStyle = .informational
             alert.messageText = NSLocalizedString("Moved to Applications", comment: "")
-            alert.informativeText = NSLocalizedString("spacemap has been copied to the Applications folder. Please quit and relaunch from there.", comment: "")
+            alert.informativeText = NSLocalizedString("Spacemap has been copied to the Applications folder. Please quit and relaunch from there.", comment: "")
             alert.runModal()
         } catch {
             let alert = NSAlert()
             alert.alertStyle = .critical
             alert.messageText = NSLocalizedString("Failed to move", comment: "")
-            alert.informativeText = String(format: NSLocalizedString("Could not move spacemap to Applications: %@", comment: ""), error.localizedDescription)
+            alert.informativeText = String(format: NSLocalizedString("Could not move Spacemap to Applications: %@", comment: ""), error.localizedDescription)
             alert.runModal()
         }
     }
@@ -370,7 +370,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = NSLocalizedString("Launch at Login?", comment: "")
-        alert.informativeText = NSLocalizedString("Would you like spacemap to start automatically when you log in?", comment: "")
+        alert.informativeText = NSLocalizedString("Would you like Spacemap to start automatically when you log in?", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Yes", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("No", comment: ""))
         
@@ -384,7 +384,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = NSLocalizedString("Automatic Updates?", comment: "")
-        alert.informativeText = NSLocalizedString("How would you like spacemap to check for updates?", comment: "")
+        alert.informativeText = NSLocalizedString("How would you like Spacemap to check for updates?", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Auto (Download & Install)", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Notify (Check & Prompt)", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Off", comment: ""))
@@ -412,7 +412,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = NSLocalizedString("yabai is not running", comment: "")
-        alert.informativeText = NSLocalizedString("spacemap requires yabai to be running. Please start yabai and relaunch spacemap.", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap.", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Quit", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Open yabai", comment: ""))
         
@@ -447,7 +447,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = NSLocalizedString("Spaces Auto-Rearrange Enabled", comment: "")
-        alert.informativeText = NSLocalizedString("spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable.", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable.", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Leave as Is", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Fix It", comment: ""))
         
@@ -469,16 +469,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     private func printVersionAndExit() {
         if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-            print("spacemap \(version)")
+            print("Spacemap \(version)")
         } else {
-            print("spacemap 1.0.0")
+            print("Spacemap 1.0.0")
         }
         NSApp.terminate(nil)
     }
 
     private func printHelpAndExit() {
         let help = """
-        Usage: spacemap [OPTIONS]
+        Usage: Spacemap [OPTIONS]
 
         Options:
           --version          Print the version and exit
@@ -488,7 +488,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
           --config           Open the config file in the default editor and exit
           --help             Print this help and exit
 
-        Without any options, spacemap launches and waits for the hotkey (Ctrl+Space) to toggle the HUD.
+        Without any options, Spacemap launches and waits for the hotkey (Ctrl+Space) to toggle the HUD.
         """
         print(help)
         NSApp.terminate(nil)
@@ -523,7 +523,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         do {
             try fileManager.createSymbolicLink(atPath: symlinkPath, withDestinationPath: executablePath)
         } catch {
-            print("spacemap: failed to create symlink at \(symlinkPath): \(error)")
+            print("Spacemap: failed to create symlink at \(symlinkPath): \(error)")
         }
     }
 

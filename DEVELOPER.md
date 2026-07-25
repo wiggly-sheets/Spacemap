@@ -1,4 +1,4 @@
-# spacemap - Developer Guide
+# Spacemap - Developer Guide
 
 Technical deep-dive, debugging, and configuration details for contributors.
 
@@ -70,7 +70,7 @@ Format: `SPACE_ID:NAME` pairs separated by commas.
 `ThumbnailCache` uses ScreenCaptureKit to capture per-space thumbnails.
 
 - Singleton: `ThumbnailCache.shared`
-- `captureActiveSpace(spaceIndex:)` — captures the active display, excluding spacemap's own windows, and caches the `CGImage` keyed by space index
+- `captureActiveSpace(spaceIndex:)` — captures the active display, excluding Spacemap's own windows, and caches the `CGImage` keyed by space index
 - `thumbnail(forSpace:)` — returns cached `CGImage?` for a cell; `nil` until space is visited
 - Requires **Screen Recording** permission
 - `@available(macOS 14.0, *)` — all callers must use `#available` guards
@@ -204,7 +204,7 @@ open spacemap.xcodeproj                 # Open in Xcode
 
 ### Development Cycle
 1. `make dev1` — uninstalls app
-2. Remove spacemap from System Settings → Privacy & Security → Accessibility
+2. Remove Spacemap from System Settings → Privacy & Security → Accessibility
 3. Make code changes
 4. `make dev2` — rebuilds, reinstalls, launches
 5. Grant Accessibility permission when prompted

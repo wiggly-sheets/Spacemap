@@ -1,4 +1,4 @@
-# spacemap
+# Spacemap
 
 A native macOS utility that shows your yabai workspace grid on demand. Press `Ctrl+PgDn` to toggle a floating overlay showing all your desktops as a 2D grid with window positions highlighted inside each cell.
 
@@ -14,8 +14,8 @@ Spacemap can help you find where you left your things.
 Before you run off because I said yabai:
 > You do not have to disable SIP System Integrity Protection to get this setup.
 
-## Visualization of spacemap on a workspace
-Here I have 4 windows open and `spacemap` is opened via: `Ctrl+PgDn` key sequence.
+## Visualization of Spacemap on a workspace
+Here I have 4 windows open and `Spacemap` is opened via: `Ctrl+PgDn` key sequence.
 It is in the middle of the screen. You can see that we are on desktop 6 and there are 4 apps open.
 <details><summary>Desktop Screenshot</summary>
 
@@ -24,7 +24,7 @@ It is in the middle of the screen. You can see that we are on desktop 6 and ther
 </details>
 
 ## Configuration Examples
-| spacemap screenshot | spacemap config | skhd config |
+| spacemap screenshot | Spacemap config | skhd config |
 |---------------------|-----------------|-------------|
 | <img width="711" height="136" alt="Screenshot 2026-05-11 at 1 20 00 PM" src="https://github.com/user-attachments/assets/bd9958db-07ee-466b-934c-e12d28ebd0a3" /> | <img width="195" height="75" alt="Screenshot 2026-05-11 at 1 42 02 PM" src="https://github.com/user-attachments/assets/4d493154-e1b2-4772-a408-639da7e3abe1" /> | [skhdrc](docs/skhd-configurations/skhdrc-8-by-2) |
 | <img width="713" height="137" alt="Screenshot 2026-05-11 at 1 19 31 PM" src="https://github.com/user-attachments/assets/d298e386-6bc2-4ac3-8ba0-7184e2f072a5" /> | <img width="204" height="76" alt="Screenshot 2026-05-11 at 1 41 03 PM" src="https://github.com/user-attachments/assets/1a911ef2-5cb7-4746-87d1-92dddb9ec8b4" /> | [skhdrc](docs/skhd-configurations/skhdrc-8-by-2) |
@@ -49,19 +49,19 @@ Window positions are drawn as colored rectangles inside each cell (one color per
 | Menubar icon → Settings (⌘+,) | Open settings window |
 | Menubar icon → Launch at Login | Toggle auto-start on login |
 | Menubar icon → Show/Hide Map | Toggle HUD |
-| Menubar icon → Restart spacemap (⌘+R) | Restart the app |
+| Menubar icon → Restart Spacemap (⌘+R) | Restart the app |
 
 ## Run Requirements
 
 - macOS 13+ (macOS 14+ for thumbnail cell style)
 - [yabai](https://github.com/koekeishiya/yabai) installed and running
-- [skhd](https://github.com/asmvik/skhd) installed and running (for grid navigation)
+- [skhd](https://github.com/koekeishiya/skhd) (or [skhd.zig](https://github.com/jackielii/skhd.zig)) installed and running (for grid navigation)
 - Accessibility permission (prompted on first launch). This is not the same as disabling SIP protection, which is not required.
 - Screen Recording permission (only needed for thumbnail cell style)
 
 
 
-On first launch of spacemap macOS will prompt for Accessibility permission. Grant it — spacemap needs it to monitor the global Ctrl+PgDn hotkey.
+On first launch of Spacemap macOS will prompt for Accessibility permission. Grant it — Spacemap needs it to monitor the global Ctrl+PgDn hotkey.
 
 If you plan to use the **Thumbnails** cell style, you will also need to grant **Screen Recording** permission. You can do this from the menubar menu → "Open Screen Recording Permissions".
 <details><summary>Accessibility Permissions Screenshot</summary>
@@ -135,7 +135,7 @@ AUTO_HIDE_TIMEOUT=5
 
 ### Hotkey
 
-`HOTKEY` sets the keystroke that shows/hides spacemap. Format: `modifier+modifier+key`. Requires a restart to take effect.
+`HOTKEY` sets the keystroke that shows/hides Spacemap. Format: `modifier+modifier+key`. Requires a restart to take effect.
 
 | Modifier tokens | Key tokens |
 |-----------------|-----------|
@@ -171,13 +171,14 @@ cp docs/config-examples/spacemap-config-8x2-rects ~/.config/spacemap/config
 1. Install prerequisites
 2. Install spacemap
 3. Grant Accessibility permission
-4. Configure skhd 
-5. Configure spacemap
+4. Configure skhd (or skhd.zig)
+5. Configure Spacemap
 
 **Step 1: Install prerequisites**
 ```
 brew install asmvik/formulae/yabai
-brew install asmvik/formulae/skhd
+brew install koekeishiya/formulae/skhd
+# or: brew install jackielii/formulae/skhd.zig
 ```
 
 **Step 2: Install spacemap**
@@ -186,18 +187,18 @@ brew tap jsheffie/tap
 brew install --cask jsheffie/tap/spacemap
 ```
 
-Or download the DMG from [releases](https://github.com/jsheffie/spacemap/releases), open it, and drag `spacemap.app` to the Applications symlink. On first launch, spacemap will ask if you want to move itself to /Applications.
+Or download the DMG from [releases](https://github.com/jsheffie/spacemap/releases), open it, and drag `Spacemap.app` to the Applications symlink. On first launch, Spacemap will ask if you want to move itself to /Applications.
 
 **Step 3: Grant Accessibility Permission**
 
-Launch spacemap once to trigger the permission prompt:
+Launch Spacemap once to trigger the permission prompt:
 ```bash
 open /Applications/spacemap.app
 ```
 
-Then go to **System Settings → Privacy & Security → Accessibility** and enable spacemap. The Ctrl+PgDn hotkey activates automatically — no restart needed.
+Then go to **System Settings → Privacy & Security → Accessibility** and enable Spacemap. The Ctrl+PgDn hotkey activates automatically — no restart needed.
 
-**Step 4: Configure skhd**
+**Step 4: Configure skhd (or skhd.zig)**
 
 Copy the 8×2 grid keymap into your skhd config:
 ```bash
@@ -205,12 +206,12 @@ curl -fsSL https://raw.githubusercontent.com/jsheffie/spacemap/main/docs/skhd-co
   > ~/.config/skhd/skhdrc
 ```
 
-Then restart skhd:
+Then restart skhd (or skhd.zig):
 ```bash
 skhd --restart-service
 ```
 
-**Step 5: Configure spacemap**
+**Step 5: Configure Spacemap**
 
 ```bash
 mkdir -p ~/.config/spacemap
@@ -221,7 +222,7 @@ CELL_STYLE=icons
 EOF
 ```
 
-Press `Ctrl+PgDn` to open spacemap.
+Press `Ctrl+PgDn` to open Spacemap.
 
 
 ## Build Requirements
@@ -294,7 +295,7 @@ Dependabot watches `.github/workflows/` weekly for action updates.
 
 ## CLI Usage
 
-Once installed via `make install-cli`, you can use spacemap as a command-line tool:
+Once installed via `make install-cli`, you can use Spacemap as a command-line tool:
 
 ```bash
 spacemap --version    # Print version and exit
@@ -305,7 +306,7 @@ spacemap --config     # Open config file in default editor and exit
 spacemap --help       # Print help and exit
 ```
 
-Without any options, spacemap launches and waits for the hotkey (Ctrl+PgDn) to toggle the HUD.
+Without any options, Spacemap launches and waits for the hotkey (Ctrl+PgDn) to toggle the HUD.
 
 Without installing the CLI, you can still run the commands directly:
 ```bash
@@ -330,7 +331,7 @@ macOS grants Accessibility permission to the `.app` bundle as a whole, not the r
 
 Every time you rebuild and reinstall, macOS revokes the Accessibility permission because the binary hash changes. The two-step dev workflow handles this:
 
-1. `make dev1` — uninstalls the app; go to **System Settings → Privacy & Security → Accessibility** and click **−** to remove `spacemap`
+1. `make dev1` — uninstalls the app; go to **System Settings → Privacy & Security → Accessibility** and click **−** to remove `Spacemap`
 2. `make dev2` — reinstalls and relaunches; grant the permission prompt that appears
 
 `make permissions` prints this reminder.

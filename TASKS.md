@@ -1,4 +1,4 @@
-# spacemap Roadmap
+# Spacemap Roadmap
 
 A living list of planned features, known bugs, and future improvements for the project. Items are categorized by priority and status.
 

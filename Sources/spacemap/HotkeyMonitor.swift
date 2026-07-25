@@ -31,7 +31,7 @@ class HotkeyMonitor {
         guard !isStarted else { return }
 
         if !AXIsProcessTrusted() {
-            NSLog("spacemap/Hotkey: accessibility not yet granted")
+            NSLog("Spacemap/Hotkey: accessibility not yet granted")
             let isRestarting = CommandLine.arguments.contains("--restarting")
             let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: !isRestarting] as CFDictionary
             let granted = AXIsProcessTrustedWithOptions(opts)
@@ -88,7 +88,7 @@ class HotkeyMonitor {
         )
 
         guard let tap else {
-            print("spacemap: CGEvent tap failed even though trusted — retrying")
+            print("Spacemap: CGEvent tap failed even though trusted — retrying")
             isStarted = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
                 self?.start()
@@ -100,6 +100,6 @@ class HotkeyMonitor {
         runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
-        print("spacemap: hotkey active")
+        print("Spacemap: hotkey active")
     }
 }

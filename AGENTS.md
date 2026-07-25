@@ -1,8 +1,8 @@
-# spacemap - AGENTS.md
+# Spacemap - AGENTS.md
 
 ## Project Overview
 
-**spacemap** is a native macOS utility that visualizes yabai workspaces in a floating 2D grid overlay. Think of it as a "mission control" for your tiling window manager that doesn't require SIP to be disabled.
+**Spacemap** is a native macOS utility that visualizes yabai workspaces in a floating 2D grid overlay. Think of it as a "mission control" for your tiling window manager that doesn't require SIP to be disabled.
 
 ### What It Does
 - Shows a HUD overlay (toggle with hotkey) displaying your yabai desktops in a configurable grid
@@ -136,7 +136,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 
 ### Testing Changes
 1. `make dev1` (uninstalls app)
-2. Remove spacemap from System Settings → Privacy & Security → Accessibility
+2. Remove Spacemap from System Settings → Privacy & Security → Accessibility
 3. Make code changes
 4. `make dev2` (builds, installs, launches)
 5. Grant permission when prompted

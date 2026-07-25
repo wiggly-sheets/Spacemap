@@ -1,4 +1,4 @@
-# spacemap Reference
+# Spacemap Reference
 
 ## Quick Commands
 
@@ -71,7 +71,7 @@
 ## Development Workflow
 
 1. `make dev1` (uninstalls app)
-2. Remove spacemap from System Settings → Privacy & Security → Accessibility
+2. Remove Spacemap from System Settings → Privacy & Security → Accessibility
 3. Make code changes
 4. `make dev2` (rebuilds, reinstalls, launches)
 5. Grant Accessibility permission when prompted

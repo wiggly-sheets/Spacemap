@@ -106,7 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MRU Spaces detection**: Warns user on launch if macOS MRU spaces is enabled, offers to disable
 - **Screen Recording permissions link**: Added to menubar menu for easy access
 - **Menubar hotkey symbols**: Show configured hotkey symbols in Show/Hide Map menu item
-- **Menubar restart shortcut**: Cmd+R to restart spacemap from menubar
+- **Menubar restart shortcut**: Cmd+R to restart Spacemap from menubar
 - **Settings window hotkey recorder**: Global keyboard capture for setting hotkey in settings UI
 - **Settings window space name editor**: Per-space text inputs in settings UI
 - **Xcode project**: Generated from SPM via `scripts/generate-xcodeproj.py`, 4 targets (default, arm64, x86_64, universal)
