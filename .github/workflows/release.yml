@@ -158,7 +158,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.tag }}
           DMG_FILE: spacemap-${{ steps.version.outputs.tag }}-universal.dmg
-          APPCAST_URL: https://wiggly-sheets.github.io/spacemap/appcast.xml
+          APPCAST_URL: https://wiggly-sheets.github.io/Spacemap/appcast.xml
           RELEASES_URL: https://github.com/wiggly-sheets/spacemap/releases/download/v${{ steps.version.outputs.tag }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
