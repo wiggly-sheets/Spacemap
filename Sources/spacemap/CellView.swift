@@ -121,7 +121,7 @@ var body: some View {
                 Text("\(spaceIndex)")
                     .font(.system(size: 12 * uiScale, weight: .bold))
                     .foregroundColor(textColor.opacity(0.7))
-                    .position(x: 8, y: 12)
+                    .position(x: 12, y: 16)
             }
 
             // Show space name (if exists) in center

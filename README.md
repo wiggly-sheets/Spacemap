@@ -131,6 +131,10 @@ Most changes take effect on next HUD open. `HOTKEY` requires a restart.
 |--------|---------|-------------|
 | `GRID_COLS` | `8` | Number of columns |
 | `GRID_ROWS` | `2` | Number of rows |
+| `MULTI_MONITOR_HUD_MODE` | `unified` | `unified` combines spaces in one grid; `separate` shows one grid per display |
+| `UNIFIED_HUD_VISIBILITY` | `active` | In `unified` mode: `active` shows the grid on the focused-space display; `all` shows it on every display |
+| `SEPARATE_HUD_VISIBILITY` | `all` | In `separate` mode: `all` shows every HUD; `active` shows only the focused-space display |
+| `DISPLAY_NAVIGATION_WRAP` | `within` | With arrow/Vim navigation: `within` stays on one display; `between` wraps across displays |
 | `MAX_SPACES` | `16` | Maximum spaces to display |
 
 ### Navigation
@@ -139,6 +143,7 @@ Most changes take effect on next HUD open. `HOTKEY` requires a restart.
 |--------|---------|-------------|
 | `ARROW_KEYS` | `false` | Enable arrow key navigation |
 | `VIM_KEYS` | `false` | Enable hjkl navigation |
+| `DISPLAY_NAVIGATION_WRAP` | `within` | Wrap keyboard navigation within or between displays |
 
 ### Behavior
 
@@ -171,6 +176,7 @@ SPACE_NAMES=1:Desktop,2:Dev,3:Media,4:Music
 - [skhd](https://github.com/koekeishiya/skhd) running
 - Accessibility permission
 - Screen Recording permission (thumbnails only)
+- For multi-monitor HUD modes: **Displays have separate Spaces** enabled in System Settings → Desktop & Dock → Mission Control (log out and back in after changing it)
 
 ---
 

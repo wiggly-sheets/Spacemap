@@ -28,7 +28,7 @@
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
 - **Config**: Stored at `~/.config/spacemap/config`; reloads on HUD open (except HOTKEY needs restart).
 - **Permissions**: Requires Accessibility permission (prompted on first launch). Screen Recording permission required for thumbnail cell style.
-- **Sparkle Keys**: Stored in login Keychain (generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`). Public key in `sparklesigner.pub`, private key in `sparklesigner.pem`. Both in `.gitignore`. Public key in GitHub Secret `SPARKLE_PUBLIC_KEY`, private key in `SPARKLE_PRIVATE_KEY`.
+- **Sparkle Keys**: Public key is in `sparklesigner.pub`; `sparklesigner.pem` is the matching local PEM private key. Both are `.gitignore`d. GitHub `SPARKLE_PUBLIC_KEY` stores the public key; `SPARKLE_PRIVATE_KEY` must contain the matching base64-encoded 32-byte Ed25519 seed (not the PEM file). The release workflow verifies the pair before building.
 
 ## Architecture
 
@@ -160,7 +160,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 3. **SwiftUI performance:** Each HUD open creates a new NSHostingView. The state is cached during a drag, but the view is recreated.
 4. **Icon strip flicker:** On space change, `CellView` rerenders and re-fetches icons via `NSWorkspace.shared.icon(forFile:)` which is potentially expensive
 5. **Drag resolution:** Window drag detection uses frontmost app name matching, which can be ambiguous for multi-window apps. Falls back to click proximity.
-6. **Test suite:** 103 unit tests across 5 files (`Tests/spacemapTests/`). Run with `make test` or `swift test`.
+6. **Test suite:** 150 unit tests across 6 files (`Tests/spacemapTests/`). Run with `make test` or `swift test`.
 7. **Socket health check:** Periodic `fcntl(fd, F_GETFD)` check + file existence check. Restarts on failure.
 
 ## Potential Extension Points
@@ -213,7 +213,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - Grid-aware keyboard navigation (arrow keys + vim keys with wrapping)
 - Dynamic yabai path detection (ARM + Intel)
 - Xcode project generation (`scripts/generate-xcodeproj.py`, 4 targets)
-- Unit test suite: 103 tests across 5 files (`Tests/spacemapTests/`)
+- Unit test suite: 150 tests across 6 files (`Tests/spacemapTests/`)
 - GitHub Actions CI: swift test + build on push/PR
 - GitHub Actions Release: 3 DMG variants + checksums on tag push
 - Dependabot for GitHub Actions

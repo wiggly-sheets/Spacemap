@@ -75,4 +75,88 @@ enum SpaceNavigator {
             return visibleSpaceIndices[positionsInColumn[targetOffset]]
         }
     }
+
+    /// Navigates within the current display until movement reaches a grid-wrap
+    /// edge. At that edge, enter the next or previous populated display rather
+    /// than cycling back through the current display's spaces.
+    static func destinationAcrossDisplays(
+        from currentSpaceIndex: Int,
+        displaySpaceIndices: [[Int]],
+        maxSpaces: Int,
+        columns: Int,
+        direction: SpaceNavigationDirection
+    ) -> Int? {
+        let displays = displaySpaceIndices
+            .map { navigableSpaceIndices(activeSpaceIndices: $0, maxSpaces: maxSpaces) }
+            .filter { !$0.isEmpty }
+        guard !displays.isEmpty else { return nil }
+        guard let currentDisplayPosition = displays.firstIndex(where: { $0.contains(currentSpaceIndex) }) else {
+            return displays.first?.first
+        }
+
+        let currentDisplay = displays[currentDisplayPosition]
+        guard let localTarget = destination(
+            from: currentSpaceIndex,
+            visibleSpaceIndices: currentDisplay,
+            columns: columns,
+            direction: direction
+        ) else {
+            return nil
+        }
+        guard wrapsWithinGrid(
+            from: currentSpaceIndex,
+            visibleSpaceIndices: currentDisplay,
+            columns: columns,
+            direction: direction
+        ), displays.count > 1 else {
+            return localTarget
+        }
+
+        let step: Int
+        switch direction {
+        case .left, .up: step = -1
+        case .right, .down: step = 1
+        }
+        let targetDisplayPosition = (currentDisplayPosition + step + displays.count) % displays.count
+        let targetDisplay = displays[targetDisplayPosition]
+        return step > 0 ? targetDisplay.first : targetDisplay.last
+    }
+
+    private static func wrapsWithinGrid(
+        from currentSpaceIndex: Int,
+        visibleSpaceIndices: [Int],
+        columns: Int,
+        direction: SpaceNavigationDirection
+    ) -> Bool {
+        let columnCount = max(columns, 1)
+        guard let currentPosition = visibleSpaceIndices.firstIndex(of: currentSpaceIndex) else {
+            return false
+        }
+
+        switch direction {
+        case .left:
+            return currentPosition % columnCount == 0
+        case .right:
+            let rowEnd = min(((currentPosition / columnCount) + 1) * columnCount, visibleSpaceIndices.count)
+            return currentPosition + 1 == rowEnd
+        case .up, .down:
+            let column = currentPosition % columnCount
+            let positionsInColumn = stride(
+                from: column,
+                to: visibleSpaceIndices.count,
+                by: columnCount
+            ).map { $0 }
+            guard let positionInColumn = positionsInColumn.firstIndex(of: currentPosition) else {
+                return false
+            }
+            switch direction {
+            case .up:
+                return positionInColumn == 0
+            case .down:
+                return positionInColumn + 1 == positionsInColumn.count
+            case .left, .right:
+                preconditionFailure("Handled before column navigation")
+            }
+        }
+    }
 }
