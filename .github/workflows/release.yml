@@ -17,6 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fix path capitalization for module cache
+        run: |
+          cd ..
+          mv Spacemap spacemap
+          cd spacemap
+
       - uses: swift-actions/setup-swift@v2
         with:
           swift-version: "5.9"
