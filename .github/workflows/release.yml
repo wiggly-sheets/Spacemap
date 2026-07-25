@@ -87,7 +87,7 @@ jobs:
         run: |
           make _dmg INPUT=spacemap-arm64.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-arm64.dmg
           make _dmg INPUT=spacemap-x86_64.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-x86_64.dmg
-          make _dmg INPUT=spacemap.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-universal.dmg
+          make _dmg INPUT=Spacemap.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-universal.dmg
 
       - name: Verify DMG architectures
         run: |
@@ -97,7 +97,7 @@ jobs:
             mkdir -p "$mnt"
             hdiutil attach "$dmg" -nobrowse -quiet -mountpoint "$mnt"
             local archs
-            archs=$(lipo -archs "$mnt/spacemap.app/Contents/MacOS/spacemap" 2>/dev/null || true)
+            archs=$(lipo -archs "$mnt/Spacemap.app/Contents/MacOS/spacemap" 2>/dev/null || true)
             hdiutil detach "$mnt" -quiet 2>/dev/null || true
             rmdir "$mnt" 2>/dev/null || true
             if [ -z "$archs" ]; then

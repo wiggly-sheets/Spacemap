@@ -99,7 +99,7 @@ app-universal: build-universal
 	cp Sources/spacemap/Info.plist $(APP_BUNDLE)/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/spacemap/appcast.xml" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_BUNDLE)/Contents/Frameworks/
 	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
