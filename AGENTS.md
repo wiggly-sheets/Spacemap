@@ -111,9 +111,12 @@ A second CGEventTap (listenOnly, tailAppend) monitors mouse drag events to detec
 
 ## Development Workflow
 
+### CHANGELOG Rule
+**Always** update `## [Unreleased]` in CHANGELOG.md as you work — not after, not at the end. When you add a feature, add a line. When you fix a bug, add a line. When you change behavior, add a line. Entries go under the appropriate `### Added`, `### Changed`, `### Fixed`, or `### Removed` subheading. If the subheading doesn't exist yet, create it.
+
 ### Release Checklist
 Before `make release`:
-- [ ] Update CHANGELOG.md with version entry (## [x.y.z] - YYYY-MM-DD)
+- [ ] Add entries to `## [Unreleased]` in CHANGELOG.md (Added/Changed/Fixed/Removed)
 - [ ] Update TASKS.md to mark completed items
 - [ ] Run `make test` to verify
 
