@@ -17,6 +17,7 @@
 | `make dmg-x86_64` | Build Intel DMG |
 | `make dmg-universal` | Build universal DMG |
 | `make test` | Run unit tests via swift test |
+| `make release RELEASE=x.y.z` | Bump version, commit, tag, push (triggers release) |
 | `make install-cli` | Install CLI symlink to `/usr/local/bin/spacemap` |
 | `make uninstall-cli` | Remove CLI symlink |
 | `make permissions` | Show instructions for fixing Accessibility permission |
@@ -49,7 +50,7 @@
 | `GRID_COLS` | 8 | Grid columns |
 | `GRID_ROWS` | 2 | Grid rows |
 | `CELL_STYLE` | rects | `rects`, `icons`, `thumbnails`, or `simple` |
-| `HOTKEY` | ctrl+pgdn | Toggle hotkey (requires restart) |
+| `HOTKEY` | ctrl+space | Toggle hotkey (requires restart) |
 | `UI_SCALE` | 0.5 | HUD scale (0.0–1.0) |
 | `THEME` | default | Color theme |
 | `AUTO_HIDE_TIMEOUT` | 5 | Seconds before HUD hides (0=never) |

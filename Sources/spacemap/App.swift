@@ -11,11 +11,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
     private lazy var sparkleUpdaterController: SPUStandardUpdaterController = {
-        SPUStandardUpdaterController(
+        print("Spacemap: Initializing Sparkle updater controller")
+        let controller = SPUStandardUpdaterController(
             startingUpdater: false,
             updaterDelegate: self,
             userDriverDelegate: nil
         )
+        print("Spacemap: Sparkle updater controller initialized")
+        return controller
     }()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -232,6 +235,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc func checkForUpdates() {
+        print("Spacemap: Check for updates clicked")
         sparkleUpdaterController.checkForUpdates(nil)
     }
 
@@ -533,8 +537,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    private func configureSparkleUpdater(updateMode: UpdateMode) {
+private func configureSparkleUpdater(updateMode: UpdateMode) {
+print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
         let updater = sparkleUpdaterController.updater
+        print("Spacemap: Updater feed URL: \(String(describing: updater.feedURL))")
+        print("Spacemap: Current auto-check setting: \(updater.automaticallyChecksForUpdates)")
+        print("Spacemap: Current auto-download setting: \(updater.automaticallyDownloadsUpdates)")
+        
         switch updateMode {
         case .auto:
             updater.automaticallyDownloadsUpdates = true
@@ -545,7 +554,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         case .off:
             updater.automaticallyChecksForUpdates = false
         }
-        try? sparkleUpdaterController.updater.start()
+        
+        print("Spacemap: After config - auto-check: \(updater.automaticallyChecksForUpdates), auto-download: \(updater.automaticallyDownloadsUpdates)")
+        
+        // startUpdater is idempotent — no-ops if already started
+        if updateMode != .off {
+            sparkleUpdaterController.startUpdater()
+        }
     }
 
     // MARK: - SPUUpdaterDelegate
@@ -555,7 +570,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
-        print("Spacemap update error: \(error)")
+        print("Spacemap: Sparkle update aborted with error: \(error)")
+    }
+    
+    func updaterDidFinishLoading(_ updater: SPUUpdater) {
+        print("Spacemap: Sparkle updater finished loading")
     }
 }
 

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.11] - 2026-07-25
+
+### Changed
+- **Changed:** App entry point and lifecycle
+- **Changed:** Settings window
+- **Changed:** appcast.xml
+
+### Documentation
+- **Changed:** User-facing documentation
+
+### Build
+- **Changed:** Build system
+
+### CI/CD
+- **Changed:** CI/CD pipeline
+
+
 ## [1.0.6] - 2026-07-21
 
 ### Fixed

@@ -3,7 +3,7 @@ BUILD_DIR = .build/release
 APP_BUNDLE = Spacemap.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
 INSTALL_PATH = /Applications/$(APP_BUNDLE)
-VERSION  := $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || (cat VERSION 2>/dev/null) || echo "0.0.0")
+VERSION  := $(shell git tag --sort=-v:refname 2>/dev/null | head -1 | sed 's/^v//' || (cat VERSION 2>/dev/null) || grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/' || echo "0.0.0")
 ARCHIVE   = spacemap-$(VERSION).zip
 STAGE     = spacemap-$(VERSION)
 DMG       = spacemap-$(VERSION).dmg
@@ -13,7 +13,7 @@ BUILD_X86_64 = .build/x86_64-apple-macosx/release
 # Sparkle public key for update verification (set via env or read from sparklesigner.pub)
 SPARKLE_PUBLIC_KEY ?= $(shell cat sparklesigner.pub 2>/dev/null | tr -d '\n')
 
-.PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal generate-xcodeproj test
+.PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal generate-xcodeproj test release
 
 build:
 	swift build -c release
@@ -225,6 +225,27 @@ permissions:
 	@echo "NEVER run the binary directly — always use 'make run' or 'open $(INSTALL_PATH)'"
 	@echo "Running the binary directly causes AXIsProcessTrusted() to return false."
 
+release:
+	@test -n "$(RELEASE)" || (echo "Usage: make release RELEASE=x.y.z" && exit 1)
+	@# Auto-generate changelog entry from git diff
+	@chmod +x scripts/generate-changelog.sh
+	@scripts/generate-changelog.sh "$(RELEASE)"
+	@grep -q "$(RELEASE)" CHANGELOG.md || (echo "ERROR: CHANGELOG.md has no entry for $(RELEASE). Update it manually." && exit 1)
+	@echo "Releasing v$(RELEASE)..."
+	@# Update Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(RELEASE)" Sources/spacemap/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(RELEASE)" Sources/spacemap/Info.plist
+	@# Update VERSION file
+	@echo "$(RELEASE)" > VERSION
+	@# Commit, tag, push
+	git add Sources/spacemap/Info.plist VERSION CHANGELOG.md
+	git commit -m "v$(RELEASE)"
+	git tag "v$(RELEASE)"
+	git push origin main --tags
+	@echo ""
+	@echo "Tagged v$(RELEASE) — GitHub Actions will build & release."
+	@echo "https://github.com/wiggly-sheets/Spacemap/releases"
+
 clean:
 	rm -rf .build $(APP_BUNDLE)
 
@@ -235,7 +256,8 @@ config:
 		echo "GRID_ROWS=2" >> ~/.config/spacemap/config; \
 		echo "#CELL_STYLE=rects" >> ~/.config/spacemap/config; \
 		echo "CELL_STYLE=icons" >> ~/.config/spacemap/config; \
-		echo "#CELL_STYLE=hybrid" >> ~/.config/spacemap/config; \
+		echo "#CELL_STYLE=thumbnails
+		echo "#CELL_STYLE=simple" >> ~/.config/spacemap/config; \
 		echo "#HOTKEY=ctrl+pgdn" >> ~/.config/spacemap/config; \
 		echo "#UI_SCALE=1.0" >> ~/.config/spacemap/config; \
 		echo "#AUTO_SHOW=false" >> ~/.config/spacemap/config; \
@@ -255,7 +277,8 @@ distconfig:
 	@echo "GRID_ROWS=2" >> ~/.config/spacemap/config
 	@echo "#CELL_STYLE=rects" >> ~/.config/spacemap/config
 	@echo "CELL_STYLE=icons" >> ~/.config/spacemap/config
-	@echo "#CELL_STYLE=hybrid" >> ~/.config/spacemap/config
+	@echo "#CELL_STYLE=thumbnails
+		echo "#CELL_STYLE=simple" >> ~/.config/spacemap/config
 	@echo "#HOTKEY=ctrl+pgdn" >> ~/.config/spacemap/config
 	@echo "#SOCKET_HEALTH_INTERVAL=60" >> ~/.config/spacemap/config
 	@echo "SPACE_NAMES=1:Desktop,2:Dev" >> ~/.config/spacemap/config

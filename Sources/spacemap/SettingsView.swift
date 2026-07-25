@@ -100,6 +100,7 @@ struct SettingsView: View {
     @State private var isRecording = false
     @State private var monitor: Any?
     @State private var updateMode: UpdateMode = .notify
+    @State private var previousUpdateMode: UpdateMode = .notify
     
     private let socketHealthOptions = [15, 30, 45, 60]
     
@@ -184,6 +185,7 @@ init() {
         _spaceNameInputs = State(initialValue: config.spaceNames)
         _gridLayoutIndex = State(initialValue: findBestGridLayoutIndexFor(cols: config.cols, rows: config.rows, maxSpaces: config.maxSpaces))
         _updateMode = State(initialValue: config.updateMode)
+        _previousUpdateMode = State(initialValue: config.updateMode)
     }
     
     private func findBestGridLayoutIndexFor(cols: Int, rows: Int, maxSpaces: Int) -> Int {
@@ -426,7 +428,12 @@ Section(header: Text("Behavior").font(.title).bold()) {
                       Text("Notify (Check & Prompt)").tag(UpdateMode.notify)
                       Text("Off").tag(UpdateMode.off)
                   }
-                  .onChange(of: updateMode) { _ in saveConfig() }
+                  .onChange(of: updateMode) { newValue in
+            if newValue != previousUpdateMode {
+                saveConfig()
+                previousUpdateMode = newValue
+            }
+        }
                   Button("Check for Updates...") {
                       (NSApp.delegate as? AppDelegate)?.checkForUpdates()
                   }
