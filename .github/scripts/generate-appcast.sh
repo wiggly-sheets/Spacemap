@@ -7,7 +7,7 @@ DMG_SIZE="${DMG_SIZE:?DMG_SIZE is required}"
 DMG_HASH="${DMG_HASH:-}"
 ED_SIGNATURE="${ED_SIGNATURE:-}"
 APP_NAME="${APP_NAME:-Spacemap}"
-APPCAST_URL="${APPCAST_URL:-https://wiggly-sheets.github.io/spacemap/appcast.xml}"
+APPCAST_URL="${APPCAST_URL:-https://wiggly-sheets.github.io/Spacemap/appcast.xml}"
 RELEASES_URL="${RELEASES_URL:-https://github.com/wiggly-sheets/spacemap/releases/download/v${VERSION}}"
 MAX_ITEMS="${MAX_ITEMS:-5}"
 

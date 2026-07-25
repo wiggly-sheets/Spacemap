@@ -158,8 +158,8 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.tag }}
           DMG_FILE: spacemap-${{ steps.version.outputs.tag }}-universal.dmg
-          APPCAST_URL: https://wiggly-sheets.github.io/spacemap/appcast.xml
-          RELEASES_URL: https://github.com/wiggly-sheets/spacemap/releases/download/v${{ steps.version.outputs.tag }}
+          APPCAST_URL: https://wiggly-sheets.github.io/Spacemap/appcast.xml
+          RELEASES_URL: https://github.com/wiggly-sheets/Spacemap/releases/download/v${{ steps.version.outputs.tag }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
@@ -230,14 +230,14 @@ jobs:
             sha256 arm:   "ARM64_PLACEHOLDER",
                    intel: "X86_PLACEHOLDER"
 
-            url "https://github.com/wiggly-sheets/spacemap/releases/download/v#{version}/spacemap-#{version}-#{arch}.dmg"
+            url "https://github.com/wiggly-sheets/Spacemap/releases/download/v#{version}/spacemap-#{version}-#{arch}.dmg"
             name "spacemap"
             desc "Yabai workspace visualizer"
-            homepage "https://github.com/wiggly-sheets/spacemap"
+            homepage "https://github.com/wiggly-sheets/Spacemap"
 
             depends_on macos: :ventura
 
-            app "spacemap.app"
+            app "Spacemap.app"
 
             zap trash: [
               "~/Library/Preferences/com.spacemap.plist",
