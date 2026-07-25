@@ -8,6 +8,10 @@ enum YabaiClient {
         yabaiQueue.async(execute: block)
     }
 
+    static func runOnYabaiQueue(_ workItem: DispatchWorkItem) {
+        yabaiQueue.async(execute: workItem)
+    }
+
     private static let yabaiPath: String = {
         let arm = "/opt/homebrew/bin/yabai"
         let intel = "/usr/local/bin/yabai"
@@ -115,7 +119,9 @@ enum YabaiClient {
     }
     
     static func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
-        guard isYabaiRunning() else {
+        // Bypass isYabaiRunning() cache — stale cache returns empty grid silently
+        // Fresh process check instead
+        guard (try? shell("/usr/bin/pgrep", "yabai")).flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }) ?? false else {
             let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
             return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
         }

@@ -99,7 +99,7 @@ class HUDWindowController {
     
     private func startPollTimer() {
         pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self, self.isVisible else { return }
             // Dispatch query off main — pgrep can block briefly
             YabaiClient.runOnYabaiQueue {
@@ -107,7 +107,7 @@ class HUDWindowController {
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.isVisible else { return }
                     if focused != self.lastFocusedSpaceIndex {
-                        NSLog("spacemap/HUD: poll detected space change to \(focused ?? -1)")
+                        NSLog("spacemap/HUD: poll detected change last=\(self.lastFocusedSpaceIndex ?? -1) current=\(focused ?? -1)")
                         self.refreshState()
                         self.resetAutoHideTimer()
                     }
@@ -117,15 +117,25 @@ class HUDWindowController {
     }
     
     private func fetchStateAndRender(panel: NSPanel) {
-        guard !isFetching else { return }
+        // Cancel any pending work and mark as fetching so refreshState can't race
+        refreshWorkItem?.cancel()
+        refreshWorkItem = nil
         isFetching = true
         let cfg = config
-        YabaiClient.runOnYabaiQueue { [weak self] in
+        var workCancelled = false
+        let work: DispatchWorkItem = DispatchWorkItem { [weak self] in
             let state = YabaiClient.buildGridState(config: cfg)
             let focusedWindowID = try? YabaiClient.queryFocusedWindow()
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.isVisible else { self?.isFetching = false; return }
+                guard let self else { return }
+                // Guard against stale completions
+                guard !workCancelled, self.isFetching else {
+                    NSLog("spacemap/HUD: fetchStateAndRender cancelled (stale)")
+                    self.isFetching = false
+                    return
+                }
                 self.isFetching = false
+                guard self.isVisible else { return }
                 self.currentState = state
                 self.dragHandler.cachedWindows = state.windows
                 if let fid = focusedWindowID {
@@ -136,9 +146,14 @@ class HUDWindowController {
                 self.updateCellFrames(state: state, panel: panel)
                 self.lastFocusedSpaceIndex = state.focusedIndex
                 self.dragHandler.start()
-                NSLog("spacemap/HUD: fetchStateAndRender complete, focused=\(state.focusedIndex ?? -1)")
+                NSLog("spacemap/HUD: fetchStateAndRender complete, focused=\(state.focusedIndex ?? -1), spaces=\(state.spaces.count), windows=\(state.windows.count)")
             }
         }
+        work.notify(queue: .main) { [weak work] in
+            if work?.isCancelled == true { workCancelled = true }
+        }
+        refreshWorkItem = work
+        YabaiClient.runOnYabaiQueue(work)
     }
 
     private func renderEmptyState(panel: NSPanel) {
@@ -192,34 +207,36 @@ class HUDWindowController {
     
     private func refreshState() {
         guard isVisible, let panel else { return }
-        // Debounce: cancel any in-flight refresh before starting new one
+        // Debounce: cancel any in-flight work
         refreshWorkItem?.cancel()
         refreshWorkItem = nil
-        
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self, self.isVisible else { return }
+        isFetching = false  // allow fetchStateAndRender to re-fetch
+
+        var workCancelled = false
+        let work: DispatchWorkItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
             let cfg = self.config
-            YabaiClient.runOnYabaiQueue {
-                let state = YabaiClient.buildGridState(config: cfg)
-                DispatchQueue.main.async { [weak self] in
-                    guard let self, self.isVisible else { return }
-                    // Guard against stale completions (debounce)
-                    guard self.refreshWorkItem?.isCancelled != true else {
-                        NSLog("spacemap/HUD: refreshState cancelled (stale)")
-                        return
-                    }
-                    self.currentState = state
-                    self.dragHandler.cachedWindows = state.windows
-                    self.refreshThumbnailCache(state: state)
-                    self.renderState(state, panel: panel)
-                    self.updateCellFrames(state: state, panel: panel)
-                    self.lastFocusedSpaceIndex = state.focusedIndex
-                    NSLog("spacemap/HUD: refreshState complete, focused=\(state.focusedIndex ?? -1)")
+            let state = YabaiClient.buildGridState(config: cfg)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard !workCancelled, self.isVisible else {
+                    NSLog("spacemap/HUD: refreshState cancelled (stale)")
+                    return
                 }
+                self.currentState = state
+                self.dragHandler.cachedWindows = state.windows
+                self.refreshThumbnailCache(state: state)
+                self.renderState(state, panel: panel)
+                self.updateCellFrames(state: state, panel: panel)
+                self.lastFocusedSpaceIndex = state.focusedIndex
+                NSLog("spacemap/HUD: refreshState complete, focused=\(state.focusedIndex ?? -1)")
             }
         }
-        refreshWorkItem = workItem
-        DispatchQueue.main.async(execute: workItem)
+        work.notify(queue: .main) { [weak work] in
+            if work?.isCancelled == true { workCancelled = true }
+        }
+        refreshWorkItem = work
+        YabaiClient.runOnYabaiQueue(work)
     }
     
     private func renderState(_ state: GridState, panel: NSPanel) {
