@@ -208,6 +208,11 @@ Install the CLI:
 make install-cli
 ```
 
+When the app is launched from `/Applications`, it also installs the `spacemap`
+command automatically. If macOS protects `/usr/local/bin`, Spacemap asks for
+administrator approval to create that symlink; it never replaces an unrelated
+item already at that path.
+
 ---
 
 ## Developer Notes

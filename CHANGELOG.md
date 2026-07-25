@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- First-launch CLI installation now creates `/usr/local/bin` when possible and offers an explicit administrator-authorized fallback when macOS protects that location.
+
+### Fixed
+- CLI installation now validates its destination and never removes an unrelated file or symlink at `/usr/local/bin/spacemap`.
+
 
 ## [1.0.15] - 2026-07-25
 

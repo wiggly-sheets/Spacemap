@@ -24,8 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
         
-        // Ensure symlink first, before any early exits from CLI flags
-        ensureSymlink()
+        // Keep the CLI available for direct invocation when permissions allow.
+        // Exit-only CLI commands must never trigger an administrator prompt.
+        ensureCLISymlink(allowAuthorizationPrompt: false)
         
         #if !DEBUG
         // Handle CLI arguments that cause immediate exit
@@ -76,8 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Check if app is in /Applications folder, if not, prompt to move
         checkApplicationLocation()
         
-        // Ensure symlink exists in /usr/local/bin for easy CLI access
-        ensureSymlink()
+        // Ensure the CLI is installed, offering an explicit authorization flow
+        // on macOS setups where /usr/local is root-owned.
+        ensureCLISymlink(allowAuthorizationPrompt: true)
         
         setupMenubar()
         
@@ -194,6 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         menu.addItem(NSMenuItem(title: String(format: NSLocalizedString("Show/Hide Map (%@)", comment: ""), hotkeyLabel), action: #selector(toggleHUD), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: NSLocalizedString("Settings...", comment: ""), action: #selector(showSettingsWindow), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: NSLocalizedString("Install Command-Line Tool…", comment: ""), action: #selector(installCommandLineTool), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: NSLocalizedString("Open Accessibility Permissions (for hotkeys)", comment: ""), action: #selector(openAccessibility), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: NSLocalizedString("Open Screen Recording Permissions (for thumbnails)", comment: ""), action: #selector(openScreenRecording), keyEquivalent: ""))
@@ -247,6 +250,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     @objc func checkForUpdates() {
         print("Spacemap: Check for updates clicked")
         sparkleUpdaterController.checkForUpdates(nil)
+    }
+
+    @objc private func installCommandLineTool() {
+        ensureCLISymlink(allowAuthorizationPrompt: true, showSuccessAlert: true, forceAuthorizationPrompt: true)
     }
 
     private func restartHotkey(config: GridConfig) {
@@ -548,19 +555,100 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    private func ensureSymlink() {
-        let symlinkPath = "/usr/local/bin/spacemap"
-        let executablePath = "/Applications/Spacemap.app/Contents/MacOS/spacemap"
-        let fileManager = FileManager.default
+    private let cliSymlinkPath = "/usr/local/bin/spacemap"
+    private let cliExecutablePath = "/Applications/Spacemap.app/Contents/MacOS/spacemap"
 
-        // Always remove any existing symlink first (handles broken/self-referential symlinks)
-        try? fileManager.removeItem(atPath: symlinkPath)
-
-        do {
-            try fileManager.createSymbolicLink(atPath: symlinkPath, withDestinationPath: executablePath)
-        } catch {
-            print("Spacemap: failed to create symlink at \(symlinkPath): \(error)")
+    private func ensureCLISymlink(
+        allowAuthorizationPrompt: Bool,
+        showSuccessAlert: Bool = false,
+        forceAuthorizationPrompt: Bool = false
+    ) {
+        switch CLISymlinkInstaller.install(symlinkPath: cliSymlinkPath, targetPath: cliExecutablePath) {
+        case .installed:
+            if showSuccessAlert {
+                showCLIInstallAlert(
+                    style: .informational,
+                    message: NSLocalizedString("Command-Line Tool Ready", comment: ""),
+                    information: NSLocalizedString("You can now use `spacemap` from Terminal.", comment: "")
+                )
+            }
+        case .targetUnavailable:
+            print("Spacemap: CLI target is unavailable at \(cliExecutablePath)")
+        case .conflictingItem:
+            let message = "Spacemap: preserving existing item at \(cliSymlinkPath)"
+            print(message)
+            if showSuccessAlert {
+                showCLIInstallAlert(
+                    style: .warning,
+                    message: NSLocalizedString("Command-Line Tool Not Installed", comment: ""),
+                    information: NSLocalizedString("An unrelated item already exists at /usr/local/bin/spacemap, so Spacemap left it unchanged.", comment: "")
+                )
+            }
+        case .authorizationRequired:
+            guard allowAuthorizationPrompt else {
+                print("Spacemap: administrator authorization is required to install the CLI")
+                return
+            }
+            let defaults = UserDefaults.standard
+            if forceAuthorizationPrompt || !defaults.bool(forKey: "HasAskedCLIInstallAuthorization") {
+                defaults.set(true, forKey: "HasAskedCLIInstallAuthorization")
+                promptForCLIInstallAuthorization()
+            }
+        case .failed:
+            print("Spacemap: failed to create CLI symlink at \(cliSymlinkPath)")
+            if showSuccessAlert {
+                showCLIInstallAlert(
+                    style: .critical,
+                    message: NSLocalizedString("Command-Line Tool Not Installed", comment: ""),
+                    information: NSLocalizedString("Spacemap could not create /usr/local/bin/spacemap.", comment: "")
+                )
+            }
         }
+    }
+
+    private func promptForCLIInstallAuthorization() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = NSLocalizedString("Install Command-Line Tool?", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap needs administrator permission to create /usr/local/bin/spacemap. This only adds a symlink to the app; it does not change your shell configuration.", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Install", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Not Now", comment: ""))
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            installCLISymlinkWithAuthorization()
+        }
+    }
+
+    private func installCLISymlinkWithAuthorization() {
+        // This intentionally refuses to overwrite any unrelated item. All
+        // paths are app constants, so no user-controlled shell input is used.
+        let command = "if [ -L /usr/local/bin/spacemap ]; then [ $(/usr/bin/readlink /usr/local/bin/spacemap) = /Applications/Spacemap.app/Contents/MacOS/spacemap ] || exit 2; elif [ -e /usr/local/bin/spacemap ]; then exit 2; fi; /bin/mkdir -p /usr/local/bin; if [ ! -L /usr/local/bin/spacemap ]; then /bin/ln -s /Applications/Spacemap.app/Contents/MacOS/spacemap /usr/local/bin/spacemap; fi"
+        let source = "do shell script \"\(command)\" with administrator privileges"
+        var error: NSDictionary?
+        NSAppleScript(source: source)?.executeAndReturnError(&error)
+
+        if let error {
+            let errorNumber = error[NSAppleScript.errorNumber] as? Int
+            if errorNumber != -128 { // User cancelled the authorization dialog.
+                print("Spacemap: authorized CLI installation failed: \(error)")
+                showCLIInstallAlert(
+                    style: .critical,
+                    message: NSLocalizedString("Command-Line Tool Not Installed", comment: ""),
+                    information: NSLocalizedString("Spacemap could not install the command-line tool. You can try again from the menu bar.", comment: "")
+                )
+            }
+            return
+        }
+
+        ensureCLISymlink(allowAuthorizationPrompt: false, showSuccessAlert: true)
+    }
+
+    private func showCLIInstallAlert(style: NSAlert.Style, message: String, information: String) {
+        let alert = NSAlert()
+        alert.alertStyle = style
+        alert.messageText = message
+        alert.informativeText = information
+        alert.runModal()
     }
 
 private func configureSparkleUpdater(updateMode: UpdateMode) {
