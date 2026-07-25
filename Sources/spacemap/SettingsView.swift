@@ -3,6 +3,7 @@ import Foundation
 import CoreGraphics
 import AppKit
 import ServiceManagement
+import Sparkle
 
 struct CustomStepper: View {
     let steps: [Double]
@@ -419,17 +420,17 @@ Section(header: Text("Behavior").font(.title).bold()) {
                      Text("Access settings by relaunching the app or pressing ⌘, while the HUD is open.")
                          .font(.footnote)
                          .foregroundColor(.secondary)
-                 }
-                 
-                 Divider()
-                 
-                 Picker("Automatic Updates", selection: $updateMode) {
-                     Text("Auto (Download & Install)").tag(UpdateMode.auto)
-                     Text("Notify (Check & Prompt)").tag(UpdateMode.notify)
-                     Text("Off").tag(UpdateMode.off)
-                 }
-                 .onChange(of: updateMode) { _ in saveConfig() }
-             }
+                  }
+                  Picker("Automatic Updates", selection: $updateMode) {
+                      Text("Auto (Download & Install)").tag(UpdateMode.auto)
+                      Text("Notify (Check & Prompt)").tag(UpdateMode.notify)
+                      Text("Off").tag(UpdateMode.off)
+                  }
+                  .onChange(of: updateMode) { _ in saveConfig() }
+                  Button("Check for Updates...") {
+                      (NSApp.delegate as? AppDelegate)?.checkForUpdates()
+                  }
+              }
             
             
             Section(header: Text("Debug/Advanced").font(.title).bold()) {

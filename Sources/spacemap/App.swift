@@ -197,6 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             launchAtLoginItem.state = .on
         }
         menu.addItem(launchAtLoginItem)
+        menu.addItem(NSMenuItem(title: NSLocalizedString("Check for Updates...", comment: ""), action: #selector(checkForUpdates), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         let restartItem = NSMenuItem(title: NSLocalizedString("Restart spacemap", comment: ""), action: #selector(restartApp), keyEquivalent: "r")
         restartItem.keyEquivalentModifierMask = .command
@@ -227,6 +228,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         task.standardError = FileHandle.nullDevice
         try? task.run()
         NSApp.terminate(nil)
+    }
+
+    @objc func checkForUpdates() {
+        sparkleUpdaterController?.checkForUpdates(nil)
     }
 
     private func restartHotkey(config: GridConfig) {
