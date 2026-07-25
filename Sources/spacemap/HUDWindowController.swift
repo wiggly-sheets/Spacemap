@@ -526,49 +526,49 @@ class HUDWindowController {
         
         switch direction {
         case .left:
-            if col > 0 {
-                targetIdx = cells[pos - 1]
-            } else {
-                // Wrap to end of same row, or previous row end
-                targetIdx = cells[pos + min(cols - 1, cells.count - 1 - row * cols)]
-            }
+            targetIdx = (pos - 1 + cells.count) % cells.count
         case .right:
-            let rowEnd = min((row + 1) * cols - 1, cells.count - 1)
-            if col < cols - 1 && pos < rowEnd {
-                targetIdx = cells[pos + 1]
-            } else {
-                // Wrap to start of same row
-                targetIdx = cells[row * cols]
-            }
+            targetIdx = (pos + 1) % cells.count
         case .up:
-            var newRow = row - 1
-            let newCol = col
-            if newRow < 0 { newRow = rowCount - 1 }
-            let newPos = newRow * cols + newCol
-            if newPos < cells.count {
-                targetIdx = cells[newPos]
-            }
-        case .down:
-            var newRow = row + 1
-            let newCol = col
-            if newRow >= rowCount { newRow = 0 }
-            // Wrap: go to same column in target row, using actual cell indices
-            let rowStart = (rowCount - 1) * cols  // last row's starting index
-            let newPos: Int
-            if newRow < rowCount - 1 {
-                // Not wrapping — normal position in middle rows
-                newPos = newRow * cols + newCol
-            } else {
-                // Wrapping to last row — use its actual cell count, not raw grid
-                let lastRowStart = max(0, cells.count - cols)
-                newPos = lastRowStart + newCol
-            }
+var newRow = row - 1
+             let newCol = col
+             if newRow < 0 { newRow = rowCount - 1 }
+             // Wrap: go to same column in target row, using actual cell count
+             let newPos: Int
+             if newRow < rowCount - 1 {
+                 // Not wrapping — normal position in middle rows
+                 newPos = newRow * cols + newCol
+             } else {
+                 // Wrapping to last row — use its actual cell count, not raw grid
+                 let lastRowStart = (rowCount - 1) * cols
+                 newPos = lastRowStart + newCol
+             }
             if newPos < cells.count {
                 targetIdx = cells[newPos]
             } else {
                 // Edge: target column doesn't exist in last row (partial row)
                 targetIdx = cells[cells.count - 1]
             }
+case .down:
+             var newRow = row + 1
+             let newCol = col
+             if newRow >= rowCount { newRow = 0 }
+             // Wrap: go to same column in target row, using actual cell count
+             let newPos: Int
+             if newRow < rowCount - 1 {
+                 // Not wrapping — normal position in middle rows
+                 newPos = newRow * cols + newCol
+             } else {
+                 // Wrapping to last row — use its actual cell count, not raw grid
+                 let lastRowStart = (rowCount - 1) * cols
+                 newPos = lastRowStart + newCol
+             }
+             if newPos < cells.count {
+                 targetIdx = cells[newPos]
+             } else {
+                 // Edge: target column doesn't exist in last row (partial row)
+                 targetIdx = cells[cells.count - 1]
+             }
         }
         
         guard let t = targetIdx else { return }
