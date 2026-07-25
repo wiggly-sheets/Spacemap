@@ -26,6 +26,14 @@ final class IconCache {
         return icon
     }
 
+    /// Prime the cache before the HUD is rendered so the first frame contains
+    /// app icons instead of resolving them lazily in SwiftUI's body.
+    func preload(appNames: some Sequence<String>) {
+        for appName in Set(appNames) {
+            _ = icon(for: appName)
+        }
+    }
+
     func clear() { cache.removeAll() }
 
     private func rebuildLookup() {

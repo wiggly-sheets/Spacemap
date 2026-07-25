@@ -56,6 +56,31 @@ final class SpaceNavigatorTests: XCTestCase {
         XCTAssertEqual(destination(from: 1, in: [1, 2, 3], columns: 0, direction: .down), 2)
     }
 
+    func testCrossDisplayNavigationEntersTheNextDisplayAtWrapEdges() {
+        let displays = [[1, 2, 3, 4, 5], [6, 7]]
+
+        XCTAssertEqual(crossDisplayDestination(from: 1, in: displays, columns: 3, direction: .right), 2)
+        XCTAssertEqual(crossDisplayDestination(from: 5, in: displays, columns: 3, direction: .right), 6)
+        XCTAssertEqual(crossDisplayDestination(from: 4, in: displays, columns: 3, direction: .left), 7)
+        XCTAssertEqual(crossDisplayDestination(from: 5, in: displays, columns: 3, direction: .down), 6)
+        XCTAssertEqual(crossDisplayDestination(from: 1, in: displays, columns: 3, direction: .up), 7)
+    }
+
+    func testCrossDisplayNavigationWrapsAndSkipsDisplaysOutsideTheSpaceLimit() {
+        XCTAssertEqual(
+            crossDisplayDestination(from: 4, in: [[1, 2], [17], [3, 4]], columns: 2, direction: .right),
+            1
+        )
+        XCTAssertEqual(
+            crossDisplayDestination(from: 2, in: [[1, 2], [17], [3, 4]], columns: 2, direction: .right),
+            3
+        )
+        XCTAssertEqual(
+            crossDisplayDestination(from: 2, in: [[1, 2]], columns: 2, direction: .right),
+            1
+        )
+    }
+
     private func destination(
         from current: Int,
         in cells: [Int],
@@ -65,6 +90,21 @@ final class SpaceNavigatorTests: XCTestCase {
         SpaceNavigator.destination(
             from: current,
             visibleSpaceIndices: cells,
+            columns: columns,
+            direction: direction
+        )
+    }
+
+    private func crossDisplayDestination(
+        from current: Int,
+        in displays: [[Int]],
+        columns: Int,
+        direction: SpaceNavigationDirection
+    ) -> Int? {
+        SpaceNavigator.destinationAcrossDisplays(
+            from: current,
+            displaySpaceIndices: displays,
+            maxSpaces: 16,
             columns: columns,
             direction: direction
         )

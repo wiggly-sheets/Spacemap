@@ -100,7 +100,7 @@ swift test            # Direct SPM test runner
 swift test --filter ConfigTests   # Run a specific test class
 ```
 
-103 tests across 5 files: HotkeyTests (19), ConfigTests (41), ThemeTests (12), ModelTests (11), CellViewGridViewTests (20).
+150 tests across 6 files: HotkeyTests (19), ConfigTests (60), ThemeTests (12), ModelTests (21), CellViewGridViewTests (29), SpaceNavigatorTests (9).
 
 ### Manual Testing Checklist
 - [ ] Launch app with yabai running → HUD opens on hotkey

@@ -68,6 +68,10 @@ struct SettingsView: View {
     @State private var autoHideTimeout: Int = 0
     @State private var theme: String = "default"
     @State private var showMode: ShowMode = .all
+    @State private var multiMonitorHUDMode: MultiMonitorHUDMode = .unified
+    @State private var unifiedHUDVisibility: SeparateHUDVisibility = .active
+    @State private var separateHUDVisibility: SeparateHUDVisibility = .all
+    @State private var displayNavigationWrap: DisplayNavigationWrap = .within
     @State private var maxSpaces: Int = 16
     @State private var gridLayoutIndex: Int = 0
     @State private var backgroundAlpha: Double = 0.3
@@ -165,6 +169,10 @@ init() {
         _autoHideTimeout = State(initialValue: config.autoHideTimeout)
         _theme = State(initialValue: config.theme)
         _showMode = State(initialValue: config.showMode)
+        _multiMonitorHUDMode = State(initialValue: config.multiMonitorHUDMode)
+        _unifiedHUDVisibility = State(initialValue: config.unifiedHUDVisibility)
+        _separateHUDVisibility = State(initialValue: config.separateHUDVisibility)
+        _displayNavigationWrap = State(initialValue: config.displayNavigationWrap)
         _maxSpaces = State(initialValue: config.maxSpaces)
         _backgroundAlpha = State(initialValue: nearest(to: config.backgroundAlpha, from: backgroundTransparencySteps))
         _mode = State(initialValue: config.mode)
@@ -215,6 +223,10 @@ init() {
             "AUTO_HIDE_TIMEOUT=\(autoHideTimeout)",
             "THEME=\(theme)",
             "SHOW_MODE=\(showModeString)",
+            "MULTI_MONITOR_HUD_MODE=\(multiMonitorHUDMode.rawValue)",
+            "UNIFIED_HUD_VISIBILITY=\(unifiedHUDVisibility.rawValue)",
+            "SEPARATE_HUD_VISIBILITY=\(separateHUDVisibility.rawValue)",
+            "DISPLAY_NAVIGATION_WRAP=\(displayNavigationWrap.rawValue)",
             "MAX_SPACES=\(maxSpaces)",
             "BACKGROUND_ALPHA=\(backgroundAlpha)",
             "MODE=\(modeString)",
@@ -289,6 +301,40 @@ init() {
                     Text("Active Spaces").tag(ShowMode.active)
                 }
                 .onChange(of: showMode) { _ in saveConfig() }
+                Picker("Multi-Monitor HUD", selection: $multiMonitorHUDMode) {
+                    Text("Unified Grid").tag(MultiMonitorHUDMode.unified)
+                    Text("Separate HUDs").tag(MultiMonitorHUDMode.separate)
+                }
+                .onChange(of: multiMonitorHUDMode) { _ in saveConfig() }
+                Text(multiMonitorHUDMode == .separate
+                    ? "Shows one grid on each display and keeps keyboard navigation on the focused display."
+                    : "Shows every space in one grid; keyboard navigation can cross displays.")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                if multiMonitorHUDMode == .unified {
+                    Picker("Unified Grid", selection: $unifiedHUDVisibility) {
+                        Text("Active Display Only").tag(SeparateHUDVisibility.active)
+                        Text("All Displays").tag(SeparateHUDVisibility.all)
+                    }
+                    .onChange(of: unifiedHUDVisibility) { _ in saveConfig() }
+                    Text(unifiedHUDVisibility == .active
+                        ? "Shows the unified grid on the display containing yabai's focused space."
+                        : "Shows the same unified grid on every display at once.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                if multiMonitorHUDMode == .separate {
+                    Picker("Separate HUDs", selection: $separateHUDVisibility) {
+                        Text("All Displays").tag(SeparateHUDVisibility.all)
+                        Text("Active Display Only").tag(SeparateHUDVisibility.active)
+                    }
+                    .onChange(of: separateHUDVisibility) { _ in saveConfig() }
+                    Text(separateHUDVisibility == .active
+                        ? "Shows the HUD only on the display containing yabai's focused space."
+                        : "Shows a HUD on every display at once.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
 Picker("Cell Style", selection: $cellStyle) {
                     Text("Rectangles").tag(CellStyle.rects)
                     Text("Icons").tag(CellStyle.icons)
@@ -413,6 +459,18 @@ Section(header: Text("Behavior").font(.title).bold()) {
                      .onChange(of: useArrowKeys) { _ in saveConfig() }
                  Toggle("Navigate with Vim Keys (hjkl)", isOn: $useVimKeys)
                      .onChange(of: useVimKeys) { _ in saveConfig() }
+                 if useArrowKeys || useVimKeys {
+                     Picker("Display Navigation", selection: $displayNavigationWrap) {
+                         Text("Wrap Within Display").tag(DisplayNavigationWrap.within)
+                         Text("Wrap Between Displays").tag(DisplayNavigationWrap.between)
+                     }
+                     .onChange(of: displayNavigationWrap) { _ in saveConfig() }
+                     Text(displayNavigationWrap == .within
+                         ? "Keeps navigation within the display containing the focused space."
+                         : "Allows navigation to wrap from one display's spaces into another's.")
+                         .font(.footnote)
+                         .foregroundColor(.secondary)
+                 }
                  Toggle("Hide Menu Bar Icon", isOn: $hideMenuBarIcon)
                      .onChange(of: hideMenuBarIcon) { _ in saveConfig() }
                  if hideMenuBarIcon {

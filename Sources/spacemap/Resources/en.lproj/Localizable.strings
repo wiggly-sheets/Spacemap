@@ -83,3 +83,8 @@
 "Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable.";
 "Leave as Is" = "Leave as Is";
 "Fix It" = "Fix It";
+
+/* App Alerts - Multi-Monitor Spaces */
+"Displays Have Separate Spaces Disabled" = "Displays Have Separate Spaces Disabled";
+"Spacemap needs Displays have separate Spaces enabled to show and navigate each monitor independently. Enable it in System Settings, then log out and back in before using multi-monitor HUD modes." = "Spacemap needs Displays have separate Spaces enabled to show and navigate each monitor independently. Enable it in System Settings, then log out and back in before using multi-monitor HUD modes.";
+"Open System Settings" = "Open System Settings";

@@ -6,6 +6,24 @@ enum CellStyle: Int, CaseIterable, Identifiable {
     var id: Int { rawValue }
 }
 enum ShowMode: String, CaseIterable, Identifiable { case all, active; var id: String { rawValue } }
+enum MultiMonitorHUDMode: String, CaseIterable, Identifiable {
+    case unified
+    case separate
+
+    var id: String { rawValue }
+}
+enum SeparateHUDVisibility: String, CaseIterable, Identifiable {
+    case all
+    case active
+
+    var id: String { rawValue }
+}
+enum DisplayNavigationWrap: String, CaseIterable, Identifiable {
+    case within
+    case between
+
+    var id: String { rawValue }
+}
 enum ThemeMode: String, CaseIterable, Identifiable { case light, dark, auto; var id: String { rawValue } }
 enum UpdateMode: String, CaseIterable, Identifiable { case auto, notify, off; var id: String { rawValue } }
 
@@ -78,6 +96,10 @@ struct GridConfig {
     var autoHideTimeout: Int // seconds
     var theme: String // "default", "tokyonight", etc.
     var showMode: ShowMode // "all" or "active"
+    var multiMonitorHUDMode: MultiMonitorHUDMode // one combined grid or a panel per display
+    var unifiedHUDVisibility: SeparateHUDVisibility // all displays or only the display with the focused space
+    var separateHUDVisibility: SeparateHUDVisibility // all displays or only the display with the focused space
+    var displayNavigationWrap: DisplayNavigationWrap // stay within the focused display or wrap across displays
     var maxSpaces: Int // 1-16, default 16
     var backgroundAlpha: Double // 0.0 to 1.0, 0=transparent 1=opaque
     var mode: ThemeMode // light, dark, or auto (follow system)
@@ -96,7 +118,7 @@ struct GridConfig {
     var showExtraWindows: Bool // show sublayer=normal windows (may include invisible utility windows)
     var updateMode: UpdateMode // auto | notify | off
 
-    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false, updateMode: .notify)
+    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, multiMonitorHUDMode: .unified, unifiedHUDVisibility: .active, separateHUDVisibility: .all, displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false, updateMode: .notify)
 }
 
 struct AppTheme: Equatable {
@@ -190,6 +212,28 @@ struct YabaiSpace: Decodable {
     }
 }
 
+struct YabaiDisplay: Decodable {
+    struct Frame: Decodable {
+        let x: CGFloat
+        let y: CGFloat
+        let w: CGFloat
+        let h: CGFloat
+
+        var cgFrame: CGRect {
+            CGRect(x: x, y: y, width: w, height: h)
+        }
+    }
+
+    let index: Int
+    let frame: Frame
+    let hasFocus: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case index, frame
+        case hasFocus = "has-focus"
+    }
+}
+
 struct YabaiWindow: Decodable {
     let id: Int
     let app: String
@@ -226,15 +270,24 @@ struct GridState: Equatable {
 
     let config: GridConfig
     let spaces: [YabaiSpace]
+    let displays: [YabaiDisplay]
     let windows: [YabaiWindow]
     let displayBounds: CGRect
     let focusedIndex: Int?
     // ponytail: pre-grouped windows by space for O(1) per-cell lookup
     private let windowsBySpace: [Int: [YabaiWindow]]
 
-    init(config: GridConfig, spaces: [YabaiSpace], windows: [YabaiWindow], displayBounds: CGRect, focusedIndex: Int?) {
+    init(
+        config: GridConfig,
+        spaces: [YabaiSpace],
+        windows: [YabaiWindow],
+        displayBounds: CGRect,
+        focusedIndex: Int?,
+        displays: [YabaiDisplay] = []
+    ) {
         self.config = config
         self.spaces = spaces
+        self.displays = displays
         self.windows = windows
         self.displayBounds = displayBounds
         self.focusedIndex = focusedIndex
@@ -247,6 +300,23 @@ struct GridState: Equatable {
 
     func windows(forSpace index: Int) -> [YabaiWindow] {
         return windowsBySpace[index] ?? []
+    }
+
+    func spaces(forDisplay displayIndex: Int) -> [YabaiSpace] {
+        spaces.filter { $0.display == displayIndex }.sorted { $0.index < $1.index }
+    }
+
+    func displayIndex(forSpace spaceIndex: Int) -> Int? {
+        spaces.first { $0.index == spaceIndex }?.display
+    }
+
+    func displayBounds(forSpace spaceIndex: Int) -> CGRect {
+        guard let displayIndex = displayIndex(forSpace: spaceIndex) else { return displayBounds }
+        return displays.first { $0.index == displayIndex }?.frame.cgFrame ?? displayBounds
+    }
+
+    var populatedDisplayIndices: [Int] {
+        Array(Set(spaces.map(\.display))).sorted()
     }
 
     static func == (lhs: GridState, rhs: GridState) -> Bool {
