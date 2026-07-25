@@ -84,16 +84,26 @@ jobs:
           rm -rf .build
           make app-universal
 
-      - name: Code sign app bundles
-        if: env.CODESIGN_IDENTITY != ''
+      - name: Code sign and verify app bundles
         run: |
+          # Sparkle treats a bundle with only a linker-signed executable as
+          # unsigned. Use ad-hoc signing when a Developer ID certificate is
+          # unavailable so every release remains a valid update target.
+          if [ -n "${CODESIGN_IDENTITY:-}" ]; then
+            SIGNING_IDENTITY="$CODESIGN_IDENTITY"
+            SIGNING_OPTIONS=(--options runtime --timestamp)
+          else
+            SIGNING_IDENTITY="-"
+            SIGNING_OPTIONS=(--options runtime)
+          fi
+
           for bundle in spacemap-arm64.app spacemap-x86_64.app Spacemap.app; do
             if [ -d "$bundle" ]; then
-              codesign --force --sign "$CODESIGN_IDENTITY" \
-                --options runtime \
-                --timestamp \
+              codesign --force --sign "$SIGNING_IDENTITY" \
+                "${SIGNING_OPTIONS[@]}" \
                 "$bundle"
-              echo "Signed $bundle"
+              codesign --verify --deep --strict --verbose=2 "$bundle"
+              echo "Signed and verified $bundle"
             fi
           done
 
