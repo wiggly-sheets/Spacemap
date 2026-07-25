@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.13] - 2026-07-25
+
 ### Added
 - `ConfigReader.keyCodeToSymbolicString(_:)` helper for keyCode→symbolic string conversion
 - `ConfigReader.hotkeyToString(keyCode:modifiers:)` overload for raw keyCode/modifier encoding
