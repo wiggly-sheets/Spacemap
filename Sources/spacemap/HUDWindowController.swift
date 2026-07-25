@@ -552,15 +552,27 @@ class HUDWindowController {
             var newRow = row + 1
             let newCol = col
             if newRow >= rowCount { newRow = 0 }
-            let newPos = newRow * cols + newCol
+            // Wrap: go to same column in target row, using actual cell indices
+            let rowStart = (rowCount - 1) * cols  // last row's starting index
+            let newPos: Int
+            if newRow < rowCount - 1 {
+                // Not wrapping — normal position in middle rows
+                newPos = newRow * cols + newCol
+            } else {
+                // Wrapping to last row — use its actual cell count, not raw grid
+                let lastRowStart = max(0, cells.count - cols)
+                newPos = lastRowStart + newCol
+            }
             if newPos < cells.count {
                 targetIdx = cells[newPos]
             } else {
-                targetIdx = cells[newRow * cols]
+                // Edge: target column doesn't exist in last row (partial row)
+                targetIdx = cells[cells.count - 1]
             }
         }
         
         guard let t = targetIdx else { return }
+        NSLog("spacemap/HUD: navigate \(direction) from pos=\(pos) (yabai=\(currentIdx)) → target yabai=\(t)")
         YabaiClient.focusSpaceAsync(t)
         lastFocusedSpaceIndex = t
         resetAutoHideTimer()
