@@ -200,7 +200,7 @@ jobs:
         run: |
           cd /Users/runner/work/spacemap/repo
           git fetch origin ${{ github.event.repository.default_branch }}
-          git checkout ${{ github.event.repository.default_branch }}
+          git checkout -B ${{ github.event.repository.default_branch }} origin/${{ github.event.repository.default_branch }}
           mkdir -p docs
           cp appcast.xml docs/
           if [ ! -f docs/.nojekyll ]; then touch docs/.nojekyll; fi
