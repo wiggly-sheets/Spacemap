@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Spacemap Icon](https://github.com/user-attachments/assets/spacemap-icon.png)
+<img width="512" height="512" alt="icon_256x256@2x" src="https://github.com/user-attachments/assets/ca74882b-0ffb-49d9-b579-f4ee0840969b" />
 
 ![Release](https://github.com/wiggly-sheets/Spacemap/actions/workflows/release.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%2013+-lightgrey)
