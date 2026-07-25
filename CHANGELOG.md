@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.2] - 2026-07-18
 
 ### Fixed
-- DMG app name unified: all arch DMGs contain `spacemap.app` regardless of architecture
+- DMG app name unified: all arch DMGs contain `Spacemap.app` regardless of architecture
 - Release workflow calls `make _dmg` directly instead of depending on intermediate targets
 
 ---

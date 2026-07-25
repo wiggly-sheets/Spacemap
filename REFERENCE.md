@@ -37,7 +37,7 @@
 | File | Purpose |
 |------|---------|
 | `~/.config/spacemap/config` | User configuration (reloads on HUD open, except HOTKEY) |
-| `/Applications/spacemap.app` | Installed application bundle |
+| `/Applications/Spacemap.app` | Installed application bundle |
 | `/usr/local/bin/spacemap` | CLI symlink (if installed) |
 | `/tmp/spacemap_<username>.socket` | Unix domain socket for yabai signals |
 | `Console.app` | View logs (filter by "spacemap") |
