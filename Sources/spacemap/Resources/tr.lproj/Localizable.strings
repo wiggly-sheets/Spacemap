@@ -1,0 +1,85 @@
+/* SettingsView - Grid Section */
+"Grid" = "Izgara";
+"Max Spaces" = "Maks. Alan Say\u0131s\u0131";
+"Grid Layout" = "\u0130zgara D\u00fczeni";
+"Show Mode" = "G\u00f6sterim Modu";
+"All Spaces" = "T\u00fcm Alanlar";
+"Active Spaces" = "Aktif Alanlar";
+"Cell Style" = "H\u00fccre Stili";
+"Rectangles" = "Dikd\u00f6rtgenler";
+"Icons" = "Simgeler";
+"Thumbnails" = "K\u00fc\u00e7\u00fck Resimler";
+"Simple" = "Basit";
+"Show Space Numbers" = "Alan Numaralar\u0131n\u0131 G\u00f6ster";
+"Show Icon Strip" = "\u0130kon \u00c7ubu\u011funu G\u00f6ster";
+"Show Each Window Icon" = "Her Pencere Simgesini G\u00f6ster";
+
+/* SettingsView - Appearance Section */
+"Appearance" = "G\u00f6r\u00fcn\u00fc\u015f";
+"Theme" = "Tema";
+"Open Config File" = "Yap\u0131land\u0131rma Dosyas\u0131n\u0131 A\u00e7";
+"Open Themes Folder" = "Tema Klas\u00f6r\u00fcn\u00fc A\u00e7";
+"Background Color" = "Arka Plan Rengi";
+"Light" = "A\u00e7\u0131k";
+"Dark" = "Koyu";
+"Auto" = "Otomatik";
+"Background Transparency" = "Arka Plan \u015eeffafl\u0131\u011f\u0131";
+"Icon Scale" = "Simge Boyutu";
+"UI Scale" = "Aray\u00fcz Boyutu";
+
+/* SettingsView - Behavior Section */
+"Behavior" = "Davran\u0131\u015f";
+"Hotkey" = "Klavye K\u0131sayolu";
+"Socket Health Interval (s)" = "Soket Sa\u011fl\u0131k Aral\u0131\u011f\u0131 (s)";
+"Auto-hide Timeout (s): %d (0 = disabled)" = "Otomatik Gizleme (s): %d (0 = devre d\u0131\u015f\u0131)";
+"Hide Menu Bar Icon" = "\u00d6\u015fe \u00c7ubu\u011fundaki Simgeyi Gizle";
+"Access settings by relaunching the app or pressing \u2318, while the HUD is open." = "HUD a\u00e7\u0131kken uygulamay\u0131 yeniden ba\u015flatarak veya \u2318 basarak ayarlara eri\u015fin.";
+"Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)" = "Ok Tu\u015flar\u0131yla Gez (\u2190\u2191\u2193\u2192)";
+"Navigate with Vim Keys (hjkl)" = "Vim Tu\u015flar\u0131yla Gez (hjkl)";
+
+/* SettingsView - Space Names Section */
+"Space Names" = "Alan Adlar\u0131";
+"Show Space Names" = "Alan Adlar\u0131n\u0131 G\u00f6ster";
+"(Each input below corresponds to each space number, up to Max Spaces)" = "(A\u015fa\u011f\u0131daki her giri\u015f bir alan numaras\u0131na kar\u015f\u0131l\u0131k gelir, maksimuma kadar)";
+"Space %d:" = "Alan %d:";
+
+/* HotkeyRecorder */
+"Recording..." = "Kaydediliyor...";
+"Click to record" = "Kaydetmek i\u00e7in t\u0131kla";
+
+/* App Menu Items */
+"Show/Hide Map (%@)" = "Haritay\u0131 G\u00f6ster/Gizle (%@)";
+"Settings..." = "Ayarlar...";
+"Open Accessibility Permissions (for hotkey)" = "Eri\u015filebilirlik \u0130zinlerini A\u00e7 (klavye k\u0131sayolu i\u00e7in)";
+"Open Screen Recording Permissions (for thumbnails)" = "Ekran Kayd\u0131 \u0130zinlerini A\u00e7 (k\u00fc\u00e7\u00fck resimler i\u00e7in)";
+"Launch at Login" = "Giri\u015fte Ba\u015flat";
+"Restart Spacemap" = "Spacemap'\u0131 Yeniden Ba\u015flat";
+"Quit Spacemap" = "Spacemap'\u0131 Kapat";
+
+/* App Alerts - Move to Applications */
+"Move Spacemap to Applications?" = "Spacemap Uygulamalar'a ta\u015f\u0131ns\u0131n m\u0131?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "En iyi performans i\u00e7in Uygulamalar klas\u00f6r\u00fcnden \u00e7al\u0131\u015ft\u0131r\u0131lmal\u0131d\u0131r. \u015eu an ta\u015f\u0131mak ister misiniz?";
+"Move to Applications" = "Uygulamalar'a Ta\u015f\u0131";
+"Cancel" = "\u0130ptal";
+"Moved to Applications" = "Uygulamalar'a Ta\u015f\u0131nd\u0131";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap Uygulamalar klas\u00f6r\u00fcne kopyaland\u0131. L\u00fctfen kapat\u0131p oradan yeniden ba\u015flat\u0131n.";
+"Failed to move" = "Ta\u015f\u0131namad\u0131";
+"Could not move Spacemap to Applications: %@" = "Spacemap Uygulamalar'a ta\u015f\u0131namad\u0131: %@";
+
+/* App Alerts - Launch at Login */
+"Launch at Login?" = "Giri\u015fte ba\u015flat\u0131ls\u0131n m\u0131?";
+"Would you like Spacemap to start automatically when you log in?" = "Giri\u015f yapt\u0131\u011f\u0131n\u0131zda Spacemap'in otomatik ba\u015flat\u0131lmas\u0131n\u0131 ister misiniz?";
+"Yes" = "Evet";
+"No" = "Hay\u0131r";
+
+/* App Alerts - yabai not running */
+"yabai is not running" = "yal\u0131 \u00e7al\u0131\u015fm\u0131yor";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap \u00e7al\u0131\u015fan bir yabai gerektirir. L\u00fctfen yabai'\u0131 ba\u015flat\u0131p Spacemap'\u0131 yeniden ba\u015flat\u0131n.";
+"Quit" = "Kapat";
+"Open yabai" = "yabai'\u0131 A\u00e7";
+
+/* App Alerts - MRU Spaces */
+"Spaces Auto-Rearrange Enabled" = "Alan Otomatik Yeniden D\u00fczenleme Etkin";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Stabil bir izgara d\u00fczeni i\u00e7in bunun devre d\u0131\u015f\u0131 b\u0131rak\u0131lmas\u0131 gerekir. Alanlar sabit s\u0131rada kalmal\u0131d\u0131r, aksi takdirde izgara g\u00fcvenilir olmaz.";
+"Leave as Is" = "B\u00f6yle B\u0131rak";
+"Fix It" = "D\u00fczelt";

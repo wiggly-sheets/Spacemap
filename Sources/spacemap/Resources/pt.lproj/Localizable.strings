@@ -1,0 +1,85 @@
+/* SettingsView - Grid Section */
+"Grid" = "Grade";
+"Max Spaces" = "M\u00e1x. de espa\u00e7os";
+"Grid Layout" = "Layout da grade";
+"Show Mode" = "Modo de exibi\u00e7\u00e3o";
+"All Spaces" = "Todos os espa\u00e7os";
+"Active Spaces" = "Espa\u00e7os ativos";
+"Cell Style" = "Estilo da c\u00e9lula";
+"Rectangles" = "Ret\u00e2ngulos";
+"Icons" = "\u00cdcones";
+"Thumbnails" = "Miniaturas";
+"Simple" = "Simples";
+"Show Space Numbers" = "Mostrar n\u00fameros do espa\u00e7o";
+"Show Icon Strip" = "Mostrar barra de \u00edcones";
+"Show Each Window Icon" = "Mostrar \u00edcone de cada janela";
+
+/* SettingsView - Appearance Section */
+"Appearance" = "Apar\u00eancia";
+"Theme" = "Tema";
+"Open Config File" = "Abrir arquivo de configura\u00e7\u00e3o";
+"Open Themes Folder" = "Abrir pasta de temas";
+"Background Color" = "Cor de fundo";
+"Light" = "Claro";
+"Dark" = "Escuro";
+"Auto" = "Autom\u00e1tico";
+"Background Transparency" = "Transpar\u00eancia do fundo";
+"Icon Scale" = "Tamanho dos \u00edcones";
+"UI Scale" = "Escala da interface";
+
+/* SettingsView - Behavior Section */
+"Behavior" = "Comportamento";
+"Hotkey" = "Tecla de atalho";
+"Socket Health Interval (s)" = "Intervalo de sa\u00fade do socket (s)";
+"Auto-hide Timeout (s): %d (0 = disabled)" = "Ocultar automaticamente (s): %d (0 = desativado)";
+"Hide Menu Bar Icon" = "Ocultar \u00edcone da barra de menu";
+"Access settings by relaunching the app or pressing \u2318, while the HUD is open." = "Acesse as configura\u00e7\u00f5es reiniciando o app ou pressionando \u2318, com o HUD aberto.";
+"Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)" = "Navegar com setas (\u2190\u2191\u2193\u2192)";
+"Navigate with Vim Keys (hjkl)" = "Navegar com teclas Vim (hjkl)";
+
+/* SettingsView - Space Names Section */
+"Space Names" = "Nomes do espa\u00e7o";
+"Show Space Names" = "Mostrar nomes do espa\u00e7o";
+"(Each input below corresponds to each space number, up to Max Spaces)" = "(Cada campo abaixo corresponde a um n\u00famero do espa\u00e7o, at\u00e9 o m\u00e1ximo)";
+"Space %d:" = "Espa\u00e7o %d:";
+
+/* HotkeyRecorder */
+"Recording..." = "Gravando...";
+"Click to record" = "Clique para gravar";
+
+/* App Menu Items */
+"Show/Hide Map (%@)" = "Mostrar/Ocultar mapa (%@)";
+"Settings..." = "Configura\u00e7\u00f5es...";
+"Open Accessibility Permissions (for hotkey)" = "Abrir permiss\u00f5es de acessibilidade (para atalhos)";
+"Open Screen Recording Permissions (for thumbnails)" = "Abrir permiss\u00f5es de grava\u00e7\u00e3o de tela (para miniaturas)";
+"Launch at Login" = "Iniciar ao fazer login";
+"Restart Spacemap" = "Reiniciar Spacemap";
+"Quit Spacemap" = "Sair do Spacemap";
+
+/* App Alerts - Move to Applications */
+"Move Spacemap to Applications?" = "Mover Spacemap para Aplicativos?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap deve ser executado da pasta Aplicativos para melhor desempenho. Deseja mov\u00ea-lo agora?";
+"Move to Applications" = "Mover para Aplicativos";
+"Cancel" = "Cancelar";
+"Moved to Applications" = "Movido para Aplicativos";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap foi copiado para a pasta Aplicativos. Por favor, saia e reinicie de l\u00e1.";
+"Failed to move" = "Falha ao mover";
+"Could not move Spacemap to Applications: %@" = "N\u00e3o foi poss\u00edvel mover Spacemap para Aplicativos: %@";
+
+/* App Alerts - Launch at Login */
+"Launch at Login?" = "Iniciar ao fazer login?";
+"Would you like Spacemap to start automatically when you log in?" = "Deseja que Spacemap inicie automaticamente ao fazer login?";
+"Yes" = "Sim";
+"No" = "N\u00e3o";
+
+/* App Alerts - yabai not running */
+"yabai is not running" = "yabai n\u00e3o est\u00e1 em execu\u00e7\u00e3o";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap requer que yabai esteja em execu\u00e7\u00e3o. Por favor, inicie yabai e reinicie Spacemap.";
+"Quit" = "Sair";
+"Open yabai" = "Abrir yabai";
+
+/* App Alerts - MRU Spaces */
+"Spaces Auto-Rearrange Enabled" = "Reorganiza\u00e7\u00e3o autom\u00e1tica de espa\u00e7os ativada";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap precisa disso desativado para uma grade est\u00e1vel. Os espa\u00e7os devem permanecer em ordem fixa ou a grade se torna pouco confi\u00e1vel.";
+"Leave as Is" = "Manter como est\u00e1";
+"Fix It" = "Corrigir";

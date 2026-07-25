@@ -1,0 +1,85 @@
+/* SettingsView - Grid Section */
+"Grid" = "\u7f51\u683c";
+"Max Spaces" = "\u6700\u5927\u7a7a\u95f4\u6570";
+"Grid Layout" = "\u7f51\u683c\u5e03\u5c40";
+"Show Mode" = "\u663e\u793a\u6a21\u5f0f";
+"All Spaces" = "\u6240\u6709\u7a7a\u95f4";
+"Active Spaces" = "\u6d3b\u8dc3\u7a7a\u95f4";
+"Cell Style" = "\u5355\u5143\u683c\u6837\u5f0f";
+"Rectangles" = "\u77e9\u5f62";
+"Icons" = "\u56fe\u6807";
+"Thumbnails" = "\u7f29\u7565\u56fe";
+"Simple" = "\u7b80\u6d01";
+"Show Space Numbers" = "\u663e\u793a\u7a7a\u95f4\u7f16\u53f7";
+"Show Icon Strip" = "\u663e\u793a\u56fe\u6807\u680f";
+"Show Each Window Icon" = "\u663e\u793a\u6bcf\u4e2a\u7a97\u53e3\u56fe\u6807";
+
+/* SettingsView - Appearance Section */
+"Appearance" = "\u5916\u89c2";
+"Theme" = "\u4e3b\u9898";
+"Open Config File" = "\u6253\u5f00\u914d\u7f6e\u6587\u4ef6";
+"Open Themes Folder" = "\u6253\u5f00\u4e3b\u9898\u6587\u4ef6\u5939";
+"Background Color" = "\u80cc\u666f\u8272";
+"Light" = "\u6d45\u8272";
+"Dark" = "\u6df1\u8272";
+"Auto" = "\u81ea\u52a8";
+"Background Transparency" = "\u80cc\u666f\u900f\u660e\u5ea6";
+"Icon Scale" = "\u56fe\u6807\u5927\u5c0f";
+"UI Scale" = "\u754c\u9762\u7f29\u653e";
+
+/* SettingsView - Behavior Section */
+"Behavior" = "\u884c\u4e3a";
+"Hotkey" = "\u5feb\u6377\u952e";
+"Socket Health Interval (s)" = "\u5957\u63a5\u5b57\u5065\u5eb7\u95f4\u9694\uff08\u79d2\uff09";
+"Auto-hide Timeout (s): %d (0 = disabled)" = "\u81ea\u52a8\u9690\u85cf\uff08\u79d2\uff09\uff1a%d\uff080 = \u7981\u7528\uff09";
+"Hide Menu Bar Icon" = "\u9690\u85cf\u83dc\u5355\u680f\u56fe\u6807";
+"Access settings by relaunching the app or pressing \u2318, while the HUD is open." = "\u901a\u8fc7\u91cd\u542f\u5e94\u7528\u6216\u6309\u2318\u952e\u8bbf\u95ee\u8bbe\u7f6e\uff08HUD\u6253\u5f00\u65f6\uff09\u3002";
+"Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)" = "\u4f7f\u7528\u65b9\u5411\u952e\u5bfc\u822a (\u2190\u2191\u2193\u2192)";
+"Navigate with Vim Keys (hjkl)" = "\u4f7f\u7528 Vim \u952e\u5bfc\u822a (hjkl)";
+
+/* SettingsView - Space Names Section */
+"Space Names" = "\u7a7a\u95f4\u540d\u79f0";
+"Show Space Names" = "\u663e\u793a\u7a7a\u95f4\u540d\u79f0";
+"(Each input below corresponds to each space number, up to Max Spaces)" = "(\u4e0b\u65b9\u6bcf\u4e2a\u8f93\u5165\u5bf9\u5e94\u4e00\u4e2a\u7a7a\u95f4\u7f16\u53f7\uff0c\u6700\u591a\u81f3\u6700\u5927\u7a7a\u95f4\u6570)";
+"Space %d:" = "\u7a7a\u95f4 %d\uff1a";
+
+/* HotkeyRecorder */
+"Recording..." = "\u5f55\u5236\u4e2d...";
+"Click to record" = "\u70b9\u51fb\u5f55\u5236";
+
+/* App Menu Items */
+"Show/Hide Map (%@)" = "\u663e\u793a/\u9690\u85cf\u5730\u56fe (%@)";
+"Settings..." = "\u8bbe\u7f6e...";
+"Open Accessibility Permissions (for hotkey)" = "\u6253\u5f00\u8f85\u52a9\u529f\u80fd\u6743\u9650\uff08\u7528\u4e8e\u5feb\u6377\u952e\uff09";
+"Open Screen Recording Permissions (for thumbnails)" = "\u6253\u5f00\u5c4f\u5e55\u5f55\u5236\u6743\u9650\uff08\u7528\u4e8e\u7f29\u7565\u56fe\uff09";
+"Launch at Login" = "\u767b\u5f55\u65f6\u542f\u52a8";
+"Restart Spacemap" = "\u91cd\u542f Spacemap";
+"Quit Spacemap" = "\u9000\u51fa Spacemap";
+
+/* App Alerts - Move to Applications */
+"Move Spacemap to Applications?" = "\u5c06 Spacemap \u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\uff1f";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap \u5e94\u4ece\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\u6587\u4ef6\u5939\u8fd0\u884c\u4ee5\u83b7\u5f97\u6700\u4f73\u6027\u80fd\u3002\u662f\u5426\u7acb\u5373\u79fb\u52a8\uff1f";
+"Move to Applications" = "\u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d";
+"Cancel" = "\u53d6\u6d88";
+"Moved to Applications" = "\u5df2\u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap \u5df2\u590d\u5236\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\u6587\u4ef6\u5939\u3002\u8bf7\u9000\u51fa\u5e76\u4ece\u90a3\u91cc\u91cd\u65b0\u542f\u52a8\u3002";
+"Failed to move" = "\u79fb\u52a8\u5931\u8d25";
+"Could not move Spacemap to Applications: %@" = "\u65e0\u6cd5\u5c06 Spacemap \u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\uff1a%@";
+
+/* App Alerts - Launch at Login */
+"Launch at Login?" = "\u767b\u5f55\u65f6\u542f\u52a8\uff1f";
+"Would you like Spacemap to start automatically when you log in?" = "\u662f\u5426\u5e0c\u671b Spacemap \u5728\u767b\u5f55\u65f6\u81ea\u52a8\u542f\u52a8\uff1f";
+"Yes" = "\u662f";
+"No" = "\u5426";
+
+/* App Alerts - yabai not running */
+"yabai is not running" = "yabai \u672a\u8fd0\u884c";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap \u9700\u8981 yabai \u8fd0\u884c\u3002\u8bf7\u542f\u52a8 yabai \u5e76\u91cd\u65b0\u542f\u52a8 Spacemap\u3002";
+"Quit" = "\u9000\u51fa";
+"Open yabai" = "\u6253\u5f00 yabai";
+
+/* App Alerts - MRU Spaces */
+"Spaces Auto-Rearrange Enabled" = "\u5df2\u542f\u7528\u7a7a\u95f4\u81ea\u52a8\u91cd\u6392";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap \u9700\u8981\u7981\u7528\u6b64\u529f\u80fd\u4ee5\u4fdd\u6301\u7f51\u683c\u7a33\u5b9a\u3002\u7a7a\u95f4\u5fc5\u987b\u4fdd\u6301\u56fa\u5b9a\u987a\u5e8f\uff0c\u5426\u5219\u7f51\u683c\u5c06\u4e0d\u53ef\u9760\u3002";
+"Leave as Is" = "\u4fdd\u6301\u73b0\u72b6";
+"Fix It" = "\u4fee\u590d";

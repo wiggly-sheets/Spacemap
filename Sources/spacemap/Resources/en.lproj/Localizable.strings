@@ -1,0 +1,85 @@
+/* SettingsView - Grid Section */
+"Grid" = "Grid";
+"Max Spaces" = "Max Spaces";
+"Grid Layout" = "Grid Layout";
+"Show Mode" = "Show Mode";
+"All Spaces" = "All Spaces";
+"Active Spaces" = "Active Spaces";
+"Cell Style" = "Cell Style";
+"Rectangles" = "Rectangles";
+"Icons" = "Icons";
+"Thumbnails" = "Thumbnails";
+"Simple" = "Simple";
+"Show Space Numbers" = "Show Space Numbers";
+"Show Icon Strip" = "Show Icon Strip";
+"Show Each Window Icon" = "Show Each Window Icon";
+
+/* SettingsView - Appearance Section */
+"Appearance" = "Appearance";
+"Theme" = "Theme";
+"Open Config File" = "Open Config File";
+"Open Themes Folder" = "Open Themes Folder";
+"Background Color" = "Background Color";
+"Light" = "Light";
+"Dark" = "Dark";
+"Auto" = "Auto";
+"Background Transparency" = "Background Transparency";
+"Icon Scale" = "Icon Scale";
+"UI Scale" = "UI Scale";
+
+/* SettingsView - Behavior Section */
+"Behavior" = "Behavior";
+"Hotkey" = "Hotkey";
+"Socket Health Interval (s)" = "Socket Health Interval (s)";
+"Auto-hide Timeout (s): %d (0 = disabled)" = "Auto-hide Timeout (s): %d (0 = disabled)";
+"Hide Menu Bar Icon" = "Hide Menu Bar Icon";
+"Access settings by relaunching the app or pressing \u2318, while the HUD is open." = "Access settings by relaunching the app or pressing \u2318, while the HUD is open.";
+"Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)" = "Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)";
+"Navigate with Vim Keys (hjkl)" = "Navigate with Vim Keys (hjkl)";
+
+/* SettingsView - Space Names Section */
+"Space Names" = "Space Names";
+"Show Space Names" = "Show Space Names";
+"(Each input below corresponds to each space number, up to Max Spaces)" = "(Each input below corresponds to each space number, up to Max Spaces)";
+"Space %d:" = "Space %d:";
+
+/* HotkeyRecorder */
+"Recording..." = "Recording...";
+"Click to record" = "Click to record";
+
+/* App Menu Items */
+"Show/Hide Map (%@)" = "Show/Hide Map (%@)";
+"Settings..." = "Settings...";
+"Open Accessibility Permissions (for hotkey)" = "Open Accessibility Permissions (for hotkey)";
+"Open Screen Recording Permissions (for thumbnails)" = "Open Screen Recording Permissions (for thumbnails)";
+"Launch at Login" = "Launch at Login";
+"Restart Spacemap" = "Restart Spacemap";
+"Quit Spacemap" = "Quit Spacemap";
+
+/* App Alerts - Move to Applications */
+"Move Spacemap to Applications?" = "Move Spacemap to Applications?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?";
+"Move to Applications" = "Move to Applications";
+"Cancel" = "Cancel";
+"Moved to Applications" = "Moved to Applications";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap has been copied to the Applications folder. Please quit and relaunch from there.";
+"Failed to move" = "Failed to move";
+"Could not move Spacemap to Applications: %@" = "Could not move Spacemap to Applications: %@";
+
+/* App Alerts - Launch at Login */
+"Launch at Login?" = "Launch at Login?";
+"Would you like Spacemap to start automatically when you log in?" = "Would you like Spacemap to start automatically when you log in?";
+"Yes" = "Yes";
+"No" = "No";
+
+/* App Alerts - yabai not running */
+"yabai is not running" = "yabai is not running";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap.";
+"Quit" = "Quit";
+"Open yabai" = "Open yabai";
+
+/* App Alerts - MRU Spaces */
+"Spaces Auto-Rearrange Enabled" = "Spaces Auto-Rearrange Enabled";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable.";
+"Leave as Is" = "Leave as Is";
+"Fix It" = "Fix It";

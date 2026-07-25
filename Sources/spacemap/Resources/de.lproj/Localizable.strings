@@ -1,0 +1,85 @@
+/* SettingsView - Grid Section */
+"Grid" = "Raster";
+"Max Spaces" = "Max. R\u00e4ume";
+"Grid Layout" = "Rasterlayout";
+"Show Mode" = "Anzeigemodus";
+"All Spaces" = "Alle R\u00e4ume";
+"Active Spaces" = "Aktive R\u00e4ume";
+"Cell Style" = "Zellenstil";
+"Rectangles" = "Rechtecke";
+"Icons" = "Symbole";
+"Thumbnails" = "Vorschaubilder";
+"Simple" = "Einfach";
+"Show Space Numbers" = "Raumnummern anzeigen";
+"Show Icon Strip" = "Symbolleiste anzeigen";
+"Show Each Window Icon" = "Fenstersymbol anzeigen";
+
+/* SettingsView - Appearance Section */
+"Appearance" = "Darstellung";
+"Theme" = "Thema";
+"Open Config File" = "Konfigurationsdatei \u00f6ffnen";
+"Open Themes Folder" = "Themen-Ordner \u00f6ffnen";
+"Background Color" = "Hintergrundfarbe";
+"Light" = "Hell";
+"Dark" = "Dunkel";
+"Auto" = "Automatisch";
+"Background Transparency" = "Hintergrundtransparenz";
+"Icon Scale" = "Symbolgr\u00f6\u00dfe";
+"UI Scale" = "Benutzeroberfl\u00e4che";
+
+/* SettingsView - Behavior Section */
+"Behavior" = "Verhalten";
+"Hotkey" = "Tastenk\u00fcrzel";
+"Socket Health Interval (s)" = "Socket-Gesundheitsintervall (s)";
+"Auto-hide Timeout (s): %d (0 = disabled)" = "Auto-Ausblenden (s): %d (0 = deaktiviert)";
+"Hide Menu Bar Icon" = "Symbol in Men\u00fcleiste ausblenden";
+"Access settings by relaunching the app or pressing \u2318, while the HUD is open." = "Einstellungen \u00fcber Neustart der App oder \u2318, w\u00e4hrend das HUD ge\u00f6ffnet ist.";
+"Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)" = "Mit Pfeiltasten navigieren (\u2190\u2191\u2193\u2192)";
+"Navigate with Vim Keys (hjkl)" = "Mit Vim-Tasten navigieren (hjkl)";
+
+/* SettingsView - Space Names Section */
+"Space Names" = "Raumnamen";
+"Show Space Names" = "Raumnamen anzeigen";
+"(Each input below corresponds to each space number, up to Max Spaces)" = "(Jede Eingabe unten entspricht einer Raumnummer, bis zum Maximum)";
+"Space %d:" = "Raum %d:";
+
+/* HotkeyRecorder */
+"Recording..." = "Aufnahme...";
+"Click to record" = "Klicken zum Aufnehmen";
+
+/* App Menu Items */
+"Show/Hide Map (%@)" = "Karte ein/ausblenden (%@)";
+"Settings..." = "Einstellungen...";
+"Open Accessibility Permissions (for hotkey)" = "Barrierefreiheitsberechtigungen \u00f6ffnen (f\u00fcr Tastenk\u00fcrzel)";
+"Open Screen Recording Permissions (for thumbnails)" = "Bildschirmaufnahmeberechtigungen \u00f6ffnen (f\u00fcr Vorschaubilder)";
+"Launch at Login" = "Bei Anmeldung starten";
+"Restart Spacemap" = "Spacemap neu starten";
+"Quit Spacemap" = "Spacemap beenden";
+
+/* App Alerts - Move to Applications */
+"Move Spacemap to Applications?" = "Spacemap in Programme verschieben?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap sollte aus dem Programme-Ordner gestartet werden. M\u00f6chten Sie es jetzt verschieben?";
+"Move to Applications" = "In Programme verschieben";
+"Cancel" = "Abbrechen";
+"Moved to Applications" = "In Programme verschoben";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap wurde in den Programme-Ordner kopiert. Bitte beenden Sie es und starten Sie es von dort neu.";
+"Failed to move" = "Verschieben fehlgeschlagen";
+"Could not move Spacemap to Applications: %@" = "Spacemap konnte nicht in Programme verschoben werden: %@";
+
+/* App Alerts - Launch at Login */
+"Launch at Login?" = "Bei Anmeldung starten?";
+"Would you like Spacemap to start automatically when you log in?" = "M\u00f6chten Sie, dass Spacemap beim Anmelden automatisch gestartet wird?";
+"Yes" = "Ja";
+"No" = "Nein";
+
+/* App Alerts - yabai not running */
+"yabai is not running" = "yabai l\u00e4uft nicht";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap ben\u00f6tigt yabai. Bitte starten Sie yabai und starten Sie Spacemap neu.";
+"Quit" = "Beenden";
+"Open yabai" = "yabai \u00f6ffnen";
+
+/* App Alerts - MRU Spaces */
+"Spaces Auto-Rearrange Enabled" = "Automatische Raumanordnung aktiviert";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap ben\u00f6tigt dies f\u00fcr ein stabiles Raster. R\u00e4ume m\u00fcssen in fester Reihenfolge bleiben, sonst wird das Raster unzuverl\u00e4ssig.";
+"Leave as Is" = "Belassen";
+"Fix It" = "Beheben";

@@ -1,0 +1,280 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: macos-14
+    steps:
+      - name: Checkout to lowercase path
+        run: |
+          WORKDIR="/Users/runner/work/spacemap/repo"
+          mkdir -p "$WORKDIR"
+          git clone --filter=blob:none --no-checkout ${{ github.server_url }}/${{ github.repository }}.git "$WORKDIR"
+          cd "$WORKDIR"
+          git checkout ${{ github.sha }}
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "5.9"
+
+      - name: Install create-dmg
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          brew install create-dmg
+
+      - name: Read version
+        id: version
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Import code signing certificate
+        if: env.APPLE_CERTIFICATE_BASE64 != ''
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -1 | awk -F '"' '{print $2}')
+          echo "CODESIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Build app bundle (ARM64)
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          rm -rf .build
+          make app-arm64
+
+      - name: Build app bundle (x86_64)
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          rm -rf .build
+          make app-x86_64
+
+      - name: Build app bundle (universal)
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          rm -rf .build
+          make app-universal
+
+      - name: Code sign app bundles
+        if: env.CODESIGN_IDENTITY != ''
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          for bundle in spacemap-arm64.app spacemap-x86_64.app Spacemap.app; do
+            if [ -d "$bundle" ]; then
+              codesign --force --sign "$CODESIGN_IDENTITY" \
+                --options runtime \
+                --timestamp \
+                "$bundle"
+              echo "Signed $bundle"
+            fi
+          done
+
+      - name: Create DMGs
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          make _dmg INPUT=spacemap-arm64.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-arm64.dmg
+          make _dmg INPUT=spacemap-x86_64.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-x86_64.dmg
+          make _dmg INPUT=Spacemap.app OUTPUT=spacemap-${{ steps.version.outputs.tag }}-universal.dmg
+
+      - name: Verify DMG architectures
+        run: |
+          verify_dmg() {
+            local dmg="$1" expected="$2"
+            local mnt="/tmp/verify-$$"
+            mkdir -p "$mnt"
+            hdiutil attach "$dmg" -nobrowse -quiet -mountpoint "$mnt"
+            local archs
+            archs=$(lipo -archs "$mnt/Spacemap.app/Contents/MacOS/spacemap" 2>/dev/null || true)
+            hdiutil detach "$mnt" -quiet 2>/dev/null || true
+            rmdir "$mnt" 2>/dev/null || true
+            if [ -z "$archs" ]; then
+              echo "::error::Could not read architecture from $dmg"
+              exit 1
+            fi
+            sorted_actual=$(echo "$archs" | tr ' ' '\n' | sort | tr '\n' ' ' | xargs)
+            sorted_expected=$(echo "$expected" | tr ' ' '\n' | sort | tr '\n' ' ' | xargs)
+            if [ "$sorted_actual" != "$sorted_expected" ]; then
+              echo "::error::$dmg contains [$archs], expected [$expected]"
+              exit 1
+            fi
+            echo "OK $dmg → $archs"
+          }
+          cd /Users/runner/work/spacemap/repo
+          verify_dmg spacemap-${{ steps.version.outputs.tag }}-arm64.dmg arm64
+          verify_dmg spacemap-${{ steps.version.outputs.tag }}-x86_64.dmg x86_64
+          verify_dmg spacemap-${{ steps.version.outputs.tag }}-universal.dmg "arm64 x86_64"
+
+      - name: Code sign DMGs
+        if: env.CODESIGN_IDENTITY != ''
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          for dmg in spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg; do
+            if [ -f "$dmg" ]; then
+              codesign --force --sign "$CODESIGN_IDENTITY" \
+                --timestamp \
+                "$dmg"
+              echo "Signed $dmg"
+            fi
+          done
+
+      - name: Notarize DMGs
+        if: env.APPLE_ID != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          for dmg in spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg; do
+            if [ -f "$dmg" ]; then
+              echo "Notarizing $dmg..."
+              xcrun notarytool submit "$dmg" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_APP_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" \
+                --wait
+              xcrun stapler staple "$dmg"
+              echo "Notarized $dmg"
+            fi
+          done
+
+      - name: Generate checksums
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          shasum -a 256 spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg > checksums.txt
+          cat checksums.txt
+
+      - name: Generate Sparkle appcast + signature
+        if: env.SPARKLE_PUBLIC_KEY != ''
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+          DMG_FILE: spacemap-${{ steps.version.outputs.tag }}-universal.dmg
+          APPCAST_URL: https://wiggly-sheets.github.io/Spacemap/appcast.xml
+          RELEASES_URL: https://github.com/wiggly-sheets/Spacemap/releases/download/v${{ steps.version.outputs.tag }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
+          export ED_SIGNATURE=""
+          if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
+            # Download Sparkle's sign_update tool
+            curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/2.7.1/Sparkle-2.7.1-bin.tar.xz" | tar -xJ
+            echo "$SPARKLE_PRIVATE_KEY" | ./Sparkle-2.7.1-bin/bin/sign_update --ed-key-file - -p "spacemap-$VERSION-universal.dmg" > sig.txt
+            ED_SIGNATURE=$(cat sig.txt)
+            echo "ED_SIGNATURE computed"
+          fi
+          chmod +x .github/scripts/generate-appcast.sh
+          .github/scripts/generate-appcast.sh
+
+      - name: Update docs branch with appcast
+        if: env.SPARKLE_PUBLIC_KEY != ''
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          git fetch origin ${{ github.event.repository.default_branch }}
+          git checkout -B ${{ github.event.repository.default_branch }} origin/${{ github.event.repository.default_branch }}
+          mkdir -p docs
+          cp appcast.xml docs/
+          if [ ! -f docs/.nojekyll ]; then touch docs/.nojekyll; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/appcast.xml docs/.nojekyll
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Sparkle appcast [skip ci]"
+            git push origin HEAD:${{ github.event.repository.default_branch }}
+          else
+            echo "No changes to appcast"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: spacemap ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            spacemap-*-arm64.dmg
+            spacemap-*-x86_64.dmg
+            spacemap-*-universal.dmg
+            checksums.txt
+            appcast.xml
+
+      - name: Update Homebrew tap
+        if: env.HOMEBREW_TAP_TOKEN != ''
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          cd /Users/runner/work/spacemap/repo
+          VERSION="${{ steps.version.outputs.tag }}"
+          ARM64_SHA=$(shasum -a 256 spacemap-*-arm64.dmg | awk '{print $1}')
+          X86_SHA=$(shasum -a 256 spacemap-*-x86_64.dmg | awk '{print $1}')
+
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/wiggly-sheets/homebrew-spacemap.git" tap-repo
+          cd tap-repo
+
+          cat > Casks/spacemap.rb << 'CASK_EOF'
+          cask "spacemap" do
+            arch = on_arch_conditional arm: "arm64", intel: "x86_64"
+
+            version "VERSION_PLACEHOLDER"
+            sha256 arm:   "ARM64_PLACEHOLDER",
+                   intel: "X86_PLACEHOLDER"
+
+            url "https://github.com/wiggly-sheets/Spacemap/releases/download/v#{version}/spacemap-#{version}-#{arch}.dmg"
+            name "spacemap"
+            desc "Yabai workspace visualizer"
+            homepage "https://github.com/wiggly-sheets/Spacemap"
+
+            depends_on macos: :ventura
+
+            app "Spacemap.app"
+
+            zap trash: [
+              "~/Library/Preferences/com.spacemap.plist",
+              "~/.config/spacemap",
+            ]
+          end
+          CASK_EOF
+
+          sed -i '' "s/VERSION_PLACEHOLDER/${VERSION}/" Casks/spacemap.rb
+          sed -i '' "s/ARM64_PLACEHOLDER/${ARM64_SHA}/" Casks/spacemap.rb
+          sed -i '' "s/X86_PLACEHOLDER/${X86_SHA}/" Casks/spacemap.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/spacemap.rb
+          git commit -m "spacemap ${VERSION}" || echo "No changes"
+          git push
+
+      - name: Cleanup keychain
+        if: always() && env.KEYCHAIN_PATH != ''
+        run: security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true

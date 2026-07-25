@@ -1,0 +1,680 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8184fc7a-1e8f-0088-169f-dcda1d7555d9 /* App.swift */; };
+		118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */; };
+		f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* ConfigReader.swift */; };
+		b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */; };
+		e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */; };
+		9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = d1485c56-5612-367e-7199-84db4186fff9 /* HotkeyMonitor.swift */; };
+		8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = bee9b985-0d2c-9e24-8209-2c931c2b414d /* IconCache.swift */; };
+		1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8a9fb303-698c-ba61-9d94-7e9932694e40 /* LiquidGlassBackground.swift */; };
+		6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96655fa1-2703-8325-90df-cc40a10b79d4 /* Models.swift */; };
+		95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9b213277-b71b-97d3-8e88-990f027afab9 /* SettingsView.swift */; };
+		a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ed77dc76-6db0-2684-66da-9c57949ba5fb /* SettingsWindowController.swift */; };
+		519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = d878303f-7daf-a37e-d75c-e2800de38284 /* SocketListener.swift */; };
+		4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */; };
+		60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 686138a0-48d9-f5b8-38dd-abf36c17f29b /* ThumbnailCache.swift */; };
+		207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53f068fa-e530-80a8-3b6a-22bbd9be9d6d /* WindowDragHandler.swift */; };
+		1dc951f0-9410-b1e8-f67d-20fe09538d70 /* YabaiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ed9abbc-8690-2d96-1d28-6fc2528a86a4 /* YabaiClient.swift */; };
+		4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 3cb6e48a-7be2-6fd5-9667-86f0dddb53c7 /* AppIcon.icns */; };
+		29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */ = {isa = PBXBuildFile; fileRef = 3eeebc39-7707-4859-4bce-41fa68eaf754 /* spacemap.icns */; };
+		638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 40e7e7dd-fed6-f791-9132-fbaac27d470c /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		8184fc7a-1e8f-0088-169f-dcda1d7555d9 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CellView.swift; sourceTree = "<group>"; };
+		8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* ConfigReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigReader.swift; sourceTree = "<group>"; };
+		e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridView.swift; sourceTree = "<group>"; };
+		f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDWindowController.swift; sourceTree = "<group>"; };
+		d1485c56-5612-367e-7199-84db4186fff9 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
+		bee9b985-0d2c-9e24-8209-2c931c2b414d /* IconCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconCache.swift; sourceTree = "<group>"; };
+		8a9fb303-698c-ba61-9d94-7e9932694e40 /* LiquidGlassBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassBackground.swift; sourceTree = "<group>"; };
+		96655fa1-2703-8325-90df-cc40a10b79d4 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		9b213277-b71b-97d3-8e88-990f027afab9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		ed77dc76-6db0-2684-66da-9c57949ba5fb /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
+		d878303f-7daf-a37e-d75c-e2800de38284 /* SocketListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketListener.swift; sourceTree = "<group>"; };
+		49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
+		686138a0-48d9-f5b8-38dd-abf36c17f29b /* ThumbnailCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCache.swift; sourceTree = "<group>"; };
+		53f068fa-e530-80a8-3b6a-22bbd9be9d6d /* WindowDragHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragHandler.swift; sourceTree = "<group>"; };
+		6ed9abbc-8690-2d96-1d28-6fc2528a86a4 /* YabaiClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClient.swift; sourceTree = "<group>"; };
+		009b29ab-1092-74ba-a23b-0bb16a8f1313 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		3cb6e48a-7be2-6fd5-9667-86f0dddb53c7 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = file.icns; path = AppIcon.icns; sourceTree = "<group>"; };
+		3eeebc39-7707-4859-4bce-41fa68eaf754 /* spacemap.icns */ = {isa = PBXFileReference; lastKnownFileType = file.icns; path = spacemap.icns; sourceTree = "<group>"; };
+		40e7e7dd-fed6-f791-9132-fbaac27d470c /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = SOURCE_ROOT; };
+		76ccfddb-adc9-0ddd-7fdc-7eef973f0468 /* spacemap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "spacemap.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4063a448-e9e3-96b4-c000-a87f55fbe829 /* spacemap-arm64.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "spacemap-arm64.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5bb6cb51-6a5b-cdde-bbc2-130580f8201e /* spacemap-x86_64.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "spacemap-x86_64.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		c3467723-3adf-20ed-603c-7e9d239d06ce /* spacemap-universal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "spacemap-universal.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		f07b1c12-976e-531b-8d4a-fc53acd27b7a /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		f1ba41cd-633d-17f5-25f8-2ef4bedc6d8d /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		f66a4d19-1664-64c6-1332-95a66663907f /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		c58373af-52ed-704c-918f-d5a648a84922 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		b3750783-9389-fe03-1be0-ea6839ec3e89 = {
+			isa = PBXGroup;
+			children = (
+				e5062cba-c8cb-23e4-e527-0e75442c1762 /* Sources */,
+				40e7e7dd-fed6-f791-9132-fbaac27d470c /* Assets.xcassets */,
+				3f58e571-b4f5-4552-5fea-70bbe84fcec0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		e5062cba-c8cb-23e4-e527-0e75442c1762 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				c13d0875-9134-da0c-1161-bfde5e9b85f6 /* spacemap */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		c13d0875-9134-da0c-1161-bfde5e9b85f6 /* spacemap */ = {
+			isa = PBXGroup;
+			children = (
+				8184fc7a-1e8f-0088-169f-dcda1d7555d9 /* App.swift */,
+				240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */,
+				8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* ConfigReader.swift */,
+				e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */,
+				f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */,
+				d1485c56-5612-367e-7199-84db4186fff9 /* HotkeyMonitor.swift */,
+				bee9b985-0d2c-9e24-8209-2c931c2b414d /* IconCache.swift */,
+				8a9fb303-698c-ba61-9d94-7e9932694e40 /* LiquidGlassBackground.swift */,
+				96655fa1-2703-8325-90df-cc40a10b79d4 /* Models.swift */,
+				9b213277-b71b-97d3-8e88-990f027afab9 /* SettingsView.swift */,
+				ed77dc76-6db0-2684-66da-9c57949ba5fb /* SettingsWindowController.swift */,
+				d878303f-7daf-a37e-d75c-e2800de38284 /* SocketListener.swift */,
+				49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */,
+				686138a0-48d9-f5b8-38dd-abf36c17f29b /* ThumbnailCache.swift */,
+				53f068fa-e530-80a8-3b6a-22bbd9be9d6d /* WindowDragHandler.swift */,
+				6ed9abbc-8690-2d96-1d28-6fc2528a86a4 /* YabaiClient.swift */,
+				009b29ab-1092-74ba-a23b-0bb16a8f1313 /* Info.plist */,
+				3cb6e48a-7be2-6fd5-9667-86f0dddb53c7 /* AppIcon.icns */,
+				3eeebc39-7707-4859-4bce-41fa68eaf754 /* spacemap.icns */,
+			);
+			path = spacemap;
+			sourceTree = "<group>";
+		};
+		3f58e571-b4f5-4552-5fea-70bbe84fcec0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				76ccfddb-adc9-0ddd-7fdc-7eef973f0468 /* spacemap.app */,
+				4063a448-e9e3-96b4-c000-a87f55fbe829 /* spacemap-arm64.app */,
+				5bb6cb51-6a5b-cdde-bbc2-130580f8201e /* spacemap-x86_64.app */,
+				c3467723-3adf-20ed-603c-7e9d239d06ce /* spacemap-universal.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		9934c777-34f5-8454-b632-103dd0b684e3 /* spacemap */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9bd08509-635f-5606-d24a-bf9bdfb44295 /* Build configuration list for PBXNativeTarget "spacemap" */;
+			buildPhases = (
+				479579ce-ff9e-3643-6ba3-8ddd58cf0aa9 /* Sources */,
+				f07b1c12-976e-531b-8d4a-fc53acd27b7a /* Frameworks */,
+				d85d8a40-4a09-125e-4b21-0632f124a2e1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = spacemap;
+			productName = spacemap;
+			productReference = 76ccfddb-adc9-0ddd-7fdc-7eef973f0468 /* spacemap.app */;
+			productType = "com.apple.product-type.application";
+		};
+		fa2e8b0f-060c-7230-8b58-c0c5df1e5e14 /* spacemap-arm64 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = d6703290-8eb6-7a60-c256-4d0bbfa4687e /* Build configuration list for PBXNativeTarget "spacemap-arm64" */;
+			buildPhases = (
+				ffe3da5b-ed32-fe26-c427-3f72f3f21d47 /* Sources */,
+				f1ba41cd-633d-17f5-25f8-2ef4bedc6d8d /* Frameworks */,
+				67f05071-065e-0a12-2656-20c8e7ae8b72 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = spacemap-arm64;
+			productName = spacemap-arm64;
+			productReference = 4063a448-e9e3-96b4-c000-a87f55fbe829 /* spacemap-arm64.app */;
+			productType = "com.apple.product-type.application";
+		};
+		b656f532-bdb1-5a41-1b3d-6757329e091c /* spacemap-x86_64 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = b140765f-dfe4-308d-b4cc-1c8f33f0b98a /* Build configuration list for PBXNativeTarget "spacemap-x86_64" */;
+			buildPhases = (
+				8adee0ad-ed3d-1786-249c-41a002b0c7d0 /* Sources */,
+				f66a4d19-1664-64c6-1332-95a66663907f /* Frameworks */,
+				0a54abe7-0430-6889-17b0-d55b6750c458 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = spacemap-x86_64;
+			productName = spacemap-x86_64;
+			productReference = 5bb6cb51-6a5b-cdde-bbc2-130580f8201e /* spacemap-x86_64.app */;
+			productType = "com.apple.product-type.application";
+		};
+		61847f04-000c-1ecc-f71c-b6f3a412f5b3 /* spacemap-universal */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = a1ab4ee1-3165-2f3e-c207-188c8da49c4f /* Build configuration list for PBXNativeTarget "spacemap-universal" */;
+			buildPhases = (
+				e1ce7132-6f8d-5a2b-9553-0b1b97d8a468 /* Sources */,
+				c58373af-52ed-704c-918f-d5a648a84922 /* Frameworks */,
+				9a84d627-3dff-f26d-1d21-3904724ad768 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = spacemap-universal;
+			productName = spacemap-universal;
+			productReference = c3467723-3adf-20ed-603c-7e9d239d06ce /* spacemap-universal.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7e8d7667-d584-2f67-f2bb-e3926481ad53 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+			};
+			buildConfigurationList = f4bd7ecc-b963-237c-b087-6a3e5bb6e7cd /* Build configuration list for PBXProject "spacemap" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = b3750783-9389-fe03-1be0-ea6839ec3e89;
+			productRefGroup = 3f58e571-b4f5-4552-5fea-70bbe84fcec0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				9934c777-34f5-8454-b632-103dd0b684e3 /* spacemap */,
+				fa2e8b0f-060c-7230-8b58-c0c5df1e5e14 /* spacemap-arm64 */,
+				b656f532-bdb1-5a41-1b3d-6757329e091c /* spacemap-x86_64 */,
+				61847f04-000c-1ecc-f71c-b6f3a412f5b3 /* spacemap-universal */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		d85d8a40-4a09-125e-4b21-0632f124a2e1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */,
+				29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */,
+				638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		67f05071-065e-0a12-2656-20c8e7ae8b72 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */,
+				29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */,
+				638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0a54abe7-0430-6889-17b0-d55b6750c458 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */,
+				29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */,
+				638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9a84d627-3dff-f26d-1d21-3904724ad768 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */,
+				29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */,
+				638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		479579ce-ff9e-3643-6ba3-8ddd58cf0aa9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */,
+				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
+				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
+				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
+				9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */,
+				8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */,
+				1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */,
+				6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */,
+				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
+				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
+				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
+				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
+				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
+				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
+				1dc951f0-9410-b1e8-f67d-20fe09538d70 /* YabaiClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ffe3da5b-ed32-fe26-c427-3f72f3f21d47 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */,
+				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
+				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
+				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
+				9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */,
+				8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */,
+				1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */,
+				6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */,
+				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
+				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
+				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
+				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
+				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
+				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
+				1dc951f0-9410-b1e8-f67d-20fe09538d70 /* YabaiClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8adee0ad-ed3d-1786-249c-41a002b0c7d0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */,
+				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
+				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
+				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
+				9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */,
+				8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */,
+				1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */,
+				6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */,
+				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
+				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
+				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
+				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
+				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
+				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
+				1dc951f0-9410-b1e8-f67d-20fe09538d70 /* YabaiClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		e1ce7132-6f8d-5a2b-9553-0b1b97d8a468 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */,
+				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
+				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
+				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
+				9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */,
+				8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */,
+				1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */,
+				6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */,
+				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
+				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
+				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
+				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
+				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
+				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
+				1dc951f0-9410-b1e8-f67d-20fe09538d70 /* YabaiClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		ee40c73f-f32a-4be1-ff23-6bc609f564d2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		e12a4d0e-86df-f708-6ef0-ecdda963dec9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		84808dfc-c600-efe0-1a07-bc3a8be8541f /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = Sources/spacemap/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_NAME = spacemap;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = -Onone;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				MARKETING_VERSION = 1.0.0;
+				CURRENT_PROJECT_VERSION = 1;
+			};
+			name = Debug;
+		};
+		f5b7d8fd-a06d-e61e-6c12-1522759a4eae /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf-with-dsym;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				INFOPLIST_FILE = Sources/spacemap/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_NAME = spacemap;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = RELEASE;
+				SWIFT_OPTIMIZATION_LEVEL = -O;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				MARKETING_VERSION = 1.0.0;
+				CURRENT_PROJECT_VERSION = 1;
+			};
+			name = Release;
+		};
+		cce9fdc6-3a3d-4177-a05f-7993513a8709 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = Sources/spacemap/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ARCHS = "arm64";
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_NAME = spacemap-arm64;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = -Onone;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				MARKETING_VERSION = 1.0.0;
+				CURRENT_PROJECT_VERSION = 1;
+			};
+			name = Debug;
+		};
+		4cc07683-05cd-2137-0ab2-f5e547a40ccb /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf-with-dsym;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				INFOPLIST_FILE = Sources/spacemap/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ARCHS = "arm64";
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_NAME = spacemap-arm64;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = RELEASE;
+				SWIFT_OPTIMIZATION_LEVEL = -O;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				MARKETING_VERSION = 1.0.0;
+				CURRENT_PROJECT_VERSION = 1;
+			};
+			name = Release;
+		};
+		e2d91b26-31a1-7a5b-5935-835170e70d1b /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = Sources/spacemap/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ARCHS = "x86_64";
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_NAME = spacemap-x86_64;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = -Onone;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				MARKETING_VERSION = 1.0.0;
+				CURRENT_PROJECT_VERSION = 1;
+			};
+			name = Debug;
+		};
+		6742e4be-c973-1ed2-30fd-eac5acbfff5c /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf-with-dsym;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				INFOPLIST_FILE = Sources/spacemap/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ARCHS = "x86_64";
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_NAME = spacemap-x86_64;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = RELEASE;
+				SWIFT_OPTIMIZATION_LEVEL = -O;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				MARKETING_VERSION = 1.0.0;
+				CURRENT_PROJECT_VERSION = 1;
+			};
+			name = Release;
+		};
+		d72e81b5-ea25-cfaf-db09-0beddc925960 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = Sources/spacemap/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ARCHS = "arm64 x86_64";
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_NAME = spacemap-universal;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = -Onone;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				MARKETING_VERSION = 1.0.0;
+				CURRENT_PROJECT_VERSION = 1;
+			};
+			name = Debug;
+		};
+		d276afc1-0953-9a94-4edb-13456b8a4e7f /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf-with-dsym;
+				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_TESTABILITY = NO;
+				GCC_OPTIMIZATION_LEVEL = 3;
+				INFOPLIST_FILE = Sources/spacemap/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ARCHS = "arm64 x86_64";
+				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_NAME = spacemap-universal;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = RELEASE;
+				SWIFT_OPTIMIZATION_LEVEL = -O;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				MARKETING_VERSION = 1.0.0;
+				CURRENT_PROJECT_VERSION = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		f4bd7ecc-b963-237c-b087-6a3e5bb6e7cd /* Build configuration list for PBXProject "spacemap" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ee40c73f-f32a-4be1-ff23-6bc609f564d2 /* Debug */,
+				e12a4d0e-86df-f708-6ef0-ecdda963dec9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		9bd08509-635f-5606-d24a-bf9bdfb44295 /* Build configuration list for PBXNativeTarget "spacemap" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				84808dfc-c600-efe0-1a07-bc3a8be8541f /* Debug */,
+				f5b7d8fd-a06d-e61e-6c12-1522759a4eae /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		d6703290-8eb6-7a60-c256-4d0bbfa4687e /* Build configuration list for PBXNativeTarget "spacemap-arm64" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				cce9fdc6-3a3d-4177-a05f-7993513a8709 /* Debug */,
+				4cc07683-05cd-2137-0ab2-f5e547a40ccb /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		b140765f-dfe4-308d-b4cc-1c8f33f0b98a /* Build configuration list for PBXNativeTarget "spacemap-x86_64" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				e2d91b26-31a1-7a5b-5935-835170e70d1b /* Debug */,
+				6742e4be-c973-1ed2-30fd-eac5acbfff5c /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		a1ab4ee1-3165-2f3e-c207-188c8da49c4f /* Build configuration list for PBXNativeTarget "spacemap-universal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				d72e81b5-ea25-cfaf-db09-0beddc925960 /* Debug */,
+				d276afc1-0953-9a94-4edb-13456b8a4e7f /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 7e8d7667-d584-2f67-f2bb-e3926481ad53 /* Project object */;
+}

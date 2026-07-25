@@ -1,0 +1,42 @@
+# === 2D Grid Navigation (4 wide × 4 tall) ===
+# Row 1: D1  D2  D3  D4
+# Row 2: D5  D6  D7  D8
+# Row 3: D9  D10 D11 D12
+# Row 4: D13 D14 D15 D16
+
+# Move right: next space within row (stops at col 4: indices 4, 8, 12, 16)
+ctrl - right : idx=$(/opt/homebrew/bin/yabai -m query --spaces --space | /opt/homebrew/bin/jq '.index'); if [ $(( ($idx - 1) % 4 )) -lt 3 ]; then /opt/homebrew/bin/yabai -m space --focus next; fi
+
+# Move left: previous space within row (stops at col 1: indices 1, 5, 9, 13)
+ctrl - left : idx=$(/opt/homebrew/bin/yabai -m query --spaces --space | /opt/homebrew/bin/jq '.index'); if [ $(( ($idx - 1) % 4 )) -gt 0 ]; then /opt/homebrew/bin/yabai -m space --focus prev; fi
+
+# Move down: jump forward 4 (D1→D5, D2→D6, etc.)
+ctrl - down : /opt/homebrew/bin/yabai -m space --focus "$(($(/opt/homebrew/bin/yabai -m query --spaces --space | /opt/homebrew/bin/jq '.index') + 4))"
+
+# Move up: jump back 4 (D5→D1, D6→D2, etc.)
+ctrl - up : /opt/homebrew/bin/yabai -m space --focus "$(($(/opt/homebrew/bin/yabai -m query --spaces --space | /opt/homebrew/bin/jq '.index') - 4))"
+
+# Direct jumps: Row 1 (Ctrl+1..4 → D1..D4)
+ctrl - 1 : /opt/homebrew/bin/yabai -m space --focus 1
+ctrl - 2 : /opt/homebrew/bin/yabai -m space --focus 2
+ctrl - 3 : /opt/homebrew/bin/yabai -m space --focus 3
+ctrl - 4 : /opt/homebrew/bin/yabai -m space --focus 4
+
+# Direct jumps: Row 2 (Ctrl+q..r → D5..D8)
+ctrl - q : /opt/homebrew/bin/yabai -m space --focus 5
+ctrl - w : /opt/homebrew/bin/yabai -m space --focus 6
+# ctrl - e is a common (go to end of line keymap)
+ctrl + alt - e : /opt/homebrew/bin/yabai -m space --focus 7
+ctrl - r : /opt/homebrew/bin/yabai -m space --focus 8
+
+# Direct jumps: Row 3 (Ctrl+a..f → D9..D12)
+ctrl - a : /opt/homebrew/bin/yabai -m space --focus 9
+ctrl - s : /opt/homebrew/bin/yabai -m space --focus 10
+ctrl - d : /opt/homebrew/bin/yabai -m space --focus 11
+ctrl - f : /opt/homebrew/bin/yabai -m space --focus 12
+
+# Direct jumps: Row 4 (Ctrl+z..v → D13..D16)
+ctrl - z : /opt/homebrew/bin/yabai -m space --focus 13
+ctrl - x : /opt/homebrew/bin/yabai -m space --focus 14
+ctrl - c : /opt/homebrew/bin/yabai -m space --focus 15
+ctrl - v : /opt/homebrew/bin/yabai -m space --focus 16

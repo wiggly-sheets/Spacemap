@@ -1,0 +1,85 @@
+/* SettingsView - Grid Section */
+"Grid" = "Griglia";
+"Max Spaces" = "Spazi massimi";
+"Grid Layout" = "Disposizione griglia";
+"Show Mode" = "Modalit\u00e0 di visualizzazione";
+"All Spaces" = "Tutti gli spazi";
+"Active Spaces" = "Spazi attivi";
+"Cell Style" = "Stile cella";
+"Rectangles" = "Rettangoli";
+"Icons" = "Icone";
+"Thumbnails" = "Anteprime";
+"Simple" = "Semplice";
+"Show Space Numbers" = "Mostra numeri spazio";
+"Show Icon Strip" = "Mostra barra icone";
+"Show Each Window Icon" = "Mostra icona di ogni finestra";
+
+/* SettingsView - Appearance Section */
+"Appearance" = "Aspetto";
+"Theme" = "Tema";
+"Open Config File" = "Apri file di configurazione";
+"Open Themes Folder" = "Apri cartella temi";
+"Background Color" = "Colore sfondo";
+"Light" = "Chiaro";
+"Dark" = "Scuro";
+"Auto" = "Automatico";
+"Background Transparency" = "Trasparenza sfondo";
+"Icon Scale" = "Dimensione icone";
+"UI Scale" = "Dimensione interfaccia";
+
+/* SettingsView - Behavior Section */
+"Behavior" = "Comportamento";
+"Hotkey" = "Scorciatoia";
+"Socket Health Interval (s)" = "Intervallo salute socket (s)";
+"Auto-hide Timeout (s): %d (0 = disabled)" = "Nascondi automaticamente (s): %d (0 = disattivato)";
+"Hide Menu Bar Icon" = "Nascondi icona barra menu";
+"Access settings by relaunching the app or pressing \u2318, while the HUD is open." = "Accedi alle impostazioni riavviando l'app o premendo \u2318, con l'HUD aperto.";
+"Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)" = "Naviga con le frecce (\u2190\u2191\u2193\u2192)";
+"Navigate with Vim Keys (hjkl)" = "Naviga con tasti Vim (hjkl)";
+
+/* SettingsView - Space Names Section */
+"Space Names" = "Nomi spazio";
+"Show Space Names" = "Mostra nomi spazio";
+"(Each input below corresponds to each space number, up to Max Spaces)" = "(Ogni input corrisponde a un numero spazio, fino al massimo)";
+"Space %d:" = "Spazio %d:";
+
+/* HotkeyRecorder */
+"Recording..." = "Registrazione...";
+"Click to record" = "Clicca per registrare";
+
+/* App Menu Items */
+"Show/Hide Map (%@)" = "Mostra/Nascondi mappa (%@)";
+"Settings..." = "Impostazioni...";
+"Open Accessibility Permissions (for hotkey)" = "Apri permessi accessibilit\u00e0 (per scorciatoie)";
+"Open Screen Recording Permissions (for thumbnails)" = "Apri permessi registrazione schermo (per anteprime)";
+"Launch at Login" = "Avvia all'accesso";
+"Restart Spacemap" = "Riavvia Spacemap";
+"Quit Spacemap" = "Esci da Spacemap";
+
+/* App Alerts - Move to Applications */
+"Move Spacemap to Applications?" = "Spostare Spacemap in Applicazioni?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap dovrebbe essere eseguito dalla cartella Applicazioni per le migliori prestazioni. Vuole spostarlo ora?";
+"Move to Applications" = "Sposta in Applicazioni";
+"Cancel" = "Annulla";
+"Moved to Applications" = "Spostato in Applicazioni";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap \u08e8 stato copiato nella cartella Applicazioni. Si prega di chiudere e riavviare da l\u00ed.";
+"Failed to move" = "Spostamento fallito";
+"Could not move Spacemap to Applications: %@" = "Impossibile spostare Spacemap in Applicazioni: %@";
+
+/* App Alerts - Launch at Login */
+"Launch at Login?" = "Avviare all'accesso?";
+"Would you like Spacemap to start automatically when you log in?" = "Vuole che Spacemap si avvii automaticamente all'accesso?";
+"Yes" = "S\u00ec";
+"No" = "No";
+
+/* App Alerts - yabai not running */
+"yabai is not running" = "yabai non \u08e8 in esecuzione";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap richiede che yabai sia in esecuzione. Avvii yabai e riavvii Spacemap.";
+"Quit" = "Esci";
+"Open yabai" = "Apri yabai";
+
+/* App Alerts - MRU Spaces */
+"Spaces Auto-Rearrange Enabled" = "Riorganizzazione automatica spazi attivata";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap necessita che questo sia disattivato per una griglia stabile. Gli spazi devono rimanere in ordine fisso altrimenti la griglia diventa inaffidabile.";
+"Leave as Is" = "Lascia com'\u08e8";
+"Fix It" = "Correggi";
