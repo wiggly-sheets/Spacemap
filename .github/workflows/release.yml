@@ -189,8 +189,8 @@ jobs:
           export ED_SIGNATURE=""
           if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
             # Download Sparkle's sign_update tool
-            curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/2.7.1/Sparkle-2.7.1-bin.tar.xz" | tar -xJ
-            echo "$SPARKLE_PRIVATE_KEY" | ./Sparkle-2.7.1-bin/bin/sign_update --ed-key-file - -p "spacemap-$VERSION-universal.dmg" > sig.txt
+            curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/2.9.4/Sparkle-2.9.4.tar.xz" | tar -xJ
+            echo "$SPARKLE_PRIVATE_KEY" | ./bin/sign_update --ed-key-file - -p "spacemap-$VERSION-universal.dmg" > sig.txt
             ED_SIGNATURE=$(cat sig.txt)
             echo "ED_SIGNATURE computed"
           fi
