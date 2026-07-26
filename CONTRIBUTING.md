@@ -100,7 +100,7 @@ swift test            # Direct SPM test runner
 swift test --filter ConfigTests   # Run a specific test class
 ```
 
-166 tests across 7 files, including config migration/healing, hotkey/media-key handling, models, grid rendering, navigation, themes, and CLI installation.
+168 tests across 8 files, including AeroSpace decoding, config migration/healing, hotkey/media-key handling, models, grid rendering, navigation, themes, and CLI installation.
 
 ### Manual Testing Checklist
 - [ ] Launch app with yabai running → HUD opens on hotkey

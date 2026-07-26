@@ -11,9 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added automatic AeroSpace detection and a window-manager abstraction that preserves current HUD, hotkey, navigation, and drag behavior.
+- Added AeroSpace event subscriptions for live HUD refreshes when focus or windows change.
 
 ### Changed
 - AeroSpace workspaces now use Spacemap's one-based grid indices and current multi-monitor grid state.
+- AeroSpace queries now request explicit JSON fields for stable workspace, monitor, and window decoding.
 
 
 ## [1.0.16] - 2026-07-25

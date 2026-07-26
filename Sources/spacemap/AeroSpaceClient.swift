@@ -21,6 +21,7 @@ final class AeroSpaceClient: WindowManager {
     private var cachedWorkspaces: [AeroSpaceWorkspace] = []
     private var lastWorkspacesFetch: TimeInterval = 0
     private let workspacesCacheTTL: TimeInterval = 2.0
+    private var eventListenerProcess: Process?
 
     private init() {}
 
@@ -59,7 +60,14 @@ final class AeroSpaceClient: WindowManager {
 
     func queryWindows() throws -> [Window] {
         guard isAerospaceRunning() else { return [] }
-        let output = try shell(aerospacePath, "list-windows", "--all", "--json")
+        let output = try shell(
+            aerospacePath,
+            "list-windows",
+            "--all",
+            "--json",
+            "--format",
+            "%{window-id}%{app-name}%{workspace}%{window-title}%{window-is-fullscreen}%{window-layout}"
+        )
         let aerospaceWindows = try JSONDecoder().decode([AeroSpaceWindow].self, from: Data(output.utf8))
 
         let workspaces = try fetchWorkspaces()
@@ -123,7 +131,14 @@ final class AeroSpaceClient: WindowManager {
 
     func queryFocusedWindow() throws -> Int? {
         guard isAerospaceRunning() else { return nil }
-        let output = try shell(aerospacePath, "list-windows", "--focused", "--json")
+        let output = try shell(
+            aerospacePath,
+            "list-windows",
+            "--focused",
+            "--json",
+            "--format",
+            "%{window-id}%{app-name}%{workspace}%{window-title}%{window-is-fullscreen}%{window-layout}"
+        )
         let windows = try JSONDecoder().decode([AeroSpaceWindow].self, from: Data(output.utf8))
         return windows.first?.windowId
     }
@@ -211,8 +226,38 @@ final class AeroSpaceClient: WindowManager {
         DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
     }
 
-    func registerRefreshSignals(socketPath: String) {}
-    func removeRefreshSignals() {}
+    func registerRefreshSignals(socketPath: String) {
+        removeRefreshSignals()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: aerospacePath)
+        process.arguments = [
+            "subscribe",
+            "--no-send-initial",
+            "focus-changed",
+            "focused-monitor-changed",
+            "focused-workspace-changed",
+            "window-detected"
+        ]
+        let outputPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = FileHandle.nullDevice
+        outputPipe.fileHandleForReading.readabilityHandler = { handle in
+            guard !handle.availableData.isEmpty else { return }
+            SocketListener.sendCommand(to: socketPath, command: 1)
+        }
+        do {
+            try process.run()
+            eventListenerProcess = process
+        } catch {
+            outputPipe.fileHandleForReading.readabilityHandler = nil
+            NSLog("spacemap/AeroSpace: failed to subscribe to events: \(error.localizedDescription)")
+        }
+    }
+
+    func removeRefreshSignals() {
+        eventListenerProcess?.terminate()
+        eventListenerProcess = nil
+    }
 
     // MARK: - Private Helpers
 
@@ -221,14 +266,28 @@ final class AeroSpaceClient: WindowManager {
         if now - lastWorkspacesFetch < workspacesCacheTTL && !cachedWorkspaces.isEmpty {
             return cachedWorkspaces
         }
-        let output = try shell(aerospacePath, "list-workspaces", "--all", "--json")
+        let output = try shell(
+            aerospacePath,
+            "list-workspaces",
+            "--all",
+            "--json",
+            "--format",
+            "%{workspace}%{monitor-id}"
+        )
         cachedWorkspaces = try JSONDecoder().decode([AeroSpaceWorkspace].self, from: Data(output.utf8))
         lastWorkspacesFetch = now
         return cachedWorkspaces
     }
 
     private func fetchFocusedWorkspaceName() throws -> String {
-        let output = try shell(aerospacePath, "list-workspaces", "--focused", "--json")
+        let output = try shell(
+            aerospacePath,
+            "list-workspaces",
+            "--focused",
+            "--json",
+            "--format",
+            "%{workspace}%{monitor-id}"
+        )
         let workspaces = try JSONDecoder().decode([AeroSpaceWorkspace].self, from: Data(output.utf8))
         guard let workspace = workspaces.first else {
             throw AeroSpaceError.noFocusedWorkspace
@@ -292,7 +351,7 @@ struct AeroSpaceWorkspace: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case name
+        case name = "workspace"
         case monitor = "monitor-id"
     }
 }
