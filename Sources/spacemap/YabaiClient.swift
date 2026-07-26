@@ -2,6 +2,21 @@ import Foundation
 import AppKit
 
 enum YabaiClient {
+    private enum YabaiError: LocalizedError {
+        case commandFailed(arguments: [String], status: Int32, message: String)
+        case spaceCreationMadeNoProgress(target: Int)
+
+        var errorDescription: String? {
+            switch self {
+            case .commandFailed(let arguments, let status, let message):
+                let detail = message.isEmpty ? "no error output" : message
+                return "yabai \(arguments.joined(separator: " ")) failed with status \(status): \(detail)"
+            case .spaceCreationMadeNoProgress(let target):
+                return "yabai did not create the space needed for target index \(target)"
+            }
+        }
+    }
+
     private static let yabaiQueue = DispatchQueue(label: "com.spacemap.yabai", qos: .userInitiated)
     // Keep interactive focus changes out of the state-query queue. A grid
     // refresh can wait for multiple yabai queries, but keyboard navigation
@@ -128,8 +143,38 @@ enum YabaiClient {
         _ = write(fd, &buf, buf.count)
     }
     
-    static func moveWindow(_ windowID: Int, toSpace spaceIndex: Int) {
-        _ = try? shell(yabaiPath, "-m", "window", "\(windowID)", "--space", "\(spaceIndex)")
+    static func moveWindowCreatingSpacesIfNeeded(
+        _ windowID: Int,
+        toSpace targetIndex: Int,
+        focusDestination: Bool,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        yabaiQueue.async {
+            do {
+                guard targetIndex > 0 else {
+                    throw YabaiError.spaceCreationMadeNoProgress(target: targetIndex)
+                }
+
+                var spaces = try querySpacesRaw()
+                while !spaces.contains(where: { $0.index == targetIndex }) {
+                    let previousIndices = Set(spaces.map(\.index))
+                    _ = try shell(yabaiPath, "-m", "space", "--create")
+                    spaces = try querySpacesRaw()
+
+                    guard Set(spaces.map(\.index)) != previousIndices else {
+                        throw YabaiError.spaceCreationMadeNoProgress(target: targetIndex)
+                    }
+                }
+
+                _ = try shell(yabaiPath, "-m", "window", "\(windowID)", "--space", "\(targetIndex)")
+                if focusDestination {
+                    _ = try shell(yabaiPath, "-m", "space", "--focus", "\(targetIndex)")
+                }
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
     }
     
     static func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
@@ -168,12 +213,23 @@ enum YabaiClient {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: args[0])
         process.arguments = Array(args.dropFirst())
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
         try process.run()
         process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        return String(data: data, encoding: .utf8) ?? ""
+        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        guard process.terminationStatus == 0 else {
+            let message = String(data: errorData, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            throw YabaiError.commandFailed(
+                arguments: Array(args.dropFirst()),
+                status: process.terminationStatus,
+                message: message
+            )
+        }
+        return String(data: outputData, encoding: .utf8) ?? ""
     }
 }

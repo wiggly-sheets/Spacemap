@@ -25,14 +25,14 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `SocketListener.swift` | Unix domain socket server for yabai signals |
 | `WindowDragHandler.swift` | Drag-and-drop detection via CGEventTap |
 | `Models.swift` | Data structures (GridConfig, YabaiSpace, AppTheme) |
-| `SettingsView.swift` | Settings window UI with live config save |
+| `SettingsView.swift` | Permanent settings sidebar and category-specific live-save forms |
 | `ThumbnailCache.swift` | ScreenCaptureKit thumbnail capture per space (macOS 14+) |
 | `IconCache.swift` | Caches app icons by name to avoid repeated NSWorkspace lookups |
 
 ## Configuration System
 
 ### Config File Location
-`~/.config/spacemap/config` — read on every HUD open (except `HOTKEY` requires restart).
+`~/.config/spacemap/spacemap.jsonc` — read on every HUD open. The former `~/.config/spacemap/config` path migrates automatically. Invalid fields self-heal individually after backing up to `spacemap.jsonc.bak`.
 
 ### Config Keys
 | Key | Type | Default | Range | Description |
@@ -41,6 +41,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `GRID_ROWS` | Int | 2 | 1–10 | Grid rows |
 | `CELL_STYLE` | String | `rects` | `rects\|icons\|thumbnails` | Window display style. `thumbnails` requires macOS 14+ and Screen Recording permission |
 | `HOTKEY` | String | `ctrl+space` | modifiers+key | Toggle hotkey (requires restart) |
+| `PINNED_HOTKEY` | String | `none` | modifiers+key or `none` | Optional persistent-HUD toggle |
 | `UI_SCALE` | Double | 0.5 | 0.0–1.0 | HUD scale (effective: 0.5×–4.0×) |
 | `THEME` | String | `default` | theme names | Color theme |
 | `AUTO_HIDE_TIMEOUT` | Int | 5 | 0–60 | Seconds before HUD hides (0=never) |
@@ -61,6 +62,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `SPACE_NAMES` | String | `""` | `"1:Name,2:Name"` | Custom space names |
 | `SOCKET_HEALTH_INTERVAL` | Int | 60 | 15–60 | Socket health check interval (seconds) |
 | `UPDATE_MODE` | String | `notify` | `auto\|notify\|off` | Sparkle update check behavior. `auto` downloads and installs; `notify` prompts; `off` disables |
+| `FOCUS_SPACE_ON_WINDOW_DROP` | Bool | `false` | `true\|false` | Focus the destination space after a successful window drop |
 
 ### Space Naming Support
 Config format for custom space names:
@@ -101,11 +103,20 @@ Available themes with hex color values:
 ## Settings Window
 
 ### Architecture
-- `SettingsView.swift` — SwiftUI form with live-save to config file
+- `SettingsView.swift` — fixed, always-visible category sidebar plus one live-save detail form per selected category
 - `SettingsWindowController.swift` — AppKit window wrapper for SwiftUI view
 - Menubar → Settings (⌘,) opens window
 - Changes auto-save via `onChange` handlers on every control
-- Sends `settingsChanged` notification on save — observed by AppDelegate to update hotkey
+- Sends `settingsChanged` notification on save — observed by AppDelegate to restart both hotkey monitors
+
+### Categories
+- **Grid** — layout, display topology, cell rendering, and window visibility
+- **Space Names** — name visibility and per-space text
+- **Appearance** — themes, appearance mode, transparency, and scaling
+- **Behavior** — normal and pinned hotkeys, positioning, navigation, drag/drop focus, menu bar, and updates
+- **Debug/Advanced** — socket health interval
+
+The sidebar is a fixed pane rather than a collapsible `NavigationSplitView`. Selecting a row replaces the detail form; categories are not anchors in one continuous scrolling form.
 
 ### Window Controller Pattern
 ```swift
@@ -201,7 +212,7 @@ Hosted at `https://wiggly-sheets.github.io/Spacemap/appcast.xml` via GitHub Page
 | `notify` | Checks periodically, shows dialog with release notes |
 | `off` | Disables update checking entirely |
 
-First-launch prompt asks the user to choose. Setting is stored in `~/.config/spacemap/config` as `UPDATE_MODE`.
+First-launch prompt asks the user to choose. Setting is stored in `~/.config/spacemap/spacemap.jsonc` as `updateMode`.
 
 ### Info.plist Keys
 | Key | Value |

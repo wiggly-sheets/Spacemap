@@ -95,11 +95,30 @@ Press `Ctrl+Space` to open Spacemap.
 
 ---
 
+## Settings
+
+Open Settings from the menu bar or press `⌘+,` while the HUD is visible. The sidebar is always shown, highlights the active category, and opens each category in its own detail view:
+
+| Category | Controls |
+|----------|----------|
+| **Grid** | Space limit and layout, display modes, cell style, space numbers, icon strip, and extra windows |
+| **Space Names** | Space-name visibility and per-space names |
+| **Appearance** | Theme, light/dark mode, transparency, icon scale, and UI scale |
+| **Behavior** | Normal and pinned HUD hotkeys, HUD position, auto-hide, keyboard navigation, window-drop focus, menu bar visibility, and updates |
+| **Debug/Advanced** | Socket health interval |
+
+Changes save automatically. The hotkey recorder supports regular keys, F13–F20, and media keys; use its clear button to disable the binding.
+
+---
+
 ## Configuration
 
-Config file: `~/.config/spacemap/config`
+Config file: `~/.config/spacemap/spacemap.jsonc`
 
-Most changes take effect on next HUD open. `HOTKEY` requires a restart.
+Most changes take effect on next HUD open. Hotkey changes are applied immediately when saved in Settings.
+Spacemap reads legacy `key=value` configs, but new installs and resaves use JSON. JSONC line and block comments are accepted. Missing or invalid fields are repaired individually, with the original saved as `spacemap.jsonc.bak`.
+
+The option tables below use the uppercase legacy aliases for easy comparison with older configs. New JSON/JSONC files use camel-case field names and are best edited through Settings.
 
 ### Display
 
@@ -141,21 +160,39 @@ Most changes take effect on next HUD open. `HOTKEY` requires a restart.
 | Option | Default | Description |
 |--------|---------|-------------|
 | `AUTO_HIDE_TIMEOUT` | `5` | Seconds before auto-hide (0=never) |
+| `PINNED_HOTKEY` | `none` | Optional shortcut that toggles a HUD with no auto-hide timer |
+| `FOCUS_SPACE_ON_WINDOW_DROP` | `false` | Focus the destination after dropping a window |
 | `UPDATE_MODE` | `notify` | `auto`, `notify`, or `off` |
 
 ### Hotkey
 
-```bash
-HOTKEY=ctrl+space    # default
-#HOTKEY=ctrl+alt+s
+```jsonc
+{
+  "hotkey": {
+    "keyKind": "keyCode",
+    "keyCode": 49,
+    "modifiers": ["ctrl"]
+  },
+  "pinnedHotkey": {
+    "keyKind": "none",
+    "modifiers": []
+  }
+}
 ```
 
-Format: `modifier+modifier+key`
+The Settings hotkey recorders are recommended for editing these values. The pinned shortcut must differ from the normal shortcut. Using the normal shortcut while pinned hides the HUD and returns it to normal timed behavior on its next use.
 
 ### Space Names
 
-```bash
-SPACE_NAMES=1:Desktop,2:Dev,3:Media,4:Music
+```jsonc
+{
+  "spaceNames": {
+    "1": "Desktop",
+    "2": "Dev",
+    "3": "Media",
+    "4": "Music"
+  }
+}
 ```
 
 ---
@@ -250,6 +287,7 @@ To view logs: Open **Console.app**, filter by "spacemap".
 | [DEVELOPER.md](./DEVELOPER.md) | Technical deep-dive |
 | [REFERENCE.md](./REFERENCE.md) | Config keys and API reference |
 | [TASKS.md](./TASKS.md) | Roadmap and known issues |
+| [SUPPORT.md](./SUPPORT.md) | Getting help and reporting issues |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | Contributing guidelines |
 
 ---

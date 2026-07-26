@@ -5,6 +5,7 @@ import Sparkle
 final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private let hud = HUDWindowController()
     private var hotkey: HotkeyMonitor?
+    private var pinnedHotkey: HotkeyMonitor?
     private var socketListener: SocketListener?
     private let socketPath = "/tmp/spacemap_\(NSUserName()).socket"
     private var statusItem: NSStatusItem?
@@ -163,26 +164,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String {
-        var parts: [String] = []
-        if hotkey.modifiers.contains(.maskControl) { parts.append("⌃") }
-        if hotkey.modifiers.contains(.maskCommand) { parts.append("⌘") }
-        if hotkey.modifiers.contains(.maskAlternate) { parts.append("⌥") }
-        if hotkey.modifiers.contains(.maskShift) { parts.append("⇧") }
-        switch hotkey.keyCode {
-        case 121: parts.append("PgDn")
-        case 116: parts.append("PgUp")
-        case 49:  parts.append("Space")
-        case 48:  parts.append("Tab")
-        case 36:  parts.append("Return")
-        case 53:  parts.append("Esc")
-        case 51:  parts.append("Del")
-        case 123: parts.append("←")
-        case 124: parts.append("→")
-        case 125: parts.append("↓")
-        case 126: parts.append("↑")
-        default:  parts.append("?")
+        switch hotkey.key {
+        case .none:
+            return "None"
+        case .mediaKey(let mediaKey):
+            var parts: [String] = []
+            if hotkey.modifiers.contains(.maskControl) { parts.append("⌃") }
+            if hotkey.modifiers.contains(.maskCommand) { parts.append("⌘") }
+            if hotkey.modifiers.contains(.maskAlternate) { parts.append("⌥") }
+            if hotkey.modifiers.contains(.maskShift) { parts.append("⇧") }
+            parts.append(mediaKey.rawValue)
+            return parts.joined(separator: "+")
+        case .keyCode(let keyCode):
+            var parts: [String] = []
+            if hotkey.modifiers.contains(.maskControl) { parts.append("⌃") }
+            if hotkey.modifiers.contains(.maskCommand) { parts.append("⌘") }
+            if hotkey.modifiers.contains(.maskAlternate) { parts.append("⌥") }
+            if hotkey.modifiers.contains(.maskShift) { parts.append("⇧") }
+            switch keyCode {
+            case 121: parts.append("PgDn")
+            case 116: parts.append("PgUp")
+            case 49:  parts.append("Space")
+            case 48:  parts.append("Tab")
+            case 36:  parts.append("Return")
+            case 53:  parts.append("Esc")
+            case 51:  parts.append("Del")
+            case 123: parts.append("←")
+            case 124: parts.append("→")
+            case 125: parts.append("↓")
+            case 126: parts.append("↑")
+            default:  parts.append("?")
+            }
+            return parts.joined(separator: "+")
         }
-        return parts.joined(separator: "+")
     }
 
     private func setupMenubar() {
@@ -193,16 +207,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let config = currentConfig ?? ConfigReader.load()
         let menu = NSMenu()
         let hotkeyLabel = hotkeyMenuString(config.hotkey)
-        menu.addItem(NSMenuItem(title: String(format: NSLocalizedString("Show/Hide Map (%@)", comment: ""), hotkeyLabel), action: #selector(toggleHUD), keyEquivalent: ""))
+        menu.addItem(menuItem(
+            title: String(format: NSLocalizedString("Show/Hide Map (%@)", comment: ""), hotkeyLabel),
+            action: #selector(toggleHUD),
+            symbolName: "square.grid.3x3"
+        ))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Settings...", comment: ""), action: #selector(showSettingsWindow), keyEquivalent: ","))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Settings...", comment: ""),
+            action: #selector(showSettingsWindow),
+            keyEquivalent: ",",
+            symbolName: "command"
+        ))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Open Accessibility Permissions (for hotkeys)", comment: ""), action: #selector(openAccessibility), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Open Screen Recording Permissions (for thumbnails)", comment: ""), action: #selector(openScreenRecording), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Install Command-Line Tool…", comment: ""), action: #selector(installCommandLineTool), keyEquivalent: ""))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Open Accessibility Permissions (for hotkeys)", comment: ""),
+            action: #selector(openAccessibility),
+            symbolName: "accessibility"
+        ))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Open Screen Recording Permissions (for thumbnails)", comment: ""),
+            action: #selector(openScreenRecording),
+            symbolName: "rectangle.inset.filled"
+        ))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Install Command-Line Tool…", comment: ""),
+            action: #selector(installCommandLineTool),
+            symbolName: "terminal"
+        ))
         menu.addItem(NSMenuItem.separator())
         // Launch at Login
-        let launchAtLoginItem = NSMenuItem(title: NSLocalizedString("Launch at Login", comment: ""), action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        let launchAtLoginItem = menuItem(
+            title: NSLocalizedString("Launch at Login", comment: ""),
+            action: #selector(toggleLaunchAtLogin),
+            symbolName: "power"
+        )
         launchAtLoginItem.tag = 1001
         let isEnabled: Bool
         if #available(macOS 13, *) {
@@ -214,14 +253,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             launchAtLoginItem.state = .on
         }
         menu.addItem(launchAtLoginItem)
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Check for Updates...", comment: ""), action: #selector(checkForUpdates), keyEquivalent: ""))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Check for Updates...", comment: ""),
+            action: #selector(checkForUpdates),
+            symbolName: "arrow.down.circle"
+        ))
         menu.addItem(NSMenuItem.separator())
-        let restartItem = NSMenuItem(title: NSLocalizedString("Restart Spacemap", comment: ""), action: #selector(restartApp), keyEquivalent: "r")
+        let restartItem = menuItem(
+            title: NSLocalizedString("Restart Spacemap", comment: ""),
+            action: #selector(restartApp),
+            keyEquivalent: "r",
+            symbolName: "arrow.triangle.2.circlepath"
+        )
         restartItem.keyEquivalentModifierMask = .command
         menu.addItem(restartItem)
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Quit Spacemap", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Quit Spacemap", comment: ""),
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q",
+            symbolName: "xmark.circle"
+        ))
         item.menu = menu
         statusItem = item
+    }
+
+    private func menuItem(
+        title: String,
+        action: Selector,
+        keyEquivalent: String = "",
+        symbolName: String
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        item.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: title)
+        return item
     }
 
     @objc private func toggleHUD() { hud.toggle() }
@@ -259,15 +323,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func restartHotkey(config: GridConfig) {
         self.hotkey?.stop()
         self.hotkey = nil
+        self.pinnedHotkey?.stop()
+        self.pinnedHotkey = nil
         self.startHotkey(config: config)
+        self.startPinnedHotkey(config: config)
     }
 
     private func startHotkey(config: GridConfig) {
+        guard !config.hotkey.isDisabled else {
+            print("Spacemap: hotkey disabled")
+            return
+        }
         let monitor = HotkeyMonitor(config: config.hotkey) { [weak self] in
             self?.hud.toggle()
         }
         monitor.start()
         hotkey = monitor
+    }
+
+    private func startPinnedHotkey(config: GridConfig) {
+        guard !config.pinnedHotkey.isDisabled else {
+            print("Spacemap: pinned HUD hotkey disabled")
+            return
+        }
+        guard ConfigReader.hotkeyToString(config.pinnedHotkey) != ConfigReader.hotkeyToString(config.hotkey) else {
+            NSLog("Spacemap: pinned HUD hotkey matches the normal hotkey; pinned binding ignored")
+            return
+        }
+        let monitor = HotkeyMonitor(config: config.pinnedHotkey) { [weak self] in
+            self?.hud.togglePinned()
+        }
+        monitor.start()
+        pinnedHotkey = monitor
     }
 
     @objc private func showSettingsWindow() {
@@ -538,8 +625,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func openConfigAndExit() {
-        let configPath = NSString(string: "~/.config/spacemap/config").expandingTildeInPath
-        let url = URL(fileURLWithPath: configPath)
+        _ = ConfigReader.load()
+        let url = URL(fileURLWithPath: ConfigReader.configPath)
         NSWorkspace.shared.open(url)
         NSApp.terminate(nil)
     }

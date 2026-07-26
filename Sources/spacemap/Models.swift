@@ -79,11 +79,43 @@ enum HUDPositionKind: String, CaseIterable {
 }
 
 struct HotkeyConfig {
-    var keyCode: CGKeyCode
+    var key: HotkeyKey
     var modifiers: CGEventFlags
 
     // Default: Ctrl+Page Down
-    static let `default` = HotkeyConfig(keyCode: 121, modifiers: .maskControl)
+    static let `default` = HotkeyConfig(key: .keyCode(121), modifiers: .maskControl)
+
+    var keyCode: CGKeyCode? {
+        if case .keyCode(let code) = key { return code }
+        return nil
+    }
+
+    var mediaKey: MediaKey? {
+        if case .mediaKey(let key) = key { return key }
+        return nil
+    }
+
+    var isDisabled: Bool {
+        if case .none = key { return true }
+        return false
+    }
+}
+
+enum HotkeyKey: Equatable {
+    case none
+    case keyCode(CGKeyCode)
+    case mediaKey(MediaKey)
+}
+
+enum MediaKey: String, Codable, CaseIterable {
+    case playPause = "play-pause"
+    case nextTrack = "next-track"
+    case previousTrack = "previous-track"
+    case volumeUp = "volume-up"
+    case volumeDown = "volume-down"
+    case mute = "mute"
+    case brightnessUp = "brightness-up"
+    case brightnessDown = "brightness-down"
 }
 
 struct GridConfig {
@@ -91,6 +123,7 @@ struct GridConfig {
     var rows: Int
     var cellStyle: CellStyle
     var hotkey: HotkeyConfig
+    var pinnedHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
     var socketHealthInterval: Int
     var uiScale: Double // 0.0 to 1.0, maps to effective scale
     var autoHideTimeout: Int // seconds
@@ -116,9 +149,10 @@ struct GridConfig {
     var customHUDX: Double = 0.5 // last custom HUD X position (0-1)
     var customHUDY: Double = 0.5 // last custom HUD Y position (0-1)
     var showExtraWindows: Bool // show sublayer=normal windows (may include invisible utility windows)
+    var focusSpaceOnWindowDrop: Bool = false // focus the destination after a successful drag-and-drop
     var updateMode: UpdateMode // auto | notify | off
 
-    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, multiMonitorHUDMode: .unified, unifiedHUDVisibility: .active, separateHUDVisibility: .all, displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false, updateMode: .notify)
+    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, pinnedHotkey: HotkeyConfig(key: .none, modifiers: []), socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, multiMonitorHUDMode: .unified, unifiedHUDVisibility: .active, separateHUDVisibility: .all, displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false, focusSpaceOnWindowDrop: false, updateMode: .notify)
 }
 
 struct AppTheme: Equatable {

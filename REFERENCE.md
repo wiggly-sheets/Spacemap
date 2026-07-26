@@ -37,7 +37,7 @@
 
 | File | Purpose |
 |------|---------|
-| `~/.config/spacemap/config` | User configuration (reloads on HUD open, except HOTKEY) |
+| `~/.config/spacemap/spacemap.jsonc` | User configuration (reloads on HUD open; Settings applies hotkeys immediately) |
 | `/Applications/Spacemap.app` | Installed application bundle |
 | `/usr/local/bin/spacemap` | CLI symlink (if installed) |
 | `/tmp/spacemap_<username>.socket` | Unix domain socket for yabai signals |
@@ -51,6 +51,7 @@
 | `GRID_ROWS` | 2 | Grid rows |
 | `CELL_STYLE` | rects | `rects`, `icons`, `thumbnails`, or `simple` |
 | `HOTKEY` | ctrl+space | Toggle hotkey (requires restart) |
+| `PINNED_HOTKEY` | none | Optional persistent-HUD toggle |
 | `UI_SCALE` | 0.5 | HUD scale (0.0–1.0) |
 | `THEME` | default | Color theme |
 | `AUTO_HIDE_TIMEOUT` | 5 | Seconds before HUD hides (0=never) |
@@ -70,6 +71,7 @@
 | `HIDE_MENUBAR_ICON` | false | Hide menubar icon |
 | `VIM_KEYS` | false | Navigate spaces with hjkl when HUD is visible |
 | `ARROW_KEYS` | false | Navigate spaces with arrow keys when HUD is visible |
+| `FOCUS_SPACE_ON_WINDOW_DROP` | false | Focus the destination after a successful window drop |
 | `SPACE_NAMES` | "" | Custom names: `1:Name,2:Name` |
 | `SOCKET_HEALTH_INTERVAL` | 60 | Health check interval (seconds) |
 
@@ -92,6 +94,7 @@ Stores parsed configuration values.
 | `rows` | `Int` | `GRID_ROWS` |
 | `cellStyle` | `CellStyle` | `CELL_STYLE` |
 | `hotkey` | `HotkeyConfig` | `HOTKEY` |
+| `pinnedHotkey` | `HotkeyConfig` | `PINNED_HOTKEY` |
 | `uiScale` | `Double` | `UI_SCALE` |
 | `theme` | `String` | `THEME` |
 | `autoHideTimeout` | `Int` | `AUTO_HIDE_TIMEOUT` |
@@ -111,6 +114,21 @@ Stores parsed configuration values.
 | `hideMenuBarIcon` | `Bool` | `HIDE_MENUBAR_ICON` |
 | `spaceNames` | `[Int: String]` | `SPACE_NAMES` |
 | `socketHealthInterval` | `Int` | `SOCKET_HEALTH_INTERVAL` |
+| `focusSpaceOnWindowDrop` | `Bool` | `FOCUS_SPACE_ON_WINDOW_DROP` |
+
+## Settings Categories
+
+The Settings window keeps a permanent 180-point sidebar and renders one independent detail form at a time.
+
+| Category | Scope |
+|----------|-------|
+| Grid | Layout, multi-monitor behavior, cell style, and visible window metadata |
+| Space Names | Name visibility and per-space values |
+| Appearance | Theme, appearance mode, transparency, and scale |
+| Behavior | Normal and pinned hotkeys, HUD placement, timeout, navigation, drop focus, menu bar, and updates |
+| Debug/Advanced | Socket health interval |
+
+Sidebar rows are full-width buttons. The selected row is highlighted and exposed to accessibility as selected; there is no sidebar-collapse control.
 
 ### Enums
 
@@ -144,7 +162,7 @@ Stores parsed configuration values.
 | `SocketListener.swift` | `SocketListener` | Unix domain socket server for yabai signals |
 | `WindowDragHandler.swift` | `WindowDragHandler` | Drag-and-drop detection via CGEventTap |
 | `Models.swift` | `GridConfig`, `YabaiSpace`, etc. | Data structures |
-| `SettingsView.swift` | `SettingsView` | Settings window UI with live-save |
+| `SettingsView.swift` | `SettingsView` | Permanent category sidebar with separate live-save detail forms |
 | `SettingsWindowController.swift` | `SettingsWindowController` | AppKit window wrapper for SettingsView |
 | `ThumbnailCache.swift` | `ThumbnailCache` | ScreenCaptureKit capture, per-space caching (macOS 14+) |
 | `IconCache.swift` | `IconCache` | App icon cache to avoid repeated NSWorkspace lookups |
@@ -157,7 +175,7 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 - `queryWindows() -> [YabaiWindow]`
 - `buildGridState(config:focusedIndex:) -> GridState`
 - `focusSpace(_ index: Int)` — switches to a space
-- `moveWindow(_ windowId: Int, toSpace spaceIndex: Int)` — moves window
+- `moveWindowCreatingSpacesIfNeeded(_:toSpace:focusDestination:completion:)` — creates missing spaces, moves the window, and optionally focuses the destination
 - `queryFocusedSpaceIndex() -> Int?`
 - `queryFocusedWindow() -> Int?`
 - `isYabaiRunning() -> Bool`

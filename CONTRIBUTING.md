@@ -100,7 +100,7 @@ swift test            # Direct SPM test runner
 swift test --filter ConfigTests   # Run a specific test class
 ```
 
-150 tests across 6 files: HotkeyTests (19), ConfigTests (60), ThemeTests (12), ModelTests (21), CellViewGridViewTests (29), SpaceNavigatorTests (9).
+166 tests across 7 files, including config migration/healing, hotkey/media-key handling, models, grid rendering, navigation, themes, and CLI installation.
 
 ### Manual Testing Checklist
 - [ ] Launch app with yabai running → HUD opens on hotkey
@@ -108,6 +108,8 @@ swift test --filter ConfigTests   # Run a specific test class
 - [ ] Click cell → switch space and close HUD
 - [ ] Drag window over cell → window moves to target space
 - [ ] Config change → HUD reflects new settings on next open
+- [ ] Settings sidebar remains visible, highlights the selected category, and swaps to a separate detail form
+- [ ] Every Settings category auto-saves its controls
 - [ ] Kill yabai → app shows error dialog and exits
 - [ ] Deny Accessibility → app prompts for permission
 - [ ] Auto-hide → HUD closes after timeout
@@ -128,6 +130,7 @@ swift test --filter ConfigTests   # Run a specific test class
 
 - Check `DEVELOPER.md` for technical deep-dive
 - Check `TASKS.md` for roadmap and known issues
+- Check `SUPPORT.md` for where to get help and what to include in a report
 - Check `README.md` for user-facing documentation
 
 ## Code of Conduct

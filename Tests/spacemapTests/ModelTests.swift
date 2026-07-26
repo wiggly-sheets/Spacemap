@@ -138,6 +138,7 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(c.displayNavigationWrap, .within)
         XCTAssertFalse(c.useVimKeys)
         XCTAssertFalse(c.useArrowKeys)
+        XCTAssertTrue(c.pinnedHotkey.isDisabled)
         XCTAssertEqual(c.hudPosition, .center)
     }
 
