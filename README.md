@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img width="512" height="512" alt="icon_256x256@2x" src="https://github.com/user-attachments/assets/ca74882b-0ffb-49d9-b579-f4ee0840969b" />
+<img width="256" height="256" alt="icon_128x128@2x" src="https://github.com/user-attachments/assets/461e8c96-ce0c-4198-927a-66c32d991abb" />
 
 ![Release](https://github.com/wiggly-sheets/Spacemap/actions/workflows/release.yml/badge.svg)
 ![Platform](https://img.shields.io/badge/platform-macOS%2013+-lightgrey)
@@ -23,6 +23,8 @@ Spacemap gives you a visual reference for your yabai workspace layout. With [yab
 Spacemap solves this. It renders your spaces as a 2D grid, updating in real-time as you switch between them.
 
 > No SIP disabling required. This is a standard macOS app that runs alongside yabai without any kernel modifications.
+
+<img width="1610" height="984" alt="56203" src="https://github.com/user-attachments/assets/1b28a8ca-b6a8-4b69-869e-cf405a643cea" />
 
 ## Features
 
