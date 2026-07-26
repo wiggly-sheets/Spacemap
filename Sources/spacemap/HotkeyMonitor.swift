@@ -3,8 +3,9 @@ import Cocoa
 class HotkeyMonitor {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private var mediaKeyMonitor: Any?
     private let onTrigger: () -> Void
-    private let targetKeyCode: CGKeyCode
+    private let targetKey: HotkeyKey
     private let targetModifiers: CGEventFlags
     private var isStarted = false
 
@@ -16,19 +17,24 @@ class HotkeyMonitor {
         if let source = runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         }
+        if let monitor = mediaKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
         eventTap = nil
         runLoopSource = nil
+        mediaKeyMonitor = nil
         isStarted = false
     }
 
     init(config: HotkeyConfig, onTrigger: @escaping () -> Void) {
-        self.targetKeyCode = config.keyCode
+        self.targetKey = config.key
         self.targetModifiers = config.modifiers
         self.onTrigger = onTrigger
     }
 
     func start() {
         guard !isStarted else { return }
+        if case .none = targetKey { return }
 
         if !AXIsProcessTrusted() {
             NSLog("Spacemap/Hotkey: accessibility not yet granted")
@@ -55,9 +61,11 @@ class HotkeyMonitor {
 
         isStarted = true
         createTap()
+        createMediaKeyMonitor()
     }
 
     private func createTap() {
+        guard case .keyCode = targetKey else { return }
         let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
         let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -77,7 +85,9 @@ class HotkeyMonitor {
                 let flags = event.flags.intersection([.maskControl, .maskCommand,
                                                       .maskAlternate, .maskShift])
 
-                if keyCode == monitor.targetKeyCode && flags == monitor.targetModifiers {
+                if case .keyCode(let targetKeyCode) = monitor.targetKey,
+                   keyCode == targetKeyCode,
+                   flags == monitor.targetModifiers {
                     DispatchQueue.main.async { monitor.onTrigger() }
                     return nil
                 }
@@ -101,5 +111,34 @@ class HotkeyMonitor {
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         print("Spacemap: hotkey active")
+    }
+
+    private func createMediaKeyMonitor() {
+        guard case .mediaKey = targetKey else { return }
+        mediaKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.systemDefined]) { [weak self] event in
+            guard let self else { return }
+            guard event.type == .systemDefined, event.subtype.rawValue == 8 else { return }
+            let keyCode = Int((event.data1 & 0xFFFF0000) >> 16)
+            let keyState = ((event.data1 & 0x0000FFFF) >> 8) & 0x0F
+            guard keyState == 0xA || keyState == 0xB else { return }
+            if self.matchesMediaKey(code: keyCode) {
+                DispatchQueue.main.async { self.onTrigger() }
+            }
+        }
+    }
+
+    private func matchesMediaKey(code: Int) -> Bool {
+        guard case .mediaKey(let target) = targetKey else { return false }
+        switch (target, code) {
+        case (.playPause, 16): return true
+        case (.nextTrack, 17): return true
+        case (.previousTrack, 18): return true
+        case (.volumeUp, 0): return true
+        case (.volumeDown, 1): return true
+        case (.mute, 7): return true
+        case (.brightnessUp, 2): return true
+        case (.brightnessDown, 3): return true
+        default: return false
+        }
     }
 }

@@ -42,12 +42,24 @@ final class HotkeyTests: XCTestCase {
         XCTAssertNil(ConfigReader.parseHotkey("ctrl+f21"))
     }
 
+    func testParseMediaKey() {
+        let hk = ConfigReader.parseHotkey("cmd+play-pause")!
+        XCTAssertEqual(hk.mediaKey, .playPause)
+        XCTAssertTrue(hk.modifiers.contains(.maskCommand))
+    }
+
     func testParseHotkeyUnknownModifierReturnsNil() {
         XCTAssertNil(ConfigReader.parseHotkey("super+a"))
     }
 
     func testParseHotkeyEmptyReturnsNil() {
         XCTAssertNil(ConfigReader.parseHotkey(""))
+    }
+
+    func testParseHotkeyNoneDisablesBinding() {
+        let hk = ConfigReader.parseHotkey("none")!
+        XCTAssertTrue(hk.isDisabled)
+        XCTAssertEqual(ConfigReader.hotkeyToString(hk), "none")
     }
 
     // MARK: - keyCodeFor
@@ -101,23 +113,28 @@ final class HotkeyTests: XCTestCase {
     // MARK: - hotkeyToString
 
     func testHotkeyToStringCtrlPageDown() {
-        let hk = HotkeyConfig(keyCode: 121, modifiers: .maskControl)
+        let hk = HotkeyConfig(key: .keyCode(121), modifiers: .maskControl)
         XCTAssertEqual(ConfigReader.hotkeyToString(hk), "ctrl+pgdn")
     }
 
     func testHotkeyToStringCmdShiftA() {
-        let hk = HotkeyConfig(keyCode: 0, modifiers: [.maskCommand, .maskShift])
+        let hk = HotkeyConfig(key: .keyCode(0), modifiers: [.maskCommand, .maskShift])
         XCTAssertEqual(ConfigReader.hotkeyToString(hk), "cmd+shift+a")
     }
 
     func testHotkeyToStringNoModifier() {
-        let hk = HotkeyConfig(keyCode: 49, modifiers: [])
+        let hk = HotkeyConfig(key: .keyCode(49), modifiers: [])
         XCTAssertEqual(ConfigReader.hotkeyToString(hk), "space")
     }
 
     func testHotkeyToStringAllModifiers() {
-        let hk = HotkeyConfig(keyCode: 36, modifiers: [.maskControl, .maskCommand, .maskAlternate, .maskShift])
+        let hk = HotkeyConfig(key: .keyCode(36), modifiers: [.maskControl, .maskCommand, .maskAlternate, .maskShift])
         XCTAssertEqual(ConfigReader.hotkeyToString(hk), "ctrl+cmd+alt+shift+return")
+    }
+
+    func testHotkeyToStringMediaKey() {
+        let hk = HotkeyConfig(key: .mediaKey(.playPause), modifiers: [.maskCommand])
+        XCTAssertEqual(ConfigReader.hotkeyToString(hk), "cmd+play-pause")
     }
 
     // MARK: - Roundtrip

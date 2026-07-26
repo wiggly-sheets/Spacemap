@@ -251,39 +251,40 @@ clean:
 
 config:
 	mkdir -p ~/.config/spacemap
-	@if [ ! -f ~/.config/spacemap/config ]; then \
-		echo "GRID_COLS=8" > ~/.config/spacemap/config; \
-		echo "GRID_ROWS=2" >> ~/.config/spacemap/config; \
-		echo "#CELL_STYLE=rects" >> ~/.config/spacemap/config; \
-		echo "CELL_STYLE=icons" >> ~/.config/spacemap/config; \
-		echo "#CELL_STYLE=thumbnails
-		echo "#CELL_STYLE=simple" >> ~/.config/spacemap/config; \
-		echo "#HOTKEY=ctrl+pgdn" >> ~/.config/spacemap/config; \
-		echo "#UI_SCALE=1.0" >> ~/.config/spacemap/config; \
-		echo "#AUTO_SHOW=false" >> ~/.config/spacemap/config; \
-		echo "#AUTO_HIDE_TIMEOUT=5" >> ~/.config/spacemap/config; \
-		echo "#THEME=default" >> ~/.config/spacemap/config; \
-		echo "#SOCKET_HEALTH_INTERVAL=60" >> ~/.config/spacemap/config; \
-		echo "SPACE_NAMES=1:Desktop,2:Dev" >> ~/.config/spacemap/config; \
-		echo "Created ~/.config/spacemap/config with defaults (8x2, icons)"; \
+	@if [ ! -f ~/.config/spacemap/spacemap.jsonc ]; then \
+		printf '%s\n' \
+			'// Spacemap config; missing fields are filled automatically.' \
+			'{' \
+			'  "cols": 8,' \
+			'  "rows": 2,' \
+			'  "cellStyle": "icons",' \
+			'  "maxSpaces": 16,' \
+			'  "theme": "default",' \
+			'  "spaceNames": {' \
+			'    "1": "Desktop",' \
+			'    "2": "Dev"' \
+			'  }' \
+			'}' > ~/.config/spacemap/spacemap.jsonc; \
+		echo "Created ~/.config/spacemap/spacemap.jsonc"; \
 	else \
-		echo "Config already exists at ~/.config/spacemap/config"; \
-		cat ~/.config/spacemap/config; \
+		echo "Config already exists at ~/.config/spacemap/spacemap.jsonc"; \
+		cat ~/.config/spacemap/spacemap.jsonc; \
 	fi
 
 distconfig:
 	mkdir -p ~/.config/spacemap
-	@echo "GRID_COLS=8" > ~/.config/spacemap/config
-	@echo "GRID_ROWS=2" >> ~/.config/spacemap/config
-	@echo "#CELL_STYLE=rects" >> ~/.config/spacemap/config
-	@echo "CELL_STYLE=icons" >> ~/.config/spacemap/config
-	@echo "#CELL_STYLE=thumbnails
-		echo "#CELL_STYLE=simple" >> ~/.config/spacemap/config
-	@echo "#HOTKEY=ctrl+pgdn" >> ~/.config/spacemap/config
-	@echo "#SOCKET_HEALTH_INTERVAL=60" >> ~/.config/spacemap/config
-	@echo "SPACE_NAMES=1:Desktop,2:Dev" >> ~/.config/spacemap/config
-	@echo "Wrote ~/.config/spacemap/config"
-	@cat ~/.config/spacemap/config
+	@printf '%s\n' \
+		'// Spacemap config; missing fields are filled automatically.' \
+		'{' \
+		'  "cols": 8,' \
+		'  "rows": 2,' \
+		'  "cellStyle": "icons",' \
+		'  "maxSpaces": 16,' \
+		'  "theme": "default",' \
+		'  "spaceNames": {}' \
+		'}' > ~/.config/spacemap/spacemap.jsonc
+	@echo "Wrote ~/.config/spacemap/spacemap.jsonc"
+	@cat ~/.config/spacemap/spacemap.jsonc
 
 symlink:
 	ln -sf /Applications/Spacemap.app/Contents/MacOS/spacemap /usr/local/bin/spacemap

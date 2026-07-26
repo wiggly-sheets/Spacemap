@@ -10,13 +10,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added an optional pinned HUD hotkey that toggles a permanently visible HUD independently of the normal timed hotkey.
 - First-launch CLI installation now creates `/usr/local/bin` when possible and offers an explicit administrator-authorized fallback when macOS protects that location.
+- Repository security policy documenting supported versions, vulnerability reporting, and expected disclosure handling.
+- Repository support policy documenting where to ask for help and what information to include.
+- Dropping a window onto an empty grid slot now creates any missing yabai spaces before moving the window there.
+
+### Changed
+- Settings sidebar categories now have roomier vertical spacing and larger click targets.
+- Menu bar actions now use native SF Symbols for faster visual scanning, including Settings, CLI installation, updates, restart, permissions, and Quit.
+- Settings category headings and sidebar labels now use larger, more prominent typography.
+- Clarified the SwiftPM ignore guidance so `Package.resolved` is no longer presented as an ignored file in this repository.
+- The canonical config file is now `~/.config/spacemap/spacemap.jsonc`; existing `config` files migrate automatically.
+- Config loading now supports schema-backed JSON with JSONC comments, while still accepting legacy `key=value` files during migration.
+- Hotkey parsing and triggering now support common media keys such as play/pause, next, previous, mute, volume, and brightness.
+- Hotkey recorder now uses a more native inline control with a clear button to disable the current binding.
+- Hotkey recorder now captures media keys directly and presents the selected binding in a native-style inline control.
+- Settings window styling now leans more on native form chrome, lighter headers, and system background treatment.
+- Settings view now uses segmented controls for small choice sets and tighter native-style footnote helpers.
+- Settings window now uses a System Settings-style sidebar to group controls by section.
+- Behavior settings can now optionally focus a destination space after a window is dropped there; the option defaults to off.
+- Settings sidebar is now permanently visible, highlights the selected category, and uses full-row category buttons that reliably navigate the settings form.
+- Each settings sidebar category now opens a distinct detail view instead of scrolling through one continuous form.
+- User, contributor, developer, support, reference, roadmap, and agent documentation now describe the category-based Settings interface consistently.
+- Moved the Command-Line Tool installer below the permission shortcuts in the menu-bar menu.
 
 ### Fixed
 - CLI installation now validates its destination and never removes an unrelated file or symlink at `/usr/local/bin/spacemap`.
-
-### Changed
-- Moved the Command-Line Tool installer below the permission shortcuts in the menu-bar menu.
+- JSON/JSONC config self-healing now runs on every load and preserves valid fields while repairing missing, mistyped, or out-of-range values.
+- Hotkey recording now captures events delivered to the active Settings window and cleans up event monitors when the recorder disappears.
 
 
 ## [1.0.15] - 2026-07-25

@@ -6,6 +6,7 @@ class HUDWindowController {
     private var panel: NSPanel?
     private var displayPanels: [Int: NSPanel] = [:]
     private var isVisible = false
+    private var isPinned = false
     private var _config: GridConfig? = nil
     private var config: GridConfig {
         get {
@@ -58,10 +59,20 @@ class HUDWindowController {
         }
         dragHandler.onDropInCell = { [weak self] windowID, spaceIndex in
             guard let self else { return }
-            YabaiClient.moveWindow(windowID, toSpace: spaceIndex)
             hoveredCell = nil
-            refreshState()
             resetAutoHideTimer()
+            YabaiClient.moveWindowCreatingSpacesIfNeeded(
+                windowID,
+                toSpace: spaceIndex,
+                focusDestination: config.focusSpaceOnWindowDrop
+            ) { [weak self] result in
+                guard let self else { return }
+                if case .failure(let error) = result {
+                    NSLog("spacemap/HUD: window drop failed: \(error.localizedDescription)")
+                }
+                refreshState()
+                resetAutoHideTimer()
+            }
         }
     }
     
@@ -72,8 +83,27 @@ class HUDWindowController {
         }
         NSLog("spacemap/HUD: toggle called, isVisible=\(isVisible)")
         isToggling = true
+        isPinned = false
         if isVisible { hide() } else { show() }
         // Reset isToggling after a short delay to allow for animation settle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.isToggling = false
+        }
+    }
+
+    func togglePinned() {
+        guard !isToggling else { return }
+        isToggling = true
+        if isVisible, isPinned {
+            hide()
+        } else {
+            isPinned = true
+            if isVisible {
+                resetAutoHideTimer()
+            } else {
+                show()
+            }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.isToggling = false
         }
@@ -244,6 +274,7 @@ class HUDWindowController {
             return
         }
         NSLog("spacemap/HUD: hide() called")
+        isPinned = false
         dragHandler.stop()
         autoHideTimer?.invalidate()
         autoHideTimer = nil
@@ -575,6 +606,8 @@ class HUDWindowController {
     private func resetAutoHideTimer() {
         if isPanelDragging { return }
         autoHideTimer?.invalidate()
+        autoHideTimer = nil
+        guard !isPinned else { return }
         if config.autoHideTimeout > 0 {
             autoHideTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(config.autoHideTimeout), repeats: false) { [weak self] _ in
                 self?.hide()
@@ -671,43 +704,13 @@ class HUDWindowController {
         let panelFrame = panel.frame
         let x = Double((panelFrame.midX - screenFrame.minX) / screenFrame.width)
         let y = Double((panelFrame.midY - screenFrame.minY) / screenFrame.height)
-        let configPath = NSString(string: "~/.config/spacemap/config").expandingTildeInPath
-        guard var text = try? String(contentsOfFile: configPath, encoding: .utf8) else { return }
-        if let range = text.range(of: "HUD_POSITION=") {
-            let lineStart = range.lowerBound
-            var lineEnd = text[lineStart...].firstIndex(of: "\n") ?? text.endIndex
-            if lineEnd < text.endIndex { lineEnd = text.index(after: lineEnd) }
-            text.replaceSubrange(lineStart..<lineEnd, with: "HUD_POSITION=custom\n")
-        } else {
-            text += "\nHUD_POSITION=custom\n"
-        }
-        // Also update CUSTOM_HUD_X and CUSTOM_HUD_Y for SettingsView persistence
-        let xString = String(x)
-        let yString = String(y)
-        if let range = text.range(of: "CUSTOM_HUD_X=") {
-            let lineStart = range.lowerBound
-            var lineEnd = text[lineStart...].firstIndex(of: "\n") ?? text.endIndex
-            if lineEnd < text.endIndex { lineEnd = text.index(after: lineEnd) }
-            text.replaceSubrange(lineStart..<lineEnd, with: "CUSTOM_HUD_X=\(xString)\n")
-        } else {
-            text += "\nCUSTOM_HUD_X=\(xString)\n"
-        }
-        if let range = text.range(of: "CUSTOM_HUD_Y=") {
-            let lineStart = range.lowerBound
-            var lineEnd = text[lineStart...].firstIndex(of: "\n") ?? text.endIndex
-            if lineEnd < text.endIndex { lineEnd = text.index(after: lineEnd) }
-            text.replaceSubrange(lineStart..<lineEnd, with: "CUSTOM_HUD_Y=\(yString)\n")
-        } else {
-            text += "\nCUSTOM_HUD_Y=\(yString)\n"
-        }
-        do {
-            try text.write(toFile: configPath, atomically: true, encoding: .utf8)
-            NSLog("spacemap/HUD: saved custom position x=%.2f y=%.2f", x, y)
-            // Notify any observers (e.g., SettingsView) that the config has changed
-            NotificationCenter.default.post(name: Notification.Name("settingsChanged"), object: nil)
-        } catch {
-            NSLog("spacemap/HUD: failed to write config: \(error)")
-        }
+        var config = ConfigReader.load()
+        config.hudPosition = .custom(x: x, y: y)
+        config.customHUDX = x
+        config.customHUDY = y
+        ConfigReader.saveConfig(config)
+        NSLog("spacemap/HUD: saved custom position x=%.2f y=%.2f", x, y)
+        NotificationCenter.default.post(name: Notification.Name("settingsChanged"), object: nil)
     }
 
     private func startSettingsKeyMonitor() {
