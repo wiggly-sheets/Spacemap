@@ -27,7 +27,7 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>Spacemap needs screen recording permission to show window thumbnails of each yabai space.</string>
+	<string>Spacemap needs screen recording permission to show window thumbnails for your window manager workspaces.</string>
 	<key>SUFeedURL</key>
 	<string>https://wiggly-sheets.github.io/Spacemap/appcast.xml</string>
 </dict>

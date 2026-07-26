@@ -27,7 +27,7 @@ If the issue is related to one of these areas, mention it explicitly:
 
 - Accessibility permissions
 - Screen Recording permissions
-- yabai or skhd availability
+- yabai, AeroSpace, or optional skhd availability
 - The CLI installer or `/usr/local/bin/spacemap`
 - Hotkey handling
 - Window dragging or HUD visibility
@@ -49,14 +49,14 @@ Support is best suited for:
 Support is not the right channel for:
 
 - General macOS support unrelated to Spacemap
-- Third-party tool support for yabai, skhd, or Homebrew
+- Third-party tool support for yabai, AeroSpace, skhd, or Homebrew
 - Security vulnerabilities, which should be reported through [SECURITY.md](./SECURITY.md)
 
 ## Before Opening an Issue
 
 Try these quick checks:
 
-1. Confirm `yabai` and `skhd` are installed and running.
+1. Confirm either yabai or AeroSpace is installed and running. Spacemap prefers yabai if both are active.
 2. Confirm Spacemap has Accessibility permission.
 3. Restart the HUD after config changes.
 4. For Settings issues, identify the affected category: Grid, Space Names, Appearance, Behavior, or Debug/Advanced.

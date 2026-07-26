@@ -40,7 +40,7 @@
 | `~/.config/spacemap/spacemap.jsonc` | User configuration (reloads on HUD open; Settings applies hotkeys immediately) |
 | `/Applications/Spacemap.app` | Installed application bundle |
 | `/usr/local/bin/spacemap` | CLI symlink (if installed) |
-| `/tmp/spacemap_<username>.socket` | Unix domain socket for yabai signals |
+| `/tmp/spacemap_<username>.socket` | Unix domain socket for manager events and CLI commands |
 | `Console.app` | View logs (filter by "spacemap") |
 
 ## Config Keys Reference
@@ -157,9 +157,11 @@ Sidebar rows are full-width buttons. The selected row is highlighted and exposed
 | `GridView.swift` | `GridView` | SwiftUI grid container, cell layout, theme |
 | `CellView.swift` | `CellView` | Per-cell rendering (rects/icons/thumbnails), space names |
 | `YabaiClient.swift` | `YabaiClient` | yabai CLI wrapper, space/window queries, signal management |
+| `AeroSpaceClient.swift` | `AeroSpaceClient` | AeroSpace CLI wrapper, workspace/window queries, commands, and subscriptions |
+| `WindowManagerProtocol.swift` | `WindowManager` | Shared manager interface and manager selection types |
 | `ConfigReader.swift` | `ConfigReader` | Config parsing with inline comments, SPACE_NAMES support |
 | `HotkeyMonitor.swift` | `HotkeyMonitor` | Global CGEventTap for hotkey capture |
-| `SocketListener.swift` | `SocketListener` | Unix domain socket server for yabai signals |
+| `SocketListener.swift` | `SocketListener` | Unix domain socket server for manager events and CLI commands |
 | `WindowDragHandler.swift` | `WindowDragHandler` | Drag-and-drop detection via CGEventTap |
 | `Models.swift` | `GridConfig`, `YabaiSpace`, etc. | Data structures |
 | `SettingsView.swift` | `SettingsView` | Permanent category sidebar with separate live-save detail forms |
@@ -182,6 +184,16 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 - `registerSignals(socketPath:)` — registers yabai signals
 - `removeSignals()` — unregisters yabai signals
 
+## AeroSpace Integration (`AeroSpaceClient.swift`)
+
+Shells out to the AeroSpace CLI and requests explicit JSON fields for stable decoding.
+
+- Queries all and focused workspaces and windows
+- Maps AeroSpace workspace names to Spacemap's one-based grid indices
+- Focuses workspaces and moves windows through AeroSpace commands
+- Subscribes to focus, monitor, workspace, and window events for live refreshes
+- Does not create missing workspaces; destinations must exist in the AeroSpace configuration
+
 ## HUD Window (`HUDWindowController.swift`)
 
 - `show()` — fetches data, builds grid, displays HUD, starts auto-hide timer
@@ -200,7 +212,7 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 
 ### `SocketListener.swift`
 - Unix domain server at `/tmp/spacemap_<username>.socket`
-- Listens for yabai signal commands: `0` (refresh), `1` (show), `2` (hide), `3` (settings)
+- Listens for manager and CLI commands: `0` (refresh), `1` (show), `2` (hide), `3` (settings)
 - Periodic health check via `fcntl(fd, F_GETFD)` + file existence
 
 ### `WindowDragHandler.swift`
@@ -218,7 +230,7 @@ Available themes: `default`, `tokyonight`, `catppuccin`, `monokai-dark`, `monoka
 ## Signal Integration
 
 - Commands: `0`=refresh, `1`=show, `2`=hide, `3`=settings
-- yabai emits `spacemap_space_changed:1` via signal on space change
+- yabai signals and AeroSpace subscriptions feed the same socket command path
 
 ## UI Scaling
 

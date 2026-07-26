@@ -2,15 +2,15 @@
 
 ## Welcome!
 
-We're excited to have you contribute to Spacemap. This is a native macOS utility that visualizes yabai workspaces in a floating 2D grid overlay.
+Spacemap is a native macOS utility that visualizes yabai or AeroSpace workspaces in a floating 2D grid overlay.
 
 ## Development Workflow
 
 ### Prerequisites
 - macOS 13+ (Ventura or later)
 - Xcode Command Line Tools: `xcode-select --install`
-- yabai installed: `brew install asmvik/formulae/yabai`
-- skhd installed: `brew install koekeishiya/formulae/skhd` (or `brew install jackielii/formulae/skhd-zig`)
+- At least one supported manager: yabai (`brew install asmvik/formulae/yabai`) or AeroSpace (`brew install --cask nikitabobko/tap/aerospace`)
+- skhd is optional for external shortcuts: `brew install koekeishiya/formulae/skhd` (or `brew install jackielii/formulae/skhd-zig`)
 
 ### Setup
 
@@ -71,7 +71,7 @@ We're excited to have you contribute to Spacemap. This is a native macOS utility
 1. **Check TASKS.md** - see if it's already planned
 2. **Open an issue first** - describe the feature and get feedback
 3. **Start small** - minimal viable implementation
-4. **Test with yabai** - verify actual workspace interactions
+4. **Test with supported managers** - verify shared behavior with yabai and AeroSpace when the change affects manager integration
 
 ### Code Changes
 - **Edit existing files only** - no new files unless absolutely necessary
@@ -80,13 +80,13 @@ We're excited to have you contribute to Spacemap. This is a native macOS utility
 - **No comments** - keep it lean, add only if absolutely required
 
 ### Pull Requests
-- **Title format:** `verb: what changed` (e.g., `Fix: handle yabai not running`)
+- **Title format:** `verb: what changed` (e.g., `Fix: handle window manager not running`)
 - **Description:** brief explanation of changes and testing steps
 - **Screenshots:** if UI changes, include before/after images
 
 ## Important Constraints
 
-1. **yabai path:** Auto-detected at `/opt/homebrew/bin/yabai` (ARM) or `/usr/local/bin/yabai` (Intel)
+1. **Manager selection:** yabai and AeroSpace are auto-detected; yabai is preferred when both are running
 2. **Accessibility:** Required for hotkeys, handled on launch
 3. **Permissions:** Rebuilds revoke permissions - use `make dev1`/`dev2` workflow
 4. **Config:** Reloaded on every HUD open (except `HOTKEY` which needs restart)
@@ -104,13 +104,14 @@ swift test --filter ConfigTests   # Run a specific test class
 
 ### Manual Testing Checklist
 - [ ] Launch app with yabai running → HUD opens on hotkey
+- [ ] Launch app with AeroSpace running and yabai stopped → HUD opens on hotkey
 - [ ] Switch spaces while HUD visible → active cell updates
 - [ ] Click cell → switch space and close HUD
 - [ ] Drag window over cell → window moves to target space
 - [ ] Config change → HUD reflects new settings on next open
 - [ ] Settings sidebar remains visible, highlights the selected category, and swaps to a separate detail form
 - [ ] Every Settings category auto-saves its controls
-- [ ] Kill yabai → app shows error dialog and exits
+- [ ] Stop the active manager → app reports that no supported window manager is running
 - [ ] Deny Accessibility → app prompts for permission
 - [ ] Auto-hide → HUD closes after timeout
 
@@ -118,7 +119,7 @@ swift test --filter ConfigTests   # Run a specific test class
 1. **Config parsing:** Add inline comments (`# comment`) and verify parsing
 2. **Scale testing:** Set `UI_SCALE=0.5` → verify 5× size
 3. **Theme testing:** Set `THEME=tokyonight` → verify colors
-4. **Signal testing:** `yabai --signal --emit spacemap_show` → HUD shows
+4. **Event testing:** Verify yabai signals and AeroSpace subscriptions refresh the visible HUD
 
 ## Known Limitations
 

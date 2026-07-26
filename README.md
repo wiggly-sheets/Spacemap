@@ -8,7 +8,7 @@
 ![Platform](https://img.shields.io/badge/platform-macOS%2013+-lightgrey)
 ![Swift](https://img.shields.io/badge/swift-5.9-orange)
 
-**A native macOS utility that visualizes your yabai workspaces as a 2D grid overlay.**
+**A native macOS utility that visualizes yabai or AeroSpace workspaces as a 2D grid overlay.**
 
 Press `Ctrl+Space` to toggle a floating HUD showing all your desktops as a grid with window positions highlighted inside each cell.
 
@@ -18,16 +18,16 @@ Press `Ctrl+Space` to toggle a floating HUD showing all your desktops as a grid 
 
 ## About
 
-Spacemap gives you a visual reference for your yabai workspace layout. With [yabai](https://github.com/koekeishiya/yabai) and [skhd](https://github.com/koekeishiya/skhd) / [skhd.zig](https://github.com/jackielii/skhd.zig), you can arrange your desktop switching on a grid—but you have no visual confirmation of where things are until you're already there.
+Spacemap gives you a visual reference for workspaces managed by [yabai](https://github.com/koekeishiya/yabai) or [AeroSpace](https://github.com/nikitabobko/AeroSpace). These tiling window managers make keyboard-driven workspace navigation efficient, but do not provide a persistent visual map of the layout.
 
 Spacemap solves this. It renders your spaces as a 2D grid, updating in real-time as you switch between them.
 
-> No SIP disabling required. This is a standard macOS app that runs alongside yabai without any kernel modifications.
+> Spacemap does not require SIP to be disabled. It is a standard macOS app that runs alongside your selected window manager.
 
 ## Features
 
 - **2D Grid Visualization** — See all your spaces laid out in rows and columns
-- **Live Updates** — Active cell updates instantly via yabai's `space_changed` signal
+- **Live Updates** — Active cells and windows update from yabai signals or AeroSpace events
 - **Three Cell Styles** — Colored rectangles, app icons, or live thumbnails
 - **Keyboard Navigation** — Arrow keys and Vim keys (hjkl) to navigate the grid
 - **Drag & Drop** — Drag windows directly onto cells to move them to that space
@@ -38,17 +38,19 @@ Spacemap solves this. It renders your spaces as a 2D grid, updating in real-time
 
 ### 1. Install a supported window manager
 
+Install either yabai:
+
 ```bash
 brew install asmvik/formulae/yabai
 ```
 
-Spacemap also supports [AeroSpace](https://github.com/nikitabobko/AeroSpace):
+or AeroSpace:
 
 ```bash
 brew install --cask nikitabobko/tap/aerospace
 ```
 
-Spacemap automatically prefers yabai when both are running. `skhd` is optional for external shortcuts:
+Spacemap detects the running manager automatically and prefers yabai if both are running. `skhd` is optional and only needed if you want external shortcuts:
 
 ```bash
 brew install koekeishiya/formulae/skhd
@@ -211,8 +213,8 @@ The Settings hotkey recorders are recommended for editing these values. The pinn
 ## Requirements
 
 - macOS 13+ (macOS 14+ for thumbnails)
-- [yabai](https://github.com/koekeishiya/yabai) running
-- [skhd](https://github.com/koekeishiya/skhd) running
+- [yabai](https://github.com/koekeishiya/yabai) or [AeroSpace](https://github.com/nikitabobko/AeroSpace) running
+- [skhd](https://github.com/koekeishiya/skhd) or [skhd.zig](https://github.com/jackielii/skhd.zig) only for optional external shortcuts
 - Accessibility permission
 - Screen Recording permission (thumbnails only)
 - For multi-monitor HUD modes: **Displays have separate Spaces** enabled in System Settings → Desktop & Dock → Mission Control (log out and back in after changing it)
@@ -282,8 +284,10 @@ make dev2   # reinstall and re-grant permission
 |-------|----------|
 | HUD doesn't appear | Check Accessibility permission |
 | Config not applying | Close and reopen HUD |
-| yabai not found | Ensure yabai is installed at `/opt/homebrew/bin/yabai` |
-| Space names not showing | Format: `SPACE_NAMES=1:Name,2:Name` (no spaces around `:`) |
+| No supported window manager found | Start yabai or AeroSpace, then relaunch Spacemap |
+| Wrong manager selected | Spacemap prefers yabai when both managers are running; stop yabai to use AeroSpace |
+| AeroSpace workspaces do not appear | Confirm `aerospace list-workspaces --all` succeeds in Terminal |
+| Space names not showing | Set names in Settings or edit the `spaceNames` object in `spacemap.jsonc` |
 | App won't launch | Check Console.app for logs; run `make dev1` then `make dev2` |
 
 To view logs: Open **Console.app**, filter by "spacemap".

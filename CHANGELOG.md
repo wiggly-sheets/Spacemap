@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - AeroSpace workspaces now use Spacemap's one-based grid indices and current multi-monitor grid state.
 - AeroSpace queries now request explicit JSON fields for stable workspace, monitor, and window decoding.
+- Updated user, support, contributor, and developer documentation to describe both yabai and AeroSpace support.
 
 
 ## [1.0.16] - 2026-07-25

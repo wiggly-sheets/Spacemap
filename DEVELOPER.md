@@ -6,25 +6,25 @@ Technical deep-dive, debugging, and configuration details for contributors.
 
 ### Data Flow
 1. **App launches** → `App.swift` detects yabai or AeroSpace, then sets up the menubar, hotkey monitors, socket listener, and Sparkle updater
-2. **Hotkey pressed** → `HUDWindowController.show()` fetches yabai data, builds grid state
+2. **Hotkey pressed** → `HUDWindowController.show()` fetches data through the selected `WindowManager`, then builds grid state
 3. **Grid renders** → SwiftUI `GridView` → `CellView` for each cell
-4. **Live updates** → yabai `space_changed` signal → socket message → `HUDWindowController.refresh()`
-5. **Drag-and-drop** → `WindowDragHandler` CGEventTap correlates mouse to cell, moves window via yabai
+4. **Live updates** → yabai signals or AeroSpace subscriptions → socket message → `HUDWindowController.refresh()`
+5. **Drag-and-drop** → `WindowDragHandler` correlates mouse to cell and moves the window through the selected manager
 6. **Update check** → Sparkle fetches appcast at launch (if enabled), shows update dialog or downloads silently
 
 ### Key Components
 | File | Responsibility |
 |------|----------------|
-| `App.swift` | Entry point, menubar, settings window, yabai/accessibility checks |
+| `App.swift` | Entry point, manager selection, menubar, settings window, and accessibility checks |
 | `HUDWindowController.swift` | NSPanel lifecycle, auto-hide timer, state management |
 | `GridView.swift` | SwiftUI grid container, cell layout, theme application |
 | `CellView.swift` | Per-cell rendering (rects/icons/thumbnails), space names display |
 | `YabaiClient.swift` | yabai CLI wrapper, signal management, space/window queries |
 | `ConfigReader.swift` | Config parsing with inline comments, SPACE_NAMES support |
 | `HotkeyMonitor.swift` | Global CGEventTap for hotkey capture |
-| `WindowManagerProtocol.swift` | Shared manager interface and yabai adapter |
-| `AeroSpaceClient.swift` | AeroSpace workspace/window queries and commands |
-| `SocketListener.swift` | Unix domain socket server for yabai signals |
+| `WindowManagerProtocol.swift` | Shared manager interface, manager types, and yabai adapter |
+| `AeroSpaceClient.swift` | AeroSpace workspace/window queries, commands, and event subscription |
+| `SocketListener.swift` | Unix domain socket server for manager events and CLI commands |
 | `WindowDragHandler.swift` | Drag-and-drop detection via CGEventTap |
 | `Models.swift` | Data structures (GridConfig, YabaiSpace, AppTheme) |
 | `SettingsView.swift` | Permanent settings sidebar and category-specific live-save forms |
@@ -136,7 +136,7 @@ class SettingsWindowController: NSWindowController {
 ### Socket Protocol
 - Unix domain socket at `/tmp/spacemap_<username>.socket`
 - Commands: 0=refresh, 1=show, 2=hide, 3=settings
-- yabai emits `spacemap_space_changed:1` on space change
+- yabai emits Spacemap commands through registered signals; AeroSpace subscriptions emit refresh commands
 - SocketListener routes to `onRefresh`/`onShow`/`onSettings` callbacks
 
 ### Registering Signal in yabai

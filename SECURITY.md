@@ -26,7 +26,7 @@ Please report issues that could impact confidentiality, integrity, or availabili
 - Exposure of local data through logs, settings, cache files, or update metadata
 - Weaknesses in app update verification or signing
 - Accessibility, Screen Recording, or other permission-related bypasses
-- Malicious or unintended interaction with yabai, skhd, sockets, or shell commands
+- Malicious or unintended interaction with yabai, AeroSpace, optional skhd integrations, sockets, or shell commands
 
 ## What Not to Report
 

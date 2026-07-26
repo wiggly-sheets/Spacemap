@@ -41,7 +41,7 @@ A living list of planned features, known bugs, and future improvements for the p
 ### System Integration
 
 - **Symlink Creation**: Automated `/usr/local/bin/spacemap` symlink at launch via `ensureSymlink()`
-- **Yabai Mandatory Check**: Prevents launch if yabai is not running; shows critical alert
+- **Supported Manager Check**: Prevents launch if neither yabai nor AeroSpace is running; shows a critical alert
 - **MRU Spaces Detection**: Warns user and offers to disable macOS MRU spaces
 - **Accessibility Permission Request**: Polls every 2s until granted, registers hotkey automatically
 - **Dynamic yabai Path**: Auto-detects ARM (`/opt/homebrew/bin/yabai`) or Intel (`/usr/local/bin/yabai`) via FileManager

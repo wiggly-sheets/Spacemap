@@ -363,7 +363,7 @@ init() {
                             .pickerStyle(.segmented)
                             .onChange(of: unifiedHUDVisibility) { _ in saveConfig() }
                             SettingsFootnote(text: unifiedHUDVisibility == .active
-                                ? "Shows the unified grid on the display containing yabai's focused space."
+                                ? "Shows the unified grid on the display containing the active window manager's focused workspace."
                                 : "Shows the same unified grid on every display at once.")
                         }
 
@@ -375,7 +375,7 @@ init() {
                             .pickerStyle(.segmented)
                             .onChange(of: separateHUDVisibility) { _ in saveConfig() }
                             SettingsFootnote(text: separateHUDVisibility == .active
-                                ? "Shows the HUD only on the display containing yabai's focused space."
+                                ? "Shows the HUD only on the display containing the active window manager's focused workspace."
                                 : "Shows a HUD on every display at once.")
                         }
 

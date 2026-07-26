@@ -7,8 +7,8 @@ Whenever you are working in this repo, be as concise as possible with your answe
 **Spacemap** is a native macOS utility that visualizes yabai or AeroSpace workspaces in a floating 2D grid overlay. Think of it as a "mission control" for your tiling window manager.
 
 ### What It Does
-- Shows a HUD overlay (toggle with hotkey) displaying your yabai desktops in a configurable grid
-- Live-updates as you switch spaces via yabai
+- Shows a HUD overlay (toggle with hotkey) displaying yabai or AeroSpace workspaces in a configurable grid
+- Live-updates from the selected window manager
 - Lets you click cells to jump to spaces
 - Supports four display styles: colored rectangles, app icons, plain, or thumbnails (ScreenCaptureKit)
 - Window drag-and-drop between cells (drag a window onto a cell to move it)
@@ -23,7 +23,7 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **Themes**: `ThemeManager.swift` – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
 - **Hotkey**: `HotkeyMonitor.swift` – global CGEventTap for toggle.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
-- **Signals**: `SocketListener.swift` – Unix domain socket for yabai `space_changed` events.
+- **Events**: `SocketListener.swift` receives internal commands from yabai signals or AeroSpace subscriptions.
 - **Models**: `Models.swift` – data structs (GridConfig, YabaiSpace, UpdateMode, etc.).
 - **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – permanent category sidebar with separate live-save detail forms.
 - **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
@@ -39,7 +39,7 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **UI Framework:** SwiftUI embedded in AppKit (NSHostingView)
 - **Build System:** Swift Package Manager (Package.swift)
 - **Dependencies:** ZERO external dependencies
-- **System Integration:** Low-level macOS APIs (CoreGraphics, AppKit), yabai CLI calls, Unix domain sockets, CGEventTaps
+- **System Integration:** Low-level macOS APIs (CoreGraphics, AppKit), yabai/AeroSpace CLI calls, Unix domain sockets, CGEventTaps
 
 ### File Structure
 ```
@@ -49,10 +49,12 @@ Sources/spacemap/
 ├── GridView.swift         # SwiftUI grid container
 ├── CellView.swift         # Individual cell rendering (rects/icons/thumbnails)
 ├── YabaiClient.swift      # Shells out to yabai binary for data/manipulation
+├── AeroSpaceClient.swift  # Shells out to AeroSpace for data/manipulation/events
+├── WindowManagerProtocol.swift # Shared manager interface and selection adapters
 ├── ConfigReader.swift     # Parses ~/.config/spacemap/spacemap.jsonc
 ├── HotkeyMonitor.swift   # Global CGEventTap for toggle hotkey
 ├── WindowDragHandler.swift # Detects window drag-and-drop over HUD
-├── SocketListener.swift   # Unix domain socket server for yabai signals
+├── SocketListener.swift   # Unix domain socket server for manager and CLI events
 ├── Models.swift           # Data structures (GridConfig, YabaiSpace, etc.)
 ├── ThumbnailCache.swift   # ScreenCaptureKit capture, per-space caching (macOS 14+)
 ├── IconCache.swift         # App icon cache to avoid repeated NSWorkspace lookups
@@ -66,15 +68,15 @@ Sources/spacemap/
 
 1. **App launches** → `App.swift` sets up menubar, hotkey monitor, and socket listener
 2. **Hotkey pressed** → `HUDWindowController.show()` is called
-3. **Show fetches data** → `YabaiClient.querySpaces()` / `queryWindows()` (shells to `/opt/homebrew/bin/yabai`)
-4. **Builds state** → `YabaiClient.buildGridState()` assembles `GridState` with config
+3. **Show fetches data** → the selected `WindowManager` adapter queries spaces and windows
+4. **Builds state** → the selected adapter assembles `GridState` with config
 5. **Renders grid** → SwiftUI `GridView` → `CellView` for each cell
-6. **Live updates** → yabai signal triggers → socket message → `HUDWindowController.refresh()`
-7. **Drag-and-drop** → `WindowDragHandler` uses CGEventTap to track mouse, yabai to move window
+6. **Live updates** → yabai signal or AeroSpace event triggers → socket message → `HUDWindowController.refresh()`
+7. **Drag-and-drop** → `WindowDragHandler` uses CGEventTap to track the mouse and the selected manager to move the window
 
 ### External Dependencies
 - **yabai or AeroSpace** - supported tiling window managers; yabai is preferred when both are running
-- **skhd** (installed at `/opt/homebrew/bin/skhd`) - hotkey daemon, configured for 2D grid navigation
+- **skhd** (optional) - external hotkey daemon; Spacemap has its own configurable global hotkeys
 
 ### Configuration
 Reads from `~/.config/spacemap/spacemap.jsonc` on every HUD open (no restart needed):
@@ -100,8 +102,8 @@ Rebuilding and reinstalling revokes Accessibility permissions because the binary
 ### App Activation Policy
 `NSApp.setActivationPolicy(.prohibited)` means the app never appears in the dock or Cmd+Tab switcher. It runs purely as a background utility.
 
-### yabai Signal Integration
-When the HUD is visible, yabai sends a signal to a Unix domain socket on `space_changed`. This triggers HUD refresh for live updates without polling.
+### Window Manager Event Integration
+yabai signals and AeroSpace subscriptions send commands to Spacemap's Unix domain socket. These events refresh the HUD without continuous polling.
 
 ### Window Drag Detection
 A second CGEventTap (listenOnly, tailAppend) monitors mouse drag events to detect when the user drags an actual window over the HUD. It correlates the mouse position against cell hit-rectangles and uses the frontmost application to identify which window is being dragged.
@@ -157,7 +159,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 
 ## Known Limitations / Gotchas
 
-1. **yabai path auto-detected:** Checks `/opt/homebrew/bin/yabai` (ARM) then `/usr/local/bin/yabai` (Intel) via `FileManager`
+1. **Manager auto-detection:** Checks for running yabai and AeroSpace instances; yabai is preferred when both are active
 2. **Homebrew-specific:** Brew formula only, no other package managers
 3. **SwiftUI performance:** Each HUD open creates a new NSHostingView. The state is cached during a drag, but the view is recreated.
 4. **Icon strip flicker:** On space change, `CellView` rerenders and re-fetches icons via `NSWorkspace.shared.icon(forFile:)` which is potentially expensive
@@ -186,7 +188,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - Filter/hide specific apps from the grid
 
 ### Integration
-- Support for other window managers besides yabai ( Parallel to yabai? Or macOS native Spaces? )
+- Support for window managers beyond yabai and AeroSpace, or native macOS Spaces
 - Scripting / CLI interface to trigger HUD from scripts
 - Notifications / system alerts
 - Better multi-monitor support
@@ -214,6 +216,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - File-based theme system (.smthemes files in ~/.config/spacemap/themes/)
 - Grid-aware keyboard navigation (arrow keys + vim keys with wrapping)
 - Dynamic yabai path detection (ARM + Intel)
+- AeroSpace support through the shared window-manager abstraction
 - Xcode project generation (`scripts/generate-xcodeproj.py`, 4 targets)
 - Unit test suite: 168 tests across 8 files (`Tests/spacemapTests/`)
 - GitHub Actions CI: swift test + build on push/PR
@@ -227,5 +230,4 @@ See [TASKS.md](./TASKS.md) for planned features, bug fixes, and known issues.
 ## Questions
 
 1. **Electron app?** It is pure Swift with SwiftUI
-2. **Accessibility of the config?** The config file uses a simple key=value format, but there's no validation or schema. Would a JSON or YAML config be better?
-3. **Hotkey parsing limitations?** The hotkey parser only supports a subset of keys (see `ConfigReader.keyCodeFor`). Keys like F13-F20, media keys, etc., are not supported. Is this by design?
+2. **Additional manager support?** Which window manager should follow yabai and AeroSpace?
