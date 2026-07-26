@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.16] - 2026-07-25
+
 ### Added
 - Added an optional pinned HUD hotkey that toggles a permanently visible HUD independently of the normal timed hotkey.
 - First-launch CLI installation now creates `/usr/local/bin` when possible and offers an explicit administrator-authorized fallback when macOS protects that location.
