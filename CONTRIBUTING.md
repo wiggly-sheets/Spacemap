@@ -10,7 +10,7 @@ We're excited to have you contribute to Spacemap. This is a native macOS utility
 - macOS 13+ (Ventura or later)
 - Xcode Command Line Tools: `xcode-select --install`
 - yabai installed: `brew install asmvik/formulae/yabai`
-- skhd installed: `brew install koekeishiya/formulae/skhd` (or `brew install jackielii/formulae/skhd.zig`)
+- skhd installed: `brew install koekeishiya/formulae/skhd` (or `brew install jackielii/formulae/skhd-zig`)
 
 ### Setup
 
@@ -100,7 +100,7 @@ swift test            # Direct SPM test runner
 swift test --filter ConfigTests   # Run a specific test class
 ```
 
-103 tests across 5 files: HotkeyTests (19), ConfigTests (41), ThemeTests (12), ModelTests (11), CellViewGridViewTests (20).
+166 tests across 7 files, including config migration/healing, hotkey/media-key handling, models, grid rendering, navigation, themes, and CLI installation.
 
 ### Manual Testing Checklist
 - [ ] Launch app with yabai running → HUD opens on hotkey
@@ -108,6 +108,8 @@ swift test --filter ConfigTests   # Run a specific test class
 - [ ] Click cell → switch space and close HUD
 - [ ] Drag window over cell → window moves to target space
 - [ ] Config change → HUD reflects new settings on next open
+- [ ] Settings sidebar remains visible, highlights the selected category, and swaps to a separate detail form
+- [ ] Every Settings category auto-saves its controls
 - [ ] Kill yabai → app shows error dialog and exits
 - [ ] Deny Accessibility → app prompts for permission
 - [ ] Auto-hide → HUD closes after timeout
@@ -128,6 +130,7 @@ swift test --filter ConfigTests   # Run a specific test class
 
 - Check `DEVELOPER.md` for technical deep-dive
 - Check `TASKS.md` for roadmap and known issues
+- Check `SUPPORT.md` for where to get help and what to include in a report
 - Check `README.md` for user-facing documentation
 
 ## Code of Conduct

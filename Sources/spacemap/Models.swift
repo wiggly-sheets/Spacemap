@@ -1,17 +1,31 @@
 import Foundation
 import CoreGraphics
-import AppKit
 
 enum CellStyle: Int, CaseIterable, Identifiable {
     case rects, icons, thumbnails, simple
     var id: Int { rawValue }
 }
 enum ShowMode: String, CaseIterable, Identifiable { case all, active; var id: String { rawValue } }
+enum MultiMonitorHUDMode: String, CaseIterable, Identifiable {
+    case unified
+    case separate
+
+    var id: String { rawValue }
+}
+enum SeparateHUDVisibility: String, CaseIterable, Identifiable {
+    case all
+    case active
+
+    var id: String { rawValue }
+}
+enum DisplayNavigationWrap: String, CaseIterable, Identifiable {
+    case within
+    case between
+
+    var id: String { rawValue }
+}
 enum ThemeMode: String, CaseIterable, Identifiable { case light, dark, auto; var id: String { rawValue } }
 enum UpdateMode: String, CaseIterable, Identifiable { case auto, notify, off; var id: String { rawValue } }
-
-// Mode is an alias for ThemeMode (used in GridConfig)
-typealias Mode = ThemeMode
 
 enum HUDPosition: Equatable, Hashable {
     case center, top, bottom
@@ -28,27 +42,29 @@ enum HUDPosition: Equatable, Hashable {
         }
     }
 
+    /// Returns the panel origin point for the given panel size and screen.
     func point(for panelSize: CGSize, screen: CGRect) -> CGPoint {
+        let x: CGFloat
+        let y: CGFloat
         switch self {
         case .center:
-            return CGPoint(x: (screen.width - panelSize.width) / 2,
-                           y: (screen.height - panelSize.height) / 2)
+            x = screen.midX - panelSize.width / 2
+            y = screen.midY - panelSize.height / 2
         case .top:
-            return CGPoint(x: (screen.width - panelSize.width) / 2,
-                           y: screen.height - panelSize.height - 40)
+            x = screen.midX - panelSize.width / 2
+            y = screen.maxY - panelSize.height - 40
         case .bottom:
-            return CGPoint(x: (screen.width - panelSize.width) / 2,
-                           y: 40)
-        case .custom(let x, let y):
-            return CGPoint(x: screen.width * x,
-                           y: screen.height * y)
+            x = screen.midX - panelSize.width / 2
+            y = screen.minY + 40
+        case .custom(let px, let py):
+            x = screen.minX + (screen.width - panelSize.width) * px
+            y = screen.minY + (screen.height - panelSize.height) * py
         }
+        return CGPoint(x: x, y: y)
     }
 }
-
-enum HUDPositionKind: String, CaseIterable, Identifiable {
+enum HUDPositionKind: String, CaseIterable {
     case center, top, bottom, custom
-    var id: String { rawValue }
 
     init(from position: HUDPosition) {
         switch position {
@@ -60,118 +76,94 @@ enum HUDPositionKind: String, CaseIterable, Identifiable {
     }
 }
 
-struct AppTemplate: Equatable {
-    let name: String
-    let bundleIdentifier: String
-}
+struct HotkeyConfig {
+    var key: HotkeyKey
+    var modifiers: CGEventFlags
 
-struct WindowFrame: Decodable {
-    let x: CGFloat
-    let y: CGFloat
-    let width: CGFloat
-    let height: CGFloat
+    // Default: Ctrl+Page Down
+    static let `default` = HotkeyConfig(key: .keyCode(121), modifiers: .maskControl)
 
-    enum CodingKeys: String, CodingKey {
-        case x, y
-        case width = "w"
-        case height = "h"
+    var keyCode: CGKeyCode? {
+        if case .keyCode(let code) = key { return code }
+        return nil
     }
 
-    init(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) {
-        self.x = x; self.y = y; self.width = width; self.height = height
+    var mediaKey: MediaKey? {
+        if case .mediaKey(let key) = key { return key }
+        return nil
     }
 
-    init(x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat) {
-        self.x = x; self.y = y; self.width = w; self.height = h
+    var isDisabled: Bool {
+        if case .none = key { return true }
+        return false
     }
 }
 
-struct Space: Decodable {
-    let id: Int
-    let index: Int
-    let display: Int
-    let hasFocus: Bool
-    let label: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id, index, display
-        case hasFocus = "has-focus"
-        case label
-    }
+enum HotkeyKey: Equatable {
+    case none
+    case keyCode(CGKeyCode)
+    case mediaKey(MediaKey)
 }
 
-typealias YabaiSpace = Space
-
-struct Window: Decodable {
-    let id: Int
-    let app: String
-    let space: Int
-    let frame: WindowFrame
-    let isHidden: Bool
-    let isMinimized: Bool
-    let subLayer: String
-
-    enum CodingKeys: String, CodingKey {
-        case id, app, space, frame
-        case isHidden = "is-hidden"
-        case isMinimized = "is-minimized"
-        case subLayer = "sub-layer"
-    }
-
-    var isRealWindow: Bool {
-        !isHidden && !isMinimized && subLayer == "below"
-    }
-
-    var cgFrame: CGRect {
-        CGRect(x: frame.x, y: frame.y, width: frame.width, height: frame.height)
-    }
+enum MediaKey: String, Codable, CaseIterable {
+    case playPause = "play-pause"
+    case nextTrack = "next-track"
+    case previousTrack = "previous-track"
+    case volumeUp = "volume-up"
+    case volumeDown = "volume-down"
+    case mute = "mute"
+    case brightnessUp = "brightness-up"
+    case brightnessDown = "brightness-down"
 }
 
-typealias YabaiWindow = Window
+struct GridConfig {
+    var cols: Int
+    var rows: Int
+    var cellStyle: CellStyle
+    var hotkey: HotkeyConfig
+    var pinnedHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
+    var socketHealthInterval: Int
+    var uiScale: Double // 0.0 to 1.0, maps to effective scale
+    var autoHideTimeout: Int // seconds
+    var theme: String // "default", "tokyonight", etc.
+    var showMode: ShowMode // "all" or "active"
+    var multiMonitorHUDMode: MultiMonitorHUDMode // one combined grid or a panel per display
+    var unifiedHUDVisibility: SeparateHUDVisibility // all displays or only the display with the focused space
+    var separateHUDVisibility: SeparateHUDVisibility // all displays or only the display with the focused space
+    var displayNavigationWrap: DisplayNavigationWrap // stay within the focused display or wrap across displays
+    var maxSpaces: Int // 1-16, default 16
+    var backgroundAlpha: Double // 0.0 to 1.0, 0=transparent 1=opaque
+    var mode: ThemeMode // light, dark, or auto (follow system)
+    var iconScale: Double // 0.0 to 1.0, maps to effective icon multiplier
+    var showSpaceNumbers: Bool // show space index numbers in cells
+    var showSpaceNames: Bool // show configured space name text in cells
+    var showIconStrip: Bool // show icon strip at the bottom of each cell
+    var showMultiAppIcons: Bool // show one icon per window (true) or one per unique app (false)
+    var hideMenuBarIcon: Bool // hide the menu bar icon (settings accessible via re-launch or Cmd+, in HUD)
+    var spaceNames: [Int: String] // space id to name mapping
+    var useVimKeys: Bool // navigate spaces with hjkl when HUD is visible
+    var useArrowKeys: Bool // navigate spaces with arrow keys when HUD is visible
+    var hudPosition: HUDPosition // where to show the HUD on screen
+    var customHUDX: Double = 0.5 // last custom HUD X position (0-1)
+    var customHUDY: Double = 0.5 // last custom HUD Y position (0-1)
+    var showExtraWindows: Bool // show sublayer=normal windows (may include invisible utility windows)
+    var focusSpaceOnWindowDrop: Bool = false // focus the destination after a successful drag-and-drop
+    var updateMode: UpdateMode // auto | notify | off
 
-struct GridState: Equatable {
-
-    let config: GridConfig
-    let spaces: [Space]
-    let windows: [Window]
-    let displayBounds: CGRect
-    let focusedIndex: Int?
-    // ponytail: pre-grouped windows by space for O(1) per-cell lookup
-    private let windowsBySpace: [Int: [Window]]
-
-    init(config: GridConfig, spaces: [Space], windows: [Window], displayBounds: CGRect, focusedIndex: Int?) {
-        self.config = config
-        self.spaces = spaces
-        self.windows = windows
-        self.displayBounds = displayBounds
-        self.focusedIndex = focusedIndex
-        var grouped: [Int: [Window]] = [:]
-        for w in windows {
-            grouped[w.space, default: []].append(w)
-        }
-        self.windowsBySpace = grouped
-    }
-
-    func windows(forSpace index: Int) -> [Window] {
-        return windowsBySpace[index] ?? []
-    }
-
-    static func == (lhs: GridState, rhs: GridState) -> Bool {
-        lhs.focusedIndex == rhs.focusedIndex
-    }
+    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, pinnedHotkey: HotkeyConfig(key: .none, modifiers: []), socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, multiMonitorHUDMode: .unified, unifiedHUDVisibility: .active, separateHUDVisibility: .all, displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false, focusSpaceOnWindowDrop: false, updateMode: .notify)
 }
 
 struct AppTheme: Equatable {
-    let background: UInt32
-    let focused: UInt32
-    let text: UInt32
-    let dropTarget: UInt32
-    let cellBg: UInt32
-    let cellBgFocused: UInt32
-    let rect1: UInt32
-    let rect2: UInt32
-    let rect3: UInt32
-    
+    let background: UInt32      // HUD grid background
+    let focused: UInt32         // Focused space border/highlight
+    let text: UInt32            // Text color
+    let dropTarget: UInt32      // Drop target highlight
+    let cellBg: UInt32          // Unfocused cell fill
+    let cellBgFocused: UInt32   // Focused cell fill
+    let rect1: UInt32           // Window rect color 1
+    let rect2: UInt32           // Window rect color 2
+    let rect3: UInt32           // Window rect color 3
+
     static let `default` = AppTheme(
         background: 0xf2f2f7, focused: 0x007aff, text: 0x333333,
         dropTarget: 0x007aff, cellBg: 0xe5e5ea, cellBgFocused: 0xd1d1d6,
@@ -187,10 +179,40 @@ struct AppTheme: Equatable {
         dropTarget: 0xf5c2e7, cellBg: 0x313244, cellBgFocused: 0x45475a,
         rect1: 0xcba6f7, rect2: 0xf5c2e7, rect3: 0xa6e3a1
     )
+    static let monokaiDark = AppTheme(
+        background: 0x272822, focused: 0xa6e22e, text: 0xf8f8f2,
+        dropTarget: 0xfd971f, cellBg: 0x3e3d32, cellBgFocused: 0x49483e,
+        rect1: 0xa6e22e, rect2: 0xfd971f, rect3: 0x66d9ef
+    )
+    static let monokaiLight = AppTheme(
+        background: 0xfafafa, focused: 0xa6e22e, text: 0x272822,
+        dropTarget: 0xfd971f, cellBg: 0xe8e8d8, cellBgFocused: 0xd6d6c8,
+        rect1: 0x7ec837, rect2: 0xf38634, rect3: 0x2cc5a6
+    )
     static let dracula = AppTheme(
         background: 0x282a36, focused: 0xbd93f9, text: 0xf8f8f2,
         dropTarget: 0xff79c6, cellBg: 0x44475a, cellBgFocused: 0x565a79,
         rect1: 0xbd93f9, rect2: 0xff79c6, rect3: 0x50fa7b
+    )
+    static let ayu = AppTheme(
+        background: 0x0b0e14, focused: 0xff8f40, text: 0xbfbdb6,
+        dropTarget: 0xf07178, cellBg: 0x1a1f29, cellBgFocused: 0x2a3140,
+        rect1: 0xff8f40, rect2: 0xf07178, rect3: 0xc2d94c
+    )
+    static let github = AppTheme(
+        background: 0x0d1117, focused: 0x3fb950, text: 0xc9d1d9,
+        dropTarget: 0x58a6ff, cellBg: 0x161b22, cellBgFocused: 0x21262d,
+        rect1: 0x3fb950, rect2: 0x58a6ff, rect3: 0xd2a8ff
+    )
+    static let vscode = AppTheme(
+        background: 0x1e1e1e, focused: 0x007acc, text: 0xcccccc,
+        dropTarget: 0x4ec9b0, cellBg: 0x252526, cellBgFocused: 0x333333,
+        rect1: 0x007acc, rect2: 0x4ec9b0, rect3: 0xdcdcaa
+    )
+    static let xcode = AppTheme(
+        background: 0x1f1f24, focused: 0x5e9eff, text: 0xffffff,
+        dropTarget: 0x6c5ce7, cellBg: 0x2c2c32, cellBgFocused: 0x3a3a42,
+        rect1: 0x5e9eff, rect2: 0x6c5ce7, rect3: 0xff6b6b
     )
     static let nord = AppTheme(
         background: 0x2e3440, focused: 0x88c0d0, text: 0xd8dee9,
@@ -202,105 +224,138 @@ struct AppTheme: Equatable {
         dropTarget: 0x98c379, cellBg: 0x2c323c, cellBgFocused: 0x3a404a,
         rect1: 0x61afef, rect2: 0x98c379, rect3: 0xc678dd
     )
-    static let monokaiDark = AppTheme(
-        background: 0x272822, focused: 0xf92672, text: 0xf8f8f2,
-        dropTarget: 0xa6e22e, cellBg: 0x3e3d32, cellBgFocused: 0x49483e,
-        rect1: 0xf92672, rect2: 0xa6e22e, rect3: 0x66d9ef
-    )
-    static let monokaiLight = AppTheme(
-        background: 0xf8f8f2, focused: 0xf92672, text: 0x272822,
-        dropTarget: 0xa6e22e, cellBg: 0xf5f5f0, cellBgFocused: 0xe8e8e3,
-        rect1: 0xf92672, rect2: 0xa6e22e, rect3: 0x66d9ef
-    )
-    static let ayu = AppTheme(
-        background: 0x0f1419, focused: 0xe6b450, text: 0xe6e6e6,
-        dropTarget: 0x7fd962, cellBg: 0x141920, cellBgFocused: 0x1c2229,
-        rect1: 0xe6b450, rect2: 0x7fd962, rect3: 0x59c2ff
-    )
-    static let github = AppTheme(
-        background: 0x0d1117, focused: 0x58a6ff, text: 0xc9d1d9,
-        dropTarget: 0x3fb950, cellBg: 0x161b22, cellBgFocused: 0x1c2129,
-        rect1: 0x58a6ff, rect2: 0x3fb950, rect3: 0xbc8cff
-    )
-    static let vscode = AppTheme(
-        background: 0x1e1e1e, focused: 0x007acc, text: 0xd4d4d4,
-        dropTarget: 0x4ec9b0, cellBg: 0x252526, cellBgFocused: 0x2d2d30,
-        rect1: 0x007acc, rect2: 0x4ec9b0, rect3: 0xc586c0
-    )
-    static let xcode = AppTheme(
-        background: 0x1e1e2e, focused: 0x0a84ff, text: 0xcdd6f4,
-        dropTarget: 0x64d2ff, cellBg: 0x313244, cellBgFocused: 0x45475a,
-        rect1: 0x0a84ff, rect2: 0x64d2ff, rect3: 0xff453a
-    )
-}
 
-struct GridConfig {
-    let cols: Int
-    let rows: Int
-    let cellStyle: CellStyle
-    let hotkey: HotkeyConfig
-    let socketHealthInterval: Int
-    let uiScale: Double
-    let autoHideTimeout: Int
-    let theme: String
-    let showMode: ShowMode
-    let maxSpaces: Int
-    let backgroundAlpha: Double
-    let mode: Mode
-    let iconScale: Double
-    let showSpaceNumbers: Bool
-    let showSpaceNames: Bool
-    let showIconStrip: Bool
-    let showMultiAppIcons: Bool
-    let hideMenuBarIcon: Bool
-    let spaceNames: [Int: String]
-    let useVimKeys: Bool
-    let useArrowKeys: Bool
-    let hudPosition: HUDPosition
-    let customHUDX: Double
-    let customHUDY: Double
-    let showExtraWindows: Bool
-    var updateMode: UpdateMode
-    let windowManager: WindowManagerType
-}
-
-extension GridConfig {
-    static var `default`: GridConfig {
-        GridConfig(
-            cols: 10,
-            rows: 2,
-            cellStyle: .rects,
-            hotkey: HotkeyConfig(keyCode: 49, modifiers: [.maskControl]), // Ctrl+Space
-            socketHealthInterval: 60,
-            uiScale: 1.0,
-            autoHideTimeout: 5,
-            theme: "default",
-            showMode: .all,
-            maxSpaces: 16,
-            backgroundAlpha: 0.8,
-            mode: .auto,
-            iconScale: 1.0,
-            showSpaceNumbers: true,
-            showSpaceNames: false,
-            showIconStrip: true,
-            showMultiAppIcons: false,
-            hideMenuBarIcon: false,
-            spaceNames: [:],
-            useVimKeys: false,
-            useArrowKeys: true,
-            hudPosition: .center,
-            customHUDX: 0.5,
-            customHUDY: 0.5,
-            showExtraWindows: false,
-            updateMode: .notify,
-            windowManager: .yabai
-        )
+    static func named(_ name: String) -> AppTheme {
+        ThemeManager.shared.named(name)
     }
 }
 
-struct HotkeyConfig {
-    let keyCode: CGKeyCode
-    let modifiers: CGEventFlags
+struct YabaiSpace: Decodable {
+    let id: Int
+    let index: Int
+    let display: Int
+    let hasFocus: Bool
+    let label: String? // space name from yabai
 
-    static let `default` = HotkeyConfig(keyCode: 121, modifiers: .maskControl)
+    enum CodingKeys: String, CodingKey {
+        case id, index, display
+        case hasFocus = "has-focus"
+        case label
+    }
+}
+
+struct YabaiDisplay: Decodable {
+    struct Frame: Decodable {
+        let x: CGFloat
+        let y: CGFloat
+        let w: CGFloat
+        let h: CGFloat
+
+        var cgFrame: CGRect {
+            CGRect(x: x, y: y, width: w, height: h)
+        }
+    }
+
+    let index: Int
+    let frame: Frame
+    let hasFocus: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case index, frame
+        case hasFocus = "has-focus"
+    }
+}
+
+struct YabaiWindow: Decodable {
+    let id: Int
+    let app: String
+    let space: Int
+    let frame: WindowFrame
+    let isHidden: Bool
+    let isMinimized: Bool
+    let subLayer: String
+
+    struct WindowFrame: Decodable {
+        let x: CGFloat
+        let y: CGFloat
+        let w: CGFloat
+        let h: CGFloat
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, app, space, frame
+        case isHidden = "is-hidden"
+        case isMinimized = "is-minimized"
+        case subLayer = "sub-layer"
+    }
+
+    var isRealWindow: Bool {
+        !isHidden && !isMinimized && subLayer == "below"
+    }
+
+    var cgFrame: CGRect {
+        CGRect(x: frame.x, y: frame.y, width: frame.w, height: frame.h)
+    }
+}
+
+// Window-manager-neutral names used by the AeroSpace compatibility layer.
+typealias Space = YabaiSpace
+typealias Window = YabaiWindow
+
+struct GridState: Equatable {
+
+    let config: GridConfig
+    let spaces: [YabaiSpace]
+    let displays: [YabaiDisplay]
+    let windows: [YabaiWindow]
+    let displayBounds: CGRect
+    let focusedIndex: Int?
+    // ponytail: pre-grouped windows by space for O(1) per-cell lookup
+    private let windowsBySpace: [Int: [YabaiWindow]]
+
+    init(
+        config: GridConfig,
+        spaces: [YabaiSpace],
+        windows: [YabaiWindow],
+        displayBounds: CGRect,
+        focusedIndex: Int?,
+        displays: [YabaiDisplay] = []
+    ) {
+        self.config = config
+        self.spaces = spaces
+        self.displays = displays
+        self.windows = windows
+        self.displayBounds = displayBounds
+        self.focusedIndex = focusedIndex
+        var grouped: [Int: [YabaiWindow]] = [:]
+        for w in windows {
+            grouped[w.space, default: []].append(w)
+        }
+        self.windowsBySpace = grouped
+    }
+
+    func windows(forSpace index: Int) -> [YabaiWindow] {
+        return windowsBySpace[index] ?? []
+    }
+
+    func spaces(forDisplay displayIndex: Int) -> [YabaiSpace] {
+        spaces.filter { $0.display == displayIndex }.sorted { $0.index < $1.index }
+    }
+
+    func displayIndex(forSpace spaceIndex: Int) -> Int? {
+        spaces.first { $0.index == spaceIndex }?.display
+    }
+
+    func displayBounds(forSpace spaceIndex: Int) -> CGRect {
+        guard let displayIndex = displayIndex(forSpace: spaceIndex) else { return displayBounds }
+        return displays.first { $0.index == displayIndex }?.frame.cgFrame ?? displayBounds
+    }
+
+    var populatedDisplayIndices: [Int] {
+        Array(Set(spaces.map(\.display))).sorted()
+    }
+
+    static func == (lhs: GridState, rhs: GridState) -> Bool {
+        lhs.focusedIndex == rhs.focusedIndex
+    }
 }

@@ -23,6 +23,13 @@ struct GridView: View {
     
     // ponytail: precomputed once per GridView init, not per body/idealSize call
     private let _visibleSpaceIndices: [Int]
+
+    private struct DisplayBoundary: Identifiable {
+        let offset: Int
+        let displayIndex: Int
+
+        var id: Int { offset }
+    }
     
     var body: some View {
         let cells = visibleSpaceIndices
@@ -43,6 +50,9 @@ struct GridView: View {
         .background(
             LiquidGlassBackground(cornerRadius: 10, alpha: state.config.backgroundAlpha, isDarkMode: isDarkMode, theme: theme)
         )
+        .overlay(alignment: .topLeading) {
+            displayBoundaryOverlay
+        }
     }
     
     private func spaceLabel(for index: Int) -> String? {
@@ -50,6 +60,55 @@ struct GridView: View {
     }
     
     private var visibleSpaceIndices: [Int] { _visibleSpaceIndices }
+
+    private var displayBoundaries: [DisplayBoundary] {
+        guard state.config.multiMonitorHUDMode == .unified,
+              state.populatedDisplayIndices.count > 1 else { return [] }
+
+        var boundaries: [DisplayBoundary] = []
+        var previousDisplayIndex: Int?
+        for (offset, spaceIndex) in visibleSpaceIndices.enumerated() {
+            guard let displayIndex = state.displayIndex(forSpace: spaceIndex) else { continue }
+            if let previousDisplayIndex, previousDisplayIndex != displayIndex {
+                boundaries.append(DisplayBoundary(offset: offset, displayIndex: displayIndex))
+            }
+            previousDisplayIndex = displayIndex
+        }
+        return boundaries
+    }
+
+    @ViewBuilder
+    private var displayBoundaryOverlay: some View {
+        GeometryReader { _ in
+            ForEach(displayBoundaries) { boundary in
+                let columns = max(1, state.config.cols)
+                let row = boundary.offset / columns
+                let column = boundary.offset % columns
+                let slotWidth = effectiveCellWidth + effectiveGap
+                let slotHeight = effectiveCellHeight + effectiveGap
+                let separatorColor = Color(hex: AppTheme.named(theme).focused).opacity(isDarkMode ? 0.7 : 0.45)
+
+                if column == 0 {
+                    Rectangle()
+                        .fill(separatorColor)
+                        .frame(width: idealSize.width - effectivePadding * 2, height: max(2, effectiveGap * 0.2))
+                        .offset(
+                            x: effectivePadding,
+                            y: effectivePadding + CGFloat(row) * slotHeight - effectiveGap / 2
+                        )
+                } else {
+                    Rectangle()
+                        .fill(separatorColor)
+                        .frame(width: max(2, effectiveGap * 0.2), height: effectiveCellHeight + effectiveGap)
+                        .offset(
+                            x: effectivePadding + CGFloat(column) * slotWidth - effectiveGap / 2,
+                            y: effectivePadding + CGFloat(row) * slotHeight - effectiveGap / 2
+                        )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
     
     private func makeCell(for spaceIndex: Int, row: Int) -> some View {
         let cellSpaceIndex = spaceIndex
@@ -58,10 +117,10 @@ struct GridView: View {
         let cellIsFocused = spaceIndex == state.focusedIndex
         let cellIsDropTarget = spaceIndex == hoveredCell
         let cellWindows = state.windows(forSpace: spaceIndex)
-        let cellDisplayBounds = state.displayBounds
+        let cellDisplayBounds = state.displayBounds(forSpace: spaceIndex)
         let cellStyle = state.config.cellStyle
         let cellIsActive = state.spaces.contains { $0.index == spaceIndex }
-        let resolvedTheme = ThemeManager.shared.named(theme)
+        let resolvedTheme = AppTheme.named(theme)
         
         return CellView(
             spaceIndex: cellSpaceIndex,
@@ -123,17 +182,28 @@ struct GridView: View {
         return all
     }
 
-    init(state: GridState, hoveredCell: Int?, onSelect: @escaping (Int) -> Void, uiScale: Double = 1.0, theme: String = "default") {
+    init(
+        state: GridState,
+        hoveredCell: Int?,
+        onSelect: @escaping (Int) -> Void,
+        uiScale: Double = 1.0,
+        theme: String = "default",
+        spaceIndices: [Int]? = nil
+    ) {
         self.state = state
         self.hoveredCell = hoveredCell
         self.onSelect = onSelect
         self.uiScale = uiScale
         self.theme = theme
-        let activeSet = Set(state.spaces.map { $0.index })
-        self._visibleSpaceIndices = Self.computeVisibleSpaceIndices(
-            maxSpaces: state.config.maxSpaces,
-            showMode: state.config.showMode,
-            activeIndices: activeSet
-        )
+        if let spaceIndices {
+            self._visibleSpaceIndices = spaceIndices.sorted()
+        } else {
+            let activeSet = Set(state.spaces.map { $0.index })
+            self._visibleSpaceIndices = Self.computeVisibleSpaceIndices(
+                maxSpaces: state.config.maxSpaces,
+                showMode: state.config.showMode,
+                activeIndices: activeSet
+            )
+        }
     }
 }

@@ -224,8 +224,8 @@ final class CellViewGridViewTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeWindow(id: Int, app: String, space: Int = 1, subLayer: String = "below") -> Window {
-        Window(id: id, app: app, space: space,
+    private func makeWindow(id: Int, app: String, space: Int = 1, subLayer: String = "below") -> YabaiWindow {
+        YabaiWindow(id: id, app: app, space: space,
                     frame: .init(x: 0, y: 0, w: 100, h: 100),
                     isHidden: false, isMinimized: false, subLayer: subLayer)
     }
@@ -282,5 +282,4 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(minW, 40, accuracy: 0.001)
         XCTAssertEqual(maxW, 320, accuracy: 0.001)
     }
-
 }

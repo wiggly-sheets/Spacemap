@@ -5,7 +5,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 ## Core Architecture
 
 ### Data Flow
-1. **App launches** → `App.swift` checks yabai, sets up menubar, hotkey monitor, socket listener, Sparkle updater
+1. **App launches** → `App.swift` detects yabai or AeroSpace, then sets up the menubar, hotkey monitors, socket listener, and Sparkle updater
 2. **Hotkey pressed** → `HUDWindowController.show()` fetches yabai data, builds grid state
 3. **Grid renders** → SwiftUI `GridView` → `CellView` for each cell
 4. **Live updates** → yabai `space_changed` signal → socket message → `HUDWindowController.refresh()`
@@ -22,17 +22,19 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `YabaiClient.swift` | yabai CLI wrapper, signal management, space/window queries |
 | `ConfigReader.swift` | Config parsing with inline comments, SPACE_NAMES support |
 | `HotkeyMonitor.swift` | Global CGEventTap for hotkey capture |
+| `WindowManagerProtocol.swift` | Shared manager interface and yabai adapter |
+| `AeroSpaceClient.swift` | AeroSpace workspace/window queries and commands |
 | `SocketListener.swift` | Unix domain socket server for yabai signals |
 | `WindowDragHandler.swift` | Drag-and-drop detection via CGEventTap |
 | `Models.swift` | Data structures (GridConfig, YabaiSpace, AppTheme) |
-| `SettingsView.swift` | Settings window UI with live config save |
+| `SettingsView.swift` | Permanent settings sidebar and category-specific live-save forms |
 | `ThumbnailCache.swift` | ScreenCaptureKit thumbnail capture per space (macOS 14+) |
 | `IconCache.swift` | Caches app icons by name to avoid repeated NSWorkspace lookups |
 
 ## Configuration System
 
 ### Config File Location
-`~/.config/spacemap/config` — read on every HUD open (except `HOTKEY` requires restart).
+`~/.config/spacemap/spacemap.jsonc` — read on every HUD open. The former `~/.config/spacemap/config` path migrates automatically. Invalid fields self-heal individually after backing up to `spacemap.jsonc.bak`.
 
 ### Config Keys
 | Key | Type | Default | Range | Description |
@@ -41,10 +43,15 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `GRID_ROWS` | Int | 2 | 1–10 | Grid rows |
 | `CELL_STYLE` | String | `rects` | `rects\|icons\|thumbnails` | Window display style. `thumbnails` requires macOS 14+ and Screen Recording permission |
 | `HOTKEY` | String | `ctrl+space` | modifiers+key | Toggle hotkey (requires restart) |
+| `PINNED_HOTKEY` | String | `none` | modifiers+key or `none` | Optional persistent-HUD toggle |
 | `UI_SCALE` | Double | 0.5 | 0.0–1.0 | HUD scale (effective: 0.5×–4.0×) |
 | `THEME` | String | `default` | theme names | Color theme |
 | `AUTO_HIDE_TIMEOUT` | Int | 5 | 0–60 | Seconds before HUD hides (0=never) |
 | `SHOW_MODE` | String | `all` | `all\|active` | Show all or active-only spaces |
+| `MULTI_MONITOR_HUD_MODE` | String | `unified` | `unified\|separate` | Use one combined HUD or one HUD per display |
+| `UNIFIED_HUD_VISIBILITY` | String | `active` | `all\|active` | In unified mode, show the combined HUD everywhere or only on the focused-space display |
+| `SEPARATE_HUD_VISIBILITY` | String | `all` | `all\|active` | In separate mode, show every HUD or only the focused-space HUD |
+| `DISPLAY_NAVIGATION_WRAP` | String | `within` | `within\|between` | Keep keyboard navigation on one display or wrap across displays |
 | `MAX_SPACES` | Int | 16 | 1–16 | Max spaces to display |
 | `BACKGROUND_ALPHA` | Double | 0.3 | 0.0–1.0 | HUD background transparency |
 | `MODE` | String | `auto` | `light\|dark\|auto` | Light/dark appearance |
@@ -57,6 +64,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `SPACE_NAMES` | String | `""` | `"1:Name,2:Name"` | Custom space names |
 | `SOCKET_HEALTH_INTERVAL` | Int | 60 | 15–60 | Socket health check interval (seconds) |
 | `UPDATE_MODE` | String | `notify` | `auto\|notify\|off` | Sparkle update check behavior. `auto` downloads and installs; `notify` prompts; `off` disables |
+| `FOCUS_SPACE_ON_WINDOW_DROP` | Bool | `false` | `true\|false` | Focus the destination space after a successful window drop |
 
 ### Space Naming Support
 Config format for custom space names:
@@ -97,11 +105,20 @@ Available themes with hex color values:
 ## Settings Window
 
 ### Architecture
-- `SettingsView.swift` — SwiftUI form with live-save to config file
+- `SettingsView.swift` — fixed, always-visible category sidebar plus one live-save detail form per selected category
 - `SettingsWindowController.swift` — AppKit window wrapper for SwiftUI view
 - Menubar → Settings (⌘,) opens window
 - Changes auto-save via `onChange` handlers on every control
-- Sends `settingsChanged` notification on save — observed by AppDelegate to update hotkey
+- Sends `settingsChanged` notification on save — observed by AppDelegate to restart both hotkey monitors
+
+### Categories
+- **Grid** — layout, display topology, cell rendering, and window visibility
+- **Space Names** — name visibility and per-space text
+- **Appearance** — themes, appearance mode, transparency, and scaling
+- **Behavior** — normal and pinned hotkeys, positioning, navigation, drag/drop focus, menu bar, and updates
+- **Debug/Advanced** — socket health interval
+
+The sidebar is a fixed pane rather than a collapsible `NavigationSplitView`. Selecting a row replaces the detail form; categories are not anchors in one continuous scrolling form.
 
 ### Window Controller Pattern
 ```swift
@@ -181,11 +198,11 @@ NSLog("spacemap/ModuleName: message")
 Spacemap uses [Sparkle 2](https://sparkle-project.org) for automatic updates. DMG releases are signed with EdDSA (ed25519) keys generated by Sparkle's `generate_keys` tool.
 
 ### Keys
-Keys are generated once via `.build/artifacts/sparkle/Sparkle/bin/generate_keys` and stored in your login Keychain. The **public key** is embedded in the app's `Info.plist` (`SUPublicEDKey`), the **private key** stays in the Keychain and is used by GitHub Actions to sign DMGs.
+The **public key** is embedded in the app's `Info.plist` (`SUPublicEDKey`). GitHub Actions signs DMGs with the matching private-key secret.
 
-The public key is also stored as GitHub Secret `SPARKLE_PUBLIC_KEY`, the private key as `SPARKLE_PRIVATE_KEY`.
+`SPARKLE_PUBLIC_KEY` is the base64 public key. `SPARKLE_PRIVATE_KEY` must be the matching base64-encoded 32-byte Ed25519 seed accepted by Sparkle's `sign_update` tool—not a PEM wrapper. The release workflow derives the public key from the private secret and fails before building if they do not match.
 
-**Important:** If you regenerate keys, you must update both GitHub Secrets and the key files (`sparklesigner.pub`, `sparklesigner.pem`).
+**Important:** If you regenerate keys, update both GitHub Secrets and the local key files. For the existing PEM private key, the seed suitable for `SPARKLE_PRIVATE_KEY` can be derived without printing it: `openssl pkey -in sparklesigner.pem -outform DER | tail -c 32 | base64`.
 
 ### Appcast
 Hosted at `https://wiggly-sheets.github.io/Spacemap/appcast.xml` via GitHub Pages serving the `docs/` branch. Generated by `.github/scripts/generate-appcast.sh` during the release workflow.
@@ -197,7 +214,7 @@ Hosted at `https://wiggly-sheets.github.io/Spacemap/appcast.xml` via GitHub Page
 | `notify` | Checks periodically, shows dialog with release notes |
 | `off` | Disables update checking entirely |
 
-First-launch prompt asks the user to choose. Setting is stored in `~/.config/spacemap/config` as `UPDATE_MODE`.
+First-launch prompt asks the user to choose. Setting is stored in `~/.config/spacemap/spacemap.jsonc` as `updateMode`.
 
 ### Info.plist Keys
 | Key | Value |

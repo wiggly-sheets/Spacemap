@@ -5,7 +5,10 @@ import Sparkle
 final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private let hud = HUDWindowController()
     private var hotkey: HotkeyMonitor?
-    private var windowManager: WindowManager?
+    private var pinnedHotkey: HotkeyMonitor?
+    private var socketListener: SocketListener?
+    private var windowManager: WindowManager = YabaiWindowManager.shared
+    private let socketPath = "/tmp/spacemap_\(NSUserName()).socket"
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
@@ -22,10 +25,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
-        
-        // Ensure symlink first, before any early exits from CLI flags
-        ensureSymlink()
-        
+
+        // Keep the CLI available for direct invocation when permissions allow.
+        // Exit-only CLI commands must never trigger an administrator prompt.
+        ensureCLISymlink(allowAuthorizationPrompt: false)
+
         #if !DEBUG
         // Handle CLI arguments that cause immediate exit
         if args.contains("--version") {
@@ -49,59 +53,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             return
         }
         #endif
-        
+
         // Normal setup (do not run for exit-only CLI args)
         NSApp.setActivationPolicy(.prohibited)
-        
-        // Check if window manager is available before doing anything else
+
         windowManager = detectWindowManager()
-        if let wm = windowManager, !wm.isRunning() {
-            showWMNotRunningAlert()
+        hud.windowManager = windowManager
+        if !windowManager.isRunning() {
+            showWindowManagerAlert()
         }
-        
-        // Check if MRU spaces is enabled (bad for spacemap)
-        if isMRUSpacesEnabled() {
-            showMRUAlert()
+
+        // Check the Mission Control settings that keep space locations stable.
+        let needsSeparateSpacesWarning = NSScreen.screens.count > 1 && !NSScreen.screensHaveSeparateSpaces
+        DispatchQueue.global(qos: .utility).async {
+            let mruSpacesEnabled = self.isMRUSpacesEnabled()
+            DispatchQueue.main.async {
+                if needsSeparateSpacesWarning {
+                    self.showSeparateSpacesAlert()
+                }
+                if mruSpacesEnabled {
+                    self.showMRUAlert()
+                }
+            }
         }
-        
+
         // Check if app is in /Applications folder, if not, prompt to move
         checkApplicationLocation()
-        
-        // Ensure symlink exists in /usr/local/bin for easy CLI access
-        ensureSymlink()
-        
+
+        // Ensure the CLI is installed, offering an explicit authorization flow
+        // on macOS setups where /usr/local is root-owned.
+        ensureCLISymlink(allowAuthorizationPrompt: true)
+
         setupMenubar()
-        
+
         // Trigger Sparkle initialization early so updater starts on launch
         _ = sparkleUpdaterController
-        
+
         // Delay slightly so TCC/LaunchServices finishes registering the app
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             ConfigReader.silentMode = true
             let config = ConfigReader.load()
             self.currentConfig = config
             self.hud.reloadConfig()
+            self.hud.prewarmState()
             self.restartHotkey(config: config)
             self.applyMenubarVisibility(config: config)
             self.hud.onShowSettings = { [weak self] in self?.showSettingsWindow() }
-            
-            // Set up window manager event listening
-            if let wm = self.windowManager {
-                wm.startListening(
-                    socketPath: "/tmp/spacemap_\(NSUserName()).socket",
-                    onRefresh: { [weak self] in
-                        self?.hud.refresh()
-                    },
-                    onShow: { [weak self] in
-                        self?.hud.show()
-                    },
-                    onSettings: { [weak self] in
-                        self?.showSettingsWindow()
-                    }
-                )
-            }
-            
-            // Observe settings changes to update hotkey and WM detection
+            self.socketListener = SocketListener(
+                socketPath: self.socketPath,
+                healthInterval: config.socketHealthInterval,
+                onRefresh: { [weak self] in
+                    self?.hud.refresh()
+                },
+                onShow: { [weak self] in self?.hud.show() },
+                onSettings: { [weak self] in self?.showSettingsWindow() }
+            )
+            self.windowManager.registerRefreshSignals(socketPath: self.socketPath)
+
+            // Observe settings changes to update hotkey
             self.settingsObserver = NotificationCenter.default.addObserver(
                 forName: .settingsChanged,
                 object: nil,
@@ -114,34 +123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 self.hud.reloadConfig()
                 self.restartHotkey(config: config)
                 self.applyMenubarVisibility(config: config)
-                
-                // Re-detect window manager if config changed
-                let oldWM = self.windowManager
-                self.windowManager = self.detectWindowManager()
-                
-                // Restart listening with new WM if needed
-                if let oldWM = oldWM, let newWM = self.windowManager {
-                    if type(of: oldWM) != type(of: newWM) {
-                        oldWM.stopListening()
-                        newWM.startListening(
-                            socketPath: "/tmp/spacemap_\(NSUserName()).socket",
-                            onRefresh: { [weak self] in
-                                self?.hud.refresh()
-                            },
-                            onShow: { [weak self] in
-                                self?.hud.show()
-                            },
-                            onSettings: { [weak self] in
-                                self?.showSettingsWindow()
-                            }
-                        )
-                    }
-                }
             }
-            
+
             self.configureSparkleUpdater(updateMode: config.updateMode)
         }
-        
         #if !DEBUG
         if args.contains("--show-menu") {
             // Show menu and continue running
@@ -155,19 +140,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
         #endif
     }
-    
+
     func applicationWillTerminate(_ notification: Notification) {
-        windowManager?.stopListening()
+        windowManager.removeRefreshSignals()
+        socketListener?.stop()
         if let observer = settingsObserver {
             NotificationCenter.default.removeObserver(observer)
         }
     }
-    
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettingsWindow()
         return false
     }
-    
+
     private func applyMenubarVisibility(config: GridConfig) {
         if config.hideMenuBarIcon {
             if let item = statusItem {
@@ -178,30 +164,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             setupMenubar()
         }
     }
-    
+
     private func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String {
-        var parts: [String] = []
-        if hotkey.modifiers.contains(.maskControl) { parts.append("⌃") }
-        if hotkey.modifiers.contains(.maskCommand) { parts.append("⌘") }
-        if hotkey.modifiers.contains(.maskAlternate) { parts.append("⌥") }
-        if hotkey.modifiers.contains(.maskShift) { parts.append("⇧") }
-        switch hotkey.keyCode {
-        case 121: parts.append("PgDn")
-        case 116: parts.append("PgUp")
-        case 49:  parts.append("Space")
-        case 48:  parts.append("Tab")
-        case 36:  parts.append("Return")
-        case 53:  parts.append("Esc")
-        case 51:  parts.append("Del")
-        case 123: parts.append("←")
-        case 124: parts.append("→")
-        case 125: parts.append("↓")
-        case 126: parts.append("↑")
-        default:  parts.append("?")
+        switch hotkey.key {
+        case .none:
+            return "None"
+        case .mediaKey(let mediaKey):
+            var parts: [String] = []
+            if hotkey.modifiers.contains(.maskControl) { parts.append("⌃") }
+            if hotkey.modifiers.contains(.maskCommand) { parts.append("⌘") }
+            if hotkey.modifiers.contains(.maskAlternate) { parts.append("⌥") }
+            if hotkey.modifiers.contains(.maskShift) { parts.append("⇧") }
+            parts.append(mediaKey.rawValue)
+            return parts.joined(separator: "+")
+        case .keyCode(let keyCode):
+            var parts: [String] = []
+            if hotkey.modifiers.contains(.maskControl) { parts.append("⌃") }
+            if hotkey.modifiers.contains(.maskCommand) { parts.append("⌘") }
+            if hotkey.modifiers.contains(.maskAlternate) { parts.append("⌥") }
+            if hotkey.modifiers.contains(.maskShift) { parts.append("⇧") }
+            switch keyCode {
+            case 121: parts.append("PgDn")
+            case 116: parts.append("PgUp")
+            case 49:  parts.append("Space")
+            case 48:  parts.append("Tab")
+            case 36:  parts.append("Return")
+            case 53:  parts.append("Esc")
+            case 51:  parts.append("Del")
+            case 123: parts.append("←")
+            case 124: parts.append("→")
+            case 125: parts.append("↓")
+            case 126: parts.append("↑")
+            default:  parts.append("?")
+            }
+            return parts.joined(separator: "+")
         }
-        return parts.joined(separator: "+")
     }
-    
+
     private func setupMenubar() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
@@ -210,15 +209,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let config = currentConfig ?? ConfigReader.load()
         let menu = NSMenu()
         let hotkeyLabel = hotkeyMenuString(config.hotkey)
-        menu.addItem(NSMenuItem(title: String(format: NSLocalizedString("Show/Hide Map (%@)", comment: ""), hotkeyLabel), action: #selector(toggleHUD), keyEquivalent: ""))
+        menu.addItem(menuItem(
+            title: String(format: NSLocalizedString("Show/Hide Map (%@)", comment: ""), hotkeyLabel),
+            action: #selector(toggleHUD),
+            symbolName: "square.grid.3x3"
+        ))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Settings...", comment: ""), action: #selector(showSettingsWindow), keyEquivalent: ","))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Settings...", comment: ""),
+            action: #selector(showSettingsWindow),
+            keyEquivalent: ",",
+            symbolName: "command"
+        ))
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Open Accessibility Permissions (for hotkeys)", comment: ""), action: #selector(openAccessibility), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Open Screen Recording Permissions (for thumbnails)", comment: ""), action: #selector(openScreenRecording), keyEquivalent: ""))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Open Accessibility Permissions (for hotkeys)", comment: ""),
+            action: #selector(openAccessibility),
+            symbolName: "accessibility"
+        ))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Open Screen Recording Permissions (for thumbnails)", comment: ""),
+            action: #selector(openScreenRecording),
+            symbolName: "rectangle.inset.filled"
+        ))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Install Command-Line Tool…", comment: ""),
+            action: #selector(installCommandLineTool),
+            symbolName: "terminal"
+        ))
         menu.addItem(NSMenuItem.separator())
         // Launch at Login
-        let launchAtLoginItem = NSMenuItem(title: NSLocalizedString("Launch at Login", comment: ""), action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        let launchAtLoginItem = menuItem(
+            title: NSLocalizedString("Launch at Login", comment: ""),
+            action: #selector(toggleLaunchAtLogin),
+            symbolName: "power"
+        )
         launchAtLoginItem.tag = 1001
         let isEnabled: Bool
         if #available(macOS 13, *) {
@@ -230,28 +255,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             launchAtLoginItem.state = .on
         }
         menu.addItem(launchAtLoginItem)
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Check for Updates...", comment: ""), action: #selector(checkForUpdates), keyEquivalent: ""))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Check for Updates...", comment: ""),
+            action: #selector(checkForUpdates),
+            symbolName: "arrow.down.circle"
+        ))
         menu.addItem(NSMenuItem.separator())
-        let restartItem = NSMenuItem(title: NSLocalizedString("Restart Spacemap", comment: ""), action: #selector(restartApp), keyEquivalent: "r")
+        let restartItem = menuItem(
+            title: NSLocalizedString("Restart Spacemap", comment: ""),
+            action: #selector(restartApp),
+            keyEquivalent: "r",
+            symbolName: "arrow.triangle.2.circlepath"
+        )
         restartItem.keyEquivalentModifierMask = .command
         menu.addItem(restartItem)
-        menu.addItem(NSMenuItem(title: NSLocalizedString("Quit Spacemap", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(menuItem(
+            title: NSLocalizedString("Quit Spacemap", comment: ""),
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q",
+            symbolName: "xmark.circle"
+        ))
         item.menu = menu
         statusItem = item
     }
-    
+
+    private func menuItem(
+        title: String,
+        action: Selector,
+        keyEquivalent: String = "",
+        symbolName: String
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        item.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: title)
+        return item
+    }
+
     @objc private func toggleHUD() { hud.toggle() }
-    
+
     @objc private func openAccessibility() {
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
         NSWorkspace.shared.open(url)
     }
-    
+
     @objc private func openScreenRecording() {
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
         NSWorkspace.shared.open(url)
     }
-    
+
     @objc private func restartApp() {
         let bundlePath = Bundle.main.bundleURL.path
         let task = Process()
@@ -262,26 +312,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         try? task.run()
         NSApp.terminate(nil)
     }
-    
+
     @objc func checkForUpdates() {
         print("Spacemap: Check for updates clicked")
         sparkleUpdaterController.checkForUpdates(nil)
     }
-    
+
+    @objc private func installCommandLineTool() {
+        ensureCLISymlink(allowAuthorizationPrompt: true, showSuccessAlert: true, forceAuthorizationPrompt: true)
+    }
+
     private func restartHotkey(config: GridConfig) {
         self.hotkey?.stop()
         self.hotkey = nil
+        self.pinnedHotkey?.stop()
+        self.pinnedHotkey = nil
         self.startHotkey(config: config)
+        self.startPinnedHotkey(config: config)
     }
-    
+
     private func startHotkey(config: GridConfig) {
+        guard !config.hotkey.isDisabled else {
+            print("Spacemap: hotkey disabled")
+            return
+        }
         let monitor = HotkeyMonitor(config: config.hotkey) { [weak self] in
             self?.hud.toggle()
         }
         monitor.start()
         hotkey = monitor
     }
-    
+
+    private func startPinnedHotkey(config: GridConfig) {
+        guard !config.pinnedHotkey.isDisabled else {
+            print("Spacemap: pinned HUD hotkey disabled")
+            return
+        }
+        guard ConfigReader.hotkeyToString(config.pinnedHotkey) != ConfigReader.hotkeyToString(config.hotkey) else {
+            NSLog("Spacemap: pinned HUD hotkey matches the normal hotkey; pinned binding ignored")
+            return
+        }
+        let monitor = HotkeyMonitor(config: config.pinnedHotkey) { [weak self] in
+            self?.hud.togglePinned()
+        }
+        monitor.start()
+        pinnedHotkey = monitor
+    }
+
     @objc private func showSettingsWindow() {
         NSApp.setActivationPolicy(.regular)
         let settingsWindowController = SettingsWindowController()
@@ -296,15 +373,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             }
         }
     }
-    
+
     @objc private func toggleLaunchAtLogin() {
         if #available(macOS 13, *) {
             let service = SMAppService.mainApp
             let currentStatus = service.status
             let newEnabled = currentStatus != .enabled
-            
+
             setLoginAtLogin(enabled: newEnabled)
-            
+
             // Update menu item state
             if let menu = statusItem?.menu {
                 for item in menu.items {
@@ -317,12 +394,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                         }
                         item.state = newStatus ? .on : .off
                         break
-                    }
-                }
+        }
+    }
             }
         }
     }
-    
+
     private func setLoginAtLogin(enabled: Bool) {
         if #available(macOS 13, *) {
             let service = SMAppService.mainApp
@@ -340,25 +417,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             print("Launch at login requires macOS 13 or later")
         }
     }
-    
+
     private func checkApplicationLocation() {
         let appPath = Bundle.main.bundleURL.path
         let applicationsPath = "/Applications"
         let isInApplications = appPath.hasPrefix(applicationsPath)
-        
+
         // Also check if we need to show the first-launch prompt for Launch at Login
         let defaults = UserDefaults.standard
         let hasAskedLaunchAtLogin = defaults.bool(forKey: "HasAskedLaunchAtLogin")
-        
+
         if !isInApplications {
             showMoveToApplicationsDialog()
         }
-        
+
         if !hasAskedLaunchAtLogin {
             showFirstLaunchLaunchAtLoginPrompt()
             defaults.set(true, forKey: "HasAskedLaunchAtLogin")
         }
-        
+
         // Ask about update preferences if not asked before
         let hasAskedUpdate = defaults.bool(forKey: "HasAskedUpdatePreference")
         if !hasAskedUpdate {
@@ -366,7 +443,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             defaults.set(true, forKey: "HasAskedUpdatePreference")
         }
     }
-    
+
     private func showMoveToApplicationsDialog() {
         let alert = NSAlert()
         alert.alertStyle = .informational
@@ -374,23 +451,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         alert.informativeText = NSLocalizedString("Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Move to Applications", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
-        
+
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
             moveToApplications()
         }
     }
-    
+
     private func moveToApplications() {
         let source = Bundle.main.bundleURL
         let destination = URL(fileURLWithPath: "/Applications").appendingPathComponent(source.lastPathComponent)
-        
+
         do {
             if FileManager.default.fileExists(atPath: destination.path) {
                 try FileManager.default.removeItem(at: destination)
             }
             try FileManager.default.copyItem(at: source, to: destination)
-            
+
             let alert = NSAlert()
             alert.alertStyle = .informational
             alert.messageText = NSLocalizedString("Moved to Applications", comment: "")
@@ -404,25 +481,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             alert.runModal()
         }
     }
-    
+
     private func showFirstLaunchLaunchAtLoginPrompt() {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = NSLocalizedString("Launch at Login?", comment: "")
         alert.informativeText = NSLocalizedString("Would you like Spacemap to start automatically when you log in?", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Yes", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("No", comment: ""))
+
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
             setLoginAtLogin(enabled: true)
         }
     }
-    
+
     private func showFirstLaunchUpdatePreferencePrompt() {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = NSLocalizedString("Automatic Updates?", comment: "")
         alert.informativeText = NSLocalizedString("How would you like Spacemap to check for updates?", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Auto (Download & Install)", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Notify (Check & Prompt)", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Off", comment: ""))
+
         let response = alert.runModal()
         let updateMode: UpdateMode
         switch response {
@@ -433,70 +515,100 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         default:
             updateMode = .off
         }
-        
+
         var config = ConfigReader.load()
         config.updateMode = updateMode
         ConfigReader.saveConfig(config)
         configureSparkleUpdater(updateMode: updateMode)
     }
-    
-    private func showWMNotRunningAlert() {
+
+    private func showWindowManagerAlert() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = NSLocalizedString("Window manager is not running", comment: "")
-        if let wm = windowManager {
-            alert.informativeText = String(format: NSLocalizedString("Spacemap requires %@ to be running. Please start %@ and relaunch Spacemap.", comment: ""), wm.type.rawValue, wm.type.rawValue)
-        } else {
-            alert.informativeText = NSLocalizedString("Spacemap requires a window manager (yabai or aerospace) to be running. Please start one and relaunch Spacemap.", comment: "")
-        }
+        alert.messageText = NSLocalizedString("No supported window manager is running", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap requires yabai or AeroSpace. Start either window manager and relaunch Spacemap.", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Quit", comment: ""))
-        alert.addButton(withTitle: NSLocalizedString("Open yabai", comment: ""))
-        
+        alert.addButton(withTitle: NSLocalizedString("Open Documentation", comment: ""))
+
         let response = alert.runModal()
         if response == .alertSecondButtonReturn {
-            NSWorkspace.shared.open(URL(string: "https://github.com/koekeishiya/yabai")!)
+            NSWorkspace.shared.open(URL(string: "https://github.com/wiggly-sheets/Spacemap#requirements")!)
         }
         NSApp.terminate(nil)
     }
-    
+
+    private func detectWindowManager() -> WindowManager {
+        if YabaiWindowManager.shared.isRunning() {
+            return YabaiWindowManager.shared
+        }
+        if AeroSpaceClient.shared.isRunning() {
+            return AeroSpaceClient.shared
+        }
+        return YabaiWindowManager.shared
+    }
+
     private func isMRUSpacesEnabled() -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
         process.arguments = ["read", "com.apple.dock", "mru-spaces"]
         let pipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        guard (try? process.run()) != nil else { return false }
+        process.standardError = Pipe()
+        do {
+            try process.run()
+        } catch {
+            return false
+        }
         process.waitUntilExit()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return output == "1"
+        let output = String(data: data, encoding: .utf8) ?? ""
+        return output.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
     }
-    
+
     private func showMRUAlert() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Spaces MRU is Enabled"
-        alert.informativeText = "macOS \"Automatically rearrange Spaces\" is enabled, which conflicts with Spacemap's grid layout. Disable it in System Settings → Desktop & Dock → Mission Control."
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+        alert.messageText = NSLocalizedString("Spaces Auto-Rearrange Enabled", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable.", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Leave as Is", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Fix It", comment: ""))
+
+        let response = alert.runModal()
+        if response == .alertSecondButtonReturn {
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+            task.arguments = ["write", "com.apple.dock", "mru-spaces", "-bool", "false"]
+            try? task.run()
+            task.waitUntilExit()
+            // Restart Dock for changes to take effect
+            let dock = Process()
+            dock.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+            dock.arguments = ["Dock"]
+            try? dock.run()
+        }
         NSApp.setActivationPolicy(.prohibited)
     }
-    
-    private func detectWindowManager() -> WindowManager? {
-        if YabaiClient.shared.isRunning() {
-            return YabaiClient.shared
-        } else if AeroSpaceClient.shared.isRunning() {
-            return AeroSpaceClient.shared
-        } else {
-            return YabaiClient.shared
+
+    private func showSeparateSpacesAlert() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = NSLocalizedString("Displays Have Separate Spaces Disabled", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap needs Displays have separate Spaces enabled to show and navigate each monitor independently. Enable it in System Settings, then log out and back in before using multi-monitor HUD modes.", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Leave as Is", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Open System Settings", comment: ""))
+
+        if alert.runModal() == .alertSecondButtonReturn {
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
         }
+        NSApp.setActivationPolicy(.prohibited)
     }
-    
+
     private func printVersionAndExit() {
         if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
             print("Spacemap \(version)")
@@ -505,11 +617,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
         NSApp.terminate(nil)
     }
-    
+
     private func printHelpAndExit() {
         let help = """
         Usage: Spacemap [OPTIONS]
-        
+
         Options:
           --version          Print the version and exit
           --trigger          Toggle the HUD visibility and exit
@@ -517,20 +629,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
           --settings         Open the settings window directly (app continues running)
           --config           Open the config file in the default editor and exit
           --help             Print this help and exit
-        
+
         Without any options, Spacemap launches and waits for the hotkey (Ctrl+Space) to toggle the HUD.
         """
         print(help)
         NSApp.terminate(nil)
     }
-    
+
     private func openConfigAndExit() {
-        let configPath = NSString(string: "~/.config/spacemap/config").expandingTildeInPath
-        let url = URL(fileURLWithPath: configPath)
+        _ = ConfigReader.load()
+        let url = URL(fileURLWithPath: ConfigReader.configPath)
         NSWorkspace.shared.open(url)
         NSApp.terminate(nil)
     }
-    
+
     private func setupForTriggerAndExit() {
         // For --trigger, we still need minimal setup to toggle the HUD
         NSApp.setActivationPolicy(.prohibited)
@@ -541,29 +653,110 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             NSApp.terminate(nil)
         }
     }
-    
-    private func ensureSymlink() {
-        let symlinkPath = "/usr/local/bin/spacemap"
-        let executablePath = "/Applications/Spacemap.app/Contents/MacOS/spacemap"
-        let fileManager = FileManager.default
-        
-        // Always remove any existing symlink first (handles broken/self-referential symlinks)
-        try? fileManager.removeItem(atPath: symlinkPath)
-        
-        do {
-            try fileManager.createSymbolicLink(atPath: symlinkPath, withDestinationPath: executablePath)
-        } catch {
-            print("Spacemap: failed to create symlink at \(symlinkPath): \(error)")
+
+    private let cliSymlinkPath = "/usr/local/bin/spacemap"
+    private let cliExecutablePath = "/Applications/Spacemap.app/Contents/MacOS/spacemap"
+
+    private func ensureCLISymlink(
+        allowAuthorizationPrompt: Bool,
+        showSuccessAlert: Bool = false,
+        forceAuthorizationPrompt: Bool = false
+    ) {
+        switch CLISymlinkInstaller.install(symlinkPath: cliSymlinkPath, targetPath: cliExecutablePath) {
+        case .installed:
+            if showSuccessAlert {
+                showCLIInstallAlert(
+                    style: .informational,
+                    message: NSLocalizedString("Command-Line Tool Ready", comment: ""),
+                    information: NSLocalizedString("You can now use `spacemap` from Terminal.", comment: "")
+                )
+            }
+        case .targetUnavailable:
+            print("Spacemap: CLI target is unavailable at \(cliExecutablePath)")
+        case .conflictingItem:
+            let message = "Spacemap: preserving existing item at \(cliSymlinkPath)"
+            print(message)
+            if showSuccessAlert {
+                showCLIInstallAlert(
+                    style: .warning,
+                    message: NSLocalizedString("Command-Line Tool Not Installed", comment: ""),
+                    information: NSLocalizedString("An unrelated item already exists at /usr/local/bin/spacemap, so Spacemap left it unchanged.", comment: "")
+                )
+            }
+        case .authorizationRequired:
+            guard allowAuthorizationPrompt else {
+                print("Spacemap: administrator authorization is required to install the CLI")
+                return
+            }
+            let defaults = UserDefaults.standard
+            if forceAuthorizationPrompt || !defaults.bool(forKey: "HasAskedCLIInstallAuthorization") {
+                defaults.set(true, forKey: "HasAskedCLIInstallAuthorization")
+                promptForCLIInstallAuthorization()
+            }
+        case .failed:
+            print("Spacemap: failed to create CLI symlink at \(cliSymlinkPath)")
+            if showSuccessAlert {
+                showCLIInstallAlert(
+                    style: .critical,
+                    message: NSLocalizedString("Command-Line Tool Not Installed", comment: ""),
+                    information: NSLocalizedString("Spacemap could not create /usr/local/bin/spacemap.", comment: "")
+                )
+            }
         }
     }
-    
-    private func configureSparkleUpdater(updateMode: UpdateMode) {
-        print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
+
+    private func promptForCLIInstallAuthorization() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = NSLocalizedString("Install Command-Line Tool?", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap needs administrator permission to create /usr/local/bin/spacemap. This only adds a symlink to the app; it does not change your shell configuration.", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Install", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Not Now", comment: ""))
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            installCLISymlinkWithAuthorization()
+        }
+    }
+
+    private func installCLISymlinkWithAuthorization() {
+        // This intentionally refuses to overwrite any unrelated item. All
+        // paths are app constants, so no user-controlled shell input is used.
+        let command = "if [ -L /usr/local/bin/spacemap ]; then [ $(/usr/bin/readlink /usr/local/bin/spacemap) = /Applications/Spacemap.app/Contents/MacOS/spacemap ] || exit 2; elif [ -e /usr/local/bin/spacemap ]; then exit 2; fi; /bin/mkdir -p /usr/local/bin; if [ ! -L /usr/local/bin/spacemap ]; then /bin/ln -s /Applications/Spacemap.app/Contents/MacOS/spacemap /usr/local/bin/spacemap; fi"
+        let source = "do shell script \"\(command)\" with administrator privileges"
+        var error: NSDictionary?
+        NSAppleScript(source: source)?.executeAndReturnError(&error)
+
+        if let error {
+            let errorNumber = error[NSAppleScript.errorNumber] as? Int
+            if errorNumber != -128 { // User cancelled the authorization dialog.
+                print("Spacemap: authorized CLI installation failed: \(error)")
+                showCLIInstallAlert(
+                    style: .critical,
+                    message: NSLocalizedString("Command-Line Tool Not Installed", comment: ""),
+                    information: NSLocalizedString("Spacemap could not install the command-line tool. You can try again from the menu bar.", comment: "")
+                )
+            }
+            return
+        }
+
+        ensureCLISymlink(allowAuthorizationPrompt: false, showSuccessAlert: true)
+    }
+
+    private func showCLIInstallAlert(style: NSAlert.Style, message: String, information: String) {
+        let alert = NSAlert()
+        alert.alertStyle = style
+        alert.messageText = message
+        alert.informativeText = information
+        alert.runModal()
+    }
+
+private func configureSparkleUpdater(updateMode: UpdateMode) {
+print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
         let updater = sparkleUpdaterController.updater
         print("Spacemap: Updater feed URL: \(String(describing: updater.feedURL))")
         print("Spacemap: Current auto-check setting: \(updater.automaticallyChecksForUpdates)")
         print("Spacemap: Current auto-download setting: \(updater.automaticallyDownloadsUpdates)")
-        
+
         switch updateMode {
         case .auto:
             updater.automaticallyDownloadsUpdates = true
@@ -574,25 +767,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         case .off:
             updater.automaticallyChecksForUpdates = false
         }
-        
+
         print("Spacemap: After config - auto-check: \(updater.automaticallyChecksForUpdates), auto-download: \(updater.automaticallyDownloadsUpdates)")
-        
+
         // startUpdater is idempotent — no-ops if already started
         if updateMode != .off {
             sparkleUpdaterController.startUpdater()
         }
     }
-    
+
     // MARK: - SPUUpdaterDelegate
-    
+
     func feedURL(for updater: SPUUpdater) -> URL? {
         return URL(string: "https://wiggly-sheets.github.io/Spacemap/appcast.xml")
     }
-    
+
     func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
         print("Spacemap: Sparkle update aborted with error: \(error)")
     }
-    
+
     func updaterDidFinishLoading(_ updater: SPUUpdater) {
         print("Spacemap: Sparkle updater finished loading")
     }

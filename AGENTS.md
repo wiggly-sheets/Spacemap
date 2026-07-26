@@ -1,14 +1,16 @@
 # Spacemap - AGENTS.md
 
+Whenever you are working in this repo, be as concise as possible with your answers. Sacrifice grammar for concision, but don’t sacrifice clarity.
+
 ## Project Overview
 
-**Spacemap** is a native macOS utility that visualizes yabai workspaces in a floating 2D grid overlay. Think of it as a "mission control" for your tiling window manager that doesn't require SIP to be disabled.
+**Spacemap** is a native macOS utility that visualizes yabai or AeroSpace workspaces in a floating 2D grid overlay. Think of it as a "mission control" for your tiling window manager.
 
 ### What It Does
 - Shows a HUD overlay (toggle with hotkey) displaying your yabai desktops in a configurable grid
 - Live-updates as you switch spaces via yabai
 - Lets you click cells to jump to spaces
-- Supports three display styles: colored rectangles, app icons, or thumbnails (ScreenCaptureKit)
+- Supports four display styles: colored rectangles, app icons, plain, or thumbnails (ScreenCaptureKit)
 - Window drag-and-drop between cells (drag a window onto a cell to move it)
 - Menubar icon for manual show/hide (can be hidden)
 
@@ -17,34 +19,18 @@
 - **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
 - **Sparkle updater**: `App.swift` initializes `SPUStandardUpdaterController` with `startingUpdater: false`; `start()` called after config load. Keys generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`.
 - **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
-- **Data**: `YabaiClient.swift` – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows; `ConfigReader.swift` – reads `~/.config/spacemap/config`.
+- **Data**: `WindowManagerProtocol.swift` selects a manager adapter; `YabaiClient.swift` and `AeroSpaceClient.swift` provide spaces/windows; `ConfigReader.swift` reads `~/.config/spacemap/spacemap.jsonc`.
 - **Themes**: `ThemeManager.swift` – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
 - **Hotkey**: `HotkeyMonitor.swift` – global CGEventTap for toggle.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
 - **Signals**: `SocketListener.swift` – Unix domain socket for yabai `space_changed` events.
 - **Models**: `Models.swift` – data structs (GridConfig, YabaiSpace, UpdateMode, etc.).
-- **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – live‑save config UI with Automatic Updates picker.
+- **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – permanent category sidebar with separate live-save detail forms.
 - **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
-- **Config**: Stored at `~/.config/spacemap/config`; reloads on HUD open (except HOTKEY needs restart).
+- **Config**: Stored at `~/.config/spacemap/spacemap.jsonc`; reloads on HUD open (except HOTKEY needs restart).
 - **Permissions**: Requires Accessibility permission (prompted on first launch). Screen Recording permission required for thumbnail cell style.
-- **Sparkle Keys**: Stored in login Keychain (generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`). Public key in `sparklesigner.pub`, private key in `sparklesigner.pem`. Both in `.gitignore`. Public key in GitHub Secret `SPARKLE_PUBLIC_KEY`, private key in `SPARKLE_PRIVATE_KEY`.
-
-## Quick Reference for Agents
-- **Entry point**: `Sources/spacemap/App.swift` – sets up menubar, hotkey monitor, socket listener.
-- **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
-- **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
-- **Data**: `YabaiClient.swift` – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows; `ConfigReader.swift` – reads `~/.config/spacemap/config`.
-- **Themes**: `ThemeManager.swift` – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
-- **Hotkey**: `HotkeyMonitor.swift` – global CGEventTap for toggle.
-- **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
-- **Signals**: `SocketListener.swift` – Unix domain socket for yabai `space_changed` events.
-- **Models**: `Models.swift` – data structs (GridConfig, YabaiSpace, etc.).
-- **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – live‑save config UI.
-- **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
-- **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
-- **Config**: Stored at `~/.config/spacemap/config`; reloads on HUD open (except HOTKEY needs restart).
-- **Permissions**: Requires Accessibility permission (prompted on first launch). Screen Recording permission required for thumbnail cell style.
+- **Sparkle Keys**: Public key is in `sparklesigner.pub`; `sparklesigner.pem` is the matching local PEM private key. Both are `.gitignore`d. GitHub `SPARKLE_PUBLIC_KEY` stores the public key; `SPARKLE_PRIVATE_KEY` must contain the matching base64-encoded 32-byte Ed25519 seed (not the PEM file). The release workflow verifies the pair before building.
 
 ## Architecture
 
@@ -63,7 +49,7 @@ Sources/spacemap/
 ├── GridView.swift         # SwiftUI grid container
 ├── CellView.swift         # Individual cell rendering (rects/icons/thumbnails)
 ├── YabaiClient.swift      # Shells out to yabai binary for data/manipulation
-├── ConfigReader.swift     # Parses ~/.config/spacemap/config
+├── ConfigReader.swift     # Parses ~/.config/spacemap/spacemap.jsonc
 ├── HotkeyMonitor.swift   # Global CGEventTap for toggle hotkey
 ├── WindowDragHandler.swift # Detects window drag-and-drop over HUD
 ├── SocketListener.swift   # Unix domain socket server for yabai signals
@@ -71,7 +57,7 @@ Sources/spacemap/
 ├── ThumbnailCache.swift   # ScreenCaptureKit capture, per-space caching (macOS 14+)
 ├── IconCache.swift         # App icon cache to avoid repeated NSWorkspace lookups
 ├── ThemeManager.swift      # Loads .smthemes files, seeds built-in themes on first launch
-├── SettingsView.swift     # Settings window UI with live config save
+├── SettingsView.swift     # Fixed settings sidebar + category-specific live-save forms
 ├── SettingsWindowController.swift # AppKit window wrapper for SettingsView
 └── Info.plist            # App bundle metadata
 ```
@@ -87,11 +73,11 @@ Sources/spacemap/
 7. **Drag-and-drop** → `WindowDragHandler` uses CGEventTap to track mouse, yabai to move window
 
 ### External Dependencies
-- **yabai** (installed at `/opt/homebrew/bin/yabai`) - tiling window manager
+- **yabai or AeroSpace** - supported tiling window managers; yabai is preferred when both are running
 - **skhd** (installed at `/opt/homebrew/bin/skhd`) - hotkey daemon, configured for 2D grid navigation
 
 ### Configuration
-Reads from `~/.config/spacemap/config` on every HUD open (no restart needed):
+Reads from `~/.config/spacemap/spacemap.jsonc` on every HUD open (no restart needed):
 ```bash
 GRID_COLS=8              # Grid columns
 GRID_ROWS=2              # Grid rows
@@ -162,13 +148,6 @@ open spacemap.xcodeproj                 # Open in Xcode
 ```
 Targets: default, arm64, x86_64, universal. Project is regenerated from `Package.swift` — edit SPM, not the `.xcodeproj`.
 
-### Xcode Project
-```bash
-python3 scripts/generate-xcodeproj.py   # Generate from SPM
-open spacemap.xcodeproj                 # Open in Xcode
-```
-Targets: default, arm64, x86_64, universal. Project is regenerated from `Package.swift` — edit SPM, not the `.xcodeproj`.
-
 ### Testing Changes
 1. `make dev1` (uninstalls app)
 2. Remove Spacemap from System Settings → Privacy & Security → Accessibility
@@ -183,7 +162,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 3. **SwiftUI performance:** Each HUD open creates a new NSHostingView. The state is cached during a drag, but the view is recreated.
 4. **Icon strip flicker:** On space change, `CellView` rerenders and re-fetches icons via `NSWorkspace.shared.icon(forFile:)` which is potentially expensive
 5. **Drag resolution:** Window drag detection uses frontmost app name matching, which can be ambiguous for multi-window apps. Falls back to click proximity.
-6. **Test suite:** 103 unit tests across 5 files (`Tests/spacemapTests/`). Run with `make test` or `swift test`.
+6. **Test suite:** 166 unit tests across 7 files (`Tests/spacemapTests/`). Run with `make test` or `swift test`.
 7. **Socket health check:** Periodic `fcntl(fd, F_GETFD)` check + file existence check. Restarts on failure.
 
 ## Potential Extension Points
@@ -236,7 +215,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - Grid-aware keyboard navigation (arrow keys + vim keys with wrapping)
 - Dynamic yabai path detection (ARM + Intel)
 - Xcode project generation (`scripts/generate-xcodeproj.py`, 4 targets)
-- Unit test suite: 103 tests across 5 files (`Tests/spacemapTests/`)
+- Unit test suite: 166 tests across 7 files (`Tests/spacemapTests/`)
 - GitHub Actions CI: swift test + build on push/PR
 - GitHub Actions Release: 3 DMG variants + checksums on tag push
 - Dependabot for GitHub Actions
@@ -247,8 +226,6 @@ See [TASKS.md](./TASKS.md) for planned features, bug fixes, and known issues.
 
 ## Questions
 
-1. **Electron app?** The screenshot in the README shows what looks like an electron-style window. Is there a web/JS component, or is this pure Swift? (It is pure Swift with SwiftUI, the screenshot is just the HUD).
-3. **i18n?** No localization is present. Are there plans for it?
-4. **Accessibility of the config?** The config file uses a simple key=value format, but there's no validation or schema. Would a JSON or YAML config be better?
-5. **Hotkey parsing limitations?** The hotkey parser only supports a subset of keys (see `ConfigReader.keyCodeFor`). Keys like F13-F20, media keys, etc., are not supported. Is this by design?
-6. **The `yabaiPath` is static in `YabaiClient`:** Should it be configurable or auto-discovered?
+1. **Electron app?** It is pure Swift with SwiftUI
+2. **Accessibility of the config?** The config file uses a simple key=value format, but there's no validation or schema. Would a JSON or YAML config be better?
+3. **Hotkey parsing limitations?** The hotkey parser only supports a subset of keys (see `ConfigReader.keyCodeFor`). Keys like F13-F20, media keys, etc., are not supported. Is this by design?

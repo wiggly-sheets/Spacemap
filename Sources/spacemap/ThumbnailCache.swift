@@ -12,10 +12,10 @@ final class ThumbnailCache {
     private var nsCache: [Int: NSImage] = [:]
     private let queue = DispatchQueue(label: "com.spacemap.thumbnailcache")
 
-    /// Capture the currently active display (the current space) and pin it to its cell.
-    func captureActiveSpace(spaceIndex: Int) {
+    /// Capture the display that owns the current space and pin it to its cell.
+    func captureActiveSpace(spaceIndex: Int, displayID: CGDirectDisplayID? = nil) {
         Task {
-            guard let cgImage = await captureDisplay() else {
+            guard let cgImage = await captureDisplay(displayID: displayID) else {
                 NSLog("spacemap/ThumbnailCache: failed to capture display for space \(spaceIndex)")
                 return
             }
@@ -45,10 +45,13 @@ final class ThumbnailCache {
         }
     }
 
-    private func captureDisplay() async -> CGImage? {
+    private func captureDisplay(displayID: CGDirectDisplayID?) async -> CGImage? {
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
-            guard let display = content.displays.first else { return nil }
+            let display = displayID.flatMap { requestedID in
+                content.displays.first { $0.displayID == requestedID }
+            } ?? content.displays.first
+            guard let display else { return nil }
 
             let selfWindows = content.windows.filter {
                 $0.owningApplication?.applicationName == "spacemap"
@@ -56,8 +59,8 @@ final class ThumbnailCache {
 
             let filter = SCContentFilter(display: display, excludingWindows: selfWindows)
             let config = SCStreamConfiguration()
-            config.width = Int(display.width * 2)
-            config.height = Int(display.height * 2)
+            config.width = Int(display.width)
+            config.height = Int(display.height)
             config.showsCursor = false
 
             return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)

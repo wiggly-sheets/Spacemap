@@ -2,8 +2,11 @@ import AppKit
 import SwiftUI
 
 class HUDWindowController {
+    // Unified mode owns one panel; separate mode owns one panel per yabai display.
     private var panel: NSPanel?
+    private var displayPanels: [Int: NSPanel] = [:]
     private var isVisible = false
+    private var isPinned = false
     private var _config: GridConfig? = nil
     private var config: GridConfig {
         get {
@@ -22,12 +25,16 @@ class HUDWindowController {
     // Snapshot of grid state taken when HUD opens; reused for hover rerenders so
     // the thumbnail layout doesn't flicker during a drag and cachedWindows stays stable.
     private var currentState: GridState? = nil
+    // Persists while the HUD is hidden, allowing the next show to render its
+    // complete grid immediately while yabai supplies a fresh snapshot.
+    private var latestState: GridState? = nil
     private var autoHideTimer: Timer?
     private var pollTimer: Timer?
     private let dragHandler = WindowDragHandler()
     private var lastFocusedSpaceIndex: Int? = nil
     private var isToggling = false   // prevents re-entry during toggle animations
-    private var hostingView: NSHostingView<GridView>?
+    private var hostingView: NSHostingView<AnyView>?
+    private var displayHostingViews: [Int: NSHostingView<AnyView>] = [:]
     var onShowSettings: (() -> Void)?
     private var settingsKeyMonitor: Any?
     // Panel drag state for custom position mode
@@ -37,200 +44,556 @@ class HUDWindowController {
     private var panelDragOffset: CGPoint?  // not used maybe
     private var panelDragOrigin: CGPoint?  // initial panel origin on drag start
     private var isPanelDragging = false
-    var windowManager: WindowManager?  // Injected by AppDelegate
-    
+    private var refreshWorkItem: DispatchWorkItem?
+    private var isFetching = false  // prevents concurrent fetches
+    private var isPollingFocusedSpace = false
+    private var pendingFocusedSpaceIndex: Int?
+    private var pendingFocusDeadline: Date?
+    var windowManager: WindowManager = YabaiWindowManager.shared {
+        didSet { dragHandler.windowManager = windowManager }
+    }
+
     init() {
+        dragHandler.windowManager = windowManager
         dragHandler.onHoverCell = { [weak self] cell in
             guard let self, isVisible, let state = currentState else { return }
             hoveredCell = cell
-            if let p = panel { renderState(state, panel: p) }
+            renderState(state)
             self.resetAutoHideTimer()
         }
         dragHandler.onDropInCell = { [weak self] windowID, spaceIndex in
             guard let self else { return }
-            self.windowManager?.moveWindow(windowID, toSpace: spaceIndex)
             hoveredCell = nil
-            refreshState()
             resetAutoHideTimer()
+            windowManager.moveWindowCreatingSpacesIfNeeded(
+                windowID,
+                toSpace: spaceIndex,
+                focusDestination: config.focusSpaceOnWindowDrop
+            ) { [weak self] result in
+                guard let self else { return }
+                if case .failure(let error) = result {
+                    NSLog("spacemap/HUD: window drop failed: \(error.localizedDescription)")
+                }
+                refreshState()
+                resetAutoHideTimer()
+            }
         }
     }
-    
+
     func toggle() {
-        guard !isToggling else { 
+        guard !isToggling else {
             NSLog("spacemap/HUD: toggle ignored, isToggling=\(isToggling)")
-            return 
+            return
         }
         NSLog("spacemap/HUD: toggle called, isVisible=\(isVisible)")
         isToggling = true
+        isPinned = false
         if isVisible { hide() } else { show() }
         // Reset isToggling after a short delay to allow for animation settle
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.isToggling = false
         }
     }
-    
+
+    func togglePinned() {
+        guard !isToggling else { return }
+        isToggling = true
+        if isVisible, isPinned {
+            hide()
+        } else {
+            isPinned = true
+            if isVisible {
+                resetAutoHideTimer()
+            } else {
+                show()
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.isToggling = false
+        }
+    }
+
     func show() {
         guard !isVisible else { return }
-        // Tear down any orphaned panel before creating new one
-        if let existing = panel {
-            existing.orderOut(nil)
-            existing.close()
-            panel = nil
-            hostingView = nil
-        }
+        tearDownPanels()
         NSLog("spacemap/HUD: show() called")
         reloadConfig()
-        
-        panel = makePanel()
-        guard let panel else { 
-            return
-        }
-        
-        // buildGridState derives focusedIndex from spaces query — no separate call needed
-        guard let wm = windowManager else {
-            NSLog("spacemap/HUD: windowManager is nil")
-            return
-        }
-        let state = wm.buildGridState(config: config, focusedIndex: nil)
-        currentState = state
-        dragHandler.cachedWindows = state.windows
-        // Capture focused window before HUD renders, so drag handler knows what the user had active.
-        if let focusedWindowID = wm.queryFocusedWindow() {
-            dragHandler.focusedWindowIDAtOpen = focusedWindowID
-        }
-        refreshThumbnailCache(state: state)
-        renderState(state, panel: panel)
-        updateCellFrames(state: state, panel: panel)
-        dragHandler.start()
-        lastFocusedSpaceIndex = state.focusedIndex
+
         isVisible = true
+        if let latestState {
+            displayCachedState(latestState)
+        } else {
+            renderEmptyState()
+        }
         resetAutoHideTimer()
         startPollTimer()
         startSettingsKeyMonitor()
-        if case .custom = config.hudPosition { startPanelDragMonitor() }
+        if config.multiMonitorHUDMode == .unified,
+           config.unifiedHUDVisibility == .active,
+           case .custom = config.hudPosition {
+            startPanelDragMonitor()
+        }
+
+        // Fetch data in background, update UI when ready
+        fetchStateAndRender()
     }
-    
-    private func startPollTimer() {
-        pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            guard let self, self.isVisible else { return }
-            if let focused = self.windowManager?.queryFocusedSpaceIndex(), focused != self.lastFocusedSpaceIndex {
-                self.refreshState()
-                self.resetAutoHideTimer()
+
+    /// Query once at launch so the first HUD invocation can render complete
+    /// content too, rather than showing an empty frame while yabai is queried.
+    func prewarmState() {
+        let cfg = config
+        windowManager.runOnQueue { [weak self] in
+            guard let self else { return }
+            let state = self.windowManager.buildGridState(config: cfg)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.latestState = state
+                self.preloadIcons(for: state)
+                if self.isVisible, self.currentState == nil {
+                    self.displayCachedState(state)
+                }
             }
         }
     }
-    
+
+    private func startPollTimer() {
+        pollTimer?.invalidate()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self, self.isVisible, !self.isPollingFocusedSpace else { return }
+            self.isPollingFocusedSpace = true
+            // Do not enqueue another poll while one is waiting behind a refresh.
+            // Otherwise polls can delay interactive focus commands indefinitely.
+            windowManager.runOnQueue { [weak self] in
+                let focused = self?.windowManager.queryFocusedSpaceIndex()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.isPollingFocusedSpace = false
+                    guard self.isVisible else { return }
+                    self.handlePolledFocus(focused)
+                }
+            }
+        }
+    }
+
+    private func fetchStateAndRender() {
+        // Cancel any pending work and mark as fetching so refreshState can't race
+        refreshWorkItem?.cancel()
+        refreshWorkItem = nil
+        isFetching = true
+        let cfg = config
+        var workCancelled = false
+        let work: DispatchWorkItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let state = self.windowManager.buildGridState(config: cfg)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                // Guard against stale completions
+                guard !workCancelled, self.isFetching else {
+                    NSLog("spacemap/HUD: fetchStateAndRender cancelled (stale)")
+                    self.isFetching = false
+                    return
+                }
+                self.isFetching = false
+                guard self.isVisible else { return }
+                self.latestState = state
+                self.currentState = state
+                self.dragHandler.cachedWindows = state.windows
+                self.preloadIcons(for: state)
+                self.refreshThumbnailCache(state: state)
+                self.renderState(state)
+                self.updateCellFrames(state: state)
+                self.lastFocusedSpaceIndex = state.focusedIndex
+                self.dragHandler.start()
+                self.refreshFocusedWindowID()
+                NSLog("spacemap/HUD: fetchStateAndRender complete, focused=\(state.focusedIndex ?? -1), spaces=\(state.spaces.count), windows=\(state.windows.count)")
+            }
+        }
+        work.notify(queue: .main) { [weak work] in
+            if work?.isCancelled == true { workCancelled = true }
+        }
+        refreshWorkItem = work
+        windowManager.runOnQueue(work)
+    }
+
+    private func renderEmptyState() {
+        guard config.multiMonitorHUDMode == .unified else { return }
+        let emptyState = GridState(
+            config: config,
+            spaces: [],
+            windows: [],
+            displayBounds: NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440),
+            focusedIndex: nil
+        )
+        renderState(emptyState)
+    }
+
+    private func displayCachedState(_ cachedState: GridState) {
+        let state = GridState(
+            config: config,
+            spaces: cachedState.spaces,
+            windows: cachedState.windows,
+            displayBounds: cachedState.displayBounds,
+            focusedIndex: cachedState.focusedIndex,
+            displays: cachedState.displays
+        )
+        currentState = state
+        dragHandler.cachedWindows = state.windows
+        preloadIcons(for: state)
+        renderState(state)
+        updateCellFrames(state: state)
+        lastFocusedSpaceIndex = state.focusedIndex
+        dragHandler.start()
+    }
+
+    private func state(_ state: GridState, withFocusedIndex focusedIndex: Int?) -> GridState {
+        GridState(
+            config: state.config,
+            spaces: state.spaces,
+            windows: state.windows,
+            displayBounds: state.displayBounds,
+            focusedIndex: focusedIndex,
+            displays: state.displays
+        )
+    }
+
+    private func refreshFocusedWindowID() {
+        windowManager.runOnQueue { [weak self] in
+            let focusedWindowID = try? self?.windowManager.queryFocusedWindow()
+            DispatchQueue.main.async {
+                guard let self, self.isVisible, let focusedWindowID else { return }
+                self.dragHandler.focusedWindowIDAtOpen = focusedWindowID
+            }
+        }
+    }
+
+    private func preloadIcons(for state: GridState) {
+        guard config.cellStyle == .icons || config.showIconStrip else { return }
+        let visibleWindows = config.showExtraWindows
+            ? state.windows.filter { !$0.isHidden && !$0.isMinimized }
+            : state.windows.filter(\.isRealWindow)
+        IconCache.shared.preload(appNames: visibleWindows.map(\.app))
+    }
+
     func hide() {
-        guard isVisible else { 
+        guard isVisible else {
             // Already hidden; do nothing
             return
         }
         NSLog("spacemap/HUD: hide() called")
+        isPinned = false
         dragHandler.stop()
         autoHideTimer?.invalidate()
         autoHideTimer = nil
         pollTimer?.invalidate()
         pollTimer = nil
-        
-        if let p = panel {
-            p.orderOut(nil)
-            p.close()
-        }
-        panel = nil
-        hostingView = nil
-        
+        refreshWorkItem?.cancel()
+        refreshWorkItem = nil
+
+        tearDownPanels()
+
         isVisible = false
         hoveredCell = nil
         currentState = nil
+        isPollingFocusedSpace = false
+        pendingFocusedSpaceIndex = nil
+        pendingFocusDeadline = nil
         dragHandler.cellFrames = []
         dragHandler.cachedWindows = []
         dragHandler.focusedWindowIDAtOpen = nil
         stopSettingsKeyMonitor()
         stopPanelDragMonitor()
     }
-    
-    // Called by WindowManager's event listener — also handles full content refresh (windows moved etc.)
+
+    // Called by SocketListener — also handles full content refresh (windows moved etc.)
     func refresh() {
-        guard isVisible, panel != nil else { return }
+        guard isVisible else {
+            refreshCachedFocus()
+            return
+        }
         resetAutoHideTimer()
         refreshState()
     }
-    
-    private func refreshState() {
-        guard isVisible, let panel else { return }
-        guard let wm = windowManager else { return }
-        let state = wm.buildGridState(config: config, focusedIndex: nil)
-        currentState = state
-        dragHandler.cachedWindows = state.windows
-        refreshThumbnailCache(state: state)
-        renderState(state, panel: panel)
-        updateCellFrames(state: state, panel: panel)
-        lastFocusedSpaceIndex = state.focusedIndex
-    }
-    
-    private func renderState(_ state: GridState, panel: NSPanel) {
-        let hovered = hoveredCell
-        let gridView = GridView(state: state, hoveredCell: hovered, onSelect: { [weak self] index in
-            self?.windowManager?.focusSpace(index)
-            self?.hide()
-        }, uiScale: config.uiScale, theme: config.theme)
-        let size = gridView.idealSize
-        
-        let hv = NSHostingView(rootView: gridView)
-        hv.frame = NSRect(origin: .zero, size: size)
-        panel.contentView = hv
-        hostingView = hv
-        
-        panel.setContentSize(size)
-        
-        if let screen = NSScreen.main {
-            let pos = config.hudPosition.point(for: size, screen: screen.frame)
-            panel.setFrameOrigin(pos)
+
+    /// Keep the highlighted space current while the HUD is hidden without
+    /// paying for a complete windows/displays refresh on every space signal.
+    private func refreshCachedFocus() {
+        guard let latestState else {
+            prewarmState()
+            return
         }
-        
+        windowManager.runOnQueue { [weak self] in
+            let focusedIndex = self?.windowManager.queryFocusedSpaceIndex()
+            DispatchQueue.main.async {
+                guard let self, !self.isVisible, let focusedIndex else { return }
+                self.latestState = self.state(latestState, withFocusedIndex: focusedIndex)
+            }
+        }
+    }
+
+    private func refreshState() {
+        guard isVisible else { return }
+        // Debounce: cancel any in-flight work
+        refreshWorkItem?.cancel()
+        refreshWorkItem = nil
+        isFetching = false  // allow fetchStateAndRender to re-fetch
+
+        var workCancelled = false
+        let work: DispatchWorkItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            let cfg = self.config
+            let state = self.windowManager.buildGridState(config: cfg)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                guard !workCancelled, self.isVisible else {
+                    NSLog("spacemap/HUD: refreshState cancelled (stale)")
+                    return
+                }
+                let displayedState = self.statePreservingPendingFocus(state)
+                self.latestState = displayedState
+                self.currentState = displayedState
+                self.dragHandler.cachedWindows = displayedState.windows
+                self.preloadIcons(for: displayedState)
+                self.refreshThumbnailCache(state: displayedState)
+                self.renderState(displayedState)
+                self.updateCellFrames(state: displayedState)
+                self.lastFocusedSpaceIndex = displayedState.focusedIndex
+                NSLog("spacemap/HUD: refreshState complete, focused=\(displayedState.focusedIndex ?? -1)")
+            }
+        }
+        work.notify(queue: .main) { [weak work] in
+            if work?.isCancelled == true { workCancelled = true }
+        }
+        refreshWorkItem = work
+        windowManager.runOnQueue(work)
+    }
+
+    private func renderState(_ state: GridState) {
+        switch config.multiMonitorHUDMode {
+        case .unified:
+            renderUnifiedState(state)
+        case .separate:
+            renderSeparateStates(state)
+        }
+    }
+
+    private func renderUnifiedState(_ state: GridState) {
+        let gridView = makeGridView(state: state, hoveredCell: hoveredCell)
+        let size = gridView.idealSize
+
+        if config.unifiedHUDVisibility == .all {
+            if let panel {
+                panel.orderOut(nil)
+                panel.close()
+                self.panel = nil
+                hostingView = nil
+            }
+
+            let displayIndices = state.populatedDisplayIndices
+            let staleIndices = Set(displayPanels.keys).subtracting(displayIndices)
+            for index in staleIndices {
+                displayPanels[index]?.orderOut(nil)
+                displayPanels[index]?.close()
+                displayPanels[index] = nil
+                displayHostingViews[index] = nil
+            }
+
+            for displayIndex in displayIndices {
+                guard let screen = screen(forDisplay: displayIndex, in: state) else { continue }
+                let panel: NSPanel
+                if let existing = displayPanels[displayIndex] {
+                    panel = existing
+                } else {
+                    panel = makePanel()
+                    displayPanels[displayIndex] = panel
+                }
+
+                let hostingView = NSHostingView(rootView: AnyView(gridView))
+                hostingView.frame = NSRect(origin: .zero, size: size)
+                panel.contentView = hostingView
+                displayHostingViews[displayIndex] = hostingView
+                panel.setContentSize(size)
+                panel.setFrameOrigin(config.hudPosition.point(for: size, screen: screen.frame))
+                panel.orderFrontRegardless()
+            }
+            return
+        }
+
+        closeDisplayPanels()
+        if panel == nil { panel = makePanel() }
+        guard let panel else { return }
+
+        let hostingView = NSHostingView(rootView: AnyView(gridView))
+        hostingView.frame = NSRect(origin: .zero, size: size)
+        panel.contentView = hostingView
+        self.hostingView = hostingView
+
+        panel.setContentSize(size)
+        let focusedScreen = state.focusedIndex
+            .flatMap { state.displayIndex(forSpace: $0) }
+            .flatMap { screen(forDisplay: $0, in: state) }
+        if let screen = focusedScreen ?? NSScreen.main {
+            panel.setFrameOrigin(config.hudPosition.point(for: size, screen: screen.frame))
+        }
         panel.orderFrontRegardless()
     }
-    
-    private func updateCellFrames(state: GridState, panel: NSPanel) {
-        let scale = config.uiScale
-        let cellWidth: CGFloat = 80 * scale * 3
-        let cellHeight: CGFloat = 50 * scale * 3
-        let gap: CGFloat = 6 * scale * 3
-        let padding: CGFloat = 12 * scale * 3
-        let slotWidth = cellWidth + gap
-        let slotHeight = cellHeight + gap
-        
-        // Compute visible cells same as GridView
-        let maxN = min(config.maxSpaces, 16)
-        let all = (1...maxN).map { $0 }
-        let cells: [Int]
-        if config.showMode == .active {
-            let activeSet = Set(state.spaces.map { $0.index })
-            cells = all.filter { activeSet.contains($0) }
+
+    private func renderSeparateStates(_ state: GridState) {
+        if let panel {
+            panel.orderOut(nil)
+            panel.close()
+            self.panel = nil
+            hostingView = nil
+        }
+
+        let displayIndices: [Int]
+        if config.separateHUDVisibility == .active,
+           let focusedIndex = state.focusedIndex,
+           let focusedDisplayIndex = state.displayIndex(forSpace: focusedIndex) {
+            displayIndices = [focusedDisplayIndex]
         } else {
-            cells = all
+            displayIndices = state.populatedDisplayIndices
         }
-        
-        let cols = min(config.cols, cells.count)
-        let rowCount = (cells.count + cols - 1) / cols
-        
+        let staleIndices = Set(displayPanels.keys).subtracting(displayIndices)
+        for index in staleIndices {
+            displayPanels[index]?.orderOut(nil)
+            displayPanels[index]?.close()
+            displayPanels[index] = nil
+            displayHostingViews[index] = nil
+        }
+
+        for displayIndex in displayIndices {
+            let spaces = state.spaces(forDisplay: displayIndex).map(\.index)
+            guard !spaces.isEmpty else { continue }
+            guard let screen = screen(forDisplay: displayIndex, in: state) else { continue }
+
+            let panel: NSPanel
+            if let existing = displayPanels[displayIndex] {
+                panel = existing
+            } else {
+                panel = makePanel()
+                displayPanels[displayIndex] = panel
+            }
+
+            let gridView = makeGridView(state: state, hoveredCell: hoveredCell, spaceIndices: spaces)
+            let size = gridView.idealSize
+            let hostingView = NSHostingView(rootView: AnyView(gridView))
+            hostingView.frame = NSRect(origin: .zero, size: size)
+            panel.contentView = hostingView
+            displayHostingViews[displayIndex] = hostingView
+            panel.setContentSize(size)
+            panel.setFrameOrigin(config.hudPosition.point(for: size, screen: screen.frame))
+            panel.orderFrontRegardless()
+        }
+    }
+
+    private func makeGridView(
+        state: GridState,
+        hoveredCell: Int?,
+        spaceIndices: [Int]? = nil
+    ) -> GridView {
+        GridView(state: state, hoveredCell: hoveredCell, onSelect: { [weak self] index in
+            self?.windowManager.focusSpaceAsync(index)
+            self?.hide()
+        }, uiScale: config.uiScale, theme: config.theme, spaceIndices: spaceIndices)
+    }
+
+    private func updateCellFrames(state: GridState) {
         var frames: [(spaceIndex: Int, frame: CGRect)] = []
-        let origin = panel.frame.origin
-        let totalHeight = CGFloat(rowCount) * (cellHeight + gap) - gap + padding * 2
-        
-        for (i, spaceIndex) in cells.enumerated() {
-            let row = i / cols
-            let col = i % cols
-            let x = origin.x + padding + CGFloat(col) * (cellWidth + gap) - gap / 2
-            let appKitSlotTop = origin.y + totalHeight - padding - CGFloat(row) * (cellHeight + gap) - gap / 2
-            let cgY = screenHeight - appKitSlotTop
-            frames.append((spaceIndex: spaceIndex, frame: CGRect(x: x, y: cgY, width: slotWidth, height: slotHeight)))
+        switch config.multiMonitorHUDMode {
+        case .unified:
+            let cells = GridView.computeVisibleSpaceIndices(
+                maxSpaces: config.maxSpaces,
+                showMode: config.showMode,
+                activeIndices: Set(state.spaces.map(\.index))
+            )
+            if let panel {
+                frames.append(contentsOf: cellFrames(for: cells, in: panel))
+            } else {
+                for panel in displayPanels.values {
+                    frames.append(contentsOf: cellFrames(for: cells, in: panel))
+                }
+            }
+        case .separate:
+            for (displayIndex, panel) in displayPanels {
+                frames.append(contentsOf: cellFrames(
+                    for: state.spaces(forDisplay: displayIndex).map(\.index),
+                    in: panel
+                ))
+            }
         }
-        
         dragHandler.cellFrames = frames
     }
-    
+
+    private func cellFrames(for cells: [Int], in panel: NSPanel) -> [(spaceIndex: Int, frame: CGRect)] {
+        guard !cells.isEmpty else { return [] }
+        let scale = GridView.effectiveScale(for: config.uiScale)
+        let cellWidth: CGFloat = 80 * scale
+        let cellHeight: CGFloat = 50 * scale
+        let gap: CGFloat = 6 * scale
+        let padding: CGFloat = 12 * scale
+        let slotWidth = cellWidth + gap
+        let slotHeight = cellHeight + gap
+        let cols = max(1, min(config.cols, cells.count))
+        let rowCount = (cells.count + cols - 1) / cols
+        let totalHeight = CGFloat(rowCount) * (cellHeight + gap) - gap + padding * 2
+        let origin = panel.frame.origin
+
+        return cells.enumerated().map { offset, spaceIndex in
+            let row = offset / cols
+            let col = offset % cols
+            let x = origin.x + padding + CGFloat(col) * (cellWidth + gap) - gap / 2
+            let appKitSlotTop = origin.y + totalHeight - padding - CGFloat(row) * (cellHeight + gap) - gap / 2
+            let quartzY = quartzMainScreenFrame.maxY - appKitSlotTop
+            return (spaceIndex, CGRect(x: x, y: quartzY, width: slotWidth, height: slotHeight))
+        }
+    }
+
+    private func screen(forDisplay displayIndex: Int, in state: GridState) -> NSScreen? {
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return nil }
+        guard let yabaiDisplay = state.displays.first(where: { $0.index == displayIndex }) else {
+            return screens.indices.contains(displayIndex - 1) ? screens[displayIndex - 1] : NSScreen.main
+        }
+
+        let yabaiFrame = yabaiDisplay.frame.cgFrame
+        let appKitFrame = CGRect(
+            x: yabaiFrame.minX,
+            y: quartzMainScreenFrame.maxY - yabaiFrame.maxY,
+            width: yabaiFrame.width,
+            height: yabaiFrame.height
+        )
+        return screens.min { first, second in
+            screenMatchScore(first.frame, targetFrame: appKitFrame) <
+                screenMatchScore(second.frame, targetFrame: appKitFrame)
+        }
+    }
+
+    private func screenMatchScore(_ screenFrame: CGRect, targetFrame: CGRect) -> CGFloat {
+        abs(screenFrame.minX - targetFrame.minX) +
+            abs(screenFrame.minY - targetFrame.minY) +
+            abs(screenFrame.width - targetFrame.width) +
+            abs(screenFrame.height - targetFrame.height)
+    }
+
+    private func closeDisplayPanels() {
+        for panel in displayPanels.values {
+            panel.orderOut(nil)
+            panel.close()
+        }
+        displayPanels.removeAll()
+        displayHostingViews.removeAll()
+    }
+
+    private func tearDownPanels() {
+        if let panel {
+            panel.orderOut(nil)
+            panel.close()
+        }
+        panel = nil
+        hostingView = nil
+        closeDisplayPanels()
+    }
+
     private func makePanel() -> NSPanel {
         let p = NSPanel(
             contentRect: .zero,
@@ -245,17 +608,19 @@ class HUDWindowController {
         p.hasShadow = true
         return p
     }
-    
+
     private func resetAutoHideTimer() {
         if isPanelDragging { return }
         autoHideTimer?.invalidate()
+        autoHideTimer = nil
+        guard !isPinned else { return }
         if config.autoHideTimeout > 0 {
             autoHideTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(config.autoHideTimeout), repeats: false) { [weak self] _ in
                 self?.hide()
             }
         }
     }
-    
+
     func reloadConfig() {
         _config = nil
     }
@@ -264,7 +629,14 @@ class HUDWindowController {
         guard #available(macOS 14.0, *) else { return }
         guard config.cellStyle == .thumbnails else { return }
         guard let focusedIndex = state.focusedIndex else { return }
-        ThumbnailCache.shared.captureActiveSpace(spaceIndex: focusedIndex)
+        let displayID: CGDirectDisplayID? = state.displayIndex(forSpace: focusedIndex).flatMap { displayIndex in
+            guard let screen = screen(forDisplay: displayIndex, in: state),
+                  let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+                return nil
+            }
+            return CGDirectDisplayID(number.uint32Value)
+        }
+        ThumbnailCache.shared.captureActiveSpace(spaceIndex: focusedIndex, displayID: displayID)
     }
 
     private func startPanelDragMonitor() {
@@ -294,7 +666,7 @@ class HUDWindowController {
                 let dx = current.x - start.x
                 let dy = current.y - start.y
                 // Check if over a cell — if so, don't move panel
-                let cgPoint = CGPoint(x: current.x, y: NSScreen.main!.frame.height - current.y)
+                let cgPoint = self.quartzPoint(fromAppKit: current)
                 let overCell = self.dragHandler.cellFrames.contains { $0.frame.contains(cgPoint) }
                 if !overCell {
                     var newOrigin = origin
@@ -338,43 +710,13 @@ class HUDWindowController {
         let panelFrame = panel.frame
         let x = Double((panelFrame.midX - screenFrame.minX) / screenFrame.width)
         let y = Double((panelFrame.midY - screenFrame.minY) / screenFrame.height)
-        let configPath = NSString(string: "~/.config/spacemap/config").expandingTildeInPath
-        guard var text = try? String(contentsOfFile: configPath, encoding: .utf8) else { return }
-        if let range = text.range(of: "HUD_POSITION=") {
-            let lineStart = range.lowerBound
-            var lineEnd = text[lineStart...].firstIndex(of: "\n") ?? text.endIndex
-            if lineEnd < text.endIndex { lineEnd = text.index(after: lineEnd) }
-            text.replaceSubrange(lineStart..<lineEnd, with: "HUD_POSITION=custom\n")
-        } else {
-            text += "\nHUD_POSITION=custom\n"
-        }
-        // Also update CUSTOM_HUD_X and CUSTOM_HUD_Y for SettingsView persistence
-        let xString = String(x)
-        let yString = String(y)
-        if let range = text.range(of: "CUSTOM_HUD_X=") {
-            let lineStart = range.lowerBound
-            var lineEnd = text[lineStart...].firstIndex(of: "\n") ?? text.endIndex
-            if lineEnd < text.endIndex { lineEnd = text.index(after: lineEnd) }
-            text.replaceSubrange(lineStart..<lineEnd, with: "CUSTOM_HUD_X=\(xString)\n")
-        } else {
-            text += "\nCUSTOM_HUD_X=\(xString)\n"
-        }
-        if let range = text.range(of: "CUSTOM_HUD_Y=") {
-            let lineStart = range.lowerBound
-            var lineEnd = text[lineStart...].firstIndex(of: "\n") ?? text.endIndex
-            if lineEnd < text.endIndex { lineEnd = text.index(after: lineEnd) }
-            text.replaceSubrange(lineStart..<lineEnd, with: "CUSTOM_HUD_Y=\(yString)\n")
-        } else {
-            text += "\nCUSTOM_HUD_Y=\(yString)\n"
-        }
-        do {
-            try text.write(toFile: configPath, atomically: true, encoding: .utf8)
-            NSLog("spacemap/HUD: saved custom position x=%.2f y=%.2f", x, y)
-            // Notify any observers (e.g., SettingsView) that the config has changed
-            NotificationCenter.default.post(name: Notification.Name("settingsChanged"), object: nil)
-        } catch {
-            NSLog("spacemap/HUD: failed to write config: \(error)")
-        }
+        var config = ConfigReader.load()
+        config.hudPosition = .custom(x: x, y: y)
+        config.customHUDX = x
+        config.customHUDY = y
+        ConfigReader.saveConfig(config)
+        NSLog("spacemap/HUD: saved custom position x=%.2f y=%.2f", x, y)
+        NotificationCenter.default.post(name: Notification.Name("settingsChanged"), object: nil)
     }
 
     private func startSettingsKeyMonitor() {
@@ -390,7 +732,7 @@ class HUDWindowController {
             let code = UInt16(event.keyCode)
             let mods = event.modifierFlags
             let noModifiers = !mods.contains(.control) && !mods.contains(.command) && !mods.contains(.option)
-            var dir: Direction? = nil
+            var dir: SpaceNavigationDirection? = nil
             if config.useArrowKeys && noModifiers {
                 switch code {
                 case 123: dir = .left
@@ -422,57 +764,137 @@ class HUDWindowController {
         }
     }
 
-    private enum Direction { case left, right, up, down }
-
-    private func navigateSpace(_ direction: Direction) {
-        guard let idx = lastFocusedSpaceIndex else { return }
-        let cols = config.cols
-        let maxN = config.maxSpaces
-        let zero = idx - 1
-        let row = zero / cols
-        let col = zero % cols
-        let rowStart = row * cols + 1
-        var target: Int?
-
-        switch direction {
-        case .left:
-            if col == 0 {
-                var rowEnd = rowStart + cols - 1
-                if rowEnd > maxN { rowEnd = maxN }
-                target = rowEnd
+    private func navigateSpace(_ direction: SpaceNavigationDirection) {
+        guard let currentIdx = lastFocusedSpaceIndex, let state = currentState else { return }
+        let target: Int?
+        switch config.displayNavigationWrap {
+        case .within:
+            let sourceSpaces: [YabaiSpace]
+            if let displayIndex = state.displayIndex(forSpace: currentIdx) {
+                sourceSpaces = state.spaces(forDisplay: displayIndex)
             } else {
-                target = idx - 1
+                sourceSpaces = state.spaces
             }
-        case .right:
-            if col == cols - 1 {
-                target = rowStart
-            } else {
-                let next = idx + 1
-                target = next > maxN ? rowStart : next
-            }
-        case .up, .down:
-            var columnSpaces: [Int] = []
-            var i = col + 1
-            while i <= maxN {
-                columnSpaces.append(i)
-                i += cols
-            }
-            guard let pos = columnSpaces.firstIndex(of: idx) else { return }
-            let n = columnSpaces.count
-            let newPos: Int
-            if direction == .up {
-                newPos = (pos - 1 + n) % n
-            } else {
-                newPos = (pos + 1) % n
-            }
-            target = columnSpaces[newPos]
+            let cells = SpaceNavigator.navigableSpaceIndices(
+                activeSpaceIndices: sourceSpaces.map(\.index),
+                maxSpaces: config.maxSpaces
+            )
+            target = SpaceNavigator.destination(
+                from: currentIdx,
+                visibleSpaceIndices: cells,
+                columns: config.cols,
+                direction: direction
+            )
+        case .between:
+            target = SpaceNavigator.destinationAcrossDisplays(
+                from: currentIdx,
+                displaySpaceIndices: state.populatedDisplayIndices.map {
+                    state.spaces(forDisplay: $0).map(\.index)
+                },
+                maxSpaces: config.maxSpaces,
+                columns: config.cols,
+                direction: direction
+            )
         }
+        guard let target else { return }
 
-        guard let t = target else { return }
-        windowManager?.focusSpace(t)
+        NSLog("spacemap/HUD: navigate \(direction) from yabai=\(currentIdx) → target yabai=\(target)")
+        pendingFocusedSpaceIndex = target
+        pendingFocusDeadline = Date().addingTimeInterval(1)
+        windowManager.focusSpaceAsync(target)
+        lastFocusedSpaceIndex = target
+        renderPendingFocus(target, in: state)
+        resetAutoHideTimer()
     }
 
-    private var screenHeight: CGFloat {
-        NSScreen.main?.frame.height ?? 0
+    private func handlePolledFocus(_ focusedIndex: Int?) {
+        if let pending = pendingFocusedSpaceIndex {
+            if focusedIndex == pending {
+                pendingFocusedSpaceIndex = nil
+                pendingFocusDeadline = nil
+                refreshState()
+                return
+            }
+            if pendingFocusDeadline.map({ Date() < $0 }) ?? false {
+                // The focus command is still in flight. Ignore the stale result
+                // so it cannot overwrite the optimistic selection.
+                return
+            }
+            pendingFocusedSpaceIndex = nil
+            pendingFocusDeadline = nil
+        }
+
+        if focusedIndex != lastFocusedSpaceIndex {
+            NSLog("spacemap/HUD: poll detected change last=\(lastFocusedSpaceIndex ?? -1) current=\(focusedIndex ?? -1)")
+            refreshState()
+            resetAutoHideTimer()
+        }
+    }
+
+    private func renderPendingFocus(_ focusedIndex: Int, in state: GridState) {
+        let pendingState = GridState(
+            config: state.config,
+            spaces: state.spaces,
+            windows: state.windows,
+            displayBounds: state.displayBounds,
+            focusedIndex: focusedIndex,
+            displays: state.displays
+        )
+        currentState = pendingState
+        switch config.multiMonitorHUDMode {
+        case .unified:
+            if let hostingView {
+                hostingView.rootView = AnyView(makeGridView(state: pendingState, hoveredCell: hoveredCell))
+            } else if !displayHostingViews.isEmpty {
+                for hostingView in displayHostingViews.values {
+                    hostingView.rootView = AnyView(makeGridView(state: pendingState, hoveredCell: hoveredCell))
+                }
+            } else {
+                renderState(pendingState)
+            }
+        case .separate:
+            guard !displayHostingViews.isEmpty else {
+                renderState(pendingState)
+                return
+            }
+            for (displayIndex, hostingView) in displayHostingViews {
+                let spaces = pendingState.spaces(forDisplay: displayIndex).map(\.index)
+                hostingView.rootView = AnyView(makeGridView(
+                    state: pendingState,
+                    hoveredCell: hoveredCell,
+                    spaceIndices: spaces
+                ))
+            }
+        }
+    }
+
+    private func statePreservingPendingFocus(_ state: GridState) -> GridState {
+        guard let pending = pendingFocusedSpaceIndex else { return state }
+        if state.focusedIndex == pending || !(pendingFocusDeadline.map { Date() < $0 } ?? false) {
+            pendingFocusedSpaceIndex = nil
+            pendingFocusDeadline = nil
+            return state
+        }
+        return GridState(
+            config: state.config,
+            spaces: state.spaces,
+            windows: state.windows,
+            displayBounds: state.displayBounds,
+            focusedIndex: pending,
+            displays: state.displays
+        )
+    }
+
+    /// AppKit uses a bottom-left origin; Quartz (and yabai's frames) use the
+    /// top-left corner of the primary display as their global origin.
+    private var quartzMainScreenFrame: CGRect {
+        let mainDisplayID = CGMainDisplayID()
+        return NSScreen.screens.first { screen in
+            (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == mainDisplayID
+        }?.frame ?? NSScreen.screens.first?.frame ?? .zero
+    }
+
+    private func quartzPoint(fromAppKit point: CGPoint) -> CGPoint {
+        CGPoint(x: point.x, y: quartzMainScreenFrame.maxY - point.y)
     }
 }

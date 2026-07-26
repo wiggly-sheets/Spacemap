@@ -178,6 +178,50 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.showMode, .all)
     }
 
+    func testMultiMonitorHUDModeDefaultsToUnified() {
+        XCTAssertEqual(ConfigReader.parseConfig("").multiMonitorHUDMode, .unified)
+    }
+
+    func testMultiMonitorHUDModeParsesSeparate() {
+        XCTAssertEqual(
+            ConfigReader.parseConfig("MULTI_MONITOR_HUD_MODE=separate").multiMonitorHUDMode,
+            .separate
+        )
+    }
+
+    func testUnifiedHUDVisibilityDefaultsToActive() {
+        XCTAssertEqual(ConfigReader.parseConfig("").unifiedHUDVisibility, .active)
+    }
+
+    func testUnifiedHUDVisibilityParsesAll() {
+        XCTAssertEqual(
+            ConfigReader.parseConfig("UNIFIED_HUD_VISIBILITY=all").unifiedHUDVisibility,
+            .all
+        )
+    }
+
+    func testSeparateHUDVisibilityDefaultsToAll() {
+        XCTAssertEqual(ConfigReader.parseConfig("").separateHUDVisibility, .all)
+    }
+
+    func testSeparateHUDVisibilityParsesActive() {
+        XCTAssertEqual(
+            ConfigReader.parseConfig("SEPARATE_HUD_VISIBILITY=active").separateHUDVisibility,
+            .active
+        )
+    }
+
+    func testDisplayNavigationWrapDefaultsToWithin() {
+        XCTAssertEqual(ConfigReader.parseConfig("").displayNavigationWrap, .within)
+    }
+
+    func testDisplayNavigationWrapParsesBetween() {
+        XCTAssertEqual(
+            ConfigReader.parseConfig("DISPLAY_NAVIGATION_WRAP=between").displayNavigationWrap,
+            .between
+        )
+    }
+
     func testModeLight() {
         let c = ConfigReader.parseConfig("MODE=light")
         XCTAssertEqual(c.mode, .light)
@@ -200,6 +244,13 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.hotkey.keyCode, 99)
         XCTAssertTrue(c.hotkey.modifiers.contains(.maskCommand))
         XCTAssertTrue(c.hotkey.modifiers.contains(.maskShift))
+    }
+
+    func testPinnedHotkeyParsing() {
+        let c = ConfigReader.parseConfig("PINNED_HOTKEY=ctrl+alt+f13")
+        XCTAssertEqual(c.pinnedHotkey.keyCode, 105)
+        XCTAssertTrue(c.pinnedHotkey.modifiers.contains(.maskControl))
+        XCTAssertTrue(c.pinnedHotkey.modifiers.contains(.maskAlternate))
     }
 
     // MARK: - parseConfig: Space names
@@ -286,6 +337,224 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(c.useArrowKeys)
         XCTAssertEqual(c.spaceNames[1], "Term")
         XCTAssertEqual(c.spaceNames[2], "Code")
+    }
+
+    func testJSONConfig() {
+        let config = """
+        {
+          "cols": 6,
+          "rows": 3,
+          "cellStyle": "icons",
+          "hotkey": {
+            "keyCode": 49,
+            "modifiers": ["cmd", "shift"]
+          },
+          "pinnedHotkey": {
+            "keyKind": "mediaKey",
+            "mediaKey": "play-pause",
+            "modifiers": ["ctrl"]
+          },
+          "socketHealthInterval": 30,
+          "uiScale": 0.75,
+          "autoHideTimeout": 10,
+          "theme": "dracula",
+          "showMode": "active",
+          "multiMonitorHUDMode": "separate",
+          "unifiedHUDVisibility": "all",
+          "separateHUDVisibility": "active",
+          "displayNavigationWrap": "between",
+          "maxSpaces": 12,
+          "backgroundAlpha": 0.5,
+          "mode": "dark",
+          "iconScale": 0.8,
+          "showSpaceNumbers": false,
+          "showSpaceNames": true,
+          "showIconStrip": false,
+          "showMultiAppIcons": true,
+          "hideMenuBarIcon": true,
+          "spaceNames": { "1": "Term", "2": "Code" },
+          "useVimKeys": true,
+          "useArrowKeys": true,
+          "hudPosition": { "kind": "custom", "x": 0.25, "y": 0.75 },
+          "customHUDX": 0.25,
+          "customHUDY": 0.75,
+          "showExtraWindows": true,
+          "focusSpaceOnWindowDrop": true,
+          "updateMode": "off"
+        }
+        """
+        let c = ConfigReader.parseConfig(config)
+        XCTAssertEqual(c.cols, 6)
+        XCTAssertEqual(c.rows, 3)
+        XCTAssertEqual(c.cellStyle, .icons)
+        XCTAssertEqual(c.hotkey.keyCode, 49)
+        XCTAssertTrue(c.hotkey.modifiers.contains(.maskCommand))
+        XCTAssertTrue(c.hotkey.modifiers.contains(.maskShift))
+        XCTAssertEqual(c.pinnedHotkey.mediaKey, .playPause)
+        XCTAssertTrue(c.pinnedHotkey.modifiers.contains(.maskControl))
+        XCTAssertEqual(c.socketHealthInterval, 30)
+        XCTAssertEqual(c.uiScale, 0.75, accuracy: 0.001)
+        XCTAssertEqual(c.autoHideTimeout, 10)
+        XCTAssertEqual(c.theme, "dracula")
+        XCTAssertEqual(c.showMode, .active)
+        XCTAssertEqual(c.multiMonitorHUDMode, .separate)
+        XCTAssertEqual(c.unifiedHUDVisibility, .all)
+        XCTAssertEqual(c.separateHUDVisibility, .active)
+        XCTAssertEqual(c.displayNavigationWrap, .between)
+        XCTAssertEqual(c.maxSpaces, 12)
+        XCTAssertEqual(c.backgroundAlpha, 0.5, accuracy: 0.001)
+        XCTAssertEqual(c.mode, .dark)
+        XCTAssertEqual(c.iconScale, 0.8, accuracy: 0.001)
+        XCTAssertFalse(c.showSpaceNumbers)
+        XCTAssertTrue(c.showSpaceNames)
+        XCTAssertFalse(c.showIconStrip)
+        XCTAssertTrue(c.showMultiAppIcons)
+        XCTAssertTrue(c.hideMenuBarIcon)
+        XCTAssertEqual(c.spaceNames[1], "Term")
+        XCTAssertEqual(c.spaceNames[2], "Code")
+        XCTAssertTrue(c.useVimKeys)
+        XCTAssertTrue(c.useArrowKeys)
+        if case .custom(let x, let y) = c.hudPosition {
+            XCTAssertEqual(x, 0.25, accuracy: 0.001)
+            XCTAssertEqual(y, 0.75, accuracy: 0.001)
+        } else {
+            XCTFail("Expected custom HUD position")
+        }
+        XCTAssertEqual(c.customHUDX, 0.25, accuracy: 0.001)
+        XCTAssertEqual(c.customHUDY, 0.75, accuracy: 0.001)
+        XCTAssertTrue(c.showExtraWindows)
+        XCTAssertTrue(c.focusSpaceOnWindowDrop)
+        XCTAssertEqual(c.updateMode, .off)
+    }
+
+    func testJSONCConfig() {
+        let config = """
+        // comment
+        {
+          /* block */
+          "cols": 4,
+          "rows": 2,
+          "cellStyle": "rects",
+          "hotkey": {
+            "keyCode": 121,
+            "modifiers": ["ctrl"]
+          },
+          "socketHealthInterval": 60,
+          "uiScale": 0.5,
+          "autoHideTimeout": 5,
+          "theme": "default",
+          "showMode": "all",
+          "multiMonitorHUDMode": "unified",
+          "unifiedHUDVisibility": "active",
+          "separateHUDVisibility": "all",
+          "displayNavigationWrap": "within",
+          "maxSpaces": 16,
+          "backgroundAlpha": 0.3,
+          "mode": "auto",
+          "iconScale": 0.5,
+          "showSpaceNumbers": true,
+          "showSpaceNames": true,
+          "showIconStrip": true,
+          "showMultiAppIcons": false,
+          "hideMenuBarIcon": false,
+          "spaceNames": {},
+          "useVimKeys": false,
+          "useArrowKeys": false,
+          "hudPosition": { "kind": "center" },
+          "customHUDX": 0.5,
+          "customHUDY": 0.5,
+          "showExtraWindows": false,
+          "updateMode": "notify"
+        }
+        """
+        let c = ConfigReader.parseConfig(config)
+        XCTAssertEqual(c.cols, 4)
+        XCTAssertEqual(c.rows, 2)
+        XCTAssertEqual(c.hotkey.keyCode, 121)
+        XCTAssertTrue(c.hotkey.modifiers.contains(.maskControl))
+        XCTAssertFalse(c.focusSpaceOnWindowDrop)
+    }
+
+    func testPartialJSONPreservesValidFieldsAndDefaultsInvalidFields() {
+        let c = ConfigReader.parseConfig("""
+        {
+          "cols": 5,
+          "rows": "invalid",
+          "theme": "dracula",
+          "maxSpaces": 99
+        }
+        """)
+
+        XCTAssertEqual(c.cols, 5)
+        XCTAssertEqual(c.rows, GridConfig.default.rows)
+        XCTAssertEqual(c.theme, "dracula")
+        XCTAssertEqual(c.maxSpaces, GridConfig.default.maxSpaces)
+        XCTAssertFalse(c.focusSpaceOnWindowDrop)
+    }
+
+    func testLoadRepairsMalformedConfigOnEveryLoadAndCreatesBackup() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-config-tests-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        ConfigReader.silentMode = true
+        defer { ConfigReader.silentMode = false }
+
+        try #"{"cols": 4}"#.write(toFile: path, atomically: true, encoding: .utf8)
+        XCTAssertEqual(ConfigReader.load(from: path).cols, 4)
+
+        let secondMalformedConfig = #"{"theme":"nord","rows":"broken"}"#
+        try secondMalformedConfig.write(toFile: path, atomically: true, encoding: .utf8)
+        let repaired = ConfigReader.load(from: path)
+
+        XCTAssertEqual(repaired.theme, "nord")
+        XCTAssertEqual(repaired.rows, GridConfig.default.rows)
+        XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), secondMalformedConfig)
+
+        let healedText = try String(contentsOfFile: path, encoding: .utf8)
+        let healed = ConfigReader.parseConfig(healedText)
+        XCTAssertEqual(healed.theme, "nord")
+        XCTAssertEqual(healed.rows, GridConfig.default.rows)
+    }
+
+    func testLegacyConfigMigratesToCanonicalJSONCPath() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-config-migration-\(UUID().uuidString)")
+        let legacyPath = directory.appendingPathComponent("config").path
+        let canonicalPath = directory.appendingPathComponent("spacemap.jsonc").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try "GRID_COLS=5".write(toFile: legacyPath, atomically: true, encoding: .utf8)
+        ConfigReader.migrateLegacyConfigIfNeeded(from: legacyPath, to: canonicalPath)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacyPath))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: canonicalPath))
+        XCTAssertEqual(ConfigReader.load(from: canonicalPath).cols, 5)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: canonicalPath + ".bak"))
+    }
+
+    func testCanonicalConfigWinsWhenLegacyConfigAlsoExists() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-config-precedence-\(UUID().uuidString)")
+        let legacyPath = directory.appendingPathComponent("config").path
+        let canonicalPath = directory.appendingPathComponent("spacemap.jsonc").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try "GRID_COLS=3".write(toFile: legacyPath, atomically: true, encoding: .utf8)
+        try "GRID_COLS=7".write(toFile: canonicalPath, atomically: true, encoding: .utf8)
+        ConfigReader.migrateLegacyConfigIfNeeded(from: legacyPath, to: canonicalPath)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: legacyPath))
+        XCTAssertEqual(ConfigReader.load(from: canonicalPath).cols, 7)
+    }
+
+    func testLegacyFocusSpaceOnWindowDrop() {
+        let c = ConfigReader.parseConfig("FOCUS_SPACE_ON_WINDOW_DROP=on")
+        XCTAssertTrue(c.focusSpaceOnWindowDrop)
     }
 
     // MARK: - parseConfig: Backward compat

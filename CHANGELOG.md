@@ -7,15 +7,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [1.0.6] - 2026-07-21
+## [Unreleased]
+
+### Added
+- Added automatic AeroSpace detection and a window-manager abstraction that preserves current HUD, hotkey, navigation, and drag behavior.
+
+### Changed
+- AeroSpace workspaces now use Spacemap's one-based grid indices and current multi-monitor grid state.
+
+
+## [1.0.16] - 2026-07-25
+
+### Added
+- Added an optional pinned HUD hotkey that toggles a permanently visible HUD independently of the normal timed hotkey.
+- First-launch CLI installation now creates `/usr/local/bin` when possible and offers an explicit administrator-authorized fallback when macOS protects that location.
+- Repository security policy documenting supported versions, vulnerability reporting, and expected disclosure handling.
+- Repository support policy documenting where to ask for help and what information to include.
+- Dropping a window onto an empty grid slot now creates any missing yabai spaces before moving the window there.
+
+### Changed
+- Settings sidebar categories now have roomier vertical spacing and larger click targets.
+- Menu bar actions now use native SF Symbols for faster visual scanning, including Settings, CLI installation, updates, restart, permissions, and Quit.
+- Settings category headings and sidebar labels now use larger, more prominent typography.
+- Clarified the SwiftPM ignore guidance so `Package.resolved` is no longer presented as an ignored file in this repository.
+- The canonical config file is now `~/.config/spacemap/spacemap.jsonc`; existing `config` files migrate automatically.
+- Config loading now supports schema-backed JSON with JSONC comments, while still accepting legacy `key=value` files during migration.
+- Hotkey parsing and triggering now support common media keys such as play/pause, next, previous, mute, volume, and brightness.
+- Hotkey recorder now uses a more native inline control with a clear button to disable the current binding.
+- Hotkey recorder now captures media keys directly and presents the selected binding in a native-style inline control.
+- Settings window styling now leans more on native form chrome, lighter headers, and system background treatment.
+- Settings view now uses segmented controls for small choice sets and tighter native-style footnote helpers.
+- Settings window now uses a System Settings-style sidebar to group controls by section.
+- Behavior settings can now optionally focus a destination space after a window is dropped there; the option defaults to off.
+- Settings sidebar is now permanently visible, highlights the selected category, and uses full-row category buttons that reliably navigate the settings form.
+- Each settings sidebar category now opens a distinct detail view instead of scrolling through one continuous form.
+- User, contributor, developer, support, reference, roadmap, and agent documentation now describe the category-based Settings interface consistently.
+- Moved the Command-Line Tool installer below the permission shortcuts in the menu-bar menu.
 
 ### Fixed
-- **Auto-version from git tag**: Makefile now derives `VERSION` from `git describe --tags --abbrev=0` automatically. Info.plist version is replaced at build time regardless of current value. Release flow: `git tag v1.0.6 && git push`
+- CLI installation now validates its destination and never removes an unrelated file or symlink at `/usr/local/bin/spacemap`.
+- JSON/JSONC config self-healing now runs on every load and preserves valid fields while repairing missing, mistyped, or out-of-range values.
+- Hotkey recording now captures events delivered to the active Settings window and cleans up event monitors when the recorder disappears.
 
----
 
-## [1.0.5] - 2026-07-21
+## [1.0.15] - 2026-07-25
 
+### Fixed
+- Release builds now ad-hoc sign and strictly verify every app bundle when a Developer ID certificate is unavailable, keeping Sparkle updates installable.
+
+## [1.0.14] - 2026-07-25
+
+### Added
+- Configurable multi-monitor HUD modes: per-display overlays or a unified display map.
+- Unified-grid visibility preference for showing the complete grid on the active display or every display.
+- Separate-HUD visibility preference for showing all displays or only the display with yabai's focused space.
+- Keyboard-navigation display wrapping preference: stay within the focused display or wrap across displays.
+
+### Fixed
+- Cross-display navigation now leaves a display at its grid-wrap edge instead of cycling through that display's spaces.
+- Release automation now verifies the Sparkle public/private key pair before signing, preventing improperly signed updates from being published.
+- Startup now warns when macOS “Displays have separate Spaces” is disabled.
+- HUD reuses a prewarmed grid snapshot so active-space highlighting and app icons appear with the panel instead of a moment later.
+
+### Changed
+- Shifted in-cell space numbers slightly inward for more comfortable padding from the top-left edge.
+
+
+## [1.0.13] - 2026-07-25
+
+### Added
+- `ConfigReader.keyCodeToSymbolicString(_:)` helper for keyCode→symbolic string conversion
+- `ConfigReader.hotkeyToString(keyCode:modifiers:)` overload for raw keyCode/modifier encoding
+
+### Changed
+- `navigateSpace` now respects visible cells (active showMode, 16-space cap) instead of raw indices
+- `ThemeManager.hex()` is now `static`
+- `SettingsView.hotkeyStringFrom()` delegates to `ConfigReader.hotkeyToString()` (code dedup)
+- `isMRUSpacesEnabled` check deferred to background queue so it no longer blocks startup
+- yabai alert informative text now includes GitHub link
+
+### Fixed
+- Keyboard space navigation now skips empty placeholder cells, wraps correctly in incomplete rows and columns, and updates the HUD optimistically while focus changes are pending.
+- `isYabaiRunning()` cache protected with `NSLock` to prevent data races
+- `SettingsWindowController` no longer uses deprecated `setFrameUsingName`/`setFrameAutosaveName` pair
+- `findBestGridLayoutIndexFor` dead conditional `layouts.isEmpty ? 0 : 0` simplified to `0`
+- `ThumbnailCache` captures at 1x display size instead of 2x (perf/memory)
+- `CellView` computed `filteredWindows` once instead of calling `windowFilter` twice per render
+- `LAUNCH_AT_LOGIN` removed from SettingsView config save (handled by ServiceManagement, not file)
+
+
+## [1.0.12] - 2026-07-25
+
+### Fixed
+- Release artifacts are built in the GitHub Actions workspace so they are available to the GitHub Release upload action.
 
 ## [1.0.11] - 2026-07-25
 
@@ -26,6 +110,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release checklist in AGENTS.md
 - `VERSION` file as fallback for version derivation
 
+### Changed
+- Revised installation guidance and refreshed the project icon in the README.
+
 ### Fixed
 - Sparkle updater double-start bug — `updater.start()` replaced with idempotent `startUpdater()`
 - Sparkle `sign_update` download URL updated to Sparkle 2.9.4 (2.7.1 was 404)
@@ -33,21 +120,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empty version strings in Info.plist when git tags missing
 - VERSION derivation falls back to Info.plist when no tags or VERSION file exist
 
-## [1.0.11] - 2026-07-25
+
+## [1.0.10] - 2026-07-24
 
 ### Changed
-- **Changed:** App entry point and lifecycle
-- **Changed:** Settings window
-- **Changed:** appcast.xml
+- Renamed the application and bundle consistently to `Spacemap` / `Spacemap.app` across the app, installer, documentation, and release workflow.
 
-### Documentation
-- **Changed:** User-facing documentation
+### Fixed
+- Release automation now uses stable build-cache paths and publishes appcasts with the correct repository URL and app-bundle capitalization.
 
-### Build
-- **Changed:** Build system
 
-### CI/CD
-- **Changed:** CI/CD pipeline
+## [1.0.9] - 2026-07-24
+
+### Added
+- Sparkle automatic-update support, including update preferences and manual “Check for Updates” controls.
+- Appcast publishing as part of the GitHub release workflow.
+
+### Changed
+- First-launch prompts now appear in a clearer order: yabai, Applications folder, launch at login, then updates.
+
+### Fixed
+- Sparkle is embedded and loaded correctly, with working framework rpaths, signing, feed URLs, and appcast generation.
+
+
+## [1.0.8] - 2026-07-24
+
+### Fixed
+- The app returns to its background-only activation policy after the Settings window closes, preventing a lingering Dock icon.
+
+
+## [1.0.7] - 2026-07-23
+
+### Fixed
+- Icon strips now scale to fit their cells instead of overflowing when many apps are visible.
 
 
 ## [1.0.6] - 2026-07-21

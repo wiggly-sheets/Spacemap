@@ -1,13 +1,11 @@
 import Foundation
 
 final class SocketListener {
-    static let shared = SocketListener()
-
-    private var socketPath: String = ""
-    private var healthInterval: Int = 60
-    private var onRefresh: () -> Void = {}
-    private var onShow: () -> Void = {}
-    private var onSettings: () -> Void = {}
+    private let socketPath: String
+    private let healthInterval: Int
+    private let onRefresh: () -> Void
+    private let onShow: () -> Void
+    private let onSettings: () -> Void
     private var serverFd: Int32 = -1
     private var source: DispatchSourceRead?
     private var healthTimer: DispatchSourceTimer?
@@ -15,17 +13,15 @@ final class SocketListener {
     private var restartScheduled = false
     private let listenerQueue = DispatchQueue(label: "com.spacemap.socketlistener")
     private let queueKey = DispatchSpecificKey<Void>()
-
-    private init() {}
-
-    func start(socketPath: String, healthInterval: Int = 60, onRefresh: @escaping () -> Void, onShow: @escaping () -> Void, onSettings: @escaping () -> Void) {
+    
+    init(socketPath: String, healthInterval: Int = 60, onRefresh: @escaping () -> Void, onShow: @escaping () -> Void, onSettings: @escaping () -> Void) {
         self.socketPath = socketPath
         self.healthInterval = healthInterval
         self.onRefresh = onRefresh
         self.onShow = onShow
         self.onSettings = onSettings
         listenerQueue.setSpecific(key: queueKey, value: ())
-        listenerQueue.async { self.startListening() }
+        listenerQueue.async { self.start() }
     }
     
     static func sendCommand(to socketPath: String, command: UInt8) {
@@ -53,7 +49,7 @@ final class SocketListener {
         close(sock)
     }
     
-    private func startListening() {
+    private func start() {
         guard !isStopped else { return }
         unlink(socketPath)
         
@@ -125,7 +121,7 @@ final class SocketListener {
         fputs("spacemap/SocketListener: restarting in 0.5s\n", stderr)
         listenerQueue.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.restartScheduled = false
-            self?.startListening()
+            self?.start()
         }
     }
     

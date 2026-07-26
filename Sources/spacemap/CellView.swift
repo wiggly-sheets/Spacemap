@@ -17,7 +17,7 @@ struct CellView: View {
     let isFocused: Bool
     let isDropTarget: Bool
     let isActive: Bool
-    let windows: [Window]
+    let windows: [YabaiWindow]
     let displayBounds: CGRect
     let cellStyle: CellStyle
     let onSelect: (Int) -> Void
@@ -34,7 +34,7 @@ struct CellView: View {
     private let showIconStrip: Bool
     private let showMultiAppIcons: Bool
     private let showExtraWindows: Bool
-    private let windowFilter: ([Window]) -> [Window]
+    private let windowFilter: ([YabaiWindow]) -> [YabaiWindow]
 
     private var isDarkMode: Bool {
         switch mode {
@@ -43,7 +43,11 @@ struct CellView: View {
         case .auto:  return NSApp.effectiveAppearance.name == .darkAqua
         }
     }
-    
+
+    private var filteredWindows: [YabaiWindow] {
+        windowFilter(windows)
+    }
+
     private var cellSize: CGSize {
         CGSize(width: baseCellWidth * uiScale, height: baseCellHeight * uiScale)
     }
@@ -54,7 +58,7 @@ init(spaceIndex: Int,
             isFocused: Bool,
             isDropTarget: Bool,
             isActive: Bool,
-             windows: [Window],
+             windows: [YabaiWindow],
              displayBounds: CGRect,
              cellStyle: CellStyle,
              onSelect: @escaping (Int) -> Void,
@@ -98,8 +102,7 @@ var body: some View {
                 .fill(backgroundColor)
 
             if cellStyle != .simple {
-                let visibleWindows = windowFilter(windows)
-                ForEach(visibleWindows, id: \.id) { window in
+                ForEach(filteredWindows, id: \.id) { window in
                     switch cellStyle {
                     case .rects:      windowRect(window)
                     case .icons:      windowIcon(window)
@@ -118,7 +121,7 @@ var body: some View {
                 Text("\(spaceIndex)")
                     .font(.system(size: 12 * uiScale, weight: .bold))
                     .foregroundColor(textColor.opacity(0.7))
-                    .position(x: 8, y: 12)
+                    .position(x: 12, y: 16)
             }
 
             // Show space name (if exists) in center
@@ -175,7 +178,7 @@ var body: some View {
     }
     
     @ViewBuilder
-    private func windowRect(_ window: Window) -> some View {
+    private func windowRect(_ window: YabaiWindow) -> some View {
         let scaleX = cellSize.width / displayBounds.width
         let scaleY = cellSize.height / displayBounds.height
         let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
@@ -190,7 +193,7 @@ var body: some View {
     }
     
     @ViewBuilder
-    private func windowIcon(_ window: Window) -> some View {
+    private func windowIcon(_ window: YabaiWindow) -> some View {
         let scaleX = cellSize.width / displayBounds.width
         let scaleY = cellSize.height / displayBounds.height
         let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
@@ -210,7 +213,7 @@ var body: some View {
     
     @ViewBuilder
     private func iconStrip() -> some View {
-        let visible = windowFilter(windows)
+        let visible = filteredWindows
         let icons = showMultiAppIcons ? visible : Self.uniqueIconWindows(visible)
         let ic = iconScale
         let baseIconSize = 12 * uiScale * ic * 2
@@ -237,13 +240,13 @@ var body: some View {
         .padding(.bottom, padding)
     }
     
-    private func uniqueIconWindows() -> [Window] {
+    private func uniqueIconWindows() -> [YabaiWindow] {
         Self.uniqueIconWindows(windows)
     }
 
-    static func uniqueIconWindows(_ windows: [Window], showExtraWindows: Bool = false) -> [Window] {
+    static func uniqueIconWindows(_ windows: [YabaiWindow], showExtraWindows: Bool = false) -> [YabaiWindow] {
         var seen = Set<String>()
-        let filter: (Window) -> Bool = showExtraWindows
+        let filter: (YabaiWindow) -> Bool = showExtraWindows
             ? { !$0.isHidden && !$0.isMinimized }
             : { $0.isRealWindow }
         return windows.filter { filter($0) && seen.insert($0.app).inserted }

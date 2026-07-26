@@ -36,10 +36,21 @@ Spacemap solves this. It renders your spaces as a 2D grid, updating in real-time
 
 ## Quick Start
 
-### 1. Install prerequisites
+### 1. Install a supported window manager
 
 ```bash
 brew install asmvik/formulae/yabai
+```
+
+Spacemap also supports [AeroSpace](https://github.com/nikitabobko/AeroSpace):
+
+```bash
+brew install --cask nikitabobko/tap/aerospace
+```
+
+Spacemap automatically prefers yabai when both are running. `skhd` is optional for external shortcuts:
+
+```bash
 brew install koekeishiya/formulae/skhd
 # or: brew install jackielii/formulae/skhd-zig
 ```
@@ -58,6 +69,11 @@ Or in one step:
 brew install wiggly-sheets/spacemap/spacemap
 ```
 
+Upgrade with homebrew using:
+```bash
+brew update && brew upgrade wiggly-sheets/spacemap/spacemap
+```
+
 
 Or download a DMG from the [releases page](https://github.com/wiggly-sheets/spacemap/releases).
 
@@ -70,108 +86,13 @@ Or download a DMG from the [releases page](https://github.com/wiggly-sheets/spac
 
 Launch Spacemap once (`open /Applications/spacemap.app`), then enable it in **System Settings → Privacy & Security → Accessibility**.
 
-### 4. Configure Spacemap
-
-```bash
-mkdir -p ~/.config/spacemap
-cat > ~/.config/spacemap/config << 'EOF'
-GRID_COLS=8
-GRID_ROWS=2
-CELL_STYLE=icons
-EOF
-```
-
-### Space Names
-
-`SPACE_NAMES` assigns custom names to spaces. Names appear in cell centers when `SHOW_SPACE_NAMES=true`.
-
-```bash
-SPACE_NAMES=1:Desktop,2:Dev,3:Media,4:Music
-```
- 
-## Example configs
+### 4. Open Spacemap
 
 Press `Ctrl+Space` to open Spacemap.
 
 ---
 
-### Cell styles
-
-`CELL_STYLE` controls how windows are drawn inside each cell:
-
-| Value | Description |
-|-------|-------------|
-| `rects` | Colored rectangles scaled from real window geometry (default) |
-| `icons` | App icons at each visible window's scaled position; all apps on the workspace shown as a small icon strip at the bottom |
-| `hybrid` | Colored rectangles (like `rects`) plus a small icon strip at the bottom showing all apps on the workspace |
-
-```bash
-# 4x4 icons grid (compact)
-cp docs/config-examples/spacemap-config-4x4-hybrid ~/.config/spacemap/config
-
-# 8x2 rects grid (classic)
-cp docs/config-examples/spacemap-config-8x2-rects ~/.config/spacemap/config
-```
-
-## Install (in 5 steps)
-1. Install prerequisites
-2. Install spacemap
-3. Grant Accessibility permission
-4. Configure skhd 
-5. Configure spacemap
-
-**Step 1: Install prerequisites**
-```
-brew install asmvik/formulae/yabai
-brew install asmvik/formulae/skhd
-```
-
-**Step 2: Install spacemap**
-```
-brew tap jsheffie/tap
-brew install --cask jsheffie/tap/spacemap
-```
-
-Or download the DMG from [releases](https://github.com/jsheffie/spacemap/releases), open it, and drag `spacemap.app` to the Applications symlink. On first launch, spacemap will ask if you want to move itself to /Applications.
-
-**Step 3: Grant Accessibility Permission**
-
-Launch spacemap once to trigger the permission prompt:
-```bash
-open /Applications/spacemap.app
-```
-
-Then go to **System Settings → Privacy & Security → Accessibility** and enable spacemap. The Ctrl+PgDn hotkey activates automatically — no restart needed.
-
-**Step 4: Configure skhd**
-
-Copy the 8×2 grid keymap into your skhd config:
-```bash
-curl -fsSL https://raw.githubusercontent.com/jsheffie/spacemap/main/docs/skhd-configurations/skhdrc-8-by-2 \
-  > ~/.config/skhd/skhdrc
-```
-
-Then restart skhd:
-```bash
-skhd --restart-service
-```
-
-**Step 5: Configure spacemap**
-
-```bash
-mkdir -p ~/.config/spacemap
-cat > ~/.config/spacemap/config << 'EOF'
-GRID_COLS=8
-GRID_ROWS=2
-CELL_STYLE=icons
-EOF
-```
-
-Press `Ctrl+PgDn` to open spacemap.
-
-
-## Build Requirements
-- Xcode Command Line Tools (`xcode-select --install`)
+## Usage
 
 | Action | Result |
 |--------|--------|
@@ -185,11 +106,30 @@ Press `Ctrl+PgDn` to open spacemap.
 
 ---
 
+## Settings
+
+Open Settings from the menu bar or press `⌘+,` while the HUD is visible. The sidebar is always shown, highlights the active category, and opens each category in its own detail view:
+
+| Category | Controls |
+|----------|----------|
+| **Grid** | Space limit and layout, display modes, cell style, space numbers, icon strip, and extra windows |
+| **Space Names** | Space-name visibility and per-space names |
+| **Appearance** | Theme, light/dark mode, transparency, icon scale, and UI scale |
+| **Behavior** | Normal and pinned HUD hotkeys, HUD position, auto-hide, keyboard navigation, window-drop focus, menu bar visibility, and updates |
+| **Debug/Advanced** | Socket health interval |
+
+Changes save automatically. The hotkey recorder supports regular keys, F13–F20, and media keys; use its clear button to disable the binding.
+
+---
+
 ## Configuration
 
-Config file: `~/.config/spacemap/config`
+Config file: `~/.config/spacemap/spacemap.jsonc`
 
-Most changes take effect on next HUD open. `HOTKEY` requires a restart.
+Most changes take effect on next HUD open. Hotkey changes are applied immediately when saved in Settings.
+Spacemap reads legacy `key=value` configs, but new installs and resaves use JSON. JSONC line and block comments are accepted. Missing or invalid fields are repaired individually, with the original saved as `spacemap.jsonc.bak`.
+
+The option tables below use the uppercase legacy aliases for easy comparison with older configs. New JSON/JSONC files use camel-case field names and are best edited through Settings.
 
 ### Display
 
@@ -212,6 +152,10 @@ Most changes take effect on next HUD open. `HOTKEY` requires a restart.
 |--------|---------|-------------|
 | `GRID_COLS` | `8` | Number of columns |
 | `GRID_ROWS` | `2` | Number of rows |
+| `MULTI_MONITOR_HUD_MODE` | `unified` | `unified` combines spaces in one grid; `separate` shows one grid per display |
+| `UNIFIED_HUD_VISIBILITY` | `active` | In `unified` mode: `active` shows the grid on the focused-space display; `all` shows it on every display |
+| `SEPARATE_HUD_VISIBILITY` | `all` | In `separate` mode: `all` shows every HUD; `active` shows only the focused-space display |
+| `DISPLAY_NAVIGATION_WRAP` | `within` | With arrow/Vim navigation: `within` stays on one display; `between` wraps across displays |
 | `MAX_SPACES` | `16` | Maximum spaces to display |
 
 ### Navigation
@@ -220,27 +164,46 @@ Most changes take effect on next HUD open. `HOTKEY` requires a restart.
 |--------|---------|-------------|
 | `ARROW_KEYS` | `false` | Enable arrow key navigation |
 | `VIM_KEYS` | `false` | Enable hjkl navigation |
+| `DISPLAY_NAVIGATION_WRAP` | `within` | Wrap keyboard navigation within or between displays |
 
 ### Behavior
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `AUTO_HIDE_TIMEOUT` | `5` | Seconds before auto-hide (0=never) |
+| `PINNED_HOTKEY` | `none` | Optional shortcut that toggles a HUD with no auto-hide timer |
+| `FOCUS_SPACE_ON_WINDOW_DROP` | `false` | Focus the destination after dropping a window |
 | `UPDATE_MODE` | `notify` | `auto`, `notify`, or `off` |
 
 ### Hotkey
 
-```bash
-HOTKEY=ctrl+space    # default
-#HOTKEY=ctrl+alt+s
+```jsonc
+{
+  "hotkey": {
+    "keyKind": "keyCode",
+    "keyCode": 49,
+    "modifiers": ["ctrl"]
+  },
+  "pinnedHotkey": {
+    "keyKind": "none",
+    "modifiers": []
+  }
+}
 ```
 
-Format: `modifier+modifier+key`
+The Settings hotkey recorders are recommended for editing these values. The pinned shortcut must differ from the normal shortcut. Using the normal shortcut while pinned hides the HUD and returns it to normal timed behavior on its next use.
 
 ### Space Names
 
-```bash
-SPACE_NAMES=1:Desktop,2:Dev,3:Media,4:Music
+```jsonc
+{
+  "spaceNames": {
+    "1": "Desktop",
+    "2": "Dev",
+    "3": "Media",
+    "4": "Music"
+  }
+}
 ```
 
 ---
@@ -252,6 +215,7 @@ SPACE_NAMES=1:Desktop,2:Dev,3:Media,4:Music
 - [skhd](https://github.com/koekeishiya/skhd) running
 - Accessibility permission
 - Screen Recording permission (thumbnails only)
+- For multi-monitor HUD modes: **Displays have separate Spaces** enabled in System Settings → Desktop & Dock → Mission Control (log out and back in after changing it)
 
 ---
 
@@ -292,6 +256,11 @@ Install the CLI:
 make install-cli
 ```
 
+When the app is launched from `/Applications`, it also installs the `spacemap`
+command automatically. If macOS protects `/usr/local/bin`, Spacemap asks for
+administrator approval to create that symlink; it never replaces an unrelated
+item already at that path.
+
 ---
 
 ## Developer Notes
@@ -329,6 +298,7 @@ To view logs: Open **Console.app**, filter by "spacemap".
 | [DEVELOPER.md](./DEVELOPER.md) | Technical deep-dive |
 | [REFERENCE.md](./REFERENCE.md) | Config keys and API reference |
 | [TASKS.md](./TASKS.md) | Roadmap and known issues |
+| [SUPPORT.md](./SUPPORT.md) | Getting help and reporting issues |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | Contributing guidelines |
 
 ---

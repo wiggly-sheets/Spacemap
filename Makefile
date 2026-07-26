@@ -159,52 +159,6 @@ _dmg:
 	@echo "Created $(OUTPUT)"
 	@echo "SHA-256:  $$(shasum -a 256 $(OUTPUT) | awk '{print $$1}')"
 
-archive: app
-	rm -rf $(STAGE) $(ARCHIVE)
-	mkdir -p $(STAGE)
-	cp -R $(APP_BUNDLE) $(STAGE)/
-	codesign --force --deep --sign - $(STAGE)/$(APP_BUNDLE)
-	zip -r --symlinks $(ARCHIVE) $(STAGE)
-	rm -rf $(STAGE)
-	@echo ""
-	@echo "Artifact: $(ARCHIVE)"
-	@echo "SHA-256:  $$(shasum -a 256 $(ARCHIVE) | awk '{print $$1}')"
-	@echo ""
-	@echo "Next: go to https://github.com/jsheffie/spacemap/releases/new"
-	@echo "  1. Tag: v$(VERSION)"
-	@echo "  2. Click 'Generate release notes'"
-	@echo "  3. Attach $(ARCHIVE)"
-	@echo "  4. Copy the SHA-256 above into Formula/spacemap.rb in homebrew-tap"
-
-dmg: app
-	@$(MAKE) _dmg INPUT=$(APP_BUNDLE) OUTPUT=$(DMG)
-
-dmg-arm64: app-arm64
-	@$(MAKE) _dmg INPUT=$(APP_NAME)-arm64.app OUTPUT=$(APP_NAME)-$(VERSION)-arm64.dmg
-
-dmg-x86_64: app-x86_64
-	@$(MAKE) _dmg INPUT=$(APP_NAME)-x86_64.app OUTPUT=$(APP_NAME)-$(VERSION)-x86_64.dmg
-
-dmg-universal: app-universal
-	@$(MAKE) _dmg INPUT=$(APP_NAME).app OUTPUT=$(APP_NAME)-$(VERSION)-universal.dmg
-
-_dmg:
-	@rm -rf $(DMG_STAGE)
-	@mkdir -p $(DMG_STAGE)
-	@cp -R $(INPUT) $(DMG_STAGE)/$(APP_NAME).app
-	create-dmg --no-internet-enable \
-		--volname "$(APP_NAME)" \
-		--volicon Sources/spacemap/spacemap.icns \
-		--window-pos 200 120 \
-		--window-size 600 400 \
-		--icon-size 100 \
-		--icon "$(APP_NAME).app" 175 190 \
-		--app-drop-link 425 190 \
-		$(OUTPUT) $(DMG_STAGE)/$(APP_NAME).app
-	@rm -rf $(DMG_STAGE)
-	@echo "Created $(OUTPUT)"
-	@echo "SHA-256:  $$(shasum -a 256 $(OUTPUT) | awk '{print $$1}')"
-
 install: app
 	mkdir -p $(INSTALL_PATH)/Contents/MacOS
 	mkdir -p $(INSTALL_PATH)/Contents/Frameworks
@@ -238,17 +192,6 @@ install-cli: install
 	@echo "Installing CLI symlink to /usr/local/bin/spacemap..."
 	@mkdir -p /usr/local/bin
 	@ln -sf $(INSTALL_PATH)/Contents/MacOS/spacemap /usr/local/bin/spacemap
-	@echo "CLI installed. Run 'spacemap --help' for usage."
-
-uninstall-cli:
-	@echo "Removing CLI symlink from /usr/local/bin/spacemap..."
-	@rm -f /usr/local/bin/spacemap
-	@echo "CLI uninstalled."
-
-install-cli: install
-	@echo "Installing CLI symlink to /usr/local/bin/spacemap..."
-	@mkdir -p /usr/local/bin
-	@ln -sf $(INSTALL_PATH)/Contents/MacOS/$(APP_NAME) /usr/local/bin/spacemap
 	@echo "CLI installed. Run 'spacemap --help' for usage."
 
 uninstall-cli:
@@ -308,39 +251,40 @@ clean:
 
 config:
 	mkdir -p ~/.config/spacemap
-	@if [ ! -f ~/.config/spacemap/config ]; then \
-		echo "GRID_COLS=8" > ~/.config/spacemap/config; \
-		echo "GRID_ROWS=2" >> ~/.config/spacemap/config; \
-		echo "#CELL_STYLE=rects" >> ~/.config/spacemap/config; \
-		echo "CELL_STYLE=icons" >> ~/.config/spacemap/config; \
-		echo "#CELL_STYLE=thumbnails
-		echo "#CELL_STYLE=simple" >> ~/.config/spacemap/config; \
-		echo "#HOTKEY=ctrl+pgdn" >> ~/.config/spacemap/config; \
-		echo "#UI_SCALE=1.0" >> ~/.config/spacemap/config; \
-		echo "#AUTO_SHOW=false" >> ~/.config/spacemap/config; \
-		echo "#AUTO_HIDE_TIMEOUT=5" >> ~/.config/spacemap/config; \
-		echo "#THEME=default" >> ~/.config/spacemap/config; \
-		echo "#SOCKET_HEALTH_INTERVAL=60" >> ~/.config/spacemap/config; \
-		echo "SPACE_NAMES=1:Desktop,2:Dev" >> ~/.config/spacemap/config; \
-		echo "Created ~/.config/spacemap/config with defaults (8x2, icons)"; \
+	@if [ ! -f ~/.config/spacemap/spacemap.jsonc ]; then \
+		printf '%s\n' \
+			'// Spacemap config; missing fields are filled automatically.' \
+			'{' \
+			'  "cols": 8,' \
+			'  "rows": 2,' \
+			'  "cellStyle": "icons",' \
+			'  "maxSpaces": 16,' \
+			'  "theme": "default",' \
+			'  "spaceNames": {' \
+			'    "1": "Desktop",' \
+			'    "2": "Dev"' \
+			'  }' \
+			'}' > ~/.config/spacemap/spacemap.jsonc; \
+		echo "Created ~/.config/spacemap/spacemap.jsonc"; \
 	else \
-		echo "Config already exists at ~/.config/spacemap/config"; \
-		cat ~/.config/spacemap/config; \
+		echo "Config already exists at ~/.config/spacemap/spacemap.jsonc"; \
+		cat ~/.config/spacemap/spacemap.jsonc; \
 	fi
 
 distconfig:
 	mkdir -p ~/.config/spacemap
-	@echo "GRID_COLS=8" > ~/.config/spacemap/config
-	@echo "GRID_ROWS=2" >> ~/.config/spacemap/config
-	@echo "#CELL_STYLE=rects" >> ~/.config/spacemap/config
-	@echo "CELL_STYLE=icons" >> ~/.config/spacemap/config
-	@echo "#CELL_STYLE=thumbnails
-		echo "#CELL_STYLE=simple" >> ~/.config/spacemap/config
-	@echo "#HOTKEY=ctrl+pgdn" >> ~/.config/spacemap/config
-	@echo "#SOCKET_HEALTH_INTERVAL=60" >> ~/.config/spacemap/config
-	@echo "SPACE_NAMES=1:Desktop,2:Dev" >> ~/.config/spacemap/config
-	@echo "Wrote ~/.config/spacemap/config"
-	@cat ~/.config/spacemap/config
+	@printf '%s\n' \
+		'// Spacemap config; missing fields are filled automatically.' \
+		'{' \
+		'  "cols": 8,' \
+		'  "rows": 2,' \
+		'  "cellStyle": "icons",' \
+		'  "maxSpaces": 16,' \
+		'  "theme": "default",' \
+		'  "spaceNames": {}' \
+		'}' > ~/.config/spacemap/spacemap.jsonc
+	@echo "Wrote ~/.config/spacemap/spacemap.jsonc"
+	@cat ~/.config/spacemap/spacemap.jsonc
 
 symlink:
 	ln -sf /Applications/Spacemap.app/Contents/MacOS/spacemap /usr/local/bin/spacemap
