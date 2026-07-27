@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.17] - 2026-07-27
+
 ### Added
 - Added `spacemap://` deep links for toggling or pinning the HUD, opening Settings or the menu-bar menu, and revealing the config file or themes folder.
 
