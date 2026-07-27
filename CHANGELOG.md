@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Deep-link parsing now handles opaque `spacemap:action` URLs consistently across supported macOS versions.
+
 
 ## [1.0.17] - 2026-07-27
 

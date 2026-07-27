@@ -9,18 +9,30 @@ enum DeepLinkAction: String, CaseIterable {
     case themes
 
     init?(url: URL) {
-        guard url.scheme?.lowercased() == "spacemap" else { return nil }
-
-        let pathAction = url.path
-            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let actionName = (url.host?.isEmpty == false ? url.host : pathAction)?
-            .removingPercentEncoding?
-            .lowercased()
-
-        guard url.path.isEmpty || url.path == "/" || url.host == nil,
-              let actionName else {
+        guard let scheme = url.scheme,
+              scheme.lowercased() == "spacemap" else {
             return nil
         }
+
+        let encodedAction: String
+        if let host = url.host, !host.isEmpty {
+            guard url.path.isEmpty || url.path == "/" else { return nil }
+            encodedAction = host
+        } else {
+            let absoluteString = url.absoluteString
+            guard let colon = absoluteString.firstIndex(of: ":") else { return nil }
+            let opaqueAction = absoluteString[absoluteString.index(after: colon)...]
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard !opaqueAction.isEmpty,
+                  !opaqueAction.contains("/"),
+                  !opaqueAction.contains("?"),
+                  !opaqueAction.contains("#") else {
+                return nil
+            }
+            encodedAction = opaqueAction
+        }
+
+        guard let actionName = encodedAction.removingPercentEncoding?.lowercased() else { return nil }
         self.init(rawValue: actionName)
     }
 }
