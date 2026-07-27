@@ -42,8 +42,6 @@ Spacemap solves this. It renders your spaces as a 2D grid, updating in real-time
 
 ```bash
 brew install asmvik/formulae/yabai
-brew install koekeishiya/formulae/skhd
-# or: brew install jackielii/formulae/skhd-zig
 ```
 
 ### 2. Install Spacemap
