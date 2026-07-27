@@ -108,6 +108,20 @@ class HUDWindowController {
             self?.isToggling = false
         }
     }
+
+    func pin() {
+        guard !isToggling, !(isVisible && isPinned) else { return }
+        isToggling = true
+        isPinned = true
+        if isVisible {
+            resetAutoHideTimer()
+        } else {
+            show()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.isToggling = false
+        }
+    }
     
     func show() {
         guard !isVisible else { return }

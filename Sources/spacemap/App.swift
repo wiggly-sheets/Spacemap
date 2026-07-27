@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
+    private var isReadyForDeepLinks = false
+    private var pendingDeepLinks: [DeepLinkAction] = []
     private lazy var sparkleUpdaterController: SPUStandardUpdaterController = {
         print("Spacemap: Initializing Sparkle updater controller")
         let controller = SPUStandardUpdaterController(
@@ -83,6 +85,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         ensureCLISymlink(allowAuthorizationPrompt: true)
         
         setupMenubar()
+        isReadyForDeepLinks = true
+        handlePendingDeepLinks()
         
         // Trigger Sparkle initialization early so updater starts on launch
         _ = sparkleUpdaterController
@@ -128,9 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         #if !DEBUG
         if args.contains("--show-menu") {
             // Show menu and continue running
-            if let button = self.statusItem?.button {
-                button.performClick(nil)
-            }
+            self.showMenubarMenu()
         }
         if args.contains("--settings") {
             // Show settings window and continue running
@@ -150,6 +152,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettingsWindow()
         return false
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard let action = DeepLinkAction(url: url) else {
+                NSLog("Spacemap: ignored unsupported deep link \(url.absoluteString)")
+                continue
+            }
+            if isReadyForDeepLinks {
+                handleDeepLink(action)
+            } else {
+                pendingDeepLinks.append(action)
+            }
+        }
+    }
+
+    private func handlePendingDeepLinks() {
+        let actions = pendingDeepLinks
+        pendingDeepLinks.removeAll()
+        actions.forEach(handleDeepLink)
+    }
+
+    private func handleDeepLink(_ action: DeepLinkAction) {
+        switch action {
+        case .toggleHUD:
+            hud.toggle()
+        case .pinHUD:
+            hud.pin()
+        case .settings:
+            showSettingsWindow()
+        case .menu:
+            showMenubarMenu()
+        case .config:
+            _ = ConfigReader.load()
+            NSWorkspace.shared.open(URL(fileURLWithPath: ConfigReader.configPath))
+        case .themes:
+            ThemeManager.shared.reload()
+            NSWorkspace.shared.open(ThemeManager.themesDir())
+        }
+    }
+
+    private func showMenubarMenu() {
+        let hideAfterClosing = currentConfig?.hideMenuBarIcon ?? ConfigReader.load().hideMenuBarIcon
+        if statusItem == nil {
+            setupMenubar()
+        }
+        statusItem?.button?.performClick(nil)
+        if hideAfterClosing {
+            statusItem?.isVisible = false
+            statusItem = nil
+        }
     }
 
     private func applyMenubarVisibility(config: GridConfig) {
