@@ -93,6 +93,17 @@ Press `Ctrl+Space` to open Spacemap.
 | `⌘+,` while HUD is up or menu bar is open| Open Settings |
 | `⌘+R` while menu bar is open | Restart Spacemap |
 
+### Deep links
+
+| URL | Result |
+|-----|--------|
+| `spacemap://toggle-hud` | Toggle HUD |
+| `spacemap://pin-hud` | Show and pin HUD |
+| `spacemap://settings` | Open Settings |
+| `spacemap://menu` | Open the menu-bar menu |
+| `spacemap://config` | Open the config file |
+| `spacemap://themes` | Open the themes folder |
+
 ---
 
 ## Settings
