@@ -59,12 +59,12 @@ final class CellViewGridViewTests: XCTestCase {
         )
     }
 
-    func testMenuBarDotsModeProducesCompactGridIcon() throws {
+    func testMenuBarDotsModeExpandsForLegibility() throws {
         var config = GridConfig.default
         config.menuBarDisplayMode = .dots
-        config.cols = 4
+        config.cols = 8
         config.rows = 2
-        config.maxSpaces = 8
+        config.maxSpaces = 16
         let state = GridState(
             config: config,
             spaces: makeSpaces(1...6),
@@ -74,7 +74,7 @@ final class CellViewGridViewTests: XCTestCase {
         )
 
         let image = try XCTUnwrap(MenuBarPreviewRenderer.image(for: state))
-        XCTAssertEqual(image.size, CGSize(width: 20, height: 18))
+        XCTAssertEqual(image.size, CGSize(width: 46.5, height: 20))
     }
 
     func testMenuBarWindowFramesLeaveVisiblePaneGaps() throws {
