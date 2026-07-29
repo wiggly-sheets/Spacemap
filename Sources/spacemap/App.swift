@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
+    private var menubarRefreshWorkItem: DispatchWorkItem?
+    private var menubarRefreshGeneration = 0
     private var isReadyForDeepLinks = false
     private var pendingDeepLinks: [DeepLinkAction] = []
     private lazy var sparkleUpdaterController: SPUStandardUpdaterController = {
@@ -76,20 +78,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             self.hud.prewarmState()
             self.restartHotkey(config: config)
             self.applyMenubarVisibility(config: config)
+            self.refreshMenubarPreview(config: config)
             self.hud.onShowSettings = { [weak self] in self?.showSettingsWindow() }
             self.socketListener = SocketListener(
                 socketPath: self.socketPath,
                 healthInterval: config.socketHealthInterval,
                 onRefresh: { [weak self] in
                     self?.hud.refresh()
+                    self?.refreshMenubarPreview()
                 },
-                onShow: { [weak self] in self?.hud.show() },
+                onShow: { [weak self] in
+                    self?.hud.show()
+                    self?.refreshMenubarPreview()
+                },
                 onToggle: { [weak self] in self?.hud.toggle() },
                 onSettings: { [weak self] in self?.showSettingsWindow() }
             )
             YabaiClient.registerSignals(
                 socketPath: self.socketPath,
-                showHUDOnSpaceChange: config.showHUDOnSpaceChange
+                showHUDOnSpaceChange: config.showHUDOnSpaceChange,
+                refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
+                refreshWindowGeometry: self.windowGeometryPreviewsEnabled(for: config)
             )
             
             // Observe settings changes to update hotkey
@@ -101,16 +110,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 guard let self = self else { return }
                 ConfigReader.silentMode = true
                 let config = ConfigReader.load()
-                let shouldUpdateSpaceChangeSignal =
-                    self.currentConfig?.showHUDOnSpaceChange != config.showHUDOnSpaceChange
+                let shouldUpdateYabaiSignals =
+                    self.currentConfig?.showHUDOnSpaceChange != config.showHUDOnSpaceChange ||
+                    self.currentConfig.map { self.workspacePreviewsEnabled(for: $0) } !=
+                        self.workspacePreviewsEnabled(for: config) ||
+                    self.currentConfig.map { self.windowGeometryPreviewsEnabled(for: $0) } !=
+                        self.windowGeometryPreviewsEnabled(for: config)
                 self.currentConfig = config
                 self.hud.reloadConfig()
                 self.restartHotkey(config: config)
                 self.applyMenubarVisibility(config: config)
-                if shouldUpdateSpaceChangeSignal {
+                self.refreshMenubarPreview(config: config)
+                if shouldUpdateYabaiSignals {
                     YabaiClient.registerSignals(
                         socketPath: self.socketPath,
-                        showHUDOnSpaceChange: config.showHUDOnSpaceChange
+                        showHUDOnSpaceChange: config.showHUDOnSpaceChange,
+                        refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
+                        refreshWindowGeometry: self.windowGeometryPreviewsEnabled(for: config)
                     )
                 }
             }
@@ -204,6 +220,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
+    private func workspacePreviewsEnabled(for config: GridConfig) -> Bool {
+        !config.hideMenuBarIcon && config.menuBarDisplayMode != .icon
+    }
+
+    private func windowGeometryPreviewsEnabled(for config: GridConfig) -> Bool {
+        workspacePreviewsEnabled(for: config) && config.menuBarDisplayMode != .dots
+    }
+
+    private func refreshMenubarPreview(config: GridConfig? = nil) {
+        let config = config ?? currentConfig ?? ConfigReader.load()
+        guard let item = statusItem else { return }
+        menubarRefreshGeneration += 1
+        let generation = menubarRefreshGeneration
+        menubarRefreshWorkItem?.cancel()
+
+        if config.menuBarDisplayMode == .icon {
+            applyMenubarIcon(to: item)
+            return
+        }
+
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            DispatchQueue.global(qos: .utility).async {
+                let state = YabaiClient.buildGridState(config: config)
+                DispatchQueue.main.async {
+                    guard generation == self.menubarRefreshGeneration,
+                          let currentItem = self.statusItem else { return }
+                    if let image = MenuBarPreviewRenderer.image(for: state) {
+                        currentItem.length = image.size.width + 8
+                        currentItem.button?.image = image
+                        currentItem.button?.imageScaling = .scaleProportionallyDown
+                        currentItem.button?.toolTip = NSLocalizedString("Spacemap workspace preview", comment: "")
+                    } else {
+                        self.applyMenubarIcon(to: currentItem)
+                    }
+                }
+            }
+        }
+        menubarRefreshWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
+    }
+
+    private func applyMenubarIcon(to item: NSStatusItem) {
+        item.length = NSStatusItem.squareLength
+        item.button?.image = NSImage(
+            systemSymbolName: "square.grid.3x3",
+            accessibilityDescription: "Spacemap"
+        )
+        item.button?.imageScaling = .scaleProportionallyDown
+        item.button?.toolTip = "Spacemap"
+    }
+
     private func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String {
         switch hotkey.key {
         case .none:
@@ -242,9 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     private func setupMenubar() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        if let button = item.button {
-            button.image = NSImage(systemSymbolName: "square.grid.3x3", accessibilityDescription: "Spacemap")
-        }
+        applyMenubarIcon(to: item)
         let config = currentConfig ?? ConfigReader.load()
         let menu = NSMenu()
         let hotkeyLabel = hotkeyMenuString(config.hotkey)
@@ -311,6 +377,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         ))
         item.menu = menu
         statusItem = item
+        refreshMenubarPreview(config: config)
     }
 
     private func menuItem(

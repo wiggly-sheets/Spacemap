@@ -104,9 +104,14 @@ enum YabaiClient {
         }
     }
     
-    static func registerSignals(socketPath: String, showHUDOnSpaceChange: Bool = false) {
+    static func registerSignals(
+        socketPath: String,
+        showHUDOnSpaceChange: Bool = false,
+        refreshWorkspacePreviews: Bool = false,
+        refreshWindowGeometry: Bool = true
+    ) {
         guard isYabaiRunning() else { return }
-        _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_space_changed")
+        removeSignals()
         let action = spaceChangedSignalAction(
             socketPath: socketPath,
             showHUDOnSpaceChange: showHUDOnSpaceChange
@@ -115,16 +120,55 @@ enum YabaiClient {
                        "label=spacemap_space_changed",
                        "event=space_changed",
                        "action=\(action)")
+        guard refreshWorkspacePreviews else { return }
+        let events = refreshWindowGeometry
+            ? workspacePreviewRefreshEvents
+            : workspaceTopologyRefreshEvents
+        for event in events {
+            _ = try? shell(yabaiPath, "-m", "signal", "--add",
+                           "label=spacemap_\(event)",
+                           "event=\(event)",
+                           "action=\(refreshSignalAction(socketPath: socketPath))")
+        }
+    }
+
+    static let windowGeometryRefreshEvents = [
+        "window_created",
+        "window_destroyed",
+        "window_moved",
+        "window_resized",
+        "window_minimized",
+        "window_deminimized"
+    ]
+
+    static let workspaceTopologyRefreshEvents = [
+        "space_created",
+        "space_destroyed",
+        "display_added",
+        "display_removed",
+        "display_moved",
+        "display_resized"
+    ]
+
+    static var workspacePreviewRefreshEvents: [String] {
+        windowGeometryRefreshEvents + workspaceTopologyRefreshEvents
     }
 
     static func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
         let command = showHUDOnSpaceChange ? 2 : 1
         return "echo \(command) | /usr/bin/nc -U \(socketPath)"
     }
+
+    static func refreshSignalAction(socketPath: String) -> String {
+        "echo 1 | /usr/bin/nc -U \(socketPath)"
+    }
     
     static func removeSignals() {
         guard isYabaiRunning() else { return }
         _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_space_changed")
+        for event in workspacePreviewRefreshEvents {
+            _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_\(event)")
+        }
     }
     
     static func focusSpace(_ index: Int) {

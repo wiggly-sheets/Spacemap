@@ -4,6 +4,89 @@ import CoreGraphics
 
 final class CellViewGridViewTests: XCTestCase {
 
+    func testMenuBarCurrentModeReturnsFocusedSpace() {
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .current,
+                nearbyCount: 3,
+                spaces: makeSpaces(1...6),
+                focusedIndex: 4
+            ),
+            [4]
+        )
+    }
+
+    func testMenuBarNearbyModeCentersAndShiftsAtEdges() {
+        let spaces = makeSpaces(1...6)
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .nearby,
+                nearbyCount: 3,
+                spaces: spaces,
+                focusedIndex: 4
+            ),
+            [3, 4, 5]
+        )
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .nearby,
+                nearbyCount: 3,
+                spaces: spaces,
+                focusedIndex: 1
+            ),
+            [1, 2, 3]
+        )
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .nearby,
+                nearbyCount: 3,
+                spaces: spaces,
+                focusedIndex: 6
+            ),
+            [4, 5, 6]
+        )
+    }
+
+    func testMenuBarAllModeUsesEveryActiveSpace() {
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .all,
+                nearbyCount: 3,
+                spaces: makeSpaces(1...6),
+                focusedIndex: 3
+            ),
+            [1, 2, 3, 4, 5, 6]
+        )
+    }
+
+    func testMenuBarDotsModeProducesCompactGridIcon() throws {
+        var config = GridConfig.default
+        config.menuBarDisplayMode = .dots
+        config.cols = 4
+        config.rows = 2
+        config.maxSpaces = 8
+        let state = GridState(
+            config: config,
+            spaces: makeSpaces(1...6),
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            focusedIndex: 3
+        )
+
+        let image = try XCTUnwrap(MenuBarPreviewRenderer.image(for: state))
+        XCTAssertEqual(image.size, CGSize(width: 20, height: 18))
+    }
+
+    func testMenuBarWindowFramesLeaveVisiblePaneGaps() throws {
+        let separated = try XCTUnwrap(
+            MenuBarPreviewRenderer.separatedWindowFrame(
+                CGRect(x: 0, y: 0, width: 15, height: 7)
+            )
+        )
+
+        XCTAssertEqual(separated, CGRect(x: 0.55, y: 0.55, width: 13.9, height: 5.9))
+    }
+
     // MARK: - CellView label positioning
 
     func testSpaceNumberPositionScalesWithHUD() {
@@ -421,5 +504,18 @@ final class CellViewGridViewTests: XCTestCase {
         let maxW = base * GridView.effectiveScale(for: 1.0)
         XCTAssertEqual(minW, 40, accuracy: 0.001)
         XCTAssertEqual(maxW, 320, accuracy: 0.001)
+    }
+}
+
+private func makeSpaces(_ indices: ClosedRange<Int>) -> [YabaiSpace] {
+    indices.map {
+        YabaiSpace(
+            id: $0,
+            index: $0,
+            display: 1,
+            hasFocus: $0 == indices.lowerBound,
+            isVisible: $0 == indices.lowerBound,
+            label: nil
+        )
     }
 }

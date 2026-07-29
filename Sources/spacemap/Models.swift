@@ -26,6 +26,15 @@ enum DisplayNavigationWrap: String, CaseIterable, Identifiable {
 }
 enum ThemeMode: String, CaseIterable, Identifiable { case light, dark, auto; var id: String { rawValue } }
 enum UpdateMode: String, CaseIterable, Identifiable { case auto, notify, off; var id: String { rawValue } }
+enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
+    case icon
+    case dots
+    case current
+    case nearby
+    case all
+
+    var id: String { rawValue }
+}
 
 enum HUDPosition: Equatable, Hashable {
     case center, top, bottom
@@ -142,6 +151,8 @@ struct GridConfig {
     var showIconStrip: Bool // show icon strip at the bottom of each cell
     var showMultiAppIcons: Bool // show one icon per window (true) or one per unique app (false)
     var hideMenuBarIcon: Bool // hide the menu bar icon (settings accessible via re-launch or Cmd+, in HUD)
+    var menuBarDisplayMode: MenuBarDisplayMode = .icon
+    var menuBarNearbyCount: Int = 3
     var spaceNames: [Int: String] // space id to name mapping
     var useVimKeys: Bool // navigate spaces with hjkl when HUD is visible
     var useArrowKeys: Bool // navigate spaces with arrow keys when HUD is visible
@@ -153,7 +164,22 @@ struct GridConfig {
     var showHUDOnSpaceChange: Bool = false // show the HUD after any yabai space change
     var updateMode: UpdateMode // auto | notify | off
 
-    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, pinnedHotkey: HotkeyConfig(key: .none, modifiers: []), socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, multiMonitorHUDMode: .unified, unifiedHUDVisibility: .active, separateHUDVisibility: .all, displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false, focusSpaceOnWindowDrop: false, showHUDOnSpaceChange: false, updateMode: .notify)
+    static let `default` = GridConfig(
+        cols: 8, rows: 2, cellStyle: .rects, hotkey: .default,
+        pinnedHotkey: HotkeyConfig(key: .none, modifiers: []),
+        socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5,
+        theme: "default", showMode: .all, multiMonitorHUDMode: .unified,
+        unifiedHUDVisibility: .active, separateHUDVisibility: .all,
+        displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3,
+        mode: .auto, iconScale: 0.5, showSpaceNumbers: true,
+        showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false,
+        hideMenuBarIcon: false, menuBarDisplayMode: .icon,
+        menuBarNearbyCount: 3, spaceNames: [:], useVimKeys: false,
+        useArrowKeys: false, hudPosition: .center, customHUDX: 0.5,
+        customHUDY: 0.5, showExtraWindows: false,
+        focusSpaceOnWindowDrop: false, showHUDOnSpaceChange: false,
+        updateMode: .notify
+    )
 }
 
 struct AppTheme: Equatable {

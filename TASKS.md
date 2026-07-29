@@ -30,6 +30,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Show Space Names Toggle**: Per-cell custom name display
 - **Show Icon Strip Toggle**: Per-cell app icon strip at bottom
 - **Hide Menu Bar Icon Toggle**: Run headless, use hotkey or CLI
+- **Menu Bar Workspace Previews**: Current, nearby, all-space, and compact dot-grid modes with live yabai layout updates
 
 ### Hotkeys & Navigation
 

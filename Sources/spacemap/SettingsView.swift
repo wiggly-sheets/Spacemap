@@ -104,6 +104,8 @@ struct SettingsView: View {
     @State private var showIconStrip: Bool = true
     @State private var showMultiAppIcons: Bool = false
     @State private var hideMenuBarIcon: Bool = false
+    @State private var menuBarDisplayMode: MenuBarDisplayMode = .icon
+    @State private var menuBarNearbyCount: Int = 3
     @State private var useVimKeys: Bool = false
     @State private var useArrowKeys: Bool = false
     @State private var hudPositionKind: HUDPositionKind = .center
@@ -206,6 +208,8 @@ init() {
         _showIconStrip = State(initialValue: config.showIconStrip)
         _showMultiAppIcons = State(initialValue: config.showMultiAppIcons)
         _hideMenuBarIcon = State(initialValue: config.hideMenuBarIcon)
+        _menuBarDisplayMode = State(initialValue: config.menuBarDisplayMode)
+        _menuBarNearbyCount = State(initialValue: config.menuBarNearbyCount)
         _useVimKeys = State(initialValue: config.useVimKeys)
         _useArrowKeys = State(initialValue: config.useArrowKeys)
         // Initialize HUD position state: kind from config.hudPosition, custom position from config.customHUDX/Y
@@ -258,6 +262,8 @@ init() {
             showIconStrip: showIconStrip,
             showMultiAppIcons: showMultiAppIcons,
             hideMenuBarIcon: hideMenuBarIcon,
+            menuBarDisplayMode: menuBarDisplayMode,
+            menuBarNearbyCount: menuBarNearbyCount,
             spaceNames: spaceNameInputs,
             useVimKeys: useVimKeys,
             useArrowKeys: useArrowKeys,
@@ -538,6 +544,32 @@ init() {
 
                         if hideMenuBarIcon {
                             SettingsFootnote(text: "Access settings by relaunching the app or pressing ⌘, while the HUD is open.")
+                        } else {
+                            Picker("Menu Bar Display", selection: $menuBarDisplayMode) {
+                                Text("Icon").tag(MenuBarDisplayMode.icon)
+                                Text("Space Dots").tag(MenuBarDisplayMode.dots)
+                                Text("Current Space").tag(MenuBarDisplayMode.current)
+                                Text("Nearby Spaces").tag(MenuBarDisplayMode.nearby)
+                                Text("All Spaces").tag(MenuBarDisplayMode.all)
+                            }
+                            .onChange(of: menuBarDisplayMode) { _ in saveConfig() }
+
+                            if menuBarDisplayMode == .nearby {
+                                HStack {
+                                    Text("Nearby Space Count")
+                                    Spacer()
+                                    Text("\(menuBarNearbyCount)")
+                                    Stepper("", value: $menuBarNearbyCount, in: 1...16)
+                                        .labelsHidden()
+                                        .onChange(of: menuBarNearbyCount) { _ in saveConfig() }
+                                }
+                            }
+
+                            if menuBarDisplayMode == .dots {
+                                SettingsFootnote(text: "Shows the configured workspace grid as dots, highlighting the focused space.")
+                            } else if menuBarDisplayMode != .icon {
+                                SettingsFootnote(text: "Draws each space's live window layout in the menu bar. All spaces are shown full size in one horizontal row.")
+                            }
                         }
 
                         Picker("Automatic Updates", selection: $updateMode) {
