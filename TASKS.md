@@ -26,7 +26,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Space Display Options
 
-- **Show Space Numbers Toggle**: Per-cell space number display
+- **Show Space Numbers Toggle**: Per-cell space number display with consistent scaled insets at every HUD size
 - **Show Space Names Toggle**: Per-cell custom name display
 - **Show Icon Strip Toggle**: Per-cell app icon strip at bottom
 - **Hide Menu Bar Icon Toggle**: Run headless, use hotkey or CLI
@@ -55,7 +55,8 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Window Features
 
-- **Window Previews / Thumbnails**: ScreenCaptureKit-based per-space thumbnail capture (experimental)
+- **Window Previews / Thumbnails**: ScreenCaptureKit-based all-space capture with HUD exclusion, deterministic window assignment, bounded concurrency, and atomic cache refreshes
+- **Icon Cell Layout**: One icon per yabai window with geometry-aware placement, including duplicate-app windows and correct split ordering
 - **Show Extra Windows**: `SHOW_EXTRA_WINDOWS` toggle to display utility/floating windows (sublayer=normal)
 
 ### Settings UI Improvements
@@ -80,7 +81,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Testing & CI/CD
 
-- **Unit Test Suite**: 166 tests across 7 files
+- **Unit Test Suite**: 183 tests across 9 files
 - **GitHub Actions CI/CD**: CI (swift test + build), Release (3 DMGs + checksums), Dependabot
 - **Rendering Math Tests**: 8 unit tests for scale mapping (min/max/midpoint/monotonicity)
 
@@ -154,7 +155,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 | Task                               | Description                                                                                                             | Status  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- |
-| **Unit Tests**               | 166 tests across 7 files (CLISymlinkInstallerTests, HotkeyTests, ConfigTests, ThemeTests, ModelTests, CellViewGridViewTests, SpaceNavigatorTests) | ✅ Done |
+| **Unit Tests**               | 183 tests across 9 files (CLISymlinkInstallerTests, HotkeyTests, ConfigTests, ThemeTests, ModelTests, CellViewGridViewTests, SpaceNavigatorTests, DeepLinkTests, ThumbnailCacheTests) | ✅ Done |
 | **GitHub Actions / CI**      | `ci.yml` (swift test + build on push/PR), `release.yml` (3 DMGs + checksums on tag), Dependabot                     | ✅ Done |
 | **Xcode Project**            | Generated from SPM, 4 targets (default, arm64, x86_64, universal) via`scripts/generate-xcodeproj.py`                  | ✅ Done |
 | **Architecture Builds**      | ARM64, x86_64, universal DMGs via`create-dmg`                                                                         | ✅ Done |
