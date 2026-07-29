@@ -276,10 +276,15 @@ class HUDWindowController {
     }
 
     private func preloadIcons(for state: GridState) {
-        guard config.cellStyle == .icons || config.showIconStrip else { return }
-        let visibleWindows = config.showExtraWindows
-            ? state.windows.filter { !$0.isHidden && !$0.isMinimized }
-            : state.windows.filter(\.isRealWindow)
+        guard config.cellStyle == .icons || config.cellStyle == .hybrid || config.showIconStrip else { return }
+        let visibleWindows = state.windows.filter {
+            $0.shouldDisplay(
+                showExtraWindows: config.showExtraWindows,
+                ownerIsRegularApplication: IconCache.shared.isRegularApplication(
+                    processIdentifier: $0.pid
+                )
+            )
+        }
         IconCache.shared.preload(appNames: visibleWindows.map(\.app))
     }
     

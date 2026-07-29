@@ -381,6 +381,7 @@ init() {
 
                         Picker("Cell Style", selection: $cellStyle) {
                             Text("Rectangles").tag(CellStyle.rects)
+                            Text("Hybrid").tag(CellStyle.hybrid)
                             Text("Icons").tag(CellStyle.icons)
                             Text("Thumbnails").tag(CellStyle.thumbnails)
                             Text("Simple").tag(CellStyle.simple)
@@ -398,14 +399,6 @@ init() {
                                 .onChange(of: showMultiAppIcons) { _ in saveConfig() }
                         }
 
-                        Toggle("Show Extra Windows", isOn: $showExtraWindows)
-                            .onChange(of: showExtraWindows) { _ in saveConfig() }
-
-                        if showExtraWindows {
-                            Text("Shows utility/floating windows (e.g. System Settings). May show invisible utility windows. Turn off for cleaner display with some missed windows.")
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                        }
                     }
                 case .spaceNames:
                     Section(header: settingsSectionHeader("Space Names")) {
@@ -565,6 +558,13 @@ init() {
                             }
                         }
                         .onChange(of: socketHealthInterval) { _ in saveConfig() }
+
+                        Toggle("Show Extra Windows", isOn: $showExtraWindows)
+                            .onChange(of: showExtraWindows) { _ in saveConfig() }
+
+                        Text("Shows nonstandard utility and background window records. Regular app windows are always shown, whether tiled or floating.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -612,6 +612,7 @@ init() {
     private var cellStyleString: String {
         switch cellStyle {
         case .rects: return "rects"
+        case .hybrid: return "hybrid"
         case .icons: return "icons"
         case .thumbnails: return "thumbnails"
         case .simple: return "simple"

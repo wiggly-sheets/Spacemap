@@ -10,7 +10,7 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - Shows a HUD overlay (toggle with hotkey) displaying your yabai desktops in a configurable grid
 - Live-updates as you switch spaces via yabai
 - Lets you click cells to jump to spaces
-- Supports four display styles: colored rectangles, app icons, plain, or thumbnails (ScreenCaptureKit)
+- Supports five display styles: colored rectangles, Hybrid rectangles with centered app icons, app icons, plain, or thumbnails (ScreenCaptureKit)
 - Window drag-and-drop between cells (drag a window onto a cell to move it)
 - Menubar icon for manual show/hide (can be hidden)
 
@@ -81,7 +81,7 @@ Reads from `~/.config/spacemap/spacemap.jsonc` on every HUD open (no restart nee
 ```bash
 GRID_COLS=8              # Grid columns
 GRID_ROWS=2              # Grid rows
-CELL_STYLE=rects         # rects | icons | thumbnails
+CELL_STYLE=rects         # rects | hybrid | icons | thumbnails | simple
 HOTKEY=ctrl+space         # Toggle hotkey (requires restart)
 SOCKET_HEALTH_INTERVAL=60  # Socket health check interval (seconds)
 ```
@@ -108,8 +108,10 @@ A second CGEventTap (listenOnly, tailAppend) monitors mouse drag events to detec
 
 ### Cell Styles
 - **rects:** Scales real window geometry to 80x50 cell, colored by app name hash
-- **icons:** App icons at window position; app strip at bottom (controlled by `SHOW_ICON_STRIP`)
+- **hybrid:** Uses rects unchanged with a proportionally scaled app icon centered in each rectangle
+- **icons:** One icon per yabai window, positioned from yabai geometry
 - **thumbnails:** ScreenCaptureKit display capture per cell (requires macOS 14+, Screen Recording permission)
+- **simple:** Empty cells with no window content
 
 ## Development Workflow
 
@@ -162,7 +164,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 3. **SwiftUI performance:** Each HUD open creates a new NSHostingView. The state is cached during a drag, but the view is recreated.
 4. **Icon strip flicker:** On space change, `CellView` rerenders and re-fetches icons via `NSWorkspace.shared.icon(forFile:)` which is potentially expensive
 5. **Drag resolution:** Window drag detection uses frontmost app name matching, which can be ambiguous for multi-window apps. Falls back to click proximity.
-6. **Test suite:** 183 unit tests across 9 files (`Tests/spacemapTests/`). Run with `make test` or `swift test`.
+6. **Test suite:** 193 unit tests across 9 files (`Tests/spacemapTests/`). Run with `make test` or `swift test`.
 7. **Socket health check:** Periodic `fcntl(fd, F_GETFD)` check + file existence check. Restarts on failure.
 
 ## Potential Extension Points
@@ -215,7 +217,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - Grid-aware keyboard navigation (arrow keys + vim keys with wrapping)
 - Dynamic yabai path detection (ARM + Intel)
 - Xcode project generation (`scripts/generate-xcodeproj.py`, 4 targets)
-- Unit test suite: 183 tests across 9 files (`Tests/spacemapTests/`)
+- Unit test suite: 193 tests across 9 files (`Tests/spacemapTests/`)
 - GitHub Actions CI: swift test + build on push/PR
 - GitHub Actions Release: 3 DMG variants + checksums on tag push
 - Dependabot for GitHub Actions

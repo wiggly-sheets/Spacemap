@@ -43,7 +43,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Symlink Creation**: Automated `/usr/local/bin/spacemap` symlink at launch via `ensureSymlink()`
 - **Yabai Mandatory Check**: Prevents launch if yabai is not running; shows critical alert
 - **MRU Spaces Detection**: Warns user and offers to disable macOS MRU spaces
-- **Accessibility Permission Request**: Polls every 2s until granted, registers hotkey automatically
+- **Accessibility Permission Recovery**: Continuously monitors permission and event-tap health, restoring hotkeys after runtime revocation/re-grant
 - **Dynamic yabai Path**: Auto-detects ARM (`/opt/homebrew/bin/yabai`) or Intel (`/usr/local/bin/yabai`) via FileManager
 - **Menubar Improvements**: Hotkey symbols shown, Cmd+R restart, Screen Recording permissions link
 
@@ -56,8 +56,9 @@ A living list of planned features, known bugs, and future improvements for the p
 ### Window Features
 
 - **Window Previews / Thumbnails**: ScreenCaptureKit-based all-space capture with HUD exclusion, deterministic window assignment, bounded concurrency, and atomic cache refreshes
+- **Hybrid Cell Style**: Rectangle layout with a proportionally scaled app icon centered in every window rectangle
 - **Icon Cell Layout**: One icon per yabai window with geometry-aware placement, including duplicate-app windows and correct split ordering
-- **Show Extra Windows**: `SHOW_EXTRA_WINDOWS` toggle to display utility/floating windows (sublayer=normal)
+- **Show Extra Windows**: `SHOW_EXTRA_WINDOWS` toggle to display nonstandard utility/background window records
 
 ### Settings UI Improvements
 
@@ -81,7 +82,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Testing & CI/CD
 
-- **Unit Test Suite**: 183 tests across 9 files
+- **Unit Test Suite**: 193 tests across 9 files
 - **GitHub Actions CI/CD**: CI (swift test + build), Release (3 DMGs + checksums), Dependabot
 - **Rendering Math Tests**: 8 unit tests for scale mapping (min/max/midpoint/monotonicity)
 
@@ -155,7 +156,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 | Task                               | Description                                                                                                             | Status  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- |
-| **Unit Tests**               | 183 tests across 9 files (CLISymlinkInstallerTests, HotkeyTests, ConfigTests, ThemeTests, ModelTests, CellViewGridViewTests, SpaceNavigatorTests, DeepLinkTests, ThumbnailCacheTests) | ✅ Done |
+| **Unit Tests**               | 193 tests across 9 files (CLISymlinkInstallerTests, HotkeyTests, ConfigTests, ThemeTests, ModelTests, CellViewGridViewTests, SpaceNavigatorTests, DeepLinkTests, ThumbnailCacheTests) | ✅ Done |
 | **GitHub Actions / CI**      | `ci.yml` (swift test + build on push/PR), `release.yml` (3 DMGs + checksums on tag), Dependabot                     | ✅ Done |
 | **Xcode Project**            | Generated from SPM, 4 targets (default, arm64, x86_64, universal) via`scripts/generate-xcodeproj.py`                  | ✅ Done |
 | **Architecture Builds**      | ARM64, x86_64, universal DMGs via`create-dmg`                                                                         | ✅ Done |

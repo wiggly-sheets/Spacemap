@@ -28,6 +28,11 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.cellStyle, .rects)
     }
 
+    func testParseCellStyleHybrid() {
+        let c = ConfigReader.parseConfig("CELL_STYLE=hybrid")
+        XCTAssertEqual(c.cellStyle, .hybrid)
+    }
+
     func testParseCellStyleIcons() {
         let c = ConfigReader.parseConfig("CELL_STYLE=icons")
         XCTAssertEqual(c.cellStyle, .icons)

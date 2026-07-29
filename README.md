@@ -30,7 +30,7 @@ Spacemap solves this. It renders your spaces as a 2D grid, updating in real-time
 
 - **2D Grid Visualization** — See all your spaces laid out in rows and columns
 - **Live Updates** — Active cell updates instantly via yabai's `space_changed` signal
-- **Three Cell Styles** — Colored rectangles, app icons, or live thumbnails
+- **Five Cell Styles** — Rectangles, Hybrid rectangles with app icons, geometry-aware app icons, live thumbnails, or simple cells
 - **Keyboard Navigation** — Arrow keys and Vim keys (hjkl) to navigate the grid
 - **Drag & Drop** — Drag windows directly onto cells to move them to that space
 - **Customizable** — Themes, grid size, transparency, hotkeys, and more
@@ -135,7 +135,7 @@ The option tables below use the uppercase legacy aliases for easy comparison wit
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `CELL_STYLE` | `rects` | `rects`, `icons`, or `thumbnails` |
+| `CELL_STYLE` | `rects` | `rects`, `hybrid`, `icons`, `thumbnails`, or `simple` |
 | `THEME` | `default` | Theme name from `~/.config/spacemap/themes/` |
 | `UI_SCALE` | `0.5` | HUD size (0.5×–4.0×) |
 | `BACKGROUND_ALPHA` | `0.3` | HUD transparency (0–1) |

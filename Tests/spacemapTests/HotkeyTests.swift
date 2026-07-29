@@ -160,11 +160,75 @@ final class HotkeyTests: XCTestCase {
         }
     }
 
+    // MARK: - Event tap recovery
+
+    func testEventTapRecoveryHandlesPermissionChanges() {
+        XCTAssertEqual(
+            HotkeyMonitor.recoveryAction(
+                isTrusted: false,
+                hasTap: false,
+                tapIsValid: false,
+                tapIsEnabled: false
+            ),
+            .waitForPermission
+        )
+        XCTAssertEqual(
+            HotkeyMonitor.recoveryAction(
+                isTrusted: false,
+                hasTap: true,
+                tapIsValid: true,
+                tapIsEnabled: true
+            ),
+            .remove
+        )
+        XCTAssertEqual(
+            HotkeyMonitor.recoveryAction(
+                isTrusted: true,
+                hasTap: false,
+                tapIsValid: false,
+                tapIsEnabled: false
+            ),
+            .install
+        )
+    }
+
+    func testEventTapRecoveryHandlesInvalidAndDisabledTaps() {
+        XCTAssertEqual(
+            HotkeyMonitor.recoveryAction(
+                isTrusted: true,
+                hasTap: true,
+                tapIsValid: false,
+                tapIsEnabled: false
+            ),
+            .reinstall
+        )
+        XCTAssertEqual(
+            HotkeyMonitor.recoveryAction(
+                isTrusted: true,
+                hasTap: true,
+                tapIsValid: true,
+                tapIsEnabled: false
+            ),
+            .reenable
+        )
+        XCTAssertEqual(
+            HotkeyMonitor.recoveryAction(
+                isTrusted: true,
+                hasTap: true,
+                tapIsValid: true,
+                tapIsEnabled: true
+            ),
+            .none
+        )
+    }
+
     // MARK: - cellStyleName
 
     func testCellStyleName() {
         XCTAssertEqual(ConfigReader.cellStyleName(.rects), "rects")
+        XCTAssertEqual(ConfigReader.cellStyleName(.hybrid), "hybrid")
         XCTAssertEqual(ConfigReader.cellStyleName(.icons), "icons")
         XCTAssertEqual(ConfigReader.cellStyleName(.thumbnails), "thumbnails")
+        XCTAssertEqual(ConfigReader.cellStyleName(.simple), "simple")
     }
 }
