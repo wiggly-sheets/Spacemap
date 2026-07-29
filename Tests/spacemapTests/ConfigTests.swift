@@ -41,6 +41,8 @@ final class ConfigTests: XCTestCase {
         focusSpaceOnWindowDrop = true
         showHUDOnSpaceChange = true
         hideMenuBarIcon = true
+        menuBarDisplayMode = "nearby"
+        menuBarNearbyCount = 5
         updateMode = "off"
 
         [behavior.hotkey]
@@ -89,6 +91,8 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(c.focusSpaceOnWindowDrop)
         XCTAssertTrue(c.showHUDOnSpaceChange)
         XCTAssertTrue(c.hideMenuBarIcon)
+        XCTAssertEqual(c.menuBarDisplayMode, .nearby)
+        XCTAssertEqual(c.menuBarNearbyCount, 5)
         XCTAssertEqual(c.updateMode, .off)
         XCTAssertEqual(c.hotkey.keyCode, 49)
         XCTAssertTrue(c.hotkey.modifiers.contains(.maskCommand))
@@ -132,6 +136,8 @@ final class ConfigTests: XCTestCase {
 
         [behavior]
         autoHideTimeout = -1
+        menuBarDisplayMode = "invalid"
+        menuBarNearbyCount = 99
 
         [advanced]
         socketHealthInterval = 0
@@ -146,6 +152,8 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.iconScale, GridConfig.default.iconScale)
         XCTAssertEqual(c.uiScale, GridConfig.default.uiScale)
         XCTAssertEqual(c.autoHideTimeout, GridConfig.default.autoHideTimeout)
+        XCTAssertEqual(c.menuBarDisplayMode, GridConfig.default.menuBarDisplayMode)
+        XCTAssertEqual(c.menuBarNearbyCount, GridConfig.default.menuBarNearbyCount)
         XCTAssertEqual(c.socketHealthInterval, GridConfig.default.socketHealthInterval)
     }
 
@@ -207,6 +215,8 @@ final class ConfigTests: XCTestCase {
         displayNavigationWrap = "between"
         customHUDX = 0.23
         customHUDY = 0.81
+        menuBarDisplayMode = "all"
+        menuBarNearbyCount = 7
 
         [behavior.hudPosition]
         kind = "custom"
@@ -220,6 +230,8 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(reloaded.unifiedHUDVisibility, .all)
         XCTAssertEqual(reloaded.separateHUDVisibility, .active)
         XCTAssertEqual(reloaded.displayNavigationWrap, .between)
+        XCTAssertEqual(reloaded.menuBarDisplayMode, .all)
+        XCTAssertEqual(reloaded.menuBarNearbyCount, 7)
         XCTAssertEqual(reloaded.customHUDX, 0.23, accuracy: 0.001)
         XCTAssertEqual(reloaded.customHUDY, 0.81, accuracy: 0.001)
         XCTAssertEqual(reloaded.hudPosition, .custom(x: 0.23, y: 0.81))

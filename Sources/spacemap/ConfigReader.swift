@@ -149,6 +149,7 @@ enum ConfigReader {
         let navigationWrapName: String = value("displayNavigationWrap", default: defaults.displayNavigationWrap.rawValue)
         let themeModeName: String = value("mode", default: defaults.mode.rawValue)
         let updateModeName: String = value("updateMode", default: defaults.updateMode.rawValue)
+        let menuBarDisplayModeName: String = value("menuBarDisplayMode", default: defaults.menuBarDisplayMode.rawValue)
 
         let resolvedCellStyle = cellStyle(from: cellStyleName)
         let resolvedShowMode = showMode(from: showModeName)
@@ -158,9 +159,11 @@ enum ConfigReader {
         let resolvedNavigationWrap = displayNavigationWrap(from: navigationWrapName)
         let resolvedThemeMode = themeMode(from: themeModeName)
         let resolvedUpdateMode = updateMode(from: updateModeName)
+        let resolvedMenuBarDisplayMode = menuBarDisplayMode(from: menuBarDisplayModeName)
         if resolvedCellStyle == nil || resolvedShowMode == nil || resolvedMultiMonitorMode == nil ||
             resolvedUnifiedVisibility == nil || resolvedSeparateVisibility == nil ||
-            resolvedNavigationWrap == nil || resolvedThemeMode == nil || resolvedUpdateMode == nil {
+            resolvedNavigationWrap == nil || resolvedThemeMode == nil || resolvedUpdateMode == nil ||
+            resolvedMenuBarDisplayMode == nil {
             repair = true
         }
 
@@ -188,6 +191,8 @@ enum ConfigReader {
             showIconStrip: value("showIconStrip", default: defaults.showIconStrip),
             showMultiAppIcons: value("showMultiAppIcons", default: defaults.showMultiAppIcons),
             hideMenuBarIcon: value("hideMenuBarIcon", default: defaults.hideMenuBarIcon),
+            menuBarDisplayMode: resolvedMenuBarDisplayMode ?? defaults.menuBarDisplayMode,
+            menuBarNearbyCount: valid(value("menuBarNearbyCount", default: defaults.menuBarNearbyCount), default: defaults.menuBarNearbyCount) { (1...16).contains($0) },
             spaceNames: spaceNames,
             useVimKeys: value("useVimKeys", default: defaults.useVimKeys),
             useArrowKeys: value("useArrowKeys", default: defaults.useArrowKeys),
@@ -223,7 +228,7 @@ enum ConfigReader {
         flatten("behavior", keys: [
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
             "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange",
-            "hideMenuBarIcon", "updateMode"
+            "hideMenuBarIcon", "menuBarDisplayMode", "menuBarNearbyCount", "updateMode"
         ])
         flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows"])
 
@@ -528,6 +533,10 @@ enum ConfigReader {
         }
     }
 
+    private static func menuBarDisplayMode(from name: String) -> MenuBarDisplayMode? {
+        MenuBarDisplayMode(rawValue: name.lowercased())
+    }
+
     private static func mediaKey(from name: String?) -> MediaKey? {
         guard let name else { return nil }
         return MediaKey(rawValue: name.lowercased())
@@ -716,6 +725,8 @@ enum ConfigReader {
             "focusSpaceOnWindowDrop = \(config.focusSpaceOnWindowDrop)",
             "showHUDOnSpaceChange = \(config.showHUDOnSpaceChange)",
             "hideMenuBarIcon = \(config.hideMenuBarIcon)",
+            "menuBarDisplayMode = \(tomlString(config.menuBarDisplayMode.rawValue))",
+            "menuBarNearbyCount = \(config.menuBarNearbyCount)",
             "updateMode = \(tomlString(config.updateMode.rawValue))"
         ]
         appendHotkey(config.hotkey, section: "behavior.hotkey", to: &lines)
