@@ -308,5 +308,5 @@ To view logs: Open **Console.app**, filter by "spacemap".
 - [WindowMaker](https://www.windowmaker.org/)
 - [yabai](https://github.com/koekeishiya/yabai)
 - [YabaiGridSpaces](https://codeberg.org/mikkelricky/hammerspoon/src/branch/main/Spoons/YabaiGridSpaces.spoon)
-- [skhd](https://github.com/koekeishiya/skhd)
+- [skhd](https://github.com/koekeishiya/skhd) / [skhd.zig](https://github.com/jackielii/skhd.zig)
 - [aerospace](https://github.com/nikitabobko/AeroSpace)
