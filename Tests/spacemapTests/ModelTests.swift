@@ -3,6 +3,33 @@ import CoreGraphics
 @testable import spacemap
 
 final class ModelTests: XCTestCase {
+    func testWindowDropFocusModesRespectHeldModifier() {
+        XCTAssertFalse(
+            WindowDropFocusMode.never.shouldFocus(
+                eventFlags: [.maskCommand],
+                requiredModifier: .command
+            )
+        )
+        XCTAssertTrue(
+            WindowDropFocusMode.always.shouldFocus(
+                eventFlags: [],
+                requiredModifier: .command
+            )
+        )
+        XCTAssertTrue(
+            WindowDropFocusMode.modifier.shouldFocus(
+                eventFlags: [.maskAlternate, .maskShift],
+                requiredModifier: .option
+            )
+        )
+        XCTAssertFalse(
+            WindowDropFocusMode.modifier.shouldFocus(
+                eventFlags: [.maskShift],
+                requiredModifier: .option
+            )
+        )
+    }
+
 
     // MARK: - YabaiSpace decoding
 

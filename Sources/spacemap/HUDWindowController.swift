@@ -57,14 +57,18 @@ class HUDWindowController {
             renderState(state)
             self.resetAutoHideTimer()
         }
-        dragHandler.onDropInCell = { [weak self] windowID, spaceIndex in
+        dragHandler.onDropInCell = { [weak self] windowID, spaceIndex, modifiers in
             guard let self else { return }
             hoveredCell = nil
             resetAutoHideTimer()
+            let focusDestination = config.focusSpaceOnWindowDrop.shouldFocus(
+                eventFlags: modifiers,
+                requiredModifier: config.focusSpaceOnWindowDropModifier
+            )
             YabaiClient.moveWindowCreatingSpacesIfNeeded(
                 windowID,
                 toSpace: spaceIndex,
-                focusDestination: config.focusSpaceOnWindowDrop
+                focusDestination: focusDestination
             ) { [weak self] result in
                 guard let self else { return }
                 if case .failure(let error) = result {

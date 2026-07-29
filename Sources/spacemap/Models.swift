@@ -35,6 +35,43 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 }
+enum WindowDropFocusMode: String, CaseIterable, Identifiable {
+    case never
+    case always
+    case modifier
+
+    var id: String { rawValue }
+
+    func shouldFocus(
+        eventFlags: CGEventFlags,
+        requiredModifier: WindowDropFocusModifier
+    ) -> Bool {
+        switch self {
+        case .never: return false
+        case .always: return true
+        case .modifier: return eventFlags.contains(requiredModifier.eventFlag)
+        }
+    }
+}
+enum WindowDropFocusModifier: String, CaseIterable, Identifiable {
+    case command
+    case function = "fn"
+    case option
+    case control
+    case shift
+
+    var id: String { rawValue }
+
+    var eventFlag: CGEventFlags {
+        switch self {
+        case .command: return .maskCommand
+        case .function: return .maskSecondaryFn
+        case .option: return .maskAlternate
+        case .control: return .maskControl
+        case .shift: return .maskShift
+        }
+    }
+}
 
 enum HUDPosition: Equatable, Hashable {
     case center, top, bottom
@@ -160,7 +197,8 @@ struct GridConfig {
     var customHUDX: Double = 0.5 // last custom HUD X position (0-1)
     var customHUDY: Double = 0.5 // last custom HUD Y position (0-1)
     var showExtraWindows: Bool // show nonstandard utility/background window records
-    var focusSpaceOnWindowDrop: Bool = false // focus the destination after a successful drag-and-drop
+    var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
+    var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
     var showHUDOnSpaceChange: Bool = false // show the HUD after any yabai space change
     var updateMode: UpdateMode // auto | notify | off
 
@@ -177,7 +215,8 @@ struct GridConfig {
         menuBarNearbyCount: 3, spaceNames: [:], useVimKeys: false,
         useArrowKeys: false, hudPosition: .center, customHUDX: 0.5,
         customHUDY: 0.5, showExtraWindows: false,
-        focusSpaceOnWindowDrop: false, showHUDOnSpaceChange: false,
+        focusSpaceOnWindowDrop: .never, focusSpaceOnWindowDropModifier: .command,
+        showHUDOnSpaceChange: false,
         updateMode: .notify
     )
 }
