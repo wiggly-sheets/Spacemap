@@ -124,86 +124,80 @@ Changes save automatically. The hotkey recorder supports regular keys, F13–F20
 
 ## Configuration
 
-Config file: `~/.config/spacemap/spacemap.jsonc`
+Config file: `~/.config/spacemap/config.toml`
 
 Most changes take effect on next HUD open. Hotkey changes are applied immediately when saved in Settings.
-Spacemap reads legacy `key=value` configs, but new installs and resaves use JSON. JSONC line and block comments are accepted. Missing or invalid fields are repaired individually, with the original saved as `spacemap.jsonc.bak`.
+Spacemap accepts TOML only. Missing or invalid fields are repaired individually, with the original saved as `config.toml.bak`.
 
-The option tables below use the uppercase legacy aliases for easy comparison with older configs. New JSON/JSONC files use camel-case field names and are best edited through Settings.
+TOML tables mirror the Settings categories: `[grid]`, `[spaceNames]`, `[appearance]`, `[behavior]`, and `[advanced]`. Hotkeys and HUD position use nested tables under `[behavior]`. The option tables below use TOML’s camel-case field names.
 
 ### Display
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `CELL_STYLE` | `rects` | `rects`, `hybrid`, `icons`, `thumbnails`, or `simple` |
-| `THEME` | `default` | Theme name from `~/.config/spacemap/themes/` |
-| `UI_SCALE` | `0.5` | HUD size (0.5×–4.0×) |
-| `BACKGROUND_ALPHA` | `0.3` | HUD transparency (0–1) |
-| `MODE` | `auto` | `dark`, `light`, or `auto` |
-| `ICON_SCALE` | `0.5` | App icon size (0.2×–1.0×) |
-| `SHOW_ICON_STRIP` | `true` | Show icons at cell bottom |
-| `SHOW_SPACE_NUMBERS` | `true` | Show space numbers |
-| `SHOW_SPACE_NAMES` | `true` | Show custom names in cells |
-| `HIDE_MENUBAR_ICON` | `false` | Run headless |
+| `cellStyle` | `rects` | `rects`, `hybrid`, `icons`, `thumbnails`, or `simple` |
+| `theme` | `default` | Theme name from `~/.config/spacemap/themes/` |
+| `uiScale` | `0.5` | HUD size (0.5×–4.0×) |
+| `backgroundAlpha` | `0.3` | HUD transparency (0–1) |
+| `mode` | `auto` | `dark`, `light`, or `auto` |
+| `iconScale` | `0.5` | App icon size (0.2×–1.0×) |
+| `showIconStrip` | `true` | Show icons at cell bottom |
+| `showSpaceNumbers` | `true` | Show space numbers |
+| `showSpaceNames` | `true` | Show custom names in cells |
+| `hideMenuBarIcon` | `false` | Run headless |
 
 ### Grid
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `GRID_COLS` | `8` | Number of columns |
-| `GRID_ROWS` | `2` | Number of rows |
-| `MULTI_MONITOR_HUD_MODE` | `unified` | `unified` combines spaces in one grid; `separate` shows one grid per display |
-| `UNIFIED_HUD_VISIBILITY` | `active` | In `unified` mode: `active` shows the grid on the focused-space display; `all` shows it on every display |
-| `SEPARATE_HUD_VISIBILITY` | `all` | In `separate` mode: `all` shows every HUD; `active` shows only the focused-space display |
-| `DISPLAY_NAVIGATION_WRAP` | `within` | With arrow/Vim navigation: `within` stays on one display; `between` wraps across displays |
-| `MAX_SPACES` | `16` | Maximum spaces to display |
+| `cols` | `8` | Number of columns |
+| `rows` | `2` | Number of rows |
+| `multiMonitorHUDMode` | `unified` | `unified` combines spaces in one grid; `separate` shows one grid per display |
+| `unifiedHUDVisibility` | `active` | In `unified` mode: `active` shows the grid on the focused-space display; `all` shows it on every display |
+| `separateHUDVisibility` | `all` | In `separate` mode: `all` shows every HUD; `active` shows only the focused-space display |
+| `displayNavigationWrap` | `within` | With arrow/Vim navigation: `within` stays on one display; `between` wraps across displays |
+| `maxSpaces` | `16` | Maximum spaces to display |
 
 ### Navigation
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `ARROW_KEYS` | `false` | Enable arrow key navigation |
-| `VIM_KEYS` | `false` | Enable hjkl navigation |
-| `DISPLAY_NAVIGATION_WRAP` | `within` | Wrap keyboard navigation within or between displays |
+| `useArrowKeys` | `false` | Enable arrow key navigation |
+| `useVimKeys` | `false` | Enable hjkl navigation |
+| `displayNavigationWrap` | `within` | Wrap keyboard navigation within or between displays |
 
 ### Behavior
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `AUTO_HIDE_TIMEOUT` | `5` | Seconds before auto-hide (0=never) |
-| `PINNED_HOTKEY` | `none` | Optional shortcut that toggles a HUD with no auto-hide timer |
-| `FOCUS_SPACE_ON_WINDOW_DROP` | `false` | Focus the destination after dropping a window |
-| `UPDATE_MODE` | `notify` | `auto`, `notify`, or `off` |
+| `autoHideTimeout` | `5` | Seconds before auto-hide (0=never) |
+| `pinnedHotkey` | `none` | Optional shortcut that toggles a HUD with no auto-hide timer |
+| `focusSpaceOnWindowDrop` | `false` | Focus the destination after dropping a window |
+| `updateMode` | `notify` | `auto`, `notify`, or `off` |
 
 ### Hotkey
 
-```jsonc
-{
-  "hotkey": {
-    "keyKind": "keyCode",
-    "keyCode": 49,
-    "modifiers": ["ctrl"]
-  },
-  "pinnedHotkey": {
-    "keyKind": "none",
-    "modifiers": []
-  }
-}
+```toml
+[behavior.hotkey]
+keyKind = "keyCode"
+keyCode = 49
+modifiers = ["ctrl"]
+
+[behavior.pinnedHotkey]
+keyKind = "none"
+modifiers = []
 ```
 
 The Settings hotkey recorders are recommended for editing these values. The pinned shortcut must differ from the normal shortcut. Using the normal shortcut while pinned hides the HUD and returns it to normal timed behavior on its next use.
 
 ### Space Names
 
-```jsonc
-{
-  "spaceNames": {
-    "1": "Desktop",
-    "2": "Dev",
-    "3": "Media",
-    "4": "Music"
-  }
-}
+```toml
+[spaceNames.names]
+"1" = "Desktop"
+"2" = "Dev"
+"3" = "Media"
+"4" = "Music"
 ```
 
 ---

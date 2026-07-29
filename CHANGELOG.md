@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Replaced the JSONC config with TOML-only configuration at `~/.config/spacemap/config.toml`.
+- Organized TOML settings into the same Grid, Space Names, Appearance, Behavior, and Advanced sections used by Settings.
+- Removed obsolete config aliases, older-yabai classification compatibility, redundant macOS 13 availability branches, and stale config decoding infrastructure.
 
 ## [1.0.21] - 2026-07-29
 

@@ -3,36 +3,10 @@ import CoreGraphics
 
 enum ConfigReader {
     static var silentMode = false
-    static let configPath = NSString(string: "~/.config/spacemap/spacemap.jsonc").expandingTildeInPath
-    private static let legacyConfigPath = NSString(string: "~/.config/spacemap/config").expandingTildeInPath
-
-    private enum ConfigFormat {
-        case legacy
-        case json
-    }
+    static let configPath = NSString(string: "~/.config/spacemap/config.toml").expandingTildeInPath
 
     static func load() -> GridConfig {
-        migrateLegacyConfigIfNeeded(from: legacyConfigPath, to: configPath)
         return load(from: configPath)
-    }
-
-    static func migrateLegacyConfigIfNeeded(from legacyPath: String, to canonicalPath: String) {
-        let fileManager = FileManager.default
-        guard !fileManager.fileExists(atPath: canonicalPath),
-              fileManager.fileExists(atPath: legacyPath) else { return }
-
-        let directory = (canonicalPath as NSString).deletingLastPathComponent
-        try? fileManager.createDirectory(atPath: directory, withIntermediateDirectories: true)
-        do {
-            try fileManager.moveItem(atPath: legacyPath, toPath: canonicalPath)
-            if !silentMode {
-                NSLog("spacemap/ConfigReader: migrated config from \(legacyPath) to \(canonicalPath)")
-            }
-        } catch {
-            if !silentMode {
-                NSLog("spacemap/ConfigReader: failed to migrate config to \(canonicalPath) — error: \(error)")
-            }
-        }
     }
 
     static func load(from path: String) -> GridConfig {
@@ -48,349 +22,412 @@ enum ConfigReader {
             return .default
         }
 
-        let format = detectedFormat(for: contents)
-        let result: GridConfig
-        switch format {
-        case .legacy:
-            result = parseLegacyConfig(contents)
-            saveConfig(result, to: path)
-        case .json:
-            if let parsed = parseJSONConfig(contents) {
-                result = parsed.config
-                if parsed.needsRepair {
-                    saveConfig(result, to: path)
-                }
-            } else {
-                result = .default
-                saveConfig(result, to: path)
+        if let parsed = parseTOMLConfig(contents) {
+            if parsed.needsRepair {
+                saveConfig(parsed.config, to: path)
             }
+            return parsed.config
         }
-        return result
-    }
-
-    private static func detectedFormat(for text: String) -> ConfigFormat {
-        let stripped = stripJSONCComments(text) ?? text
-        let trimmed = stripped.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let first = trimmed.first else { return .legacy }
-        return first == "{" ? .json : .legacy
-    }
-
-    private static func parseBool(_ value: String) -> Bool {
-        let v = value.lowercased()
-        return v == "true" || v == "1" || v == "yes" || v == "on"
+        saveConfig(.default, to: path)
+        return .default
     }
 
     static func parseConfig(_ text: String) -> GridConfig {
-        switch detectedFormat(for: text) {
-        case .legacy:
-            return parseLegacyConfig(text)
-        case .json:
-            return parseJSONConfig(text)?.config ?? .default
+        return parseTOMLConfig(text)?.config ?? .default
+    }
+
+    private static func parseTOMLConfig(_ text: String) -> (config: GridConfig, needsRepair: Bool)? {
+        guard let parsedObject = parseTOMLObject(text) else { return nil }
+        let object = normalizedTOMLObject(parsedObject)
+        return decodedTOMLConfig(object)
+    }
+
+    private static func decodedTOMLConfig(_ object: [String: Any]) -> (config: GridConfig, needsRepair: Bool) {
+        let defaults = GridConfig.default
+        var repair = false
+
+        func value<T>(_ key: String, default defaultValue: T) -> T {
+            guard let result = object[key] as? T else {
+                repair = true
+                return defaultValue
+            }
+            return result
         }
-    }
 
-    private static func parseJSONConfig(_ text: String) -> (config: GridConfig, needsRepair: Bool)? {
-        guard let data = jsonData(from: text) else { return nil }
-        do {
-            let payload = try JSONDecoder().decode(SerializableGridConfig.self, from: data)
-            return payload.toGridConfig()
-        } catch {
-            if !silentMode { NSLog("spacemap/ConfigReader: failed to decode JSON config — error: \(error)") }
-            return nil
+        func double(_ key: String, default defaultValue: Double) -> Double {
+            if let result = object[key] as? Double { return result }
+            if let result = object[key] as? Int { return Double(result) }
+            repair = true
+            return defaultValue
         }
-    }
 
-    private static func jsonData(from text: String) -> Data? {
-        guard let stripped = stripJSONCComments(text) else { return nil }
-        return stripped.data(using: .utf8)
-    }
+        func valid<T>(_ candidate: T, default defaultValue: T, where predicate: (T) -> Bool) -> T {
+            guard predicate(candidate) else {
+                repair = true
+                return defaultValue
+            }
+            return candidate
+        }
 
-    private static func stripJSONCComments(_ text: String) -> String? {
-        var result = ""
-        var isInString = false
-        var isEscaping = false
-        var isInLineComment = false
-        var isInBlockComment = false
-        var index = text.startIndex
-
-        while index < text.endIndex {
-            let ch = text[index]
-            let nextIndex = text.index(after: index)
-            let next = nextIndex < text.endIndex ? text[nextIndex] : nil
-
-            if isInLineComment {
-                if ch == "\n" {
-                    isInLineComment = false
-                    result.append(ch)
+        func hotkey(_ key: String, default defaultValue: HotkeyConfig) -> HotkeyConfig {
+            guard let table = object[key] as? [String: Any],
+                  let kind = table["keyKind"] as? String,
+                  let modifierNames = table["modifiers"] as? [String] else {
+                repair = true
+                return defaultValue
+            }
+            let canonicalModifiers = Set(["ctrl", "cmd", "alt", "shift", "fn"])
+            if modifierNames.contains(where: { !canonicalModifiers.contains($0.lowercased()) }) {
+                repair = true
+            }
+            let flags = modifiers(from: modifierNames)
+            switch kind.lowercased() {
+            case "none":
+                return HotkeyConfig(key: .none, modifiers: flags)
+            case "keycode":
+                guard let rawCode = table["keyCode"] as? Int,
+                      let keyCode = CGKeyCode(exactly: rawCode) else {
+                    repair = true
+                    return defaultValue
                 }
-                index = nextIndex
+                return HotkeyConfig(key: .keyCode(keyCode), modifiers: flags)
+            case "mediakey":
+                guard let name = table["mediaKey"] as? String,
+                      let mediaKey = MediaKey(rawValue: name.lowercased()) else {
+                    repair = true
+                    return defaultValue
+                }
+                return HotkeyConfig(key: .mediaKey(mediaKey), modifiers: flags)
+            default:
+                repair = true
+                return defaultValue
+            }
+        }
+
+        let rawSpaceNames = value("spaceNames", default: [String: Any]())
+        var spaceNames: [Int: String] = [:]
+        for (key, rawName) in rawSpaceNames {
+            guard let index = Int(key), let name = rawName as? String else {
+                repair = true
                 continue
             }
+            spaceNames[index] = name
+        }
 
-            if isInBlockComment {
-                if ch == "*" && next == "/" {
-                    isInBlockComment = false
-                    index = text.index(after: nextIndex)
+        let position: HUDPosition
+        if let table = object["hudPosition"] as? [String: Any],
+           let kind = table["kind"] as? String {
+            switch kind.lowercased() {
+            case "center": position = .center
+            case "top": position = .top
+            case "bottom": position = .bottom
+            case "custom":
+                let x = (table["x"] as? Double) ?? (table["x"] as? Int).map(Double.init)
+                    ?? double("customHUDX", default: defaults.customHUDX)
+                let y = (table["y"] as? Double) ?? (table["y"] as? Int).map(Double.init)
+                    ?? double("customHUDY", default: defaults.customHUDY)
+                if (0...1).contains(x), (0...1).contains(y) {
+                    position = .custom(x: x, y: y)
                 } else {
-                    index = nextIndex
+                    repair = true
+                    position = .center
                 }
-                continue
+            default:
+                repair = true
+                position = .center
             }
-
-            if isInString {
-                result.append(ch)
-                if isEscaping {
-                    isEscaping = false
-                } else if ch == "\\" {
-                    isEscaping = true
-                } else if ch == "\"" {
-                    isInString = false
-                }
-                index = nextIndex
-                continue
-            }
-
-            if ch == "\"" {
-                isInString = true
-                result.append(ch)
-                index = nextIndex
-                continue
-            }
-
-            if ch == "/" && next == "/" {
-                isInLineComment = true
-                index = text.index(after: nextIndex)
-                continue
-            }
-
-            if ch == "/" && next == "*" {
-                isInBlockComment = true
-                index = text.index(after: nextIndex)
-                continue
-            }
-
-            result.append(ch)
-            index = nextIndex
+        } else {
+            repair = true
+            position = defaults.hudPosition
         }
 
+        let cellStyleName: String = value("cellStyle", default: ConfigReader.cellStyleName(defaults.cellStyle))
+        let showModeName: String = value("showMode", default: defaults.showMode.rawValue)
+        let multiMonitorName: String = value("multiMonitorHUDMode", default: defaults.multiMonitorHUDMode.rawValue)
+        let unifiedVisibilityName: String = value("unifiedHUDVisibility", default: defaults.unifiedHUDVisibility.rawValue)
+        let separateVisibilityName: String = value("separateHUDVisibility", default: defaults.separateHUDVisibility.rawValue)
+        let navigationWrapName: String = value("displayNavigationWrap", default: defaults.displayNavigationWrap.rawValue)
+        let themeModeName: String = value("mode", default: defaults.mode.rawValue)
+        let updateModeName: String = value("updateMode", default: defaults.updateMode.rawValue)
+
+        let resolvedCellStyle = cellStyle(from: cellStyleName)
+        let resolvedShowMode = showMode(from: showModeName)
+        let resolvedMultiMonitorMode = multiMonitorHUDMode(from: multiMonitorName)
+        let resolvedUnifiedVisibility = hudVisibility(from: unifiedVisibilityName)
+        let resolvedSeparateVisibility = hudVisibility(from: separateVisibilityName)
+        let resolvedNavigationWrap = displayNavigationWrap(from: navigationWrapName)
+        let resolvedThemeMode = themeMode(from: themeModeName)
+        let resolvedUpdateMode = updateMode(from: updateModeName)
+        if resolvedCellStyle == nil || resolvedShowMode == nil || resolvedMultiMonitorMode == nil ||
+            resolvedUnifiedVisibility == nil || resolvedSeparateVisibility == nil ||
+            resolvedNavigationWrap == nil || resolvedThemeMode == nil || resolvedUpdateMode == nil {
+            repair = true
+        }
+
+        let config = GridConfig(
+            cols: valid(value("cols", default: defaults.cols), default: defaults.cols) { $0 > 0 },
+            rows: valid(value("rows", default: defaults.rows), default: defaults.rows) { $0 > 0 },
+            cellStyle: resolvedCellStyle ?? defaults.cellStyle,
+            hotkey: hotkey("hotkey", default: defaults.hotkey),
+            pinnedHotkey: hotkey("pinnedHotkey", default: defaults.pinnedHotkey),
+            socketHealthInterval: valid(value("socketHealthInterval", default: defaults.socketHealthInterval), default: defaults.socketHealthInterval) { $0 > 0 },
+            uiScale: valid(double("uiScale", default: defaults.uiScale), default: defaults.uiScale) { (0...1).contains($0) },
+            autoHideTimeout: valid(value("autoHideTimeout", default: defaults.autoHideTimeout), default: defaults.autoHideTimeout) { $0 >= 0 },
+            theme: value("theme", default: defaults.theme),
+            showMode: resolvedShowMode ?? defaults.showMode,
+            multiMonitorHUDMode: resolvedMultiMonitorMode ?? defaults.multiMonitorHUDMode,
+            unifiedHUDVisibility: resolvedUnifiedVisibility ?? defaults.unifiedHUDVisibility,
+            separateHUDVisibility: resolvedSeparateVisibility ?? defaults.separateHUDVisibility,
+            displayNavigationWrap: resolvedNavigationWrap ?? defaults.displayNavigationWrap,
+            maxSpaces: valid(value("maxSpaces", default: defaults.maxSpaces), default: defaults.maxSpaces) { (1...16).contains($0) },
+            backgroundAlpha: valid(double("backgroundAlpha", default: defaults.backgroundAlpha), default: defaults.backgroundAlpha) { (0...1).contains($0) },
+            mode: resolvedThemeMode ?? defaults.mode,
+            iconScale: valid(double("iconScale", default: defaults.iconScale), default: defaults.iconScale) { (0...1).contains($0) },
+            showSpaceNumbers: value("showSpaceNumbers", default: defaults.showSpaceNumbers),
+            showSpaceNames: value("showSpaceNames", default: defaults.showSpaceNames),
+            showIconStrip: value("showIconStrip", default: defaults.showIconStrip),
+            showMultiAppIcons: value("showMultiAppIcons", default: defaults.showMultiAppIcons),
+            hideMenuBarIcon: value("hideMenuBarIcon", default: defaults.hideMenuBarIcon),
+            spaceNames: spaceNames,
+            useVimKeys: value("useVimKeys", default: defaults.useVimKeys),
+            useArrowKeys: value("useArrowKeys", default: defaults.useArrowKeys),
+            hudPosition: position,
+            customHUDX: valid(double("customHUDX", default: defaults.customHUDX), default: defaults.customHUDX) { (0...1).contains($0) },
+            customHUDY: valid(double("customHUDY", default: defaults.customHUDY), default: defaults.customHUDY) { (0...1).contains($0) },
+            showExtraWindows: value("showExtraWindows", default: defaults.showExtraWindows),
+            focusSpaceOnWindowDrop: value("focusSpaceOnWindowDrop", default: defaults.focusSpaceOnWindowDrop),
+            showHUDOnSpaceChange: value("showHUDOnSpaceChange", default: defaults.showHUDOnSpaceChange),
+            updateMode: resolvedUpdateMode ?? defaults.updateMode
+        )
+        return (config, repair)
+    }
+
+    private static func normalizedTOMLObject(_ object: [String: Any]) -> [String: Any] {
+        var result = object
+
+        func flatten(_ sectionName: String, keys: [String]) {
+            guard let section = result.removeValue(forKey: sectionName) as? [String: Any] else { return }
+            for key in keys {
+                if let value = section[key] { result[key] = value }
+            }
+        }
+
+        flatten("grid", keys: [
+            "cols", "rows", "cellStyle", "showMode", "multiMonitorHUDMode",
+            "unifiedHUDVisibility", "separateHUDVisibility", "maxSpaces",
+            "showSpaceNumbers", "showIconStrip", "showMultiAppIcons"
+        ])
+        flatten("appearance", keys: [
+            "theme", "mode", "backgroundAlpha", "iconScale", "uiScale"
+        ])
+        flatten("behavior", keys: [
+            "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
+            "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange",
+            "hideMenuBarIcon", "updateMode"
+        ])
+        flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows"])
+
+        if let section = result["spaceNames"] as? [String: Any],
+           section["showSpaceNames"] != nil {
+            result["showSpaceNames"] = section["showSpaceNames"]
+            result.removeValue(forKey: "spaceNames")
+        }
+        if let names = result.removeValue(forKey: "spaceNames.names") as? [String: Any] {
+            result["spaceNames"] = names
+        }
+        if let hotkey = result.removeValue(forKey: "behavior.hotkey") {
+            result["hotkey"] = hotkey
+        }
+        if let pinnedHotkey = result.removeValue(forKey: "behavior.pinnedHotkey") {
+            result["pinnedHotkey"] = pinnedHotkey
+        }
+        if let hudPosition = result.removeValue(forKey: "behavior.hudPosition") {
+            result["hudPosition"] = hudPosition
+        }
         return result
     }
 
-    private static func parseLegacyConfig(_ text: String) -> GridConfig {
-        var cols = GridConfig.default.cols
-        var rows = GridConfig.default.rows
-        var cellStyle = GridConfig.default.cellStyle
-        var hotkey = GridConfig.default.hotkey
-        var pinnedHotkey = GridConfig.default.pinnedHotkey
-        var socketHealthInterval = GridConfig.default.socketHealthInterval
-        var uiScale = GridConfig.default.uiScale
-        var autoHideTimeout = GridConfig.default.autoHideTimeout
-        var theme = GridConfig.default.theme
-        var showMode = GridConfig.default.showMode
-        var multiMonitorHUDMode = GridConfig.default.multiMonitorHUDMode
-        var unifiedHUDVisibility = GridConfig.default.unifiedHUDVisibility
-        var separateHUDVisibility = GridConfig.default.separateHUDVisibility
-        var displayNavigationWrap = GridConfig.default.displayNavigationWrap
-        var maxSpaces = GridConfig.default.maxSpaces
-        var backgroundAlpha = GridConfig.default.backgroundAlpha
-        var mode = GridConfig.default.mode
-        var iconScale = GridConfig.default.iconScale
-        var showSpaceNumbers = GridConfig.default.showSpaceNumbers
-        var showSpaceNames = GridConfig.default.showSpaceNames
-        var showIconStrip = GridConfig.default.showIconStrip
-        var showMultiAppIcons = GridConfig.default.showMultiAppIcons
-        var hideMenuBarIcon = GridConfig.default.hideMenuBarIcon
-        var spaceNames: [Int: String] = [:]
-        var useVimKeys = GridConfig.default.useVimKeys
-        var useArrowKeys = GridConfig.default.useArrowKeys
-        var hudPosition = GridConfig.default.hudPosition
-        var customHUDX = GridConfig.default.customHUDX
-        var customHUDY = GridConfig.default.customHUDY
-        var showExtraWindows = GridConfig.default.showExtraWindows
-        var focusSpaceOnWindowDrop = GridConfig.default.focusSpaceOnWindowDrop
-        var showHUDOnSpaceChange = GridConfig.default.showHUDOnSpaceChange
-        var updateMode = GridConfig.default.updateMode
+    private static func parseTOMLObject(_ text: String) -> [String: Any]? {
+        var root: [String: Any] = [:]
+        var tables: [String: [String: Any]] = [:]
+        var currentTable: String?
 
-        for line in text.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.hasPrefix("#"), !trimmed.isEmpty else { continue }
-            let stripped: String
-            if let commentRange = trimmed.range(of: " #") {
-                stripped = String(trimmed[..<commentRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+        for rawLine in text.components(separatedBy: .newlines) {
+            guard let uncommented = stripTOMLComment(rawLine) else { return nil }
+            let line = uncommented.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !line.isEmpty else { continue }
+
+            if line.hasPrefix("[") {
+                guard line.hasSuffix("]"), !line.hasPrefix("[[") else { return nil }
+                let name = String(line.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+                guard !name.isEmpty else { return nil }
+                currentTable = name
+                if tables[name] == nil { tables[name] = [:] }
+                continue
+            }
+
+            guard let equals = firstUnquotedEquals(in: line) else { return nil }
+            let rawKey = String(line[..<equals]).trimmingCharacters(in: .whitespaces)
+            let rawValue = String(line[line.index(after: equals)...]).trimmingCharacters(in: .whitespaces)
+            guard let key = parseTOMLKey(rawKey), let value = parseTOMLValue(rawValue) else { return nil }
+            if let currentTable {
+                tables[currentTable, default: [:]][key] = value
             } else {
-                stripped = trimmed
-            }
-            guard let firstEqual = stripped.firstIndex(of: "=") else { continue }
-            let key = String(stripped[..<firstEqual]).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-            let value = String(stripped[stripped.index(after: firstEqual)...]).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-            switch key {
-            case "GRID_COLS": cols = Int(value) ?? cols
-            case "GRID_ROWS": rows = Int(value) ?? rows
-            case "CELL_STYLE":
-                switch value {
-                case "icons", "icons-only":
-                    cellStyle = .icons
-                    if value == "icons" { showIconStrip = true }
-                    else if value == "icons-only" { showIconStrip = false }
-                case "hybrid":     cellStyle = .hybrid
-                case "thumbnails": cellStyle = .thumbnails
-                case "simple":    cellStyle = .simple
-                default:          cellStyle = .rects
-                }
-            case "HOTKEY":
-                if let parsed = parseHotkey(value) {
-                    hotkey = parsed
-                } else {
-                    print("spacemap: unrecognized HOTKEY '\(value)', using default")
-                }
-            case "PINNED_HOTKEY":
-                if let parsed = parseHotkey(value) {
-                    pinnedHotkey = parsed
-                } else {
-                    print("spacemap: unrecognized PINNED_HOTKEY '\(value)', disabling it")
-                }
-            case "SOCKET_HEALTH_INTERVAL":
-                if let v = Int(value), v > 0 {
-                    socketHealthInterval = v
-                } else {
-                    print("spacemap: invalid SOCKET_HEALTH_INTERVAL '\(value)', using default")
-                }
-            case "UI_SCALE":
-                if let v = Double(value), v >= 0.0 && v <= 1.0 {
-                    uiScale = v
-                } else {
-                    print("spacemap: invalid UI_SCALE '\(value)', using default")
-                }
-            case "AUTO_HIDE_TIMEOUT":
-                if let v = Int(value), v >= 0 {
-                    autoHideTimeout = v
-                } else {
-                    print("spacemap/ConfigReader: FAILED to parse AUTO_HIDE_TIMEOUT value='\(value)'")
-                }
-            case "THEME":
-                theme = value
-            case "SHOW_MODE":
-                switch value {
-                case "active": showMode = .active
-                default:        showMode = .all
-                }
-            case "MULTI_MONITOR_HUD_MODE":
-                switch value.lowercased() {
-                case "separate", "per-display", "per_display": multiMonitorHUDMode = .separate
-                default: multiMonitorHUDMode = .unified
-                }
-            case "UNIFIED_HUD_VISIBILITY":
-                switch value.lowercased() {
-                case "all", "all-displays", "all_displays": unifiedHUDVisibility = .all
-                default: unifiedHUDVisibility = .active
-                }
-            case "SEPARATE_HUD_VISIBILITY":
-                switch value.lowercased() {
-                case "active", "active-display", "active_display": separateHUDVisibility = .active
-                default: separateHUDVisibility = .all
-                }
-            case "DISPLAY_NAVIGATION_WRAP":
-                switch value.lowercased() {
-                case "between", "across", "cross-display", "cross_display": displayNavigationWrap = .between
-                default: displayNavigationWrap = .within
-                }
-            case "MAX_SPACES":
-                if let v = Int(value), v >= 1 && v <= 16 {
-                    maxSpaces = v
-                } else {
-                    print("spacemap: invalid MAX_SPACES '\(value)', using default")
-                }
-            case "BACKGROUND_ALPHA":
-                if let v = Double(value), v >= 0.0 && v <= 1.0 {
-                    backgroundAlpha = v
-                } else {
-                    print("spacemap: invalid BACKGROUND_ALPHA '\(value)', using default")
-                }
-            case "MODE":
-                switch value.lowercased() {
-                case "light": mode = .light
-                case "dark":  mode = .dark
-                case "auto", "automatic": mode = .auto
-                default:     mode = .auto
-                }
-            case "ICON_SCALE":
-                if let v = Double(value), v >= 0.0 && v <= 1.0 {
-                    iconScale = v
-                } else {
-                    print("spacemap: invalid ICON_SCALE '\(value)', using default")
-                }
-            case "SHOW_SPACE_NUMBERS":
-                showSpaceNumbers = parseBool(value)
-            case "SHOW_NAMES":
-                showSpaceNumbers = parseBool(value)
-            case "SHOW_SPACE_NAMES":
-                showSpaceNames = parseBool(value)
-            case "SHOW_ICON_STRIP":
-                showIconStrip = parseBool(value)
-            case "SHOW_MULTI_APP_ICONS":
-                showMultiAppIcons = parseBool(value)
-            case "HIDE_MENUBAR_ICON":
-                hideMenuBarIcon = parseBool(value)
-            case "VIM_KEYS":
-                useVimKeys = parseBool(value)
-            case "ARROW_KEYS":
-                useArrowKeys = parseBool(value)
-            case "SHOW_EXTRA_WINDOWS":
-                showExtraWindows = parseBool(value)
-            case "FOCUS_SPACE_ON_WINDOW_DROP":
-                focusSpaceOnWindowDrop = parseBool(value)
-            case "SHOW_HUD_ON_SPACE_CHANGE":
-                showHUDOnSpaceChange = parseBool(value)
-            case "CUSTOM_HUD_X":
-                if let v = Double(value), v >= 0.0 && v <= 1.0 {
-                    customHUDX = v
-                } else {
-                    print("spacemap: invalid CUSTOM_HUD_X '\(value)', using default")
-                }
-            case "CUSTOM_HUD_Y":
-                if let v = Double(value), v >= 0.0 && v <= 1.0 {
-                    customHUDY = v
-                } else {
-                    print("spacemap: invalid CUSTOM_HUD_Y '\(value)', using default")
-                }
-            case "HUD_POSITION":
-                switch value.lowercased() {
-                case "center": hudPosition = .center
-                case "top": hudPosition = .top
-                case "bottom": hudPosition = .bottom
-                case "custom": hudPosition = .custom(x: 0, y: 0) // sentinel: coordinates set after CUSTOM_HUD_X/Y parsed
-                default:
-                    let parts = value.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
-                    if parts.count == 2, parts[0] >= 0, parts[0] <= 1, parts[1] >= 0, parts[1] <= 1 {
-                        hudPosition = .custom(x: parts[0], y: parts[1])
-                    }
-                }
-            case "SPACE_NAMES":
-                let pairs = value.components(separatedBy: ",")
-                for pair in pairs {
-                    let parts = pair.components(separatedBy: ":")
-                    if parts.count == 2, let id = Int(parts[0].trimmingCharacters(in: .whitespaces)) {
-                        spaceNames[id] = parts[1].trimmingCharacters(in: .whitespaces)
-                    }
-                }
-            case "UPDATE_MODE":
-                switch value.lowercased() {
-                case "auto": updateMode = .auto
-                case "notify": updateMode = .notify
-                case "off": updateMode = .off
-                default: updateMode = .notify
-                }
-            default: break
+                root[key] = value
             }
         }
 
-        // Resolve .custom sentinel (0,0) after all values are parsed
-        // so that CUSTOM_HUD_X/Y values are available
-        if case .custom(x: 0, y: 0) = hudPosition {
-            hudPosition = .custom(x: customHUDX, y: customHUDY)
+        for (name, table) in tables {
+            root[name] = table
         }
+        return root
+    }
 
-        return GridConfig(cols: cols, rows: rows, cellStyle: cellStyle, hotkey: hotkey, pinnedHotkey: pinnedHotkey, socketHealthInterval: socketHealthInterval, uiScale: uiScale, autoHideTimeout: autoHideTimeout, theme: theme, showMode: showMode, multiMonitorHUDMode: multiMonitorHUDMode, unifiedHUDVisibility: unifiedHUDVisibility, separateHUDVisibility: separateHUDVisibility, displayNavigationWrap: displayNavigationWrap, maxSpaces: maxSpaces, backgroundAlpha: backgroundAlpha, mode: mode, iconScale: iconScale, showSpaceNumbers: showSpaceNumbers, showSpaceNames: showSpaceNames, showIconStrip: showIconStrip, showMultiAppIcons: showMultiAppIcons, hideMenuBarIcon: hideMenuBarIcon, spaceNames: spaceNames, useVimKeys: useVimKeys, useArrowKeys: useArrowKeys, hudPosition: hudPosition, customHUDX: customHUDX, customHUDY: customHUDY, showExtraWindows: showExtraWindows, focusSpaceOnWindowDrop: focusSpaceOnWindowDrop, showHUDOnSpaceChange: showHUDOnSpaceChange, updateMode: updateMode)
+    private static func stripTOMLComment(_ line: String) -> String? {
+        var quote: Character?
+        var escaping = false
+        for index in line.indices {
+            let character = line[index]
+            if let activeQuote = quote {
+                if activeQuote == "\"", escaping {
+                    escaping = false
+                } else if activeQuote == "\"", character == "\\" {
+                    escaping = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+            } else if character == "\"" || character == "'" {
+                quote = character
+            } else if character == "#" {
+                return String(line[..<index])
+            }
+        }
+        return quote == nil ? line : nil
+    }
+
+    private static func firstUnquotedEquals(in line: String) -> String.Index? {
+        var quote: Character?
+        var escaping = false
+        for index in line.indices {
+            let character = line[index]
+            if let activeQuote = quote {
+                if activeQuote == "\"", escaping {
+                    escaping = false
+                } else if activeQuote == "\"", character == "\\" {
+                    escaping = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+            } else if character == "\"" || character == "'" {
+                quote = character
+            } else if character == "=" {
+                return index
+            }
+        }
+        return nil
+    }
+
+    private static func parseTOMLKey(_ raw: String) -> String? {
+        if raw.hasPrefix("\""), raw.hasSuffix("\"") {
+            return decodeTOMLString(raw)
+        }
+        if raw.hasPrefix("'"), raw.hasSuffix("'"), raw.count >= 2 {
+            return String(raw.dropFirst().dropLast())
+        }
+        guard !raw.isEmpty, raw.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" || $0 == "-" }) else {
+            return nil
+        }
+        return raw
+    }
+
+    private static func parseTOMLValue(_ raw: String) -> Any? {
+        if raw.hasPrefix("\""), raw.hasSuffix("\"") {
+            return decodeTOMLString(raw)
+        }
+        if raw.hasPrefix("'"), raw.hasSuffix("'"), raw.count >= 2 {
+            return String(raw.dropFirst().dropLast())
+        }
+        if raw == "true" { return true }
+        if raw == "false" { return false }
+        if let integer = Int(raw) { return integer }
+        if let double = Double(raw), double.isFinite { return double }
+        if raw.hasPrefix("["), raw.hasSuffix("]") {
+            let body = String(raw.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+            if body.isEmpty { return [String]() }
+            guard let items = splitTOMLArray(body) else { return nil }
+            var strings: [String] = []
+            for item in items {
+                guard let value = parseTOMLValue(item) as? String else { return nil }
+                strings.append(value)
+            }
+            return strings
+        }
+        return nil
+    }
+
+    private static func splitTOMLArray(_ body: String) -> [String]? {
+        var items: [String] = []
+        var start = body.startIndex
+        var quote: Character?
+        var escaping = false
+        for index in body.indices {
+            let character = body[index]
+            if let activeQuote = quote {
+                if activeQuote == "\"", escaping {
+                    escaping = false
+                } else if activeQuote == "\"", character == "\\" {
+                    escaping = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+            } else if character == "\"" || character == "'" {
+                quote = character
+            } else if character == "," {
+                items.append(String(body[start..<index]).trimmingCharacters(in: .whitespaces))
+                start = body.index(after: index)
+            }
+        }
+        guard quote == nil else { return nil }
+        items.append(String(body[start...]).trimmingCharacters(in: .whitespaces))
+        return items.allSatisfy { !$0.isEmpty } ? items : nil
+    }
+
+    private static func decodeTOMLString(_ raw: String) -> String? {
+        guard raw.count >= 2, raw.first == "\"", raw.last == "\"" else { return nil }
+        let body = raw.dropFirst().dropLast()
+        var result = ""
+        var index = body.startIndex
+        while index < body.endIndex {
+            let character = body[index]
+            guard character == "\\" else {
+                result.append(character)
+                index = body.index(after: index)
+                continue
+            }
+            index = body.index(after: index)
+            guard index < body.endIndex else { return nil }
+            switch body[index] {
+            case "b": result.append("\u{08}")
+            case "t": result.append("\t")
+            case "n": result.append("\n")
+            case "f": result.append("\u{0C}")
+            case "r": result.append("\r")
+            case "\"": result.append("\"")
+            case "\\": result.append("\\")
+            case "u", "U":
+                let digits = body[index] == "u" ? 4 : 8
+                let start = body.index(after: index)
+                guard let end = body.index(start, offsetBy: digits, limitedBy: body.endIndex),
+                      let value = UInt32(body[start..<end], radix: 16),
+                      let scalar = UnicodeScalar(value) else { return nil }
+                result.unicodeScalars.append(scalar)
+                index = end
+                continue
+            default: return nil
+            }
+            index = body.index(after: index)
+        }
+        return result
     }
 
     static func hotkeyToString(_ hotkey: HotkeyConfig) -> String {
@@ -404,350 +441,7 @@ enum ConfigReader {
         }
     }
 
-    private struct SerializableGridConfig: Codable {
-        struct SerializableHotkey: Codable {
-            let keyKind: String?
-            let keyCode: CGKeyCode?
-            let mediaKey: String?
-            let modifiers: [String]
-            var needsRepair = false
-
-            enum CodingKeys: String, CodingKey {
-                case keyKind, keyCode, mediaKey, modifiers
-            }
-
-            init(keyKind: String?, keyCode: CGKeyCode?, mediaKey: String?, modifiers: [String]) {
-                self.keyKind = keyKind
-                self.keyCode = keyCode
-                self.mediaKey = mediaKey
-                self.modifiers = modifiers
-            }
-
-            init(from decoder: Decoder) throws {
-                let container = try decoder.container(keyedBy: CodingKeys.self)
-                keyKind = try? container.decodeIfPresent(String.self, forKey: .keyKind)
-                keyCode = try? container.decodeIfPresent(CGKeyCode.self, forKey: .keyCode)
-                mediaKey = try? container.decodeIfPresent(String.self, forKey: .mediaKey)
-                do {
-                    modifiers = try container.decode([String].self, forKey: .modifiers)
-                } catch {
-                    modifiers = []
-                    needsRepair = true
-                }
-            }
-        }
-
-        let cols: Int
-        let rows: Int
-        let cellStyle: String
-        let hotkey: SerializableHotkey
-        let pinnedHotkey: SerializableHotkey
-        let socketHealthInterval: Int
-        let uiScale: Double
-        let autoHideTimeout: Int
-        let theme: String
-        let showMode: String
-        let multiMonitorHUDMode: String
-        let unifiedHUDVisibility: String
-        let separateHUDVisibility: String
-        let displayNavigationWrap: String
-        let maxSpaces: Int
-        let backgroundAlpha: Double
-        let mode: String
-        let iconScale: Double
-        let showSpaceNumbers: Bool
-        let showSpaceNames: Bool
-        let showIconStrip: Bool
-        let showMultiAppIcons: Bool
-        let hideMenuBarIcon: Bool
-        let spaceNames: [String: String]
-        let useVimKeys: Bool
-        let useArrowKeys: Bool
-        let hudPosition: HUDPositionPayload
-        let customHUDX: Double
-        let customHUDY: Double
-        let showExtraWindows: Bool
-        let focusSpaceOnWindowDrop: Bool?
-        let showHUDOnSpaceChange: Bool?
-        let updateMode: String
-        var needsRepair = false
-
-        struct HUDPositionPayload: Codable {
-            let kind: String
-            let x: Double?
-            let y: Double?
-            var needsRepair = false
-
-            enum CodingKeys: String, CodingKey {
-                case kind, x, y
-            }
-
-            init(kind: String, x: Double?, y: Double?) {
-                self.kind = kind
-                self.x = x
-                self.y = y
-            }
-
-            init(from decoder: Decoder) throws {
-                let container = try decoder.container(keyedBy: CodingKeys.self)
-                do {
-                    kind = try container.decode(String.self, forKey: .kind)
-                } catch {
-                    kind = "center"
-                    needsRepair = true
-                }
-                x = try? container.decodeIfPresent(Double.self, forKey: .x)
-                y = try? container.decodeIfPresent(Double.self, forKey: .y)
-            }
-        }
-
-        enum CodingKeys: String, CodingKey {
-            case cols, rows, cellStyle, hotkey, pinnedHotkey, socketHealthInterval, uiScale
-            case autoHideTimeout, theme, showMode, multiMonitorHUDMode
-            case unifiedHUDVisibility, separateHUDVisibility, displayNavigationWrap
-            case maxSpaces, backgroundAlpha, mode, iconScale, showSpaceNumbers
-            case showSpaceNames, showIconStrip, showMultiAppIcons, hideMenuBarIcon
-            case spaceNames, useVimKeys, useArrowKeys, hudPosition, customHUDX
-            case customHUDY, showExtraWindows, focusSpaceOnWindowDrop
-            case showHUDOnSpaceChange, updateMode
-        }
-
-        private static func decode<T: Decodable>(
-            _ type: T.Type,
-            forKey key: CodingKeys,
-            from container: KeyedDecodingContainer<CodingKeys>,
-            default defaultValue: T,
-            needsRepair: inout Bool
-        ) -> T {
-            do {
-                return try container.decode(T.self, forKey: key)
-            } catch {
-                needsRepair = true
-                return defaultValue
-            }
-        }
-
-        init(from decoder: Decoder) throws {
-            let defaults = SerializableGridConfig(.default)
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            var repair = false
-
-            cols = Self.decode(Int.self, forKey: .cols, from: container, default: defaults.cols, needsRepair: &repair)
-            rows = Self.decode(Int.self, forKey: .rows, from: container, default: defaults.rows, needsRepair: &repair)
-            cellStyle = Self.decode(String.self, forKey: .cellStyle, from: container, default: defaults.cellStyle, needsRepair: &repair)
-            hotkey = Self.decode(SerializableHotkey.self, forKey: .hotkey, from: container, default: defaults.hotkey, needsRepair: &repair)
-            pinnedHotkey = Self.decode(SerializableHotkey.self, forKey: .pinnedHotkey, from: container, default: defaults.pinnedHotkey, needsRepair: &repair)
-            socketHealthInterval = Self.decode(Int.self, forKey: .socketHealthInterval, from: container, default: defaults.socketHealthInterval, needsRepair: &repair)
-            uiScale = Self.decode(Double.self, forKey: .uiScale, from: container, default: defaults.uiScale, needsRepair: &repair)
-            autoHideTimeout = Self.decode(Int.self, forKey: .autoHideTimeout, from: container, default: defaults.autoHideTimeout, needsRepair: &repair)
-            theme = Self.decode(String.self, forKey: .theme, from: container, default: defaults.theme, needsRepair: &repair)
-            showMode = Self.decode(String.self, forKey: .showMode, from: container, default: defaults.showMode, needsRepair: &repair)
-            multiMonitorHUDMode = Self.decode(String.self, forKey: .multiMonitorHUDMode, from: container, default: defaults.multiMonitorHUDMode, needsRepair: &repair)
-            unifiedHUDVisibility = Self.decode(String.self, forKey: .unifiedHUDVisibility, from: container, default: defaults.unifiedHUDVisibility, needsRepair: &repair)
-            separateHUDVisibility = Self.decode(String.self, forKey: .separateHUDVisibility, from: container, default: defaults.separateHUDVisibility, needsRepair: &repair)
-            displayNavigationWrap = Self.decode(String.self, forKey: .displayNavigationWrap, from: container, default: defaults.displayNavigationWrap, needsRepair: &repair)
-            maxSpaces = Self.decode(Int.self, forKey: .maxSpaces, from: container, default: defaults.maxSpaces, needsRepair: &repair)
-            backgroundAlpha = Self.decode(Double.self, forKey: .backgroundAlpha, from: container, default: defaults.backgroundAlpha, needsRepair: &repair)
-            mode = Self.decode(String.self, forKey: .mode, from: container, default: defaults.mode, needsRepair: &repair)
-            iconScale = Self.decode(Double.self, forKey: .iconScale, from: container, default: defaults.iconScale, needsRepair: &repair)
-            showSpaceNumbers = Self.decode(Bool.self, forKey: .showSpaceNumbers, from: container, default: defaults.showSpaceNumbers, needsRepair: &repair)
-            showSpaceNames = Self.decode(Bool.self, forKey: .showSpaceNames, from: container, default: defaults.showSpaceNames, needsRepair: &repair)
-            showIconStrip = Self.decode(Bool.self, forKey: .showIconStrip, from: container, default: defaults.showIconStrip, needsRepair: &repair)
-            showMultiAppIcons = Self.decode(Bool.self, forKey: .showMultiAppIcons, from: container, default: defaults.showMultiAppIcons, needsRepair: &repair)
-            hideMenuBarIcon = Self.decode(Bool.self, forKey: .hideMenuBarIcon, from: container, default: defaults.hideMenuBarIcon, needsRepair: &repair)
-            spaceNames = Self.decode([String: String].self, forKey: .spaceNames, from: container, default: defaults.spaceNames, needsRepair: &repair)
-            useVimKeys = Self.decode(Bool.self, forKey: .useVimKeys, from: container, default: defaults.useVimKeys, needsRepair: &repair)
-            useArrowKeys = Self.decode(Bool.self, forKey: .useArrowKeys, from: container, default: defaults.useArrowKeys, needsRepair: &repair)
-            hudPosition = Self.decode(HUDPositionPayload.self, forKey: .hudPosition, from: container, default: defaults.hudPosition, needsRepair: &repair)
-            customHUDX = Self.decode(Double.self, forKey: .customHUDX, from: container, default: defaults.customHUDX, needsRepair: &repair)
-            customHUDY = Self.decode(Double.self, forKey: .customHUDY, from: container, default: defaults.customHUDY, needsRepair: &repair)
-            showExtraWindows = Self.decode(Bool.self, forKey: .showExtraWindows, from: container, default: defaults.showExtraWindows, needsRepair: &repair)
-            focusSpaceOnWindowDrop = Self.decode(Bool.self, forKey: .focusSpaceOnWindowDrop, from: container, default: false, needsRepair: &repair)
-            showHUDOnSpaceChange = Self.decode(Bool.self, forKey: .showHUDOnSpaceChange, from: container, default: false, needsRepair: &repair)
-            updateMode = Self.decode(String.self, forKey: .updateMode, from: container, default: defaults.updateMode, needsRepair: &repair)
-            needsRepair = repair || hotkey.needsRepair || pinnedHotkey.needsRepair || hudPosition.needsRepair
-        }
-
-        init(_ config: GridConfig) {
-            cols = config.cols
-            rows = config.rows
-            cellStyle = ConfigReader.cellStyleName(config.cellStyle)
-            switch config.hotkey.key {
-            case .none:
-                hotkey = SerializableHotkey(keyKind: "none", keyCode: nil, mediaKey: nil, modifiers: ConfigReader.modifierNames(for: config.hotkey.modifiers))
-            case .keyCode(let keyCode):
-                hotkey = SerializableHotkey(keyKind: "keyCode", keyCode: keyCode, mediaKey: nil, modifiers: ConfigReader.modifierNames(for: config.hotkey.modifiers))
-            case .mediaKey(let mediaKey):
-                hotkey = SerializableHotkey(keyKind: "mediaKey", keyCode: nil, mediaKey: mediaKey.rawValue, modifiers: ConfigReader.modifierNames(for: config.hotkey.modifiers))
-            }
-            switch config.pinnedHotkey.key {
-            case .none:
-                pinnedHotkey = SerializableHotkey(keyKind: "none", keyCode: nil, mediaKey: nil, modifiers: [])
-            case .keyCode(let keyCode):
-                pinnedHotkey = SerializableHotkey(keyKind: "keyCode", keyCode: keyCode, mediaKey: nil, modifiers: ConfigReader.modifierNames(for: config.pinnedHotkey.modifiers))
-            case .mediaKey(let mediaKey):
-                pinnedHotkey = SerializableHotkey(keyKind: "mediaKey", keyCode: nil, mediaKey: mediaKey.rawValue, modifiers: ConfigReader.modifierNames(for: config.pinnedHotkey.modifiers))
-            }
-            socketHealthInterval = config.socketHealthInterval
-            uiScale = config.uiScale
-            autoHideTimeout = config.autoHideTimeout
-            theme = config.theme
-            showMode = config.showMode.rawValue
-            multiMonitorHUDMode = config.multiMonitorHUDMode.rawValue
-            unifiedHUDVisibility = config.unifiedHUDVisibility.rawValue
-            separateHUDVisibility = config.separateHUDVisibility.rawValue
-            displayNavigationWrap = config.displayNavigationWrap.rawValue
-            maxSpaces = config.maxSpaces
-            backgroundAlpha = config.backgroundAlpha
-            mode = config.mode.rawValue
-            iconScale = config.iconScale
-            showSpaceNumbers = config.showSpaceNumbers
-            showSpaceNames = config.showSpaceNames
-            showIconStrip = config.showIconStrip
-            showMultiAppIcons = config.showMultiAppIcons
-            hideMenuBarIcon = config.hideMenuBarIcon
-            spaceNames = Dictionary(uniqueKeysWithValues: config.spaceNames.map { (String($0.key), $0.value) })
-            useVimKeys = config.useVimKeys
-            useArrowKeys = config.useArrowKeys
-            switch config.hudPosition {
-            case .center: hudPosition = HUDPositionPayload(kind: "center", x: nil, y: nil)
-            case .top: hudPosition = HUDPositionPayload(kind: "top", x: nil, y: nil)
-            case .bottom: hudPosition = HUDPositionPayload(kind: "bottom", x: nil, y: nil)
-            case .custom(let x, let y): hudPosition = HUDPositionPayload(kind: "custom", x: x, y: y)
-            }
-            customHUDX = config.customHUDX
-            customHUDY = config.customHUDY
-            showExtraWindows = config.showExtraWindows
-            focusSpaceOnWindowDrop = config.focusSpaceOnWindowDrop
-            showHUDOnSpaceChange = config.showHUDOnSpaceChange
-            updateMode = config.updateMode.rawValue
-        }
-
-        func toGridConfig() -> (config: GridConfig, needsRepair: Bool) {
-            var repair = needsRepair
-            let key: HotkeyKey
-            switch hotkey.keyKind?.lowercased() {
-            case "none":
-                key = .none
-            case "mediakey", "media-key":
-                if let mediaKey = ConfigReader.mediaKey(from: hotkey.mediaKey) {
-                    key = .mediaKey(mediaKey)
-                } else {
-                    key = GridConfig.default.hotkey.key
-                    repair = true
-                }
-            default:
-                if let keyCode = hotkey.keyCode {
-                    key = .keyCode(keyCode)
-                } else {
-                    key = GridConfig.default.hotkey.key
-                    repair = true
-                }
-            }
-            let hotkey = HotkeyConfig(key: key, modifiers: ConfigReader.modifiers(from: hotkey.modifiers))
-            let pinnedKey: HotkeyKey
-            switch pinnedHotkey.keyKind?.lowercased() {
-            case "none":
-                pinnedKey = .none
-            case "mediakey", "media-key":
-                if let mediaKey = ConfigReader.mediaKey(from: pinnedHotkey.mediaKey) {
-                    pinnedKey = .mediaKey(mediaKey)
-                } else {
-                    pinnedKey = .none
-                    repair = true
-                }
-            default:
-                if let keyCode = pinnedHotkey.keyCode {
-                    pinnedKey = .keyCode(keyCode)
-                } else {
-                    pinnedKey = .none
-                    repair = true
-                }
-            }
-            let pinnedHotkey = HotkeyConfig(key: pinnedKey, modifiers: ConfigReader.modifiers(from: pinnedHotkey.modifiers))
-            let hudPositionValue: HUDPosition
-            switch hudPosition.kind.lowercased() {
-            case "top": hudPositionValue = .top
-            case "bottom": hudPositionValue = .bottom
-            case "custom":
-                let x = hudPosition.x ?? customHUDX
-                let y = hudPosition.y ?? customHUDY
-                if (0...1).contains(x), (0...1).contains(y) {
-                    hudPositionValue = .custom(x: x, y: y)
-                } else {
-                    hudPositionValue = .center
-                    repair = true
-                }
-            default:
-                hudPositionValue = .center
-                if hudPosition.kind.lowercased() != "center" { repair = true }
-            }
-
-            let spaceNames = Dictionary(uniqueKeysWithValues: self.spaceNames.compactMap { key, value in
-                Int(key).map { ($0, value) }
-            })
-            if spaceNames.count != self.spaceNames.count { repair = true }
-
-            let resolvedCellStyle = ConfigReader.cellStyle(from: cellStyle)
-            let resolvedShowMode = ConfigReader.showMode(from: showMode)
-            let resolvedMultiMonitorMode = ConfigReader.multiMonitorHUDMode(from: multiMonitorHUDMode)
-            let resolvedUnifiedVisibility = ConfigReader.hudVisibility(from: unifiedHUDVisibility)
-            let resolvedSeparateVisibility = ConfigReader.hudVisibility(from: separateHUDVisibility)
-            let resolvedNavigationWrap = ConfigReader.displayNavigationWrap(from: displayNavigationWrap)
-            let resolvedThemeMode = ConfigReader.themeMode(from: mode)
-            let resolvedUpdateMode = ConfigReader.updateMode(from: updateMode)
-            if resolvedCellStyle == nil || resolvedShowMode == nil || resolvedMultiMonitorMode == nil ||
-                resolvedUnifiedVisibility == nil || resolvedSeparateVisibility == nil ||
-                resolvedNavigationWrap == nil || resolvedThemeMode == nil || resolvedUpdateMode == nil {
-                repair = true
-            }
-
-            func valid<T>(_ value: T, default defaultValue: T, where predicate: (T) -> Bool) -> T {
-                if predicate(value) { return value }
-                repair = true
-                return defaultValue
-            }
-
-            let config = GridConfig(
-                cols: valid(cols, default: GridConfig.default.cols) { $0 > 0 },
-                rows: valid(rows, default: GridConfig.default.rows) { $0 > 0 },
-                cellStyle: resolvedCellStyle ?? GridConfig.default.cellStyle,
-                hotkey: hotkey,
-                pinnedHotkey: pinnedHotkey,
-                socketHealthInterval: valid(socketHealthInterval, default: GridConfig.default.socketHealthInterval) { $0 > 0 },
-                uiScale: valid(uiScale, default: GridConfig.default.uiScale) { (0...1).contains($0) },
-                autoHideTimeout: valid(autoHideTimeout, default: GridConfig.default.autoHideTimeout) { $0 >= 0 },
-                theme: theme,
-                showMode: resolvedShowMode ?? GridConfig.default.showMode,
-                multiMonitorHUDMode: resolvedMultiMonitorMode ?? GridConfig.default.multiMonitorHUDMode,
-                unifiedHUDVisibility: resolvedUnifiedVisibility ?? GridConfig.default.unifiedHUDVisibility,
-                separateHUDVisibility: resolvedSeparateVisibility ?? GridConfig.default.separateHUDVisibility,
-                displayNavigationWrap: resolvedNavigationWrap ?? GridConfig.default.displayNavigationWrap,
-                maxSpaces: valid(maxSpaces, default: GridConfig.default.maxSpaces) { (1...16).contains($0) },
-                backgroundAlpha: valid(backgroundAlpha, default: GridConfig.default.backgroundAlpha) { (0...1).contains($0) },
-                mode: resolvedThemeMode ?? GridConfig.default.mode,
-                iconScale: valid(iconScale, default: GridConfig.default.iconScale) { (0...1).contains($0) },
-                showSpaceNumbers: showSpaceNumbers,
-                showSpaceNames: showSpaceNames,
-                showIconStrip: showIconStrip,
-                showMultiAppIcons: showMultiAppIcons,
-                hideMenuBarIcon: hideMenuBarIcon,
-                spaceNames: spaceNames,
-                useVimKeys: useVimKeys,
-                useArrowKeys: useArrowKeys,
-                hudPosition: hudPositionValue,
-                customHUDX: valid(customHUDX, default: GridConfig.default.customHUDX) { (0...1).contains($0) },
-                customHUDY: valid(customHUDY, default: GridConfig.default.customHUDY) { (0...1).contains($0) },
-                showExtraWindows: showExtraWindows,
-                focusSpaceOnWindowDrop: focusSpaceOnWindowDrop ?? false,
-                showHUDOnSpaceChange: showHUDOnSpaceChange ?? false,
-                updateMode: resolvedUpdateMode ?? GridConfig.default.updateMode
-            )
-            return (config, repair)
-        }
-    }
-
-    private static func modifierNames(for flags: CGEventFlags) -> [String] {
+     private static func modifierNames(for flags: CGEventFlags) -> [String] {
         var result: [String] = []
         if flags.contains(.maskControl) { result.append("ctrl") }
         if flags.contains(.maskCommand) { result.append("cmd") }
@@ -766,8 +460,6 @@ enum ConfigReader {
             case "alt": result.insert(.maskAlternate)
             case "shift": result.insert(.maskShift)
             case "fn": result.insert(.maskSecondaryFn)
-            case "hyper":
-                result.formUnion([.maskControl, .maskCommand, .maskAlternate, .maskShift])
             default:
                 break
             }
@@ -779,7 +471,7 @@ enum ConfigReader {
         switch name.lowercased() {
         case "rects": return .rects
         case "hybrid": return .hybrid
-        case "icons", "icons-only": return .icons
+        case "icons": return .icons
         case "thumbnails": return .thumbnails
         case "simple": return .simple
         default: return nil
@@ -796,7 +488,7 @@ enum ConfigReader {
 
     private static func multiMonitorHUDMode(from name: String) -> MultiMonitorHUDMode? {
         switch name.lowercased() {
-        case "separate", "per-display", "per_display": return .separate
+        case "separate": return .separate
         case "unified": return .unified
         default: return nil
         }
@@ -804,8 +496,8 @@ enum ConfigReader {
 
     private static func hudVisibility(from name: String) -> SeparateHUDVisibility? {
         switch name.lowercased() {
-        case "active", "active-display", "active_display": return .active
-        case "all", "all-displays", "all_displays": return .all
+        case "active": return .active
+        case "all": return .all
         default: return nil
         }
     }
@@ -813,7 +505,7 @@ enum ConfigReader {
     private static func displayNavigationWrap(from name: String) -> DisplayNavigationWrap? {
         switch name.lowercased() {
         case "within": return .within
-        case "between", "across", "cross-display", "cross_display": return .between
+        case "between": return .between
         default: return nil
         }
     }
@@ -822,7 +514,7 @@ enum ConfigReader {
         switch name.lowercased() {
         case "light": return .light
         case "dark": return .dark
-        case "auto", "automatic": return .auto
+        case "auto": return .auto
         default: return nil
         }
     }
@@ -947,7 +639,7 @@ enum ConfigReader {
         let dir = (path as NSString).deletingLastPathComponent
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         backupConfig(path)
-        let content = jsonConfigString(from: .default, includeHeaderComments: true)
+        let content = tomlConfigString(from: .default, includeHeaderComments: true)
         do {
             try content.write(toFile: path, atomically: true, encoding: .utf8)
             if !silentMode { print("spacemap: default config created at \(path)") }
@@ -960,11 +652,11 @@ enum ConfigReader {
         saveConfig(config, to: configPath)
     }
 
-    private static func saveConfig(_ config: GridConfig, to path: String) {
+    static func saveConfig(_ config: GridConfig, to path: String) {
         let dir = (path as NSString).deletingLastPathComponent
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         backupConfig(path)
-        let content = jsonConfigString(from: config, includeHeaderComments: true)
+        let content = tomlConfigString(from: config, includeHeaderComments: true)
         do {
             try content.write(toFile: path, atomically: true, encoding: .utf8)
             if !silentMode { print("spacemap: config saved to \(path)") }
@@ -973,66 +665,115 @@ enum ConfigReader {
         }
     }
 
-    private static func jsonConfigString(from config: GridConfig, includeHeaderComments: Bool) -> String {
-        let payload = SerializableGridConfig(config)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        let json: String
-        do {
-            let data = try encoder.encode(payload)
-            json = String(decoding: data, as: UTF8.self)
-        } catch {
-            if !silentMode { NSLog("spacemap/ConfigReader: failed to encode JSON config — error: \(error)") }
-            return legacyConfigString(from: config)
+    private static func tomlConfigString(from config: GridConfig, includeHeaderComments: Bool) -> String {
+        var lines: [String] = []
+        if includeHeaderComments {
+            lines += [
+                "# Spacemap config",
+                ""
+            ]
         }
 
-        guard includeHeaderComments else { return json }
-        return """
-        // Spacemap config
-        // JSONC is supported: comments and trailing notes are allowed.
-        // Legacy key=value files are still accepted for migration.
-        \(json)
-        """
+        lines += [
+            "[grid]",
+            "cols = \(config.cols)",
+            "rows = \(config.rows)",
+            "cellStyle = \(tomlString(cellStyleName(config.cellStyle)))",
+            "showMode = \(tomlString(config.showMode.rawValue))",
+            "multiMonitorHUDMode = \(tomlString(config.multiMonitorHUDMode.rawValue))",
+            "unifiedHUDVisibility = \(tomlString(config.unifiedHUDVisibility.rawValue))",
+            "separateHUDVisibility = \(tomlString(config.separateHUDVisibility.rawValue))",
+            "maxSpaces = \(config.maxSpaces)",
+            "showSpaceNumbers = \(config.showSpaceNumbers)",
+            "showIconStrip = \(config.showIconStrip)",
+            "showMultiAppIcons = \(config.showMultiAppIcons)",
+            "",
+            "[spaceNames]",
+            "showSpaceNames = \(config.showSpaceNames)",
+            "",
+            "[spaceNames.names]"
+        ]
+        for key in config.spaceNames.keys.sorted() {
+            lines.append("\(tomlString(String(key))) = \(tomlString(config.spaceNames[key]!))")
+        }
+
+        lines += [
+            "",
+            "[appearance]",
+            "theme = \(tomlString(config.theme))",
+            "mode = \(tomlString(config.mode.rawValue))",
+            "backgroundAlpha = \(config.backgroundAlpha)",
+            "iconScale = \(config.iconScale)",
+            "uiScale = \(config.uiScale)",
+            "",
+            "[behavior]",
+            "autoHideTimeout = \(config.autoHideTimeout)",
+            "displayNavigationWrap = \(tomlString(config.displayNavigationWrap.rawValue))",
+            "useVimKeys = \(config.useVimKeys)",
+            "useArrowKeys = \(config.useArrowKeys)",
+            "customHUDX = \(config.customHUDX)",
+            "customHUDY = \(config.customHUDY)",
+            "focusSpaceOnWindowDrop = \(config.focusSpaceOnWindowDrop)",
+            "showHUDOnSpaceChange = \(config.showHUDOnSpaceChange)",
+            "hideMenuBarIcon = \(config.hideMenuBarIcon)",
+            "updateMode = \(tomlString(config.updateMode.rawValue))"
+        ]
+        appendHotkey(config.hotkey, section: "behavior.hotkey", to: &lines)
+        appendHotkey(config.pinnedHotkey, section: "behavior.pinnedHotkey", to: &lines)
+
+        lines += ["", "[behavior.hudPosition]"]
+        switch config.hudPosition {
+        case .center: lines.append("kind = \"center\"")
+        case .top: lines.append("kind = \"top\"")
+        case .bottom: lines.append("kind = \"bottom\"")
+        case .custom(let x, let y):
+            lines += ["kind = \"custom\"", "x = \(x)", "y = \(y)"]
+        }
+
+        lines += [
+            "",
+            "[advanced]",
+            "socketHealthInterval = \(config.socketHealthInterval)",
+            "showExtraWindows = \(config.showExtraWindows)"
+        ]
+        return lines.joined(separator: "\n") + "\n"
     }
 
-    private static func legacyConfigString(from config: GridConfig) -> String {
-        let hotkeyString = hotkeyToString(config.hotkey)
-        let pinnedHotkeyString = hotkeyToString(config.pinnedHotkey)
-        return """
-        GRID_COLS=\(config.cols)
-        GRID_ROWS=\(config.rows)
-        CELL_STYLE=\(cellStyleName(config.cellStyle))              # rects | hybrid | icons | thumbnails | simple
-        HOTKEY=\(hotkeyString)
-        PINNED_HOTKEY=\(pinnedHotkeyString)
-        SOCKET_HEALTH_INTERVAL=\(config.socketHealthInterval)
-        UI_SCALE=\(config.uiScale)                  # 0.0–1.0
-        AUTO_HIDE_TIMEOUT=\(config.autoHideTimeout)           # 0 = disabled, seconds
-        THEME=\(config.theme)
-        SHOW_MODE=\(config.showMode.rawValue)                 # all | active
-        MULTI_MONITOR_HUD_MODE=\(config.multiMonitorHUDMode.rawValue)  # unified | separate
-        UNIFIED_HUD_VISIBILITY=\(config.unifiedHUDVisibility.rawValue) # all | active
-        SEPARATE_HUD_VISIBILITY=\(config.separateHUDVisibility.rawValue) # all | active
-        DISPLAY_NAVIGATION_WRAP=\(config.displayNavigationWrap.rawValue) # within | between
-        MAX_SPACES=\(config.maxSpaces)
-        BACKGROUND_ALPHA=\(config.backgroundAlpha)          # 0.0–1.0
-        MODE=\(config.mode.rawValue)                     # light | dark | auto
-        ICON_SCALE=\(config.iconScale)                # 0.0–1.0
-        SHOW_SPACE_NUMBERS=\(config.showSpaceNumbers ? "on" : "off")              # on | off
-        SHOW_SPACE_NAMES=\(config.showSpaceNames ? "on" : "off")              # on | off
-        SHOW_ICON_STRIP=\(config.showIconStrip ? "on" : "off")              # on | off
-        SHOW_MULTI_APP_ICONS=\(config.showMultiAppIcons ? "on" : "off")       # on | off
-        HIDE_MENUBAR_ICON=\(config.hideMenuBarIcon ? "on" : "off")           # on | off
-        VIM_KEYS=\(config.useVimKeys ? "on" : "off")                          # on | off
-        ARROW_KEYS=\(config.useArrowKeys ? "on" : "off")                      # on | off
-        SHOW_EXTRA_WINDOWS=\(config.showExtraWindows ? "on" : "off")        # on | off
-        FOCUS_SPACE_ON_WINDOW_DROP=\(config.focusSpaceOnWindowDrop ? "on" : "off") # on | off
-        SHOW_HUD_ON_SPACE_CHANGE=\(config.showHUDOnSpaceChange ? "on" : "off") # on | off
-        CUSTOM_HUD_X=\(config.customHUDX)
-        CUSTOM_HUD_Y=\(config.customHUDY)
-        HUD_POSITION=\(hudPositionString(config.hudPosition))        # center | top | bottom | custom
-        SPACE_NAMES=\(config.spaceNames.map { "\($0.key):\($0.value)" }.joined(separator: ","))                  # comma-separated, e.g. "1:Term,2:Code"
-        UPDATE_MODE=\(config.updateMode.rawValue)                   # auto | notify | off
-        """
+    private static func appendHotkey(_ hotkey: HotkeyConfig, section: String, to lines: inout [String]) {
+        lines += ["", "[\(section)]"]
+        switch hotkey.key {
+        case .none:
+            lines.append("keyKind = \"none\"")
+        case .keyCode(let keyCode):
+            lines += ["keyKind = \"keyCode\"", "keyCode = \(keyCode)"]
+        case .mediaKey(let mediaKey):
+            lines += ["keyKind = \"mediaKey\"", "mediaKey = \(tomlString(mediaKey.rawValue))"]
+        }
+        lines.append("modifiers = \(tomlStringArray(modifierNames(for: hotkey.modifiers)))")
+    }
+
+    private static func tomlString(_ value: String) -> String {
+        var escaped = ""
+        for scalar in value.unicodeScalars {
+            switch scalar.value {
+            case 0x08: escaped += "\\b"
+            case 0x09: escaped += "\\t"
+            case 0x0A: escaped += "\\n"
+            case 0x0C: escaped += "\\f"
+            case 0x0D: escaped += "\\r"
+            case 0x22: escaped += "\\\""
+            case 0x5C: escaped += "\\\\"
+            case 0x00...0x1F, 0x7F:
+                escaped += String(format: "\\u%04X", scalar.value)
+            default:
+                escaped.unicodeScalars.append(scalar)
+            }
+        }
+        return "\"\(escaped)\""
+    }
+
+    private static func tomlStringArray(_ values: [String]) -> String {
+        "[" + values.map(tomlString).joined(separator: ", ") + "]"
     }
 
     static func parseHotkey(_ value: String) -> HotkeyConfig? {
@@ -1054,8 +795,6 @@ enum ConfigReader {
             case "cmd":   modifiers.insert(.maskCommand)
             case "alt":   modifiers.insert(.maskAlternate)
             case "shift": modifiers.insert(.maskShift)
-            case "hyper": modifiers.insert([.maskControl, .maskCommand, .maskAlternate, .maskShift])
-            case "capslock": modifiers.insert(.maskAlphaShift)
             case "fn": modifiers.insert(.maskSecondaryFn)
             default:
                 print("spacemap: unknown modifier '\(token)' in HOTKEY")
@@ -1075,9 +814,9 @@ enum ConfigReader {
 
     static func keyCodeFor(_ token: String) -> CGKeyCode? {
         let named: [String: CGKeyCode] = [
-            "space": 49, "tab": 48, "return": 36, "enter": 36,
-            "escape": 53, "delete": 51, "backspace": 51,
-            "pgdn": 121, "pagedown": 121, "pgup": 116, "pageup": 116,
+            "space": 49, "tab": 48, "return": 36,
+            "escape": 53, "delete": 51,
+            "pgdn": 121, "pgup": 116,
             "home": 115, "end": 119,
             "left": 123, "right": 124, "down": 125, "up": 126,
             "f1": 122, "f2": 120, "f3": 99,  "f4": 118,
@@ -1102,14 +841,14 @@ enum ConfigReader {
 
     static func mediaKeyFor(_ token: String) -> MediaKey? {
         switch token.lowercased() {
-        case "play", "playpause", "play-pause", "play_pause": return .playPause
-        case "next", "nexttrack", "next-track", "next_track": return .nextTrack
-        case "previous", "prev", "back", "previoustrack", "previous-track", "previous_track": return .previousTrack
-        case "volumeup", "volume-up", "volume_up", "volup": return .volumeUp
-        case "volumedown", "volume-down", "volume_down", "voldown": return .volumeDown
-        case "mute", "muteaudio", "volume-mute", "volume_mute": return .mute
-        case "brightnessup", "brightness-up", "brightness_up": return .brightnessUp
-        case "brightnessdown", "brightness-down", "brightness_down": return .brightnessDown
+        case "play-pause": return .playPause
+        case "next-track": return .nextTrack
+        case "previous-track": return .previousTrack
+        case "volume-up": return .volumeUp
+        case "volume-down": return .volumeDown
+        case "mute": return .mute
+        case "brightness-up": return .brightnessUp
+        case "brightness-down": return .brightnessDown
         default: return nil
         }
     }
@@ -1124,12 +863,4 @@ enum ConfigReader {
         }
     }
 
-    static func hudPositionString(_ position: HUDPosition) -> String {
-        switch position {
-        case .center: return "center"
-        case .top: return "top"
-        case .bottom: return "bottom"
-        case .custom: return "custom"
-        }
-    }
 }

@@ -284,12 +284,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             symbolName: "power"
         )
         launchAtLoginItem.tag = 1001
-        let isEnabled: Bool
-        if #available(macOS 13, *) {
-            isEnabled = SMAppService.mainApp.status == .enabled
-        } else {
-            isEnabled = false
-        }
+        let isEnabled = SMAppService.mainApp.status == .enabled
         if isEnabled {
             launchAtLoginItem.state = .on
         }
@@ -414,46 +409,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc private func toggleLaunchAtLogin() {
-        if #available(macOS 13, *) {
-            let service = SMAppService.mainApp
-            let currentStatus = service.status
-            let newEnabled = currentStatus != .enabled
-            
-            setLoginAtLogin(enabled: newEnabled)
-            
-            // Update menu item state
-            if let menu = statusItem?.menu {
-                for item in menu.items {
-                    if item.tag == 1001 {
-                        let newStatus: Bool
-                        if #available(macOS 13, *) {
-                            newStatus = SMAppService.mainApp.status == .enabled
-                        } else {
-                            newStatus = false
-                        }
-                        item.state = newStatus ? .on : .off
-                        break
-        }
-    }
+        let service = SMAppService.mainApp
+        let newEnabled = service.status != .enabled
+        setLoginAtLogin(enabled: newEnabled)
+
+        if let menu = statusItem?.menu {
+            for item in menu.items where item.tag == 1001 {
+                item.state = SMAppService.mainApp.status == .enabled ? .on : .off
+                break
             }
         }
     }
 
     private func setLoginAtLogin(enabled: Bool) {
-        if #available(macOS 13, *) {
-            let service = SMAppService.mainApp
-            do {
-                if enabled {
-                    try service.register()
-                } else {
-                    try service.unregister()
-                }
-            } catch {
-                let actionString = enabled ? "enable" : "disable"
-                print("Failed to \(actionString) launch at login: \(error)")
+        let service = SMAppService.mainApp
+        do {
+            if enabled {
+                try service.register()
+            } else {
+                try service.unregister()
             }
-        } else {
-            print("Launch at login requires macOS 13 or later")
+        } catch {
+            let actionString = enabled ? "enable" : "disable"
+            print("Failed to \(actionString) launch at login: \(error)")
         }
     }
 

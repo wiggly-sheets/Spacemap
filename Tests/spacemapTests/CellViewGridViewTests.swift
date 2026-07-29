@@ -165,8 +165,8 @@ final class CellViewGridViewTests: XCTestCase {
     func testUniqueIconWindowsFiltersBackgroundApps() {
         let windows = [
             makeWindow(id: 1, app: "Firefox"),
-            makeWindow(id: 2, app: "Hammerspoon", subLayer: "normal"),
-            makeWindow(id: 3, app: "Wallpaper Selector", subLayer: "normal"),
+            makeWindow(id: 2, app: "Hammerspoon", isStandard: false),
+            makeWindow(id: 3, app: "Wallpaper Selector", isStandard: false),
         ]
         let result = CellView.uniqueIconWindows(windows)
         XCTAssertEqual(result.count, 1)
@@ -349,11 +349,25 @@ final class CellViewGridViewTests: XCTestCase {
         app: String,
         space: Int = 1,
         subLayer: String = "below",
+        isStandard: Bool = true,
         frame: CGRect = CGRect(x: 0, y: 0, width: 100, height: 100)
     ) -> YabaiWindow {
-        YabaiWindow(id: id, app: app, space: space,
-                    frame: .init(x: frame.minX, y: frame.minY, w: frame.width, h: frame.height),
-                    isHidden: false, isMinimized: false, subLayer: subLayer)
+        var window = YabaiWindow(
+            id: id,
+            app: app,
+            space: space,
+            frame: .init(x: frame.minX, y: frame.minY, w: frame.width, h: frame.height),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: subLayer
+        )
+        window.role = isStandard ? "AXWindow" : "AXUnknown"
+        window.subrole = isStandard ? "AXStandardWindow" : "AXUnknown"
+        window.isRootWindow = true
+        window.hasAXReference = true
+        window.isVisible = true
+        window.isFloating = false
+        return window
     }
 
     // MARK: - Scale mapping

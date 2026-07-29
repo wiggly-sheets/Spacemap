@@ -305,10 +305,6 @@ struct YabaiWindow: Decodable {
         case isFloating = "is-floating"
     }
 
-    var isRealWindow: Bool {
-        shouldDisplay(showExtraWindows: false)
-    }
-
     func shouldDisplay(
         showExtraWindows: Bool,
         ownerIsRegularApplication: Bool = false
@@ -340,18 +336,6 @@ struct YabaiWindow: Decodable {
             isRootWindow == true &&
             hasAXReference == false
         if isRegularApplicationProxy { return true }
-
-        // Preserve compatibility with older yabai payloads that did not expose
-        // classification metadata. Modern non-AX placeholders use empty role
-        // fields and therefore do not take this fallback.
-        let hasClassificationMetadata =
-            role != nil ||
-            subrole != nil ||
-            isRootWindow != nil ||
-            hasAXReference != nil ||
-            isVisible != nil ||
-            isFloating != nil
-        if !hasClassificationMetadata, subLayer == "below" { return true }
 
         return showExtraWindows
     }

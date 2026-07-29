@@ -251,40 +251,43 @@ clean:
 
 config:
 	mkdir -p ~/.config/spacemap
-	@if [ ! -f ~/.config/spacemap/spacemap.jsonc ]; then \
+	@if [ ! -f ~/.config/spacemap/config.toml ]; then \
 		printf '%s\n' \
-			'// Spacemap config; missing fields are filled automatically.' \
-			'{' \
-			'  "cols": 8,' \
-			'  "rows": 2,' \
-			'  "cellStyle": "icons",' \
-			'  "maxSpaces": 16,' \
-			'  "theme": "default",' \
-			'  "spaceNames": {' \
-			'    "1": "Desktop",' \
-			'    "2": "Dev"' \
-			'  }' \
-			'}' > ~/.config/spacemap/spacemap.jsonc; \
-		echo "Created ~/.config/spacemap/spacemap.jsonc"; \
+			'# Spacemap config; missing fields are filled automatically.' \
+			'[grid]' \
+			'cols = 8' \
+			'rows = 2' \
+			'cellStyle = "icons"' \
+			'maxSpaces = 16' \
+			'' \
+			'[appearance]' \
+			'theme = "default"' \
+			'' \
+			'[spaceNames.names]' \
+			'"1" = "Desktop"' \
+			'"2" = "Dev"' > ~/.config/spacemap/config.toml; \
+		echo "Created ~/.config/spacemap/config.toml"; \
 	else \
-		echo "Config already exists at ~/.config/spacemap/spacemap.jsonc"; \
-		cat ~/.config/spacemap/spacemap.jsonc; \
+		echo "Config already exists at ~/.config/spacemap/config.toml"; \
+		cat ~/.config/spacemap/config.toml; \
 	fi
 
 distconfig:
 	mkdir -p ~/.config/spacemap
 	@printf '%s\n' \
-		'// Spacemap config; missing fields are filled automatically.' \
-		'{' \
-		'  "cols": 8,' \
-		'  "rows": 2,' \
-		'  "cellStyle": "icons",' \
-		'  "maxSpaces": 16,' \
-		'  "theme": "default",' \
-		'  "spaceNames": {}' \
-		'}' > ~/.config/spacemap/spacemap.jsonc
-	@echo "Wrote ~/.config/spacemap/spacemap.jsonc"
-	@cat ~/.config/spacemap/spacemap.jsonc
+		'# Spacemap config; missing fields are filled automatically.' \
+		'[grid]' \
+		'cols = 8' \
+		'rows = 2' \
+		'cellStyle = "icons"' \
+		'maxSpaces = 16' \
+		'' \
+		'[appearance]' \
+		'theme = "default"' \
+		'' \
+		'[spaceNames.names]' > ~/.config/spacemap/config.toml
+	@echo "Wrote ~/.config/spacemap/config.toml"
+	@cat ~/.config/spacemap/config.toml
 
 symlink:
 	ln -sf /Applications/Spacemap.app/Contents/MacOS/spacemap /usr/local/bin/spacemap
