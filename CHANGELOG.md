@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Keyboard input is released immediately if Accessibility permission is revoked while the HUD is visible.
 
 ## [1.0.26] - 2026-07-29
 

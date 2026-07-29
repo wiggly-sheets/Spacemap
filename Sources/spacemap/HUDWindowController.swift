@@ -174,7 +174,9 @@ class HUDWindowController {
     private func startPollTimer() {
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self, self.isVisible, !self.isPollingFocusedSpace else { return }
+            guard let self, self.isVisible else { return }
+            self.reconcileSettingsKeyMonitor()
+            guard !self.isPollingFocusedSpace else { return }
             self.isPollingFocusedSpace = true
             // Do not enqueue another poll while one is waiting behind a refresh.
             // Otherwise polls can delay interactive focus commands indefinitely.
@@ -756,7 +758,7 @@ class HUDWindowController {
     }
 
     private func startSettingsKeyMonitor() {
-        guard keyboardEventTap == nil else { return }
+        guard keyboardEventTap == nil, AXIsProcessTrusted() else { return }
         let mask = CGEventMask(
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.keyUp.rawValue)
@@ -769,6 +771,12 @@ class HUDWindowController {
             callback: { _, type, event, refcon in
                 guard let refcon else { return Unmanaged.passUnretained(event) }
                 let controller = Unmanaged<HUDWindowController>.fromOpaque(refcon).takeUnretainedValue()
+                guard AXIsProcessTrusted() else {
+                    DispatchQueue.main.async {
+                        controller.stopSettingsKeyMonitor()
+                    }
+                    return Unmanaged.passUnretained(event)
+                }
                 if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                     if let tap = controller.keyboardEventTap {
                         CGEvent.tapEnable(tap: tap, enable: true)
@@ -794,6 +802,15 @@ class HUDWindowController {
         keyboardRunLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func reconcileSettingsKeyMonitor() {
+        if AXIsProcessTrusted() {
+            startSettingsKeyMonitor()
+        } else if keyboardEventTap != nil {
+            NSLog("spacemap/HUD: Accessibility revoked; releasing keyboard capture")
+            stopSettingsKeyMonitor()
+        }
     }
 
     private func stopSettingsKeyMonitor() {
