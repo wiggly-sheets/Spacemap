@@ -5,7 +5,7 @@ import AppKit
 ///
 /// Supported cell styles:
 /// - .rects:      Colored rectangles representing window positions/sizes
-/// - .icons:      Window icons positioned at their actual locations
+/// - .icons:      Window icons arranged from yabai's window geometry
 /// - .thumbnails: Live window content thumbnails (requires screen recording permission)
 /// - .simple:     Empty cells with no window content
 ///
@@ -25,8 +25,8 @@ struct CellView: View {
     let onSelect: (Int) -> Void
     
     // These values will be passed from GridView
-    private let baseCellWidth: CGFloat = 80
-    private let baseCellHeight: CGFloat = 50
+    private static let baseCellWidth: CGFloat = 80
+    private static let baseCellHeight: CGFloat = 50
     private let uiScale: CGFloat
     private let resolvedTheme: AppTheme
     private let mode: ThemeMode
@@ -51,7 +51,7 @@ struct CellView: View {
     }
 
     private var cellSize: CGSize {
-        CGSize(width: baseCellWidth * uiScale, height: baseCellHeight * uiScale)
+        CGSize(width: Self.baseCellWidth * uiScale, height: Self.baseCellHeight * uiScale)
     }
     
 init(spaceIndex: Int,
@@ -109,9 +109,7 @@ var body: some View {
                     windowRect(window)
                 }
             case .icons:
-                ForEach(filteredWindows, id: \.id) { window in
-                    windowIcon(window)
-                }
+                iconGrid()
             case .thumbnails:
                 thumbnailImage(spaceIndex)
             case .simple:
@@ -127,7 +125,7 @@ var body: some View {
                 Text("\(spaceIndex)")
                     .font(.system(size: 12 * uiScale, weight: .bold))
                     .foregroundColor(textColor.opacity(0.7))
-                    .position(x: 12, y: 16)
+                    .position(Self.spaceNumberPosition(for: uiScale))
             }
 
             // Show space name (if exists) in center
@@ -135,7 +133,7 @@ var body: some View {
                 Text(name)
                     .font(.system(size: 14 * uiScale, weight: .medium))
                     .foregroundColor(textColor)
-                    .position(x: cellSize.width / 2, y: cellSize.height / 2)
+                    .position(Self.spaceNamePosition(in: cellSize))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -199,21 +197,26 @@ var body: some View {
     }
     
     @ViewBuilder
-    private func windowIcon(_ window: YabaiWindow) -> some View {
-        let scaleX = cellSize.width / displayBounds.width
-        let scaleY = cellSize.height / displayBounds.height
-        let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
-        let y = (window.cgFrame.minY - displayBounds.minY) * scaleY
-        let w = max(window.cgFrame.width * scaleX, 14)
-        let h = max(window.cgFrame.height * scaleY, 14)
-        let iconSize = min(w, h)
+    private func iconGrid() -> some View {
+        let layouts = Self.windowIconLayouts(
+            windows: filteredWindows,
+            displayBounds: displayBounds,
+            cellSize: cellSize
+        )
 
-        if let icon = appIcon(for: window.app) {
+        ForEach(layouts) { layout in
+            windowIcon(layout)
+        }
+    }
+
+    @ViewBuilder
+    private func windowIcon(_ layout: WindowIconLayout) -> some View {
+        if let icon = appIcon(for: layout.app) {
             Image(nsImage: icon)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: iconSize, height: iconSize)
-                .offset(x: x, y: y)
+                .frame(width: layout.frame.width, height: layout.frame.height)
+                .offset(x: layout.frame.minX, y: layout.frame.minY)
         }
     }
     
@@ -276,6 +279,94 @@ var body: some View {
     
     private func appColor(_ name: String) -> Color {
         Self.appColor(name, theme: resolvedTheme, windowCount: windows.count)
+    }
+
+    static func spaceNumberPosition(for uiScale: CGFloat) -> CGPoint {
+        CGPoint(x: 12 * uiScale, y: 16 * uiScale)
+    }
+
+    static func spaceNamePosition(in cellSize: CGSize) -> CGPoint {
+        CGPoint(x: cellSize.width / 2, y: cellSize.height / 2)
+    }
+
+    struct WindowIconLayout: Identifiable, Equatable {
+        let windowID: Int
+        let app: String
+        let frame: CGRect
+
+        var id: Int { windowID }
+    }
+
+    static func windowIconLayouts(
+        windows: [YabaiWindow],
+        displayBounds: CGRect,
+        cellSize: CGSize
+    ) -> [WindowIconLayout] {
+        guard !windows.isEmpty,
+              displayBounds.width > 0,
+              displayBounds.height > 0,
+              cellSize.width > 0,
+              cellSize.height > 0 else { return [] }
+
+        if windows.count == 1, let window = windows.first {
+            return [
+                WindowIconLayout(
+                    windowID: window.id,
+                    app: window.app,
+                    frame: CGRect(origin: .zero, size: cellSize)
+                )
+            ]
+        }
+
+        if windows.count == 2 {
+            let horizontal = abs(windows[0].cgFrame.midX - windows[1].cgFrame.midX)
+            let vertical = abs(windows[0].cgFrame.midY - windows[1].cgFrame.midY)
+            let sorted: [YabaiWindow]
+            let frames: [CGRect]
+
+            if horizontal >= vertical {
+                sorted = windows.sorted {
+                    if $0.cgFrame.midX == $1.cgFrame.midX {
+                        return $0.id < $1.id
+                    }
+                    return $0.cgFrame.midX < $1.cgFrame.midX
+                }
+                frames = [
+                    CGRect(x: 0, y: 0, width: cellSize.width / 2, height: cellSize.height),
+                    CGRect(x: cellSize.width / 2, y: 0, width: cellSize.width / 2, height: cellSize.height),
+                ]
+            } else {
+                sorted = windows.sorted {
+                    if $0.cgFrame.midY == $1.cgFrame.midY {
+                        return $0.id < $1.id
+                    }
+                    return $0.cgFrame.midY < $1.cgFrame.midY
+                }
+                frames = [
+                    CGRect(x: 0, y: 0, width: cellSize.width, height: cellSize.height / 2),
+                    CGRect(x: 0, y: cellSize.height / 2, width: cellSize.width, height: cellSize.height / 2),
+                ]
+            }
+
+            return zip(sorted, frames).map { window, frame in
+                WindowIconLayout(windowID: window.id, app: window.app, frame: frame)
+            }
+        }
+
+        let scaleX = cellSize.width / displayBounds.width
+        let scaleY = cellSize.height / displayBounds.height
+        let cellBounds = CGRect(origin: .zero, size: cellSize)
+
+        return windows.compactMap { window in
+            let frame = CGRect(
+                x: (window.cgFrame.minX - displayBounds.minX) * scaleX,
+                y: (window.cgFrame.minY - displayBounds.minY) * scaleY,
+                width: window.cgFrame.width * scaleX,
+                height: window.cgFrame.height * scaleY
+            ).intersection(cellBounds)
+            guard !frame.isNull, frame.width > 0, frame.height > 0 else { return nil }
+            return WindowIconLayout(windowID: window.id, app: window.app, frame: frame)
+        }
     }
 
     static func appColor(_ name: String, theme: AppTheme, windowCount: Int) -> Color {

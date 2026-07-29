@@ -13,11 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Thumbnail cell style now refreshes every visible space when the HUD opens instead of updating only the focused space after navigation.
 - Thumbnail capture now renders directly at the cell's backing resolution, limits concurrent window captures, and debounces duplicate refresh events.
 - Thumbnail cells observe atomic cache updates directly instead of rebuilding HUD panels, and each cell draws its thumbnail only once.
+- Icon-style cells now render every yabai window, use yabai geometry for correct spatial placement, give one window the full cell, and divide two-window layouts into exact spatial halves.
 
 ### Fixed
 - Thumbnail captures now exclude the Spacemap HUD and deterministically compose each space from its own yabai windows.
 - Startup prewarming and atomic full-cache generations prevent mismatched, partially loaded, or stale space thumbnails.
 - Thumbnail capture now rejects yabai's non-accessible helper-window records while including unmanaged on-screen overlays such as Raycast on the currently visible space.
+- Space-number labels now keep a consistent scaled inset from cell edges at every HUD size.
 
 ## [1.0.18] - 2026-07-27
 
