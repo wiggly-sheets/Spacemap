@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.20] - 2026-07-29
+
 ### Added
 - Added a Hybrid cell style that preserves rectangle rendering while centering a larger, proportionally scaled app icon in every window rectangle.
 
