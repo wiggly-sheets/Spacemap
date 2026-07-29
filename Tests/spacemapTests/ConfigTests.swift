@@ -124,6 +124,15 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(c.useArrowKeys)
     }
 
+    func testShowHUDOnSpaceChangeDefaultsOff() {
+        XCTAssertFalse(ConfigReader.parseConfig("").showHUDOnSpaceChange)
+    }
+
+    func testShowHUDOnSpaceChange() {
+        let c = ConfigReader.parseConfig("SHOW_HUD_ON_SPACE_CHANGE=on")
+        XCTAssertTrue(c.showHUDOnSpaceChange)
+    }
+
     // MARK: - parseConfig: Numeric values
 
     func testUIscale() {
@@ -385,6 +394,7 @@ final class ConfigTests: XCTestCase {
           "customHUDY": 0.75,
           "showExtraWindows": true,
           "focusSpaceOnWindowDrop": true,
+          "showHUDOnSpaceChange": true,
           "updateMode": "off"
         }
         """
@@ -429,6 +439,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.customHUDY, 0.75, accuracy: 0.001)
         XCTAssertTrue(c.showExtraWindows)
         XCTAssertTrue(c.focusSpaceOnWindowDrop)
+        XCTAssertTrue(c.showHUDOnSpaceChange)
         XCTAssertEqual(c.updateMode, .off)
     }
 
@@ -478,6 +489,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.hotkey.keyCode, 121)
         XCTAssertTrue(c.hotkey.modifiers.contains(.maskControl))
         XCTAssertFalse(c.focusSpaceOnWindowDrop)
+        XCTAssertFalse(c.showHUDOnSpaceChange)
     }
 
     func testPartialJSONPreservesValidFieldsAndDefaultsInvalidFields() {

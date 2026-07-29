@@ -30,6 +30,7 @@
 | `spacemap --help` | Print help and exit |
 | `spacemap --config` | Open config file in default editor and exit |
 | `spacemap --trigger` | Toggle HUD visibility and exit |
+| `spacemap --space <selector>` | Focus a yabai space and show the HUD; accepts 1–16, `prev`, `next`, `first`, `last`, `recent`, `mouse`, or a label |
 | `spacemap --show-menu` | Show menu bar dropdown (app continues running) |
 | `spacemap --settings` | Open settings window directly (app continues running) |
 
