@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.23] - 2026-07-29
+
 ### Added
 - Added configurable menu-bar workspace previews for the current space, nearby spaces, or every active space, using live yabai window geometry.
 - Added a compact menu-bar dot-grid mode that mirrors the configured workspace layout and highlights the focused space.
