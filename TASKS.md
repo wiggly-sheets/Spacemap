@@ -10,10 +10,10 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Settings Window**: Permanent System Settings-style sidebar with highlighted categories, separate live-save detail forms, space-name editor, and hotkey recorder
 - **Launch at Login**: Toggle with state indicator and first-launch prompt
 - **Move to Applications Prompt**: First-launch prompt to move app to /Applications
-- **Config File Self-Heal**: Auto-generates on first launch, self-heals missing keys, handles BOM/CR/LF
-- **Config Validation**: Validates keys/values on load, logs warnings for invalid entries
+- **TOML-only Config**: Uses grouped Settings-aligned TOML at `~/.config/spacemap/config.toml`
+- **Config File Self-Heal**: Auto-generates on first launch and repairs missing or invalid fields
+- **Config Validation**: Validates TOML keys and values on load
 - **Config Backup**: Backs up to `.bak` before any config overwrite (self-heal or first-load normalize)
-- **on/off Boolean Config**: Writes `on`/`off` for booleans; accepts all formats (`true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off`)
 
 ### HUD & Display
 
@@ -34,7 +34,7 @@ A living list of planned features, known bugs, and future improvements for the p
 ### Hotkeys & Navigation
 
 - **Hotkey Rapid-Press Fix**: `isToggling` guard in `HUDWindowController`
-- **F13-F20 Hotkeys + Hyper/Capslock/Fn Modifiers**: Full keyboard support in config parser
+- **F13-F20 Hotkeys + Fn Modifier**: Extended keyboard support in the config parser
 - **Grid-aware Keyboard Navigation**: Arrow keys + vim keys (hjkl) with row/column wrapping
 - **Auto-Hide Timeout Fix**: Fixed HUD not hiding and hotkey double-trigger
 

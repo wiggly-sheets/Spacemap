@@ -145,7 +145,7 @@ final class ThumbnailCacheTests: XCTestCase {
         let windows = [
             makeWindow(id: 11, space: 1),
             makeWindow(id: 12, space: 1, isHidden: true),
-            makeWindow(id: 13, space: 1, subLayer: "normal"),
+            makeWindow(id: 13, space: 1, isStandard: false),
             makeWindow(id: 22, space: 2),
             makeWindow(id: 23, space: 2, isMinimized: true),
         ]
@@ -179,9 +179,10 @@ final class ThumbnailCacheTests: XCTestCase {
         space: Int,
         isHidden: Bool = false,
         isMinimized: Bool = false,
-        subLayer: String = "below"
+        subLayer: String = "below",
+        isStandard: Bool = true
     ) -> YabaiWindow {
-        YabaiWindow(
+        var window = YabaiWindow(
             id: id,
             app: "Test",
             space: space,
@@ -190,6 +191,13 @@ final class ThumbnailCacheTests: XCTestCase {
             isMinimized: isMinimized,
             subLayer: subLayer
         )
+        window.role = isStandard ? "AXWindow" : "AXUnknown"
+        window.subrole = isStandard ? "AXStandardWindow" : "AXUnknown"
+        window.isRootWindow = true
+        window.hasAXReference = true
+        window.isVisible = true
+        window.isFloating = false
+        return window
     }
 
     private func solidImage(width: Int, height: Int) -> CGImage? {

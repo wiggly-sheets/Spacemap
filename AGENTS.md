@@ -19,7 +19,7 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
 - **Sparkle updater**: `App.swift` initializes `SPUStandardUpdaterController` with `startingUpdater: false`; `start()` called after config load. Keys generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`.
 - **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
-- **Data**: `YabaiClient.swift` – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows; `ConfigReader.swift` – reads `~/.config/spacemap/spacemap.jsonc`.
+- **Data**: `YabaiClient.swift` – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows; `ConfigReader.swift` – reads `~/.config/spacemap/config.toml`.
 - **Themes**: `ThemeManager.swift` – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
 - **Hotkey**: `HotkeyMonitor.swift` – global CGEventTap for toggle.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
@@ -28,7 +28,7 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – permanent category sidebar with separate live-save detail forms.
 - **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
-- **Config**: Stored at `~/.config/spacemap/spacemap.jsonc`; reloads on HUD open (except HOTKEY needs restart).
+- **Config**: Stored at `~/.config/spacemap/config.toml`; reloads on HUD open (except HOTKEY needs restart).
 - **Permissions**: Requires Accessibility permission (prompted on first launch). Screen Recording permission required for thumbnail cell style.
 - **Sparkle Keys**: Public key is in `sparklesigner.pub`; `sparklesigner.pem` is the matching local PEM private key. Both are `.gitignore`d. GitHub `SPARKLE_PUBLIC_KEY` stores the public key; `SPARKLE_PRIVATE_KEY` must contain the matching base64-encoded 32-byte Ed25519 seed (not the PEM file). The release workflow verifies the pair before building.
 
@@ -49,7 +49,7 @@ Sources/spacemap/
 ├── GridView.swift         # SwiftUI grid container
 ├── CellView.swift         # Individual cell rendering (rects/icons/thumbnails)
 ├── YabaiClient.swift      # Shells out to yabai binary for data/manipulation
-├── ConfigReader.swift     # Parses ~/.config/spacemap/spacemap.jsonc
+├── ConfigReader.swift     # Parses ~/.config/spacemap/config.toml
 ├── HotkeyMonitor.swift   # Global CGEventTap for toggle hotkey
 ├── WindowDragHandler.swift # Detects window drag-and-drop over HUD
 ├── SocketListener.swift   # Unix domain socket server for yabai signals
@@ -77,13 +77,20 @@ Sources/spacemap/
 - **skhd** (installed at `/opt/homebrew/bin/skhd`) - hotkey daemon, configured for 2D grid navigation
 
 ### Configuration
-Reads from `~/.config/spacemap/spacemap.jsonc` on every HUD open (no restart needed):
+Reads from `~/.config/spacemap/config.toml` on every HUD open (no restart needed):
 ```bash
-GRID_COLS=8              # Grid columns
-GRID_ROWS=2              # Grid rows
-CELL_STYLE=rects         # rects | hybrid | icons | thumbnails | simple
-HOTKEY=ctrl+space         # Toggle hotkey (requires restart)
-SOCKET_HEALTH_INTERVAL=60  # Socket health check interval (seconds)
+[grid]
+cols = 8
+rows = 2
+cellStyle = "rects"
+
+[behavior.hotkey]
+keyKind = "keyCode"
+keyCode = 49
+modifiers = ["ctrl"]
+
+[advanced]
+socketHealthInterval = 60
 ```
 
 ## Important Technical Details
@@ -229,5 +236,5 @@ See [TASKS.md](./TASKS.md) for planned features, bug fixes, and known issues.
 ## Questions
 
 1. **Electron app?** It is pure Swift with SwiftUI
-2. **Accessibility of the config?** The config file uses a simple key=value format, but there's no validation or schema. Would a JSON or YAML config be better?
+2. **Accessibility of the config?** The TOML config is grouped to match the Settings categories and self-heals invalid fields.
 3. **Hotkey parsing limitations?** The hotkey parser only supports a subset of keys (see `ConfigReader.keyCodeFor`). Keys like F13-F20, media keys, etc., are not supported. Is this by design?

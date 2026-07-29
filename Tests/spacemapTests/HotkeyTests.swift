@@ -68,14 +68,10 @@ final class HotkeyTests: XCTestCase {
         XCTAssertEqual(ConfigReader.keyCodeFor("space"), 49)
         XCTAssertEqual(ConfigReader.keyCodeFor("tab"), 48)
         XCTAssertEqual(ConfigReader.keyCodeFor("return"), 36)
-        XCTAssertEqual(ConfigReader.keyCodeFor("enter"), 36)
         XCTAssertEqual(ConfigReader.keyCodeFor("escape"), 53)
         XCTAssertEqual(ConfigReader.keyCodeFor("delete"), 51)
-        XCTAssertEqual(ConfigReader.keyCodeFor("backspace"), 51)
         XCTAssertEqual(ConfigReader.keyCodeFor("pgdn"), 121)
-        XCTAssertEqual(ConfigReader.keyCodeFor("pagedown"), 121)
         XCTAssertEqual(ConfigReader.keyCodeFor("pgup"), 116)
-        XCTAssertEqual(ConfigReader.keyCodeFor("pageup"), 116)
         XCTAssertEqual(ConfigReader.keyCodeFor("home"), 115)
         XCTAssertEqual(ConfigReader.keyCodeFor("end"), 119)
     }
@@ -108,6 +104,10 @@ final class HotkeyTests: XCTestCase {
     func testKeyCodeForUnknownReturnsNil() {
         XCTAssertNil(ConfigReader.keyCodeFor("f21"))
         XCTAssertNil(ConfigReader.keyCodeFor("capslock"))
+        XCTAssertNil(ConfigReader.keyCodeFor("enter"))
+        XCTAssertNil(ConfigReader.keyCodeFor("backspace"))
+        XCTAssertNil(ConfigReader.keyCodeFor("pagedown"))
+        XCTAssertNil(ConfigReader.keyCodeFor("pageup"))
     }
 
     // MARK: - hotkeyToString

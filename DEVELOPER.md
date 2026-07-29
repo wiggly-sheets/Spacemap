@@ -32,7 +32,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 ## Configuration System
 
 ### Config File Location
-`~/.config/spacemap/spacemap.jsonc` — read on every HUD open. The former `~/.config/spacemap/config` path migrates automatically. Invalid fields self-heal individually after backing up to `spacemap.jsonc.bak`.
+`~/.config/spacemap/config.toml` — read on every HUD open. Invalid fields self-heal individually after backing up to `config.toml.bak`.
 
 ### Config Keys
 | Key | Type | Default | Range | Description |
@@ -212,7 +212,7 @@ Hosted at `https://wiggly-sheets.github.io/Spacemap/appcast.xml` via GitHub Page
 | `notify` | Checks periodically, shows dialog with release notes |
 | `off` | Disables update checking entirely |
 
-First-launch prompt asks the user to choose. Setting is stored in `~/.config/spacemap/spacemap.jsonc` as `updateMode`.
+First-launch prompt asks the user to choose. Setting is stored in `~/.config/spacemap/config.toml` as `updateMode`.
 
 ### Info.plist Keys
 | Key | Value |

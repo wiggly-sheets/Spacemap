@@ -38,7 +38,7 @@
 
 | File | Purpose |
 |------|---------|
-| `~/.config/spacemap/spacemap.jsonc` | User configuration (reloads on HUD open; Settings applies hotkeys immediately) |
+| `~/.config/spacemap/config.toml` | User configuration (reloads on HUD open; Settings applies hotkeys immediately) |
 | `/Applications/Spacemap.app` | Installed application bundle |
 | `/usr/local/bin/spacemap` | CLI symlink (if installed) |
 | `/tmp/spacemap_<username>.socket` | Unix domain socket for yabai signals |
