@@ -5,6 +5,7 @@ import AppKit
 ///
 /// Supported cell styles:
 /// - .rects:      Colored rectangles representing window positions/sizes
+/// - .hybrid:     Rectangles with a small centered app icon
 /// - .icons:      Window icons arranged from yabai's window geometry
 /// - .thumbnails: Live window content thumbnails (requires screen recording permission)
 /// - .simple:     Empty cells with no window content
@@ -36,7 +37,6 @@ struct CellView: View {
     private let showIconStrip: Bool
     private let showMultiAppIcons: Bool
     private let showExtraWindows: Bool
-    private let windowFilter: ([YabaiWindow]) -> [YabaiWindow]
 
     private var isDarkMode: Bool {
         switch mode {
@@ -47,7 +47,14 @@ struct CellView: View {
     }
 
     private var filteredWindows: [YabaiWindow] {
-        windowFilter(windows)
+        windows.filter {
+            $0.shouldDisplay(
+                showExtraWindows: showExtraWindows,
+                ownerIsRegularApplication: IconCache.shared.isRegularApplication(
+                    processIdentifier: $0.pid
+                )
+            )
+        }
     }
 
     private var cellSize: CGSize {
@@ -92,9 +99,6 @@ init(spaceIndex: Int,
         self.showIconStrip = showIconStrip
         self.showMultiAppIcons = showMultiAppIcons
         self.showExtraWindows = showExtraWindows
-        self.windowFilter = showExtraWindows
-            ? { $0.filter { !$0.isHidden && !$0.isMinimized } }
-            : { $0.filter { $0.isRealWindow } }
     }
 
     
@@ -107,6 +111,13 @@ var body: some View {
             case .rects:
                 ForEach(filteredWindows, id: \.id) { window in
                     windowRect(window)
+                }
+            case .hybrid:
+                ForEach(filteredWindows, id: \.id) { window in
+                    windowRect(window)
+                }
+                ForEach(filteredWindows, id: \.id) { window in
+                    hybridWindowIcon(window)
                 }
             case .icons:
                 iconGrid()
@@ -183,17 +194,32 @@ var body: some View {
     
     @ViewBuilder
     private func windowRect(_ window: YabaiWindow) -> some View {
-        let scaleX = cellSize.width / displayBounds.width
-        let scaleY = cellSize.height / displayBounds.height
-        let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
-        let y = (window.cgFrame.minY - displayBounds.minY) * scaleY
-        let w = max(window.cgFrame.width * scaleX, 2)
-        let h = max(window.cgFrame.height * scaleY, 2)
-        
-        RoundedRectangle(cornerRadius: 1)
-            .fill(appColor(window.app).opacity(0.6))
-            .frame(width: w, height: h)
-            .offset(x: x, y: y)
+        if let frame = Self.scaledWindowFrame(
+            windowFrame: window.cgFrame,
+            displayBounds: displayBounds,
+            cellSize: cellSize
+        ) {
+            RoundedRectangle(cornerRadius: 1)
+                .fill(appColor(window.app).opacity(0.6))
+                .frame(width: frame.width, height: frame.height)
+                .offset(x: frame.minX, y: frame.minY)
+        }
+    }
+
+    @ViewBuilder
+    private func hybridWindowIcon(_ window: YabaiWindow) -> some View {
+        if let frame = Self.scaledWindowFrame(
+            windowFrame: window.cgFrame,
+            displayBounds: displayBounds,
+            cellSize: cellSize
+        ), let icon = appIcon(for: window.app) {
+            let iconSize = Self.hybridIconSize(uiScale: uiScale, windowFrame: frame)
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: iconSize, height: iconSize)
+                .position(x: frame.midX, y: frame.midY)
+        }
     }
     
     @ViewBuilder
@@ -255,10 +281,15 @@ var body: some View {
 
     static func uniqueIconWindows(_ windows: [YabaiWindow], showExtraWindows: Bool = false) -> [YabaiWindow] {
         var seen = Set<String>()
-        let filter: (YabaiWindow) -> Bool = showExtraWindows
-            ? { !$0.isHidden && !$0.isMinimized }
-            : { $0.isRealWindow }
-        return windows.filter { filter($0) && seen.insert($0.app).inserted }
+        return windows.filter {
+            $0.shouldDisplay(
+                showExtraWindows: showExtraWindows,
+                ownerIsRegularApplication: IconCache.shared.isRegularApplication(
+                    processIdentifier: $0.pid
+                )
+            ) &&
+                seen.insert($0.app).inserted
+        }
     }
     
     private func appIcon(for appName: String) -> NSImage? {
@@ -282,11 +313,36 @@ var body: some View {
     }
 
     static func spaceNumberPosition(for uiScale: CGFloat) -> CGPoint {
-        CGPoint(x: 12 * uiScale, y: 16 * uiScale)
+        CGPoint(x: 8 * uiScale, y: 10 * uiScale)
     }
 
     static func spaceNamePosition(in cellSize: CGSize) -> CGPoint {
         CGPoint(x: cellSize.width / 2, y: cellSize.height / 2)
+    }
+
+    static func scaledWindowFrame(
+        windowFrame: CGRect,
+        displayBounds: CGRect,
+        cellSize: CGSize
+    ) -> CGRect? {
+        guard displayBounds.width > 0,
+              displayBounds.height > 0,
+              cellSize.width > 0,
+              cellSize.height > 0 else { return nil }
+
+        let scaleX = cellSize.width / displayBounds.width
+        let scaleY = cellSize.height / displayBounds.height
+        return CGRect(
+            x: (windowFrame.minX - displayBounds.minX) * scaleX,
+            y: (windowFrame.minY - displayBounds.minY) * scaleY,
+            width: max(windowFrame.width * scaleX, 2),
+            height: max(windowFrame.height * scaleY, 2)
+        )
+    }
+
+    static func hybridIconSize(uiScale: CGFloat, windowFrame: CGRect) -> CGFloat {
+        guard uiScale > 0, windowFrame.width > 0, windowFrame.height > 0 else { return 0 }
+        return min(26.25 * uiScale, min(windowFrame.width, windowFrame.height) * 0.75)
     }
 
     struct WindowIconLayout: Identifiable, Equatable {

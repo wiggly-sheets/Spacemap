@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added a Hybrid cell style that preserves rectangle rendering while centering a larger, proportionally scaled app icon in every window rectangle.
+
+### Changed
+- Moved space-number labels closer to the top-left while preserving proportional insets across HUD sizes.
+- Moved Show Extra Windows into Debug/Advanced settings while preserving its explanatory help text.
+
+### Fixed
+- Hybrid cells, icon strips, and thumbnails now combine yabai window metadata with cached macOS app activation policy, retaining regular app windows even when AX fields disappear while Show Extra Windows controls utility/background records.
+- Global hotkeys now recover without an app restart after Accessibility permission changes, event-tap invalidation, system disablement, or delayed tap creation.
+
 
 ## [1.0.19] - 2026-07-29
 
