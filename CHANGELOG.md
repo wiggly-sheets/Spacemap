@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Thumbnail cell style now refreshes every visible space when the HUD opens instead of updating only the focused space after navigation.
+
+### Fixed
+- Thumbnail captures now exclude the Spacemap HUD and deterministically compose each space from its own yabai windows.
+- Startup prewarming and atomic full-cache generations prevent mismatched, partially loaded, or stale space thumbnails.
 
 ## [1.0.18] - 2026-07-27
 

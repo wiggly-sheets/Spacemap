@@ -158,6 +158,7 @@ class HUDWindowController {
                 guard let self else { return }
                 self.latestState = state
                 self.preloadIcons(for: state)
+                self.refreshAllThumbnails(state: state)
                 if self.isVisible, self.currentState == nil {
                     self.displayCachedState(state)
                 }
@@ -207,7 +208,7 @@ class HUDWindowController {
                 self.currentState = state
                 self.dragHandler.cachedWindows = state.windows
                 self.preloadIcons(for: state)
-                self.refreshThumbnailCache(state: state)
+                self.refreshAllThumbnails(state: state)
                 self.renderState(state)
                 self.updateCellFrames(state: state)
                 self.lastFocusedSpaceIndex = state.focusedIndex
@@ -361,7 +362,7 @@ class HUDWindowController {
                 self.currentState = displayedState
                 self.dragHandler.cachedWindows = displayedState.windows
                 self.preloadIcons(for: displayedState)
-                self.refreshThumbnailCache(state: displayedState)
+                self.refreshAllThumbnails(state: displayedState)
                 self.renderState(displayedState)
                 self.updateCellFrames(state: displayedState)
                 self.lastFocusedSpaceIndex = displayedState.focusedIndex
@@ -633,18 +634,35 @@ class HUDWindowController {
         _config = nil
     }
 
-    private func refreshThumbnailCache(state: GridState) {
+    private func refreshAllThumbnails(state: GridState) {
         guard #available(macOS 14.0, *) else { return }
         guard config.cellStyle == .thumbnails else { return }
-        guard let focusedIndex = state.focusedIndex else { return }
-        let displayID: CGDirectDisplayID? = state.displayIndex(forSpace: focusedIndex).flatMap { displayIndex in
-            guard let screen = screen(forDisplay: displayIndex, in: state),
-                  let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
-                return nil
-            }
-            return CGDirectDisplayID(number.uint32Value)
+
+        let visibleSpaceIndices: Set<Int>
+        switch config.multiMonitorHUDMode {
+        case .unified:
+            visibleSpaceIndices = Set(GridView.computeVisibleSpaceIndices(
+                maxSpaces: config.maxSpaces,
+                showMode: config.showMode,
+                activeIndices: Set(state.spaces.map(\.index))
+            ))
+        case .separate:
+            visibleSpaceIndices = Set(state.spaces.map(\.index))
         }
-        ThumbnailCache.shared.captureActiveSpace(spaceIndex: focusedIndex, displayID: displayID)
+
+        let requests = ThumbnailCache.captureRequests(
+            for: state,
+            spaceIndices: visibleSpaceIndices
+        )
+
+        ThumbnailCache.shared.refreshSpaces(requests) { [weak self] in
+            self?.redrawThumbnails()
+        }
+    }
+
+    private func redrawThumbnails() {
+        guard isVisible, let currentState else { return }
+        renderState(currentState)
     }
 
     private func startPanelDragMonitor() {
