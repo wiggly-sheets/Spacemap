@@ -8,13 +8,14 @@ final class ModelTests: XCTestCase {
 
     func testDecodeYabaiSpace() throws {
         let json = """
-        {"id":1,"index":1,"display":1,"has-focus":true,"label":"Term"}
+        {"id":1,"index":1,"display":1,"has-focus":true,"is-visible":true,"label":"Term"}
         """.data(using: .utf8)!
         let space = try JSONDecoder().decode(YabaiSpace.self, from: json)
         XCTAssertEqual(space.id, 1)
         XCTAssertEqual(space.index, 1)
         XCTAssertEqual(space.display, 1)
         XCTAssertTrue(space.hasFocus)
+        XCTAssertEqual(space.isVisible, true)
         XCTAssertEqual(space.label, "Term")
     }
 
@@ -91,9 +92,9 @@ final class ModelTests: XCTestCase {
 
     func testGridStateGroupsSpacesAndUsesOwningDisplayBounds() {
         let spaces = [
-            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, label: nil),
-            YabaiSpace(id: 2, index: 2, display: 2, hasFocus: false, label: nil),
-            YabaiSpace(id: 3, index: 3, display: 1, hasFocus: false, label: nil)
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 2, hasFocus: false, isVisible: true, label: nil),
+            YabaiSpace(id: 3, index: 3, display: 1, hasFocus: false, isVisible: false, label: nil)
         ]
         let displays = [
             YabaiDisplay(index: 1, frame: .init(x: 0, y: 0, w: 1440, h: 900), hasFocus: true),

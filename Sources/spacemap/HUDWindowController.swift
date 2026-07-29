@@ -158,7 +158,7 @@ class HUDWindowController {
                 guard let self else { return }
                 self.latestState = state
                 self.preloadIcons(for: state)
-                self.refreshAllThumbnails(state: state)
+                self.refreshAllThumbnails(state: state, force: true)
                 if self.isVisible, self.currentState == nil {
                     self.displayCachedState(state)
                 }
@@ -208,7 +208,7 @@ class HUDWindowController {
                 self.currentState = state
                 self.dragHandler.cachedWindows = state.windows
                 self.preloadIcons(for: state)
-                self.refreshAllThumbnails(state: state)
+                self.refreshAllThumbnails(state: state, force: true)
                 self.renderState(state)
                 self.updateCellFrames(state: state)
                 self.lastFocusedSpaceIndex = state.focusedIndex
@@ -634,7 +634,7 @@ class HUDWindowController {
         _config = nil
     }
 
-    private func refreshAllThumbnails(state: GridState) {
+    private func refreshAllThumbnails(state: GridState, force: Bool = false) {
         guard #available(macOS 14.0, *) else { return }
         guard config.cellStyle == .thumbnails else { return }
 
@@ -650,19 +650,19 @@ class HUDWindowController {
             visibleSpaceIndices = Set(state.spaces.map(\.index))
         }
 
+        let cellScale = GridView.effectiveScale(for: config.uiScale)
+        let backingScale = NSScreen.screens.map(\.backingScaleFactor).max() ?? 2
+        let thumbnailPixelSize = CGSize(
+            width: 80 * cellScale * backingScale,
+            height: 50 * cellScale * backingScale
+        )
         let requests = ThumbnailCache.captureRequests(
             for: state,
-            spaceIndices: visibleSpaceIndices
+            spaceIndices: visibleSpaceIndices,
+            thumbnailPixelSize: thumbnailPixelSize
         )
 
-        ThumbnailCache.shared.refreshSpaces(requests) { [weak self] in
-            self?.redrawThumbnails()
-        }
-    }
-
-    private func redrawThumbnails() {
-        guard isVisible, let currentState else { return }
-        renderState(currentState)
+        ThumbnailCache.shared.refreshSpaces(requests, force: force)
     }
 
     private func startPanelDragMonitor() {

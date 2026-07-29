@@ -1,6 +1,27 @@
 import Foundation
+import AppKit
+import Combine
 import CoreGraphics
 import ScreenCaptureKit
+
+@MainActor
+final class ThumbnailStore: ObservableObject {
+    static let shared = ThumbnailStore()
+
+    @Published private var images: [Int: NSImage] = [:]
+
+    func image(forSpace index: Int) -> NSImage? {
+        images[index]
+    }
+
+    fileprivate func replace(with images: [Int: NSImage]) {
+        self.images = images
+    }
+
+    fileprivate func removeAll() {
+        images.removeAll()
+    }
+}
 
 /// Captures individual yabai windows and composites them into per-space images.
 /// Window-only capture prevents Spacemap's own HUD from entering thumbnails and
@@ -15,40 +36,63 @@ final class ThumbnailCache {
     struct CaptureRequest: Equatable {
         let spaceIndex: Int
         let displayFrame: CGRect
+        let outputSize: CGSize
+        let includeUnmanagedOnScreenWindows: Bool
+        let knownYabaiWindowIDs: Set<CGWindowID>
         let windows: [CaptureWindow]
     }
 
     private struct RefreshJob {
         let generation: Int
         let requests: [CaptureRequest]
-        let completion: @MainActor @Sendable () -> Void
+    }
+
+    private struct WindowTarget {
+        let windowID: CGWindowID
+        let window: SCWindow
+        let outputSize: CGSize
     }
 
     static let shared = ThumbnailCache()
+    static let maxConcurrentCaptures = 4
+    static let duplicateRefreshTTL: TimeInterval = 0.25
+    static let defaultThumbnailPixelSize = CGSize(width: 320, height: 200)
+    private static let excludedUnmanagedBundleIDs: Set<String> = [
+        "com.apple.controlcenter",
+        "com.apple.dock",
+        "com.apple.loginwindow",
+        "com.apple.notificationcenterui",
+        "com.apple.Spotlight",
+        "com.apple.systemuiserver",
+        "com.apple.WindowManager",
+    ]
 
-    private var cgCache: [Int: CGImage] = [:]
-    private var nsCache: [Int: NSImage] = [:]
     private var refreshGeneration = 0
     private var activeRequests: [CaptureRequest]?
     private var pendingRefresh: RefreshJob?
+    private var lastCompletedRequests: [CaptureRequest]?
+    private var lastCompletedAt: TimeInterval = 0
     private let queue = DispatchQueue(label: "com.spacemap.thumbnailcache")
 
-    /// Capture every requested space, then replace the cache in one operation.
-    /// A newer refresh invalidates any older in-flight generation.
-    func refreshSpaces(
-        _ requests: [CaptureRequest],
-        completion: @escaping @MainActor @Sendable () -> Void
-    ) {
+    /// Capture every requested space and publish one atomic cache update.
+    /// A newer refresh supersedes older work; identical bursts are coalesced.
+    func refreshSpaces(_ requests: [CaptureRequest], force: Bool = false) {
         let jobToStart: RefreshJob? = queue.sync {
+            let now = ProcessInfo.processInfo.systemUptime
+            if !force,
+               requests == lastCompletedRequests,
+               now - lastCompletedAt < Self.duplicateRefreshTTL {
+                return nil
+            }
             if requests == pendingRefresh?.requests ||
                 (requests == activeRequests && pendingRefresh == nil) {
                 return nil
             }
+
             refreshGeneration += 1
             let job = RefreshJob(
                 generation: refreshGeneration,
-                requests: requests,
-                completion: completion
+                requests: requests
             )
             if activeRequests != nil {
                 pendingRefresh = job
@@ -73,39 +117,70 @@ final class ThumbnailCache {
                     shareableWindows[window.windowID] = window
                 }
 
+                let knownYabaiWindowIDs = Set(
+                    job.requests.flatMap(\.knownYabaiWindowIDs)
+                )
+                let currentPID = getpid()
+                let effectiveRequests = job.requests.map { request in
+                    guard request.includeUnmanagedOnScreenWindows else { return request }
+                    let unmanagedWindows = content.windows.compactMap { window -> CaptureWindow? in
+                        guard Self.shouldIncludeUnmanagedWindow(
+                            windowID: window.windowID,
+                            isOnScreen: window.isOnScreen,
+                            windowLayer: window.windowLayer,
+                            ownerPID: window.owningApplication?.processID,
+                            bundleIdentifier: window.owningApplication?.bundleIdentifier,
+                            frame: window.frame,
+                            displayFrame: request.displayFrame,
+                            knownYabaiWindowIDs: knownYabaiWindowIDs,
+                            currentPID: currentPID
+                        ) else {
+                            return nil
+                        }
+                        return CaptureWindow(
+                            windowID: window.windowID,
+                            frame: window.frame
+                        )
+                    }
+                    return CaptureRequest(
+                        spaceIndex: request.spaceIndex,
+                        displayFrame: request.displayFrame,
+                        outputSize: request.outputSize,
+                        includeUnmanagedOnScreenWindows: true,
+                        knownYabaiWindowIDs: request.knownYabaiWindowIDs,
+                        windows: request.windows + unmanagedWindows
+                    )
+                }
+
                 var requestedWindows: [CGWindowID: CaptureWindow] = [:]
-                for request in job.requests {
+                var captureSizes: [CGWindowID: CGSize] = [:]
+                for request in effectiveRequests {
+                    let scaleX = request.outputSize.width / request.displayFrame.width
+                    let scaleY = request.outputSize.height / request.displayFrame.height
                     for window in request.windows {
                         requestedWindows[window.windowID] = window
+                        captureSizes[window.windowID] = CGSize(
+                            width: max(1, window.frame.width * scaleX),
+                            height: max(1, window.frame.height * scaleY)
+                        )
                     }
                 }
 
-                let windowImages = await withTaskGroup(
-                    of: (CGWindowID, CGImage?).self,
-                    returning: [CGWindowID: CGImage].self
-                ) { group in
-                    for (windowID, requestedWindow) in requestedWindows {
-                        guard let window = shareableWindows[windowID] else { continue }
-                        group.addTask {
-                            let image = await Self.capture(
-                                window: window,
-                                size: requestedWindow.frame.size
-                            )
-                            return (windowID, image)
-                        }
+                let targets = requestedWindows.keys.sorted().compactMap { windowID -> WindowTarget? in
+                    guard let window = shareableWindows[windowID],
+                          let outputSize = captureSizes[windowID] else {
+                        return nil
                     }
-
-                    var results: [CGWindowID: CGImage] = [:]
-                    for await (windowID, image) in group {
-                        if let image {
-                            results[windowID] = image
-                        }
-                    }
-                    return results
+                    return WindowTarget(
+                        windowID: windowID,
+                        window: window,
+                        outputSize: outputSize
+                    )
                 }
+                let windowImages = await Self.captureWindows(targets)
 
                 var captures: [Int: CGImage] = [:]
-                for request in job.requests {
+                for request in effectiveRequests {
                     if let image = Self.composite(
                         request: request,
                         windowImages: windowImages
@@ -113,25 +188,28 @@ final class ThumbnailCache {
                         captures[request.spaceIndex] = image
                     }
                 }
-
-                let applied = queue.sync {
-                    guard job.generation == refreshGeneration else { return false }
-                    cgCache = captures
-                    nsCache = captures.mapValues {
-                        NSImage(
-                            cgImage: $0,
-                            size: NSSize(width: $0.width, height: $0.height)
-                        )
-                    }
-                    return true
+                let images = captures.mapValues {
+                    NSImage(
+                        cgImage: $0,
+                        size: NSSize(width: $0.width, height: $0.height)
+                    )
                 }
-                guard applied else { return }
 
-                NSLog(
-                    "spacemap/ThumbnailCache: refreshed \(captures.count) spaces " +
-                    "from \(windowImages.count)/\(requestedWindows.count) windows"
-                )
-                DispatchQueue.main.async(execute: job.completion)
+                let applied = await MainActor.run {
+                    queue.sync {
+                        guard job.generation == refreshGeneration else { return false }
+                        lastCompletedRequests = job.requests
+                        lastCompletedAt = ProcessInfo.processInfo.systemUptime
+                        ThumbnailStore.shared.replace(with: images)
+                        return true
+                    }
+                }
+                if applied {
+                    NSLog(
+                        "spacemap/ThumbnailCache: refreshed \(captures.count) spaces " +
+                        "from \(windowImages.count)/\(requestedWindows.count) windows"
+                    )
+                }
             } catch {
                 NSLog("spacemap/ThumbnailCache: SCK refresh error: \(error.localizedDescription)")
             }
@@ -154,15 +232,23 @@ final class ThumbnailCache {
 
     static func captureRequests(
         for state: GridState,
-        spaceIndices: Set<Int>? = nil
+        spaceIndices: Set<Int>? = nil,
+        thumbnailPixelSize: CGSize = defaultThumbnailPixelSize
     ) -> [CaptureRequest] {
-        state.spaces.sorted { $0.index < $1.index }.compactMap { space in
+        let knownYabaiWindowIDs = Set(
+            state.windows.map { CGWindowID(truncatingIfNeeded: $0.id) }
+        )
+        return state.spaces.sorted { $0.index < $1.index }.compactMap { space in
             guard spaceIndices?.contains(space.index) ?? true else { return nil }
             let displayFrame = state.displayBounds(forSpace: space.index)
             guard displayFrame.width > 0, displayFrame.height > 0 else { return nil }
 
             let windows = state.windows(forSpace: space.index)
-                .filter { !$0.isHidden && !$0.isMinimized }
+                .filter {
+                    state.config.showExtraWindows
+                        ? !$0.isHidden && !$0.isMinimized
+                        : $0.isRealWindow
+                }
                 .map {
                     CaptureWindow(
                         windowID: CGWindowID(truncatingIfNeeded: $0.id),
@@ -172,36 +258,73 @@ final class ThumbnailCache {
             return CaptureRequest(
                 spaceIndex: space.index,
                 displayFrame: displayFrame,
+                outputSize: aspectFillSize(
+                    source: displayFrame.size,
+                    target: thumbnailPixelSize
+                ),
+                includeUnmanagedOnScreenWindows:
+                    space.isVisible == true ||
+                    (space.isVisible == nil && space.hasFocus),
+                knownYabaiWindowIDs: knownYabaiWindowIDs,
                 windows: windows
             )
         }
     }
 
-    /// Get cached thumbnail for a space.
-    func thumbnail(forSpace index: Int) -> CGImage? {
-        queue.sync { cgCache[index] }
+    static func shouldIncludeUnmanagedWindow(
+        windowID: CGWindowID,
+        isOnScreen: Bool,
+        windowLayer: Int,
+        ownerPID: pid_t?,
+        bundleIdentifier: String?,
+        frame: CGRect,
+        displayFrame: CGRect,
+        knownYabaiWindowIDs: Set<CGWindowID>,
+        currentPID: pid_t
+    ) -> Bool {
+        guard isOnScreen, windowLayer >= 0,
+              let ownerPID, ownerPID != currentPID,
+              !knownYabaiWindowIDs.contains(windowID),
+              frame.width >= 16, frame.height >= 16,
+              frame.intersects(displayFrame) else {
+            return false
+        }
+        if let bundleIdentifier,
+           excludedUnmanagedBundleIDs.contains(bundleIdentifier) {
+            return false
+        }
+        return true
     }
 
-    /// Get cached NSImage for a space.
-    func thumbnailNSImage(forSpace index: Int) -> NSImage? {
-        queue.sync { nsCache[index] }
+    static func aspectFillSize(source: CGSize, target: CGSize) -> CGSize {
+        guard source.width > 0, source.height > 0,
+              target.width > 0, target.height > 0 else {
+            return .zero
+        }
+        let scale = max(target.width / source.width, target.height / source.height)
+        return CGSize(
+            width: (source.width * scale).rounded(.up),
+            height: (source.height * scale).rounded(.up)
+        )
     }
 
+    @MainActor
     func clear() {
         queue.sync {
             refreshGeneration += 1
             pendingRefresh = nil
-            cgCache.removeAll()
-            nsCache.removeAll()
+            lastCompletedRequests = nil
+            lastCompletedAt = 0
         }
+        ThumbnailStore.shared.removeAll()
     }
 
     static func composite(
         request: CaptureRequest,
         windowImages: [CGWindowID: CGImage]
     ) -> CGImage? {
-        let width = Int(request.displayFrame.width.rounded(.up))
-        let height = Int(request.displayFrame.height.rounded(.up))
+        let width = Int(request.outputSize.width.rounded(.up))
+        let height = Int(request.outputSize.height.rounded(.up))
         guard width > 0, height > 0 else { return nil }
         guard let context = CGContext(
             data: nil,
@@ -217,19 +340,58 @@ final class ThumbnailCache {
 
         context.clear(CGRect(x: 0, y: 0, width: width, height: height))
         context.interpolationQuality = .high
+        let scaleX = request.outputSize.width / request.displayFrame.width
+        let scaleY = request.outputSize.height / request.displayFrame.height
         for window in request.windows {
             guard let image = windowImages[window.windowID] else { continue }
             let relativeX = window.frame.minX - request.displayFrame.minX
             let relativeTop = window.frame.minY - request.displayFrame.minY
             let destination = CGRect(
-                x: relativeX,
-                y: request.displayFrame.height - relativeTop - window.frame.height,
-                width: window.frame.width,
-                height: window.frame.height
+                x: relativeX * scaleX,
+                y: request.outputSize.height -
+                    (relativeTop + window.frame.height) * scaleY,
+                width: window.frame.width * scaleX,
+                height: window.frame.height * scaleY
             )
             context.draw(image, in: destination)
         }
         return context.makeImage()
+    }
+
+    private static func captureWindows(
+        _ targets: [WindowTarget]
+    ) async -> [CGWindowID: CGImage] {
+        await withTaskGroup(
+            of: (CGWindowID, CGImage?).self,
+            returning: [CGWindowID: CGImage].self
+        ) { group in
+            var iterator = targets.makeIterator()
+            for _ in 0..<min(maxConcurrentCaptures, targets.count) {
+                guard let target = iterator.next() else { break }
+                group.addTask {
+                    (
+                        target.windowID,
+                        await capture(window: target.window, size: target.outputSize)
+                    )
+                }
+            }
+
+            var results: [CGWindowID: CGImage] = [:]
+            while let (windowID, image) = await group.next() {
+                if let image {
+                    results[windowID] = image
+                }
+                if let target = iterator.next() {
+                    group.addTask {
+                        (
+                            target.windowID,
+                            await capture(window: target.window, size: target.outputSize)
+                        )
+                    }
+                }
+            }
+            return results
+        }
     }
 
     private static func capture(window: SCWindow, size: CGSize) async -> CGImage? {
