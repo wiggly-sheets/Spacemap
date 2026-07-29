@@ -237,11 +237,13 @@ struct YabaiSpace: Decodable {
     let index: Int
     let display: Int
     let hasFocus: Bool
+    let isVisible: Bool?
     let label: String? // space name from yabai
 
     enum CodingKeys: String, CodingKey {
         case id, index, display
         case hasFocus = "has-focus"
+        case isVisible = "is-visible"
         case label
     }
 }

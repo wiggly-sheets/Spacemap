@@ -10,6 +10,12 @@ final class ThumbnailCacheTests: XCTestCase {
 
         XCTAssertEqual(requests.map(\.spaceIndex), [1, 2, 3])
         XCTAssertEqual(requests.map(\.displayFrame.width), [1000, 1200, 1000])
+        XCTAssertEqual(requests.map(\.outputSize.width), [320, 320, 320])
+        XCTAssertEqual(requests.map(\.outputSize.height), [256, 240, 256])
+        XCTAssertEqual(
+            requests.map(\.includeUnmanagedOnScreenWindows),
+            [true, true, false]
+        )
         XCTAssertEqual(requests[0].windows.map(\.windowID), [11])
         XCTAssertEqual(requests[1].windows.map(\.windowID), [22])
         XCTAssertTrue(requests[2].windows.isEmpty)
@@ -36,6 +42,9 @@ final class ThumbnailCacheTests: XCTestCase {
         let request = ThumbnailCache.CaptureRequest(
             spaceIndex: 1,
             displayFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
+            outputSize: CGSize(width: 50, height: 50),
+            includeUnmanagedOnScreenWindows: false,
+            knownYabaiWindowIDs: [11],
             windows: [
                 .init(
                     windowID: 11,
@@ -49,21 +58,94 @@ final class ThumbnailCacheTests: XCTestCase {
         )
         let bitmap = NSBitmapImageRep(cgImage: composite)
 
-        XCTAssertEqual(composite.width, 100)
-        XCTAssertEqual(composite.height, 100)
-        XCTAssertGreaterThan(bitmap.colorAt(x: 20, y: 50)?.alphaComponent ?? 0, 0.9)
+        XCTAssertEqual(composite.width, 50)
+        XCTAssertEqual(composite.height, 50)
+        XCTAssertGreaterThan(bitmap.colorAt(x: 10, y: 25)?.alphaComponent ?? 0, 0.9)
         XCTAssertLessThan(bitmap.colorAt(x: 0, y: 0)?.alphaComponent ?? 1, 0.1)
     }
 
-    private func makeState(includeSecondDisplay: Bool = true) -> GridState {
+    func testAspectFillSizePreservesDisplayAspectRatio() {
+        let size = ThumbnailCache.aspectFillSize(
+            source: CGSize(width: 2560, height: 1440),
+            target: CGSize(width: 320, height: 200)
+        )
+
+        XCTAssertEqual(size, CGSize(width: 356, height: 200))
+        XCTAssertEqual(ThumbnailCache.maxConcurrentCaptures, 4)
+        XCTAssertEqual(ThumbnailCache.duplicateRefreshTTL, 0.25)
+    }
+
+    func testCaptureRequestsIncludeHelperWindowsOnlyWhenConfigured() {
+        let requests = ThumbnailCache.captureRequests(
+            for: makeState(showExtraWindows: true)
+        )
+
+        XCTAssertEqual(requests[0].windows.map(\.windowID), [11, 13])
+    }
+
+    func testUnmanagedOnScreenWindowFilterIncludesRaycastButRejectsSystemAndManagedWindows() {
+        let display = CGRect(x: 0, y: 0, width: 1000, height: 800)
+        let raycastFrame = CGRect(x: 300, y: 200, width: 400, height: 300)
+
+        XCTAssertTrue(ThumbnailCache.shouldIncludeUnmanagedWindow(
+            windowID: 50,
+            isOnScreen: true,
+            windowLayer: 3,
+            ownerPID: 500,
+            bundleIdentifier: "com.raycast.macos",
+            frame: raycastFrame,
+            displayFrame: display,
+            knownYabaiWindowIDs: [11],
+            currentPID: 999
+        ))
+        XCTAssertFalse(ThumbnailCache.shouldIncludeUnmanagedWindow(
+            windowID: 50,
+            isOnScreen: true,
+            windowLayer: 3,
+            ownerPID: 999,
+            bundleIdentifier: "com.spacemap.app",
+            frame: raycastFrame,
+            displayFrame: display,
+            knownYabaiWindowIDs: [],
+            currentPID: 999
+        ))
+        XCTAssertFalse(ThumbnailCache.shouldIncludeUnmanagedWindow(
+            windowID: 50,
+            isOnScreen: true,
+            windowLayer: 0,
+            ownerPID: 500,
+            bundleIdentifier: "com.apple.controlcenter",
+            frame: raycastFrame,
+            displayFrame: display,
+            knownYabaiWindowIDs: [],
+            currentPID: 999
+        ))
+        XCTAssertFalse(ThumbnailCache.shouldIncludeUnmanagedWindow(
+            windowID: 11,
+            isOnScreen: true,
+            windowLayer: 0,
+            ownerPID: 500,
+            bundleIdentifier: "com.example.app",
+            frame: raycastFrame,
+            displayFrame: display,
+            knownYabaiWindowIDs: [11],
+            currentPID: 999
+        ))
+    }
+
+    private func makeState(
+        includeSecondDisplay: Bool = true,
+        showExtraWindows: Bool = false
+    ) -> GridState {
         let spaces = [
-            YabaiSpace(id: 3, index: 3, display: 1, hasFocus: false, label: nil),
-            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, label: nil),
-            YabaiSpace(id: 2, index: 2, display: 2, hasFocus: false, label: nil),
+            YabaiSpace(id: 3, index: 3, display: 1, hasFocus: false, isVisible: false, label: nil),
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 2, hasFocus: false, isVisible: true, label: nil),
         ]
         let windows = [
             makeWindow(id: 11, space: 1),
             makeWindow(id: 12, space: 1, isHidden: true),
+            makeWindow(id: 13, space: 1, subLayer: "normal"),
             makeWindow(id: 22, space: 2),
             makeWindow(id: 23, space: 2, isMinimized: true),
         ]
@@ -80,8 +162,10 @@ final class ThumbnailCacheTests: XCTestCase {
                 hasFocus: false
             )
         ] : [])
+        var config = GridConfig.default
+        config.showExtraWindows = showExtraWindows
         return GridState(
-            config: .default,
+            config: config,
             spaces: spaces,
             windows: windows,
             displayBounds: .zero,
@@ -94,7 +178,8 @@ final class ThumbnailCacheTests: XCTestCase {
         id: Int,
         space: Int,
         isHidden: Bool = false,
-        isMinimized: Bool = false
+        isMinimized: Bool = false,
+        subLayer: String = "below"
     ) -> YabaiWindow {
         YabaiWindow(
             id: id,
@@ -103,7 +188,7 @@ final class ThumbnailCacheTests: XCTestCase {
             frame: .init(x: 0, y: 0, w: 100, h: 100),
             isHidden: isHidden,
             isMinimized: isMinimized,
-            subLayer: "below"
+            subLayer: subLayer
         )
     }
 

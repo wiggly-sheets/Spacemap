@@ -11,6 +11,8 @@ import AppKit
 ///
 /// Icon strip at the bottom is controlled separately by `showIconStrip`.
 struct CellView: View {
+    @ObservedObject private var thumbnailStore = ThumbnailStore.shared
+
     let spaceIndex: Int
     let spaceLabel: String?
     let spaceName: String? // config-based name
@@ -101,15 +103,19 @@ var body: some View {
             RoundedRectangle(cornerRadius: 4)
                 .fill(backgroundColor)
 
-            if cellStyle != .simple {
+            switch cellStyle {
+            case .rects:
                 ForEach(filteredWindows, id: \.id) { window in
-                    switch cellStyle {
-                    case .rects:      windowRect(window)
-                    case .icons:      windowIcon(window)
-                    case .thumbnails: thumbnailImage(spaceIndex)
-                    case .simple:     EmptyView()
-                    }
+                    windowRect(window)
                 }
+            case .icons:
+                ForEach(filteredWindows, id: \.id) { window in
+                    windowIcon(window)
+                }
+            case .thumbnails:
+                thumbnailImage(spaceIndex)
+            case .simple:
+                EmptyView()
             }
 
             if showIconStrip {
@@ -258,7 +264,7 @@ var body: some View {
     
     private func thumbnailImage(_ spaceIndex: Int) -> some View {
         guard #available(macOS 14.0, *),
-              let nsImage = ThumbnailCache.shared.thumbnailNSImage(forSpace: spaceIndex) else {
+              let nsImage = thumbnailStore.image(forSpace: spaceIndex) else {
             return AnyView(Color.clear)
         }
         return AnyView(Image(nsImage: nsImage)
