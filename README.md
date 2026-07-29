@@ -206,9 +206,9 @@ The Settings hotkey recorders are recommended for editing these values. The pinn
 
 - macOS 13+ (macOS 14+ for thumbnails)
 - [yabai](https://github.com/koekeishiya/yabai) running
-- [skhd](https://github.com/koekeishiya/skhd) running
 - Accessibility permission
-- Screen Recording permission (thumbnails only)
+- Screen Recording permission (thumbnails cell style only)
+- **Automatically rearrange spaces based on most recent use** disabled in System Settings → Desktop & Dock → Mission Control (log out and back in after changing it)
 - For multi-monitor HUD modes: **Displays have separate Spaces** enabled in System Settings → Desktop & Dock → Mission Control (log out and back in after changing it)
 
 ---
