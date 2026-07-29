@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Enlarged menu-bar workspace dots and let wide grid layouts use more horizontal space for legibility.
 
 ## [1.0.24] - 2026-07-29
 

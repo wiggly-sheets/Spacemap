@@ -47,6 +47,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Accessibility Permission Recovery**: Continuously monitors permission and event-tap health, restoring hotkeys after runtime revocation/re-grant
 - **Dynamic yabai Path**: Auto-detects ARM (`/opt/homebrew/bin/yabai`) or Intel (`/usr/local/bin/yabai`) via FileManager
 - **Menubar Improvements**: Hotkey symbols shown, Cmd+R restart, Screen Recording permissions link
+- **Legible Menu Bar Dot Grid**: Workspace dots expand horizontally and use more menu-bar height for readability
 
 ### Theming & Customization
 

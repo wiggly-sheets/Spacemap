@@ -75,25 +75,24 @@ enum MenuBarPreviewRenderer {
     }
 
     private static func dotGridImage(for state: GridState) -> NSImage {
-        let size = CGSize(width: 20, height: previewHeight)
         let maxSpaces = max(1, min(state.config.maxSpaces, 16))
         let columns = max(1, min(state.config.cols, maxSpaces))
         let rows = max(1, Int(ceil(Double(maxSpaces) / Double(columns))))
         let active = Set(state.spaces.map(\.index))
-        let horizontalGap: CGFloat = columns > 1 ? 1 : 0
-        let verticalGap: CGFloat = rows > 1 ? 1 : 0
-        let availableWidth = size.width - 2
-        let availableHeight = size.height - 2
-        let diameter = max(
-            1,
-            min(
-                3.5,
-                (availableWidth - CGFloat(columns - 1) * horizontalGap) / CGFloat(columns),
-                (availableHeight - CGFloat(rows - 1) * verticalGap) / CGFloat(rows)
-            )
+        let imageHeight: CGFloat = 20
+        let padding: CGFloat = 2
+        let horizontalGap: CGFloat = columns > 1 ? 1.5 : 0
+        let availableHeight = imageHeight - padding * 2
+        let verticalGap: CGFloat = rows > 1
+            ? (rows <= 4 ? 1.5 : max(0.25, min(1, availableHeight / CGFloat(rows * 3))))
+            : 0
+        let diameter = min(
+            4,
+            (availableHeight - CGFloat(rows - 1) * verticalGap) / CGFloat(rows)
         )
         let gridWidth = CGFloat(columns) * diameter + CGFloat(columns - 1) * horizontalGap
         let gridHeight = CGFloat(rows) * diameter + CGFloat(rows - 1) * verticalGap
+        let size = CGSize(width: max(20, gridWidth + padding * 2), height: imageHeight)
         let origin = CGPoint(
             x: (size.width - gridWidth) / 2,
             y: (size.height - gridHeight) / 2
