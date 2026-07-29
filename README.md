@@ -247,8 +247,20 @@ make app-universal    # Both
 ```bash
 spacemap --version    # print version
 spacemap --trigger    # toggle HUD
+spacemap --space next # focus the next yabai space and show the HUD
+spacemap --space 4    # focus space 4 and show the HUD
+spacemap --space web  # focus a yabai space label and show the HUD
 spacemap --settings   # open settings
 spacemap --config     # edit config file
+```
+
+`--space` accepts indices 1–16, `prev`, `next`, `first`, `last`, `recent`,
+`mouse`, or a yabai space label. This is useful in skhd bindings when the HUD
+should appear only for explicit navigation:
+
+```bash
+ctrl - right : spacemap --space next
+ctrl - left  : spacemap --space prev
 ```
 
 Install the CLI:

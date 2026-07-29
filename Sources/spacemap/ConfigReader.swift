@@ -208,6 +208,7 @@ enum ConfigReader {
         var customHUDY = GridConfig.default.customHUDY
         var showExtraWindows = GridConfig.default.showExtraWindows
         var focusSpaceOnWindowDrop = GridConfig.default.focusSpaceOnWindowDrop
+        var showHUDOnSpaceChange = GridConfig.default.showHUDOnSpaceChange
         var updateMode = GridConfig.default.updateMode
 
         for line in text.components(separatedBy: .newlines) {
@@ -338,6 +339,8 @@ enum ConfigReader {
                 showExtraWindows = parseBool(value)
             case "FOCUS_SPACE_ON_WINDOW_DROP":
                 focusSpaceOnWindowDrop = parseBool(value)
+            case "SHOW_HUD_ON_SPACE_CHANGE":
+                showHUDOnSpaceChange = parseBool(value)
             case "CUSTOM_HUD_X":
                 if let v = Double(value), v >= 0.0 && v <= 1.0 {
                     customHUDX = v
@@ -387,7 +390,7 @@ enum ConfigReader {
             hudPosition = .custom(x: customHUDX, y: customHUDY)
         }
 
-        return GridConfig(cols: cols, rows: rows, cellStyle: cellStyle, hotkey: hotkey, pinnedHotkey: pinnedHotkey, socketHealthInterval: socketHealthInterval, uiScale: uiScale, autoHideTimeout: autoHideTimeout, theme: theme, showMode: showMode, multiMonitorHUDMode: multiMonitorHUDMode, unifiedHUDVisibility: unifiedHUDVisibility, separateHUDVisibility: separateHUDVisibility, displayNavigationWrap: displayNavigationWrap, maxSpaces: maxSpaces, backgroundAlpha: backgroundAlpha, mode: mode, iconScale: iconScale, showSpaceNumbers: showSpaceNumbers, showSpaceNames: showSpaceNames, showIconStrip: showIconStrip, showMultiAppIcons: showMultiAppIcons, hideMenuBarIcon: hideMenuBarIcon, spaceNames: spaceNames, useVimKeys: useVimKeys, useArrowKeys: useArrowKeys, hudPosition: hudPosition, customHUDX: customHUDX, customHUDY: customHUDY, showExtraWindows: showExtraWindows, focusSpaceOnWindowDrop: focusSpaceOnWindowDrop, updateMode: updateMode)
+        return GridConfig(cols: cols, rows: rows, cellStyle: cellStyle, hotkey: hotkey, pinnedHotkey: pinnedHotkey, socketHealthInterval: socketHealthInterval, uiScale: uiScale, autoHideTimeout: autoHideTimeout, theme: theme, showMode: showMode, multiMonitorHUDMode: multiMonitorHUDMode, unifiedHUDVisibility: unifiedHUDVisibility, separateHUDVisibility: separateHUDVisibility, displayNavigationWrap: displayNavigationWrap, maxSpaces: maxSpaces, backgroundAlpha: backgroundAlpha, mode: mode, iconScale: iconScale, showSpaceNumbers: showSpaceNumbers, showSpaceNames: showSpaceNames, showIconStrip: showIconStrip, showMultiAppIcons: showMultiAppIcons, hideMenuBarIcon: hideMenuBarIcon, spaceNames: spaceNames, useVimKeys: useVimKeys, useArrowKeys: useArrowKeys, hudPosition: hudPosition, customHUDX: customHUDX, customHUDY: customHUDY, showExtraWindows: showExtraWindows, focusSpaceOnWindowDrop: focusSpaceOnWindowDrop, showHUDOnSpaceChange: showHUDOnSpaceChange, updateMode: updateMode)
     }
 
     static func hotkeyToString(_ hotkey: HotkeyConfig) -> String {
@@ -465,6 +468,7 @@ enum ConfigReader {
         let customHUDY: Double
         let showExtraWindows: Bool
         let focusSpaceOnWindowDrop: Bool?
+        let showHUDOnSpaceChange: Bool?
         let updateMode: String
         var needsRepair = false
 
@@ -504,7 +508,8 @@ enum ConfigReader {
             case maxSpaces, backgroundAlpha, mode, iconScale, showSpaceNumbers
             case showSpaceNames, showIconStrip, showMultiAppIcons, hideMenuBarIcon
             case spaceNames, useVimKeys, useArrowKeys, hudPosition, customHUDX
-            case customHUDY, showExtraWindows, focusSpaceOnWindowDrop, updateMode
+            case customHUDY, showExtraWindows, focusSpaceOnWindowDrop
+            case showHUDOnSpaceChange, updateMode
         }
 
         private static func decode<T: Decodable>(
@@ -558,6 +563,7 @@ enum ConfigReader {
             customHUDY = Self.decode(Double.self, forKey: .customHUDY, from: container, default: defaults.customHUDY, needsRepair: &repair)
             showExtraWindows = Self.decode(Bool.self, forKey: .showExtraWindows, from: container, default: defaults.showExtraWindows, needsRepair: &repair)
             focusSpaceOnWindowDrop = Self.decode(Bool.self, forKey: .focusSpaceOnWindowDrop, from: container, default: false, needsRepair: &repair)
+            showHUDOnSpaceChange = Self.decode(Bool.self, forKey: .showHUDOnSpaceChange, from: container, default: false, needsRepair: &repair)
             updateMode = Self.decode(String.self, forKey: .updateMode, from: container, default: defaults.updateMode, needsRepair: &repair)
             needsRepair = repair || hotkey.needsRepair || pinnedHotkey.needsRepair || hudPosition.needsRepair
         }
@@ -613,6 +619,7 @@ enum ConfigReader {
             customHUDY = config.customHUDY
             showExtraWindows = config.showExtraWindows
             focusSpaceOnWindowDrop = config.focusSpaceOnWindowDrop
+            showHUDOnSpaceChange = config.showHUDOnSpaceChange
             updateMode = config.updateMode.rawValue
         }
 
@@ -733,6 +740,7 @@ enum ConfigReader {
                 customHUDY: valid(customHUDY, default: GridConfig.default.customHUDY) { (0...1).contains($0) },
                 showExtraWindows: showExtraWindows,
                 focusSpaceOnWindowDrop: focusSpaceOnWindowDrop ?? false,
+                showHUDOnSpaceChange: showHUDOnSpaceChange ?? false,
                 updateMode: resolvedUpdateMode ?? GridConfig.default.updateMode
             )
             return (config, repair)
@@ -1018,6 +1026,7 @@ enum ConfigReader {
         ARROW_KEYS=\(config.useArrowKeys ? "on" : "off")                      # on | off
         SHOW_EXTRA_WINDOWS=\(config.showExtraWindows ? "on" : "off")        # on | off
         FOCUS_SPACE_ON_WINDOW_DROP=\(config.focusSpaceOnWindowDrop ? "on" : "off") # on | off
+        SHOW_HUD_ON_SPACE_CHANGE=\(config.showHUDOnSpaceChange ? "on" : "off") # on | off
         CUSTOM_HUD_X=\(config.customHUDX)
         CUSTOM_HUD_Y=\(config.customHUDY)
         HUD_POSITION=\(hudPositionString(config.hudPosition))        # center | top | bottom | custom

@@ -1,10 +1,18 @@
 import Foundation
 
 final class SocketListener {
+    enum Command: Equatable {
+        case refresh
+        case show
+        case toggle
+        case settings
+    }
+
     private let socketPath: String
     private let healthInterval: Int
     private let onRefresh: () -> Void
     private let onShow: () -> Void
+    private let onToggle: () -> Void
     private let onSettings: () -> Void
     private var serverFd: Int32 = -1
     private var source: DispatchSourceRead?
@@ -14,11 +22,12 @@ final class SocketListener {
     private let listenerQueue = DispatchQueue(label: "com.spacemap.socketlistener")
     private let queueKey = DispatchSpecificKey<Void>()
     
-    init(socketPath: String, healthInterval: Int = 60, onRefresh: @escaping () -> Void, onShow: @escaping () -> Void, onSettings: @escaping () -> Void) {
+    init(socketPath: String, healthInterval: Int = 60, onRefresh: @escaping () -> Void, onShow: @escaping () -> Void, onToggle: @escaping () -> Void, onSettings: @escaping () -> Void) {
         self.socketPath = socketPath
         self.healthInterval = healthInterval
         self.onRefresh = onRefresh
         self.onShow = onShow
+        self.onToggle = onToggle
         self.onSettings = onSettings
         listenerQueue.setSpecific(key: queueKey, value: ())
         listenerQueue.async { self.start() }
@@ -47,6 +56,19 @@ final class SocketListener {
         var byte = command
         write(sock, &byte, 1)
         close(sock)
+    }
+
+    static func command(for byte: UInt8) -> Command {
+        if byte == 2 || byte == Character("2").asciiValue {
+            return .show
+        }
+        if byte == 3 || byte == Character("3").asciiValue {
+            return .settings
+        }
+        if byte == 4 || byte == Character("4").asciiValue {
+            return .toggle
+        }
+        return .refresh
     }
     
     private func start() {
@@ -104,11 +126,14 @@ final class SocketListener {
         close(clientFd)
         
         DispatchQueue.main.async {
-            if buf.first == 2 {
+            switch Self.command(for: buf[0]) {
+            case .show:
                 self.onShow()
-            } else if buf.first == 3 {
+            case .settings:
                 self.onSettings()
-            } else {
+            case .toggle:
+                self.onToggle()
+            case .refresh:
                 self.onRefresh()
             }
         }

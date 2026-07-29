@@ -6,7 +6,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Core Features & CLI
 
-- **CLI Options**: `--version`, `--help`, `--config`, `--trigger`, `--show-menu`, `--settings`
+- **CLI Options**: `--version`, `--help`, `--config`, `--trigger`, `--space <selector>`, `--show-menu`, `--settings`
 - **Settings Window**: Permanent System Settings-style sidebar with highlighted categories, separate live-save detail forms, space-name editor, and hotkey recorder
 - **Launch at Login**: Toggle with state indicator and first-launch prompt
 - **Move to Applications Prompt**: First-launch prompt to move app to /Applications
@@ -82,7 +82,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Testing & CI/CD
 
-- **Unit Test Suite**: 193 tests across 9 files
+- **Unit Test Suite**: 210 tests across 13 files
 - **GitHub Actions CI/CD**: CI (swift test + build), Release (3 DMGs + checksums), Dependabot
 - **Rendering Math Tests**: 8 unit tests for scale mapping (min/max/midpoint/monotonicity)
 
