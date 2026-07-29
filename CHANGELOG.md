@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.19] - 2026-07-29
+
 ### Changed
 - Thumbnail cell style now refreshes every visible space when the HUD opens instead of updating only the focused space after navigation.
 - Thumbnail capture now renders directly at the cell's backing resolution, limits concurrent window captures, and debounces duplicate refresh events.
