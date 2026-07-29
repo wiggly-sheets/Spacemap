@@ -45,7 +45,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Symlink Creation**: Automated `/usr/local/bin/spacemap` symlink at launch via `ensureSymlink()`
 - **Yabai Mandatory Check**: Prevents launch if yabai is not running; shows critical alert
 - **MRU Spaces Detection**: Warns user and offers to disable macOS MRU spaces
-- **Accessibility Permission Recovery**: Continuously monitors permission and event-tap health, restoring hotkeys after runtime revocation/re-grant
+- **Accessibility Permission Recovery**: Monitors permission and event-tap health, releases HUD keyboard capture on revocation, and restores input handling after re-grant
 - **Dynamic yabai Path**: Auto-detects ARM (`/opt/homebrew/bin/yabai`) or Intel (`/usr/local/bin/yabai`) via FileManager
 - **Menubar Improvements**: Hotkey symbols shown, Cmd+R restart, Screen Recording permissions link
 - **Legible Menu Bar Dot Grid**: Workspace dots expand horizontally and use more menu-bar height for readability
