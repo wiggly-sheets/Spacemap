@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 
 enum CellStyle: Int, CaseIterable, Identifiable {
-    case rects, icons, thumbnails, simple
+    case rects, hybrid, icons, thumbnails, simple
     var id: Int { rawValue }
 }
 enum ShowMode: String, CaseIterable, Identifiable { case all, active; var id: String { rawValue } }
@@ -148,7 +148,7 @@ struct GridConfig {
     var hudPosition: HUDPosition // where to show the HUD on screen
     var customHUDX: Double = 0.5 // last custom HUD X position (0-1)
     var customHUDY: Double = 0.5 // last custom HUD Y position (0-1)
-    var showExtraWindows: Bool // show sublayer=normal windows (may include invisible utility windows)
+    var showExtraWindows: Bool // show nonstandard utility/background window records
     var focusSpaceOnWindowDrop: Bool = false // focus the destination after a successful drag-and-drop
     var updateMode: UpdateMode // auto | notify | off
 
@@ -278,6 +278,13 @@ struct YabaiWindow: Decodable {
     let isHidden: Bool
     let isMinimized: Bool
     let subLayer: String
+    var pid: Int? = nil
+    var role: String? = nil
+    var subrole: String? = nil
+    var isRootWindow: Bool? = nil
+    var hasAXReference: Bool? = nil
+    var isVisible: Bool? = nil
+    var isFloating: Bool? = nil
 
     struct WindowFrame: Decodable {
         let x: CGFloat
@@ -287,14 +294,65 @@ struct YabaiWindow: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, app, space, frame
+        case id, app, space, frame, pid, role, subrole
         case isHidden = "is-hidden"
         case isMinimized = "is-minimized"
         case subLayer = "sub-layer"
+        case isRootWindow = "root-window"
+        case hasAXReference = "has-ax-reference"
+        case isVisible = "is-visible"
+        case isFloating = "is-floating"
     }
 
     var isRealWindow: Bool {
-        !isHidden && !isMinimized && subLayer == "below"
+        shouldDisplay(showExtraWindows: false)
+    }
+
+    func shouldDisplay(
+        showExtraWindows: Bool,
+        ownerIsRegularApplication: Bool = false
+    ) -> Bool {
+        guard !isHidden,
+              !isMinimized,
+              id > 0,
+              !app.isEmpty,
+              space > 0,
+              frame.w > 0,
+              frame.h > 0 else {
+            return false
+        }
+
+        // A standard root app window is user-facing regardless of whether
+        // yabai tiles or floats it, and regardless of active-space AX access.
+        let isStandardUserWindow =
+            role == "AXWindow" &&
+            subrole == "AXStandardWindow" &&
+            isRootWindow != false
+        if isStandardUserWindow { return true }
+
+        // yabai can lose AX metadata for an otherwise real window. A root
+        // proxy owned by a normal Dock/Cmd-Tab application is still user-facing.
+        let isRegularApplicationProxy =
+            ownerIsRegularApplication &&
+            (role ?? "").isEmpty &&
+            (subrole ?? "").isEmpty &&
+            isRootWindow == true &&
+            hasAXReference == false
+        if isRegularApplicationProxy { return true }
+
+        // Preserve compatibility with older yabai payloads that did not expose
+        // classification metadata. Modern non-AX placeholders use empty role
+        // fields and therefore do not take this fallback.
+        let hasClassificationMetadata =
+            role != nil ||
+            subrole != nil ||
+            isRootWindow != nil ||
+            hasAXReference != nil ||
+            isVisible != nil ||
+            isFloating != nil
+        if !hasClassificationMetadata, subLayer == "below" { return true }
+
+        return showExtraWindows
     }
 
     var cgFrame: CGRect {

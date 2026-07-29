@@ -41,15 +41,22 @@ final class ModelTests: XCTestCase {
 
     func testDecodeYabaiWindow() throws {
         let json = """
-        {"id":10,"app":"Firefox","space":1,"frame":{"x":0,"y":0,"w":800,"h":600},"is-hidden":false,"is-minimized":false,"sub-layer":"below"}
+        {"id":10,"pid":123,"app":"Firefox","space":1,"frame":{"x":0,"y":0,"w":800,"h":600},"is-hidden":false,"is-minimized":false,"sub-layer":"below","role":"AXWindow","subrole":"AXStandardWindow","root-window":true,"has-ax-reference":true,"is-visible":true,"is-floating":false}
         """.data(using: .utf8)!
         let window = try JSONDecoder().decode(YabaiWindow.self, from: json)
         XCTAssertEqual(window.id, 10)
+        XCTAssertEqual(window.pid, 123)
         XCTAssertEqual(window.app, "Firefox")
         XCTAssertEqual(window.space, 1)
         XCTAssertFalse(window.isHidden)
         XCTAssertFalse(window.isMinimized)
         XCTAssertEqual(window.subLayer, "below")
+        XCTAssertEqual(window.role, "AXWindow")
+        XCTAssertEqual(window.subrole, "AXStandardWindow")
+        XCTAssertEqual(window.isRootWindow, true)
+        XCTAssertEqual(window.hasAXReference, true)
+        XCTAssertEqual(window.isVisible, true)
+        XCTAssertEqual(window.isFloating, false)
         XCTAssertEqual(window.cgFrame, CGRect(x: 0, y: 0, width: 800, height: 600))
     }
 
@@ -61,6 +68,90 @@ final class ModelTests: XCTestCase {
         XCTAssertTrue(window.isHidden)
         XCTAssertTrue(window.isMinimized)
         XCTAssertEqual(window.subLayer, "normal")
+    }
+
+    func testNonAXRootProxyRequiresRegularApplicationOrShowExtraWindows() {
+        var window = YabaiWindow(
+            id: 12,
+            app: "Notes",
+            space: 2,
+            frame: .init(x: 0, y: 0, w: 800, h: 600),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        window.isRootWindow = true
+        window.hasAXReference = false
+        window.isVisible = false
+        window.isFloating = false
+
+        XCTAssertFalse(window.shouldDisplay(
+            showExtraWindows: false,
+            ownerIsRegularApplication: false
+        ))
+        XCTAssertTrue(window.shouldDisplay(
+            showExtraWindows: false,
+            ownerIsRegularApplication: true
+        ))
+        XCTAssertTrue(window.shouldDisplay(showExtraWindows: true))
+    }
+
+    func testVisibleStandardWindowIsDisplayableRegardlessOfSubLayer() {
+        var window = YabaiWindow(
+            id: 14,
+            app: "Safari",
+            space: 1,
+            frame: .init(x: 0, y: 0, w: 800, h: 600),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        window.role = "AXWindow"
+        window.subrole = "AXStandardWindow"
+        window.isRootWindow = true
+        window.hasAXReference = true
+        window.isVisible = true
+        window.isFloating = false
+
+        XCTAssertTrue(window.shouldDisplay(showExtraWindows: false))
+
+        window.isFloating = true
+        XCTAssertTrue(window.shouldDisplay(showExtraWindows: false))
+    }
+
+    func testUtilityWindowRequiresShowExtraWindows() {
+        var window = YabaiWindow(
+            id: 15,
+            app: "System Settings",
+            space: 1,
+            frame: .init(x: 100, y: 100, w: 500, h: 400),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        window.role = "AXWindow"
+        window.subrole = "AXDialog"
+        window.isRootWindow = false
+        window.hasAXReference = true
+        window.isVisible = true
+        window.isFloating = true
+
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: false))
+        XCTAssertTrue(window.shouldDisplay(showExtraWindows: true))
+    }
+
+    func testInvalidInactiveSpacePlaceholderStaysFiltered() {
+        let window = YabaiWindow(
+            id: 13,
+            app: "Helper",
+            space: 2,
+            frame: .init(x: 0, y: 0, w: 0, h: 0),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: false))
     }
 
     // MARK: - GridState

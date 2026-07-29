@@ -231,6 +231,7 @@ enum ConfigReader {
                     cellStyle = .icons
                     if value == "icons" { showIconStrip = true }
                     else if value == "icons-only" { showIconStrip = false }
+                case "hybrid":     cellStyle = .hybrid
                 case "thumbnails": cellStyle = .thumbnails
                 case "simple":    cellStyle = .simple
                 default:          cellStyle = .rects
@@ -769,6 +770,7 @@ enum ConfigReader {
     private static func cellStyle(from name: String) -> CellStyle? {
         switch name.lowercased() {
         case "rects": return .rects
+        case "hybrid": return .hybrid
         case "icons", "icons-only": return .icons
         case "thumbnails": return .thumbnails
         case "simple": return .simple
@@ -991,7 +993,7 @@ enum ConfigReader {
         return """
         GRID_COLS=\(config.cols)
         GRID_ROWS=\(config.rows)
-        CELL_STYLE=\(cellStyleName(config.cellStyle))              # rects | icons | thumbnails | simple
+        CELL_STYLE=\(cellStyleName(config.cellStyle))              # rects | hybrid | icons | thumbnails | simple
         HOTKEY=\(hotkeyString)
         PINNED_HOTKEY=\(pinnedHotkeyString)
         SOCKET_HEALTH_INTERVAL=\(config.socketHealthInterval)
@@ -1106,6 +1108,7 @@ enum ConfigReader {
     static func cellStyleName(_ style: CellStyle) -> String {
         switch style {
         case .rects: return "rects"
+        case .hybrid: return "hybrid"
         case .icons: return "icons"
         case .thumbnails: return "thumbnails"
         case .simple: return "simple"

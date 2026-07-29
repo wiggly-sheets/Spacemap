@@ -39,7 +39,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 |-----|------|--------|--------|-------------|
 | `GRID_COLS` | Int | 8 | 1–20 | Grid columns |
 | `GRID_ROWS` | Int | 2 | 1–10 | Grid rows |
-| `CELL_STYLE` | String | `rects` | `rects\|icons\|thumbnails` | Window display style. `thumbnails` requires macOS 14+ and Screen Recording permission |
+| `CELL_STYLE` | String | `rects` | `rects\|hybrid\|icons\|thumbnails\|simple` | Window display style. `hybrid` adds centered app icons to rectangles; `thumbnails` requires macOS 14+ and Screen Recording permission |
 | `HOTKEY` | String | `ctrl+space` | modifiers+key | Toggle hotkey (requires restart) |
 | `PINNED_HOTKEY` | String | `none` | modifiers+key or `none` | Optional persistent-HUD toggle |
 | `UI_SCALE` | Double | 0.5 | 0.0–1.0 | HUD scale (effective: 0.5×–4.0×) |
@@ -150,7 +150,7 @@ space_change:
 ### CGEventTap Details
 - Uses `.headInsertEventTap` (not tailAppend) to capture before system shortcuts
 - Requires Accessibility permissions (prompted on launch)
-- Polls every 2s until permission granted
+- Continuously checks permission and event-tap health every second, automatically removing stale taps and restoring hotkeys after permission is re-granted
 
 ### Key Code Reference
 | Key | Code | Key | Code |

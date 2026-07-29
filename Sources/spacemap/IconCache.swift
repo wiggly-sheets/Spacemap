@@ -5,6 +5,7 @@ final class IconCache {
     static let shared = IconCache()
     private var cache: [String: NSImage] = [:]
     private var bundlePathByName: [String: String] = [:]
+    private var regularApplicationPIDs: Set<pid_t> = []
 
     private init() {
         rebuildLookup()
@@ -36,12 +37,22 @@ final class IconCache {
 
     func clear() { cache.removeAll() }
 
+    func isRegularApplication(processIdentifier: Int?) -> Bool {
+        guard let processIdentifier, processIdentifier > 0 else { return false }
+        return regularApplicationPIDs.contains(pid_t(processIdentifier))
+    }
+
     private func rebuildLookup() {
         var lookup: [String: String] = [:]
+        var regularPIDs = Set<pid_t>()
         for app in NSWorkspace.shared.runningApplications {
             guard let name = app.localizedName, let url = app.bundleURL else { continue }
             lookup[name] = url.path
+            if app.activationPolicy == .regular {
+                regularPIDs.insert(app.processIdentifier)
+            }
         }
         bundlePathByName = lookup
+        regularApplicationPIDs = regularPIDs
     }
 }
