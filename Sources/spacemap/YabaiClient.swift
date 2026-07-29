@@ -104,13 +104,22 @@ enum YabaiClient {
         }
     }
     
-    static func registerSignals(socketPath: String) {
+    static func registerSignals(socketPath: String, showHUDOnSpaceChange: Bool = false) {
         guard isYabaiRunning() else { return }
-        let action = "echo 1 | nc -U \(socketPath)"
+        _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_space_changed")
+        let action = spaceChangedSignalAction(
+            socketPath: socketPath,
+            showHUDOnSpaceChange: showHUDOnSpaceChange
+        )
         _ = try? shell(yabaiPath, "-m", "signal", "--add",
                        "label=spacemap_space_changed",
                        "event=space_changed",
                        "action=\(action)")
+    }
+
+    static func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
+        let command = showHUDOnSpaceChange ? 2 : 1
+        return "echo \(command) | /usr/bin/nc -U \(socketPath)"
     }
     
     static func removeSignals() {
@@ -122,25 +131,24 @@ enum YabaiClient {
         _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)")
     }
 
+    @discardableResult
+    static func focusSpace(_ target: SpaceFocusTarget) -> Bool {
+        do {
+            _ = try shell(yabaiPath, "-m", "space", "--focus", target.value)
+            return true
+        } catch {
+            fputs("spacemap: \(error.localizedDescription)\n", stderr)
+            return false
+        }
+    }
+
     static func focusSpaceAsync(_ index: Int) {
         focusQueue.async { _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)") }
     }
     
     static func showSpacemap() {
         let path = "/tmp/spacemap_\(NSUserName()).socket"
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { return }
-        defer { close(fd) }
-        var addr = sockaddr_un()
-        addr.sun_family = sa_family_t(AF_UNIX)
-        withUnsafeMutableBytes(of: &addr.sun_path) { dest in
-            path.utf8CString.withUnsafeBytes { src in
-                dest.copyMemory(from: UnsafeRawBufferPointer(start: src.baseAddress, count: min(src.count, dest.count)))
-            }
-        }
-        guard connect(fd, withUnsafePointer(to: &addr, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { $0 } }), socklen_t(MemoryLayout<sockaddr_un>.size)) == 0 else { return }
-        var buf: [UInt8] = [2]
-        _ = write(fd, &buf, buf.count)
+        SocketListener.sendCommand(to: path, command: 2)
     }
     
     static func moveWindowCreatingSpacesIfNeeded(

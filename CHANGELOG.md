@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added an off-by-default setting to show the HUD automatically whenever yabai changes spaces.
+- Added `spacemap --space <selector>` for power-user and skhd navigation that focuses yabai spaces and shows the HUD, supporting indices 1–16, directional selectors, and labels.
+
+### Fixed
+- Yabai space-change signals now use macOS's system netcat so Homebrew netcat installations cannot break HUD updates.
+- Exit-only CLI commands now run before AppKit startup, and `--trigger` toggles the existing HUD through its socket instead of launching a transient second HUD.
+
 
 ## [1.0.20] - 2026-07-29
 

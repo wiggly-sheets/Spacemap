@@ -31,31 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Exit-only CLI commands must never trigger an administrator prompt.
         ensureCLISymlink(allowAuthorizationPrompt: false)
         
-        #if !DEBUG
-        // Handle CLI arguments that cause immediate exit
-        if args.contains("--version") {
-            ConfigReader.silentMode = true
-            printVersionAndExit()
-            return
-        }
-        if args.contains("--help") {
-            ConfigReader.silentMode = true
-            printHelpAndExit()
-            return
-        }
-        if args.contains("--config") {
-            ConfigReader.silentMode = true
-            openConfigAndExit()
-            return
-        }
-        if args.contains("--trigger") {
-            ConfigReader.silentMode = true
-            setupForTriggerAndExit()
-            return
-        }
-        #endif
-        
-        // Normal setup (do not run for exit-only CLI args)
+        // Exit-only CLI commands are handled before AppKit starts.
         NSApp.setActivationPolicy(.prohibited)
         
         // Check yabai before doing anything else
@@ -108,9 +84,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     self?.hud.refresh()
                 },
                 onShow: { [weak self] in self?.hud.show() },
+                onToggle: { [weak self] in self?.hud.toggle() },
                 onSettings: { [weak self] in self?.showSettingsWindow() }
             )
-            YabaiClient.registerSignals(socketPath: self.socketPath)
+            YabaiClient.registerSignals(
+                socketPath: self.socketPath,
+                showHUDOnSpaceChange: config.showHUDOnSpaceChange
+            )
             
             // Observe settings changes to update hotkey
             self.settingsObserver = NotificationCenter.default.addObserver(
@@ -121,10 +101,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 guard let self = self else { return }
                 ConfigReader.silentMode = true
                 let config = ConfigReader.load()
+                let shouldUpdateSpaceChangeSignal =
+                    self.currentConfig?.showHUDOnSpaceChange != config.showHUDOnSpaceChange
                 self.currentConfig = config
                 self.hud.reloadConfig()
                 self.restartHotkey(config: config)
                 self.applyMenubarVisibility(config: config)
+                if shouldUpdateSpaceChangeSignal {
+                    YabaiClient.registerSignals(
+                        socketPath: self.socketPath,
+                        showHUDOnSpaceChange: config.showHUDOnSpaceChange
+                    )
+                }
             }
 
             self.configureSparkleUpdater(updateMode: config.updateMode)
@@ -650,51 +638,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         NSApp.setActivationPolicy(.prohibited)
     }
 
-    private func printVersionAndExit() {
-        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-            print("Spacemap \(version)")
-        } else {
-            print("Spacemap 1.0.0")
-        }
-        NSApp.terminate(nil)
-    }
-
-    private func printHelpAndExit() {
-        let help = """
-        Usage: Spacemap [OPTIONS]
-
-        Options:
-          --version          Print the version and exit
-          --trigger          Toggle the HUD visibility and exit
-          --show-menu        Show the menu bar dropdown (app continues running)
-          --settings         Open the settings window directly (app continues running)
-          --config           Open the config file in the default editor and exit
-          --help             Print this help and exit
-
-        Without any options, Spacemap launches and waits for the hotkey (Ctrl+Space) to toggle the HUD.
-        """
-        print(help)
-        NSApp.terminate(nil)
-    }
-
-    private func openConfigAndExit() {
-        _ = ConfigReader.load()
-        let url = URL(fileURLWithPath: ConfigReader.configPath)
-        NSWorkspace.shared.open(url)
-        NSApp.terminate(nil)
-    }
-
-    private func setupForTriggerAndExit() {
-        // For --trigger, we still need minimal setup to toggle the HUD
-        NSApp.setActivationPolicy(.prohibited)
-        setupMenubar()
-        // Delay slightly so TCC/LaunchServices finishes registering the app
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            self.hud.toggle()
-            NSApp.terminate(nil)
-        }
-    }
-
     private let cliSymlinkPath = "/usr/local/bin/spacemap"
     private let cliExecutablePath = "/Applications/Spacemap.app/Contents/MacOS/spacemap"
 
@@ -835,6 +778,13 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
 @main
 struct SpacemapEntry {
     static func main() {
+        #if !DEBUG
+        ConfigReader.silentMode = true
+        if let status = CLI.runIfRequested(arguments: CommandLine.arguments) {
+            exit(status)
+        }
+        #endif
+
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate

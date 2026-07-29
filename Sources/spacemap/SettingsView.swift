@@ -110,6 +110,7 @@ struct SettingsView: View {
     @State private var spaceNameInputs: [Int: String] = [:]
     @State private var showExtraWindows: Bool = false
     @State private var focusSpaceOnWindowDrop: Bool = false
+    @State private var showHUDOnSpaceChange: Bool = false
     // Store last known custom HUD position to preserve it when switching between presets and custom
     @State private var lastCustomHUDX: Double = 0.5
     @State private var lastCustomHUDY: Double = 0.5
@@ -213,6 +214,7 @@ init() {
         _lastCustomHUDY = State(initialValue: config.customHUDY)
         _showExtraWindows = State(initialValue: config.showExtraWindows)
         _focusSpaceOnWindowDrop = State(initialValue: config.focusSpaceOnWindowDrop)
+        _showHUDOnSpaceChange = State(initialValue: config.showHUDOnSpaceChange)
         _spaceNameInputs = State(initialValue: config.spaceNames)
         _gridLayoutIndex = State(initialValue: findBestGridLayoutIndexFor(cols: config.cols, rows: config.rows, maxSpaces: config.maxSpaces))
         _updateMode = State(initialValue: config.updateMode)
@@ -264,6 +266,7 @@ init() {
             customHUDY: lastCustomHUDY,
             showExtraWindows: showExtraWindows,
             focusSpaceOnWindowDrop: focusSpaceOnWindowDrop,
+            showHUDOnSpaceChange: showHUDOnSpaceChange,
             updateMode: updateMode
         )
         ConfigReader.saveConfig(config)
@@ -525,6 +528,10 @@ init() {
                         Toggle("Focus Space After Window Drop", isOn: $focusSpaceOnWindowDrop)
                             .onChange(of: focusSpaceOnWindowDrop) { _ in saveConfig() }
                         SettingsFootnote(text: "Switches to the destination space after a dragged window is moved.")
+
+                        Toggle("Show HUD on Space Change", isOn: $showHUDOnSpaceChange)
+                            .onChange(of: showHUDOnSpaceChange) { _ in saveConfig() }
+                        SettingsFootnote(text: "Shows the HUD whenever yabai changes spaces, including changes triggered by skhd.")
 
                         Toggle("Hide Menu Bar Icon", isOn: $hideMenuBarIcon)
                             .onChange(of: hideMenuBarIcon) { _ in saveConfig() }

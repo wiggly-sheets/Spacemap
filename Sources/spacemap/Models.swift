@@ -150,9 +150,10 @@ struct GridConfig {
     var customHUDY: Double = 0.5 // last custom HUD Y position (0-1)
     var showExtraWindows: Bool // show nonstandard utility/background window records
     var focusSpaceOnWindowDrop: Bool = false // focus the destination after a successful drag-and-drop
+    var showHUDOnSpaceChange: Bool = false // show the HUD after any yabai space change
     var updateMode: UpdateMode // auto | notify | off
 
-    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, pinnedHotkey: HotkeyConfig(key: .none, modifiers: []), socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, multiMonitorHUDMode: .unified, unifiedHUDVisibility: .active, separateHUDVisibility: .all, displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false, focusSpaceOnWindowDrop: false, updateMode: .notify)
+    static let `default` = GridConfig(cols: 8, rows: 2, cellStyle: .rects, hotkey: .default, pinnedHotkey: HotkeyConfig(key: .none, modifiers: []), socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5, theme: "default", showMode: .all, multiMonitorHUDMode: .unified, unifiedHUDVisibility: .active, separateHUDVisibility: .all, displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3, mode: .auto, iconScale: 0.5, showSpaceNumbers: true, showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false, hideMenuBarIcon: false, spaceNames: [:], useVimKeys: false, useArrowKeys: false, hudPosition: .center, customHUDX: 0.5, customHUDY: 0.5, showExtraWindows: false, focusSpaceOnWindowDrop: false, showHUDOnSpaceChange: false, updateMode: .notify)
 }
 
 struct AppTheme: Equatable {
