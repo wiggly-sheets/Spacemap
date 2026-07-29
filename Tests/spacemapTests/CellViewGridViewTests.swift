@@ -4,6 +4,86 @@ import CoreGraphics
 
 final class CellViewGridViewTests: XCTestCase {
 
+    // MARK: - CellView label positioning
+
+    func testSpaceNumberPositionScalesWithHUD() {
+        XCTAssertEqual(CellView.spaceNumberPosition(for: 0.5), CGPoint(x: 6, y: 8))
+        XCTAssertEqual(CellView.spaceNumberPosition(for: 1), CGPoint(x: 12, y: 16))
+        XCTAssertEqual(CellView.spaceNumberPosition(for: 4), CGPoint(x: 48, y: 64))
+    }
+
+    func testSpaceNamePositionStaysCenteredAcrossCellSizes() {
+        XCTAssertEqual(
+            CellView.spaceNamePosition(in: CGSize(width: 40, height: 25)),
+            CGPoint(x: 20, y: 12.5)
+        )
+        XCTAssertEqual(
+            CellView.spaceNamePosition(in: CGSize(width: 320, height: 200)),
+            CGPoint(x: 160, y: 100)
+        )
+    }
+
+    func testSingleWindowIconGetsEntireCell() throws {
+        let layouts = CellView.windowIconLayouts(
+            windows: [makeWindow(id: 1, app: "Safari", frame: CGRect(x: 500, y: 300, width: 700, height: 500))],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            cellSize: CGSize(width: 80, height: 50)
+        )
+
+        XCTAssertEqual(layouts.count, 1)
+        XCTAssertEqual(layouts[0].frame, CGRect(x: 0, y: 0, width: 80, height: 50))
+    }
+
+    func testTwoWindowsOfSameAppGetSeparateHalves() {
+        let layouts = CellView.windowIconLayouts(
+            windows: [
+                makeWindow(id: 1, app: "Safari", frame: CGRect(x: 0, y: 0, width: 960, height: 1080)),
+                makeWindow(id: 2, app: "Safari", frame: CGRect(x: 960, y: 0, width: 960, height: 1080)),
+            ],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            cellSize: CGSize(width: 80, height: 50)
+        )
+
+        XCTAssertEqual(layouts.map(\.windowID), [1, 2])
+        XCTAssertEqual(layouts.map(\.frame), [
+            CGRect(x: 0, y: 0, width: 40, height: 50),
+            CGRect(x: 40, y: 0, width: 40, height: 50),
+        ])
+    }
+
+    func testTwoWindowIconsFollowYabaiLeftRightOrder() {
+        let layouts = CellView.windowIconLayouts(
+            windows: [
+                makeWindow(id: 2, app: "Notes", frame: CGRect(x: 960, y: 0, width: 960, height: 1080)),
+                makeWindow(id: 1, app: "Safari", frame: CGRect(x: 0, y: 0, width: 960, height: 1080)),
+            ],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            cellSize: CGSize(width: 80, height: 50)
+        )
+
+        XCTAssertEqual(layouts.map(\.app), ["Safari", "Notes"])
+        XCTAssertEqual(layouts[0].frame.minX, 0)
+        XCTAssertEqual(layouts[1].frame.minX, 40)
+    }
+
+    func testThreeWindowIconsUseYabaiGeometry() {
+        let layouts = CellView.windowIconLayouts(
+            windows: [
+                makeWindow(id: 1, app: "Safari", frame: CGRect(x: 0, y: 0, width: 960, height: 1080)),
+                makeWindow(id: 2, app: "Notes", frame: CGRect(x: 960, y: 0, width: 960, height: 540)),
+                makeWindow(id: 3, app: "Mail", frame: CGRect(x: 960, y: 540, width: 960, height: 540)),
+            ],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            cellSize: CGSize(width: 80, height: 50)
+        )
+
+        XCTAssertEqual(layouts.map(\.frame), [
+            CGRect(x: 0, y: 0, width: 40, height: 50),
+            CGRect(x: 40, y: 0, width: 40, height: 25),
+            CGRect(x: 40, y: 25, width: 40, height: 25),
+        ])
+    }
+
     // MARK: - CellView.uniqueIconWindows
 
     func testUniqueIconWindowsDeduplicatesByApp() {
@@ -224,9 +304,15 @@ final class CellViewGridViewTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeWindow(id: Int, app: String, space: Int = 1, subLayer: String = "below") -> YabaiWindow {
+    private func makeWindow(
+        id: Int,
+        app: String,
+        space: Int = 1,
+        subLayer: String = "below",
+        frame: CGRect = CGRect(x: 0, y: 0, width: 100, height: 100)
+    ) -> YabaiWindow {
         YabaiWindow(id: id, app: app, space: space,
-                    frame: .init(x: 0, y: 0, w: 100, h: 100),
+                    frame: .init(x: frame.minX, y: frame.minY, w: frame.width, h: frame.height),
                     isHidden: false, isMinimized: false, subLayer: subLayer)
     }
 
