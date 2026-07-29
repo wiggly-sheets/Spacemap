@@ -111,7 +111,8 @@ struct SettingsView: View {
     @State private var hudPositionKind: HUDPositionKind = .center
     @State private var spaceNameInputs: [Int: String] = [:]
     @State private var showExtraWindows: Bool = false
-    @State private var focusSpaceOnWindowDrop: Bool = false
+    @State private var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
+    @State private var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
     @State private var showHUDOnSpaceChange: Bool = false
     // Store last known custom HUD position to preserve it when switching between presets and custom
     @State private var lastCustomHUDX: Double = 0.5
@@ -218,6 +219,7 @@ init() {
         _lastCustomHUDY = State(initialValue: config.customHUDY)
         _showExtraWindows = State(initialValue: config.showExtraWindows)
         _focusSpaceOnWindowDrop = State(initialValue: config.focusSpaceOnWindowDrop)
+        _focusSpaceOnWindowDropModifier = State(initialValue: config.focusSpaceOnWindowDropModifier)
         _showHUDOnSpaceChange = State(initialValue: config.showHUDOnSpaceChange)
         _spaceNameInputs = State(initialValue: config.spaceNames)
         _gridLayoutIndex = State(initialValue: findBestGridLayoutIndexFor(cols: config.cols, rows: config.rows, maxSpaces: config.maxSpaces))
@@ -272,6 +274,7 @@ init() {
             customHUDY: lastCustomHUDY,
             showExtraWindows: showExtraWindows,
             focusSpaceOnWindowDrop: focusSpaceOnWindowDrop,
+            focusSpaceOnWindowDropModifier: focusSpaceOnWindowDropModifier,
             showHUDOnSpaceChange: showHUDOnSpaceChange,
             updateMode: updateMode
         )
@@ -531,9 +534,28 @@ init() {
                                 : "Allows navigation to wrap from one display's spaces into another's.")
                         }
 
-                        Toggle("Focus Space After Window Drop", isOn: $focusSpaceOnWindowDrop)
+                        Picker("Focus Space After Window Drop", selection: $focusSpaceOnWindowDrop) {
+                            Text("Never").tag(WindowDropFocusMode.never)
+                            Text("Always").tag(WindowDropFocusMode.always)
+                            Text("While Holding Modifier").tag(WindowDropFocusMode.modifier)
+                        }
+                        .pickerStyle(.menu)
                             .onChange(of: focusSpaceOnWindowDrop) { _ in saveConfig() }
-                        SettingsFootnote(text: "Switches to the destination space after a dragged window is moved.")
+
+                        if focusSpaceOnWindowDrop == .modifier {
+                            Picker("Required Modifier", selection: $focusSpaceOnWindowDropModifier) {
+                                Text("Command (⌘)").tag(WindowDropFocusModifier.command)
+                                Text("Fn").tag(WindowDropFocusModifier.function)
+                                Text("Option (⌥)").tag(WindowDropFocusModifier.option)
+                                Text("Control (⌃)").tag(WindowDropFocusModifier.control)
+                                Text("Shift (⇧)").tag(WindowDropFocusModifier.shift)
+                            }
+                            .pickerStyle(.menu)
+                            .onChange(of: focusSpaceOnWindowDropModifier) { _ in saveConfig() }
+                        }
+                        SettingsFootnote(text: focusSpaceOnWindowDrop == .modifier
+                            ? "Switches to the destination only when the selected modifier is held while dropping."
+                            : "Controls whether the destination space is focused after a dragged window is moved.")
 
                         Toggle("Show HUD on Space Change", isOn: $showHUDOnSpaceChange)
                             .onChange(of: showHUDOnSpaceChange) { _ in saveConfig() }

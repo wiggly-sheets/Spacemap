@@ -5,7 +5,7 @@ import Cocoa
 // identify which app's window is being dragged.
 class WindowDragHandler {
     var onHoverCell: ((Int?) -> Void)?      // called with cell spaceIndex or nil
-    var onDropInCell: ((Int, Int) -> Void)? // (windowID, spaceIndex)
+    var onDropInCell: ((Int, Int, CGEventFlags) -> Void)? // (windowID, spaceIndex, held modifiers)
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -45,7 +45,7 @@ class WindowDragHandler {
                 switch type {
                 case .leftMouseDown:    handler.handleMouseDown(at: cgPoint)
                 case .leftMouseDragged: handler.handleDrag(at: cgPoint)
-                case .leftMouseUp:      handler.handleMouseUp(at: cgPoint)
+                case .leftMouseUp:      handler.handleMouseUp(at: cgPoint, modifiers: event.flags)
                 default: break
                 }
                 return nil
@@ -106,7 +106,7 @@ class WindowDragHandler {
         }
     }
 
-    private func handleMouseUp(at cgPoint: CGPoint) {
+    private func handleMouseUp(at cgPoint: CGPoint, modifiers: CGEventFlags) {
         defer { reset() }
         guard isDragging,
               let cell = cellSpaceIndex(forCG: cgPoint),
@@ -118,7 +118,7 @@ class WindowDragHandler {
         }
         DispatchQueue.main.async { [weak self] in
             self?.onHoverCell?(nil)
-            self?.onDropInCell?(windowID, cell)
+            self?.onDropInCell?(windowID, cell, modifiers)
         }
     }
 

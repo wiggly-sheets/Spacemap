@@ -60,6 +60,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Hybrid Cell Style**: Rectangle layout with a proportionally scaled app icon centered in every window rectangle
 - **Icon Cell Layout**: One icon per yabai window with geometry-aware placement, including duplicate-app windows and correct split ordering
 - **Show Extra Windows**: `SHOW_EXTRA_WINDOWS` toggle to display nonstandard utility/background window records
+- **Conditional Focus After Window Drop**: Never, always, or only while holding a selected modifier
 
 ### Settings UI Improvements
 

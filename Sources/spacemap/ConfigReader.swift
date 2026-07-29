@@ -150,6 +150,18 @@ enum ConfigReader {
         let themeModeName: String = value("mode", default: defaults.mode.rawValue)
         let updateModeName: String = value("updateMode", default: defaults.updateMode.rawValue)
         let menuBarDisplayModeName: String = value("menuBarDisplayMode", default: defaults.menuBarDisplayMode.rawValue)
+        let windowDropFocusModeName: String = value(
+            "focusSpaceOnWindowDrop",
+            default: defaults.focusSpaceOnWindowDrop.rawValue
+        )
+        let windowDropModifierName: String = value(
+            "focusSpaceOnWindowDropModifier",
+            default: defaults.focusSpaceOnWindowDropModifier.rawValue
+        )
+        let windowDropModifier = WindowDropFocusModifier(rawValue: windowDropModifierName.lowercased())
+        if windowDropModifier == nil {
+            repair = true
+        }
 
         let resolvedCellStyle = cellStyle(from: cellStyleName)
         let resolvedShowMode = showMode(from: showModeName)
@@ -160,10 +172,11 @@ enum ConfigReader {
         let resolvedThemeMode = themeMode(from: themeModeName)
         let resolvedUpdateMode = updateMode(from: updateModeName)
         let resolvedMenuBarDisplayMode = menuBarDisplayMode(from: menuBarDisplayModeName)
+        let resolvedWindowDropFocusMode = WindowDropFocusMode(rawValue: windowDropFocusModeName.lowercased())
         if resolvedCellStyle == nil || resolvedShowMode == nil || resolvedMultiMonitorMode == nil ||
             resolvedUnifiedVisibility == nil || resolvedSeparateVisibility == nil ||
             resolvedNavigationWrap == nil || resolvedThemeMode == nil || resolvedUpdateMode == nil ||
-            resolvedMenuBarDisplayMode == nil {
+            resolvedMenuBarDisplayMode == nil || resolvedWindowDropFocusMode == nil {
             repair = true
         }
 
@@ -200,7 +213,8 @@ enum ConfigReader {
             customHUDX: valid(double("customHUDX", default: defaults.customHUDX), default: defaults.customHUDX) { (0...1).contains($0) },
             customHUDY: valid(double("customHUDY", default: defaults.customHUDY), default: defaults.customHUDY) { (0...1).contains($0) },
             showExtraWindows: value("showExtraWindows", default: defaults.showExtraWindows),
-            focusSpaceOnWindowDrop: value("focusSpaceOnWindowDrop", default: defaults.focusSpaceOnWindowDrop),
+            focusSpaceOnWindowDrop: resolvedWindowDropFocusMode ?? defaults.focusSpaceOnWindowDrop,
+            focusSpaceOnWindowDropModifier: windowDropModifier ?? defaults.focusSpaceOnWindowDropModifier,
             showHUDOnSpaceChange: value("showHUDOnSpaceChange", default: defaults.showHUDOnSpaceChange),
             updateMode: resolvedUpdateMode ?? defaults.updateMode
         )
@@ -228,7 +242,8 @@ enum ConfigReader {
         flatten("behavior", keys: [
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
             "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange",
-            "hideMenuBarIcon", "menuBarDisplayMode", "menuBarNearbyCount", "updateMode"
+            "focusSpaceOnWindowDropModifier", "hideMenuBarIcon", "menuBarDisplayMode",
+            "menuBarNearbyCount", "updateMode"
         ])
         flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows"])
 
@@ -722,7 +737,8 @@ enum ConfigReader {
             "useArrowKeys = \(config.useArrowKeys)",
             "customHUDX = \(config.customHUDX)",
             "customHUDY = \(config.customHUDY)",
-            "focusSpaceOnWindowDrop = \(config.focusSpaceOnWindowDrop)",
+            "focusSpaceOnWindowDrop = \(tomlString(config.focusSpaceOnWindowDrop.rawValue))",
+            "focusSpaceOnWindowDropModifier = \(tomlString(config.focusSpaceOnWindowDropModifier.rawValue))",
             "showHUDOnSpaceChange = \(config.showHUDOnSpaceChange)",
             "hideMenuBarIcon = \(config.hideMenuBarIcon)",
             "menuBarDisplayMode = \(tomlString(config.menuBarDisplayMode.rawValue))",

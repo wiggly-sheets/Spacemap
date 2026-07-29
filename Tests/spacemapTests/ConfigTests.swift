@@ -38,7 +38,8 @@ final class ConfigTests: XCTestCase {
         useArrowKeys = true
         customHUDX = 0.25
         customHUDY = 0.75
-        focusSpaceOnWindowDrop = true
+        focusSpaceOnWindowDrop = "modifier"
+        focusSpaceOnWindowDropModifier = "option"
         showHUDOnSpaceChange = true
         hideMenuBarIcon = true
         menuBarDisplayMode = "nearby"
@@ -88,7 +89,8 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.displayNavigationWrap, .between)
         XCTAssertTrue(c.useVimKeys)
         XCTAssertTrue(c.useArrowKeys)
-        XCTAssertTrue(c.focusSpaceOnWindowDrop)
+        XCTAssertEqual(c.focusSpaceOnWindowDrop, .modifier)
+        XCTAssertEqual(c.focusSpaceOnWindowDropModifier, .option)
         XCTAssertTrue(c.showHUDOnSpaceChange)
         XCTAssertTrue(c.hideMenuBarIcon)
         XCTAssertEqual(c.menuBarDisplayMode, .nearby)
@@ -116,7 +118,8 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.rows, GridConfig.default.rows)
         XCTAssertEqual(c.theme, GridConfig.default.theme)
         XCTAssertEqual(c.hotkey.keyCode, GridConfig.default.hotkey.keyCode)
-        XCTAssertFalse(c.focusSpaceOnWindowDrop)
+        XCTAssertEqual(c.focusSpaceOnWindowDrop, .never)
+        XCTAssertEqual(c.focusSpaceOnWindowDropModifier, .command)
         XCTAssertFalse(c.showHUDOnSpaceChange)
     }
 
