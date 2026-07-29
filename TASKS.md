@@ -37,6 +37,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Hotkey Rapid-Press Fix**: `isToggling` guard in `HUDWindowController`
 - **F13-F20 Hotkeys + Fn Modifier**: Extended keyboard support in the config parser
 - **Grid-aware Keyboard Navigation**: Arrow keys + vim keys (hjkl) with row/column wrapping
+- **HUD Keyboard Isolation**: Consumes keyboard input while visible so navigation keys do not reach other apps
 - **Auto-Hide Timeout Fix**: Fixed HUD not hiding and hotkey double-trigger
 
 ### System Integration
