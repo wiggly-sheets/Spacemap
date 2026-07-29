@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- The visible HUD now consumes keyboard input after handling its own navigation and Settings shortcuts, preventing keystrokes from reaching other apps.
 
 ## [1.0.25] - 2026-07-29
 

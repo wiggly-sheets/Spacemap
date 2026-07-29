@@ -36,7 +36,8 @@ class HUDWindowController {
     private var hostingView: NSHostingView<AnyView>?
     private var displayHostingViews: [Int: NSHostingView<AnyView>] = [:]
     var onShowSettings: (() -> Void)?
-    private var settingsKeyMonitor: Any?
+    private var keyboardEventTap: CFMachPort?
+    private var keyboardRunLoopSource: CFRunLoopSource?
     // Panel drag state for custom position mode
     private var panelDragMonitor: Any?
     private var panelDragStart: CGPoint?   // initial mouse location on drag start
@@ -755,48 +756,112 @@ class HUDWindowController {
     }
 
     private func startSettingsKeyMonitor() {
-        settingsKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, self.isVisible else { return }
-            if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "," {
-                DispatchQueue.main.async {
-                    self.hide()
-                    self.onShowSettings?()
+        guard keyboardEventTap == nil else { return }
+        let mask = CGEventMask(
+            (1 << CGEventType.keyDown.rawValue) |
+            (1 << CGEventType.keyUp.rawValue)
+        )
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .tailAppendEventTap,
+            options: .defaultTap,
+            eventsOfInterest: mask,
+            callback: { _, type, event, refcon in
+                guard let refcon else { return Unmanaged.passUnretained(event) }
+                let controller = Unmanaged<HUDWindowController>.fromOpaque(refcon).takeUnretainedValue()
+                if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                    if let tap = controller.keyboardEventTap {
+                        CGEvent.tapEnable(tap: tap, enable: true)
+                    }
+                    return Unmanaged.passUnretained(event)
                 }
-                return
-            }
-            let code = UInt16(event.keyCode)
-            let mods = event.modifierFlags
-            let noModifiers = !mods.contains(.control) && !mods.contains(.command) && !mods.contains(.option)
-            var dir: SpaceNavigationDirection? = nil
-            if config.useArrowKeys && noModifiers {
-                switch code {
-                case 123: dir = .left
-                case 124: dir = .right
-                case 125: dir = .down
-                case 126: dir = .up
-                default: break
+                guard controller.isVisible else { return Unmanaged.passUnretained(event) }
+                if type == .keyDown {
+                    controller.handleHUDKeyDown(event)
                 }
+                return nil
+            },
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            NSLog("spacemap/HUD: keyboard capture event tap creation failed")
+            return
+        }
+        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
+            CFMachPortInvalidate(tap)
+            return
+        }
+        keyboardEventTap = tap
+        keyboardRunLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func stopSettingsKeyMonitor() {
+        if let source = keyboardRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+        if let tap = keyboardEventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
+        }
+        keyboardRunLoopSource = nil
+        keyboardEventTap = nil
+    }
+
+    private func handleHUDKeyDown(_ event: CGEvent) {
+        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        let flags = event.flags
+        if Self.isSettingsShortcut(keyCode: keyCode, flags: flags) {
+            DispatchQueue.main.async { [weak self] in
+                self?.hide()
+                self?.onShowSettings?()
             }
-            if dir == nil && config.useVimKeys && noModifiers {
-                switch code {
-                case 38: dir = .down   // j
-                case 40: dir = .up     // k
-                case 37: dir = .right  // l
-                case 4:  dir = .left   // h
-                default: break
-                }
-            }
-            if let d = dir {
-                self.navigateSpace(d)
+            return
+        }
+        if let direction = Self.navigationDirection(
+            keyCode: keyCode,
+            flags: flags,
+            useArrowKeys: config.useArrowKeys,
+            useVimKeys: config.useVimKeys
+        ) {
+            DispatchQueue.main.async { [weak self] in
+                self?.navigateSpace(direction)
             }
         }
     }
 
-    private func stopSettingsKeyMonitor() {
-        if let monitor = settingsKeyMonitor {
-            NSEvent.removeMonitor(monitor)
-            settingsKeyMonitor = nil
+    static func isSettingsShortcut(keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
+        keyCode == 43 && flags.contains(.maskCommand)
+    }
+
+    static func navigationDirection(
+        keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        useArrowKeys: Bool,
+        useVimKeys: Bool
+    ) -> SpaceNavigationDirection? {
+        guard !flags.contains(.maskControl),
+              !flags.contains(.maskCommand),
+              !flags.contains(.maskAlternate) else { return nil }
+        if useArrowKeys {
+            switch keyCode {
+            case 123: return .left
+            case 124: return .right
+            case 125: return .down
+            case 126: return .up
+            default: break
+            }
         }
+        if useVimKeys {
+            switch keyCode {
+            case 38: return .down
+            case 40: return .up
+            case 37: return .right
+            case 4: return .left
+            default: break
+            }
+        }
+        return nil
     }
 
     private func navigateSpace(_ direction: SpaceNavigationDirection) {
