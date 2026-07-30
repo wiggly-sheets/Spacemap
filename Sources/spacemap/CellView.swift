@@ -47,14 +47,7 @@ struct CellView: View {
     }
 
     private var filteredWindows: [YabaiWindow] {
-        windows.filter {
-            $0.shouldDisplay(
-                showExtraWindows: showExtraWindows,
-                ownerIsRegularApplication: IconCache.shared.isRegularApplication(
-                    processIdentifier: $0.pid
-                )
-            )
-        }
+        windows.filter { $0.shouldDisplay(showExtraWindows: showExtraWindows) }
     }
 
     private var cellSize: CGSize {

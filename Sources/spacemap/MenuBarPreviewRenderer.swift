@@ -140,12 +140,7 @@ enum MenuBarPreviewRenderer {
         guard content.width > 0, content.height > 0 else { return }
         let displayBounds = state.displayBounds(forSpace: spaceIndex)
         let windows = state.windows(forSpace: spaceIndex).filter {
-            $0.shouldDisplay(
-                showExtraWindows: state.config.showExtraWindows,
-                ownerIsRegularApplication: IconCache.shared.isRegularApplication(
-                    processIdentifier: $0.pid
-                )
-            )
+            $0.shouldDisplay(showExtraWindows: state.config.showExtraWindows)
         }
 
         for window in windows {
