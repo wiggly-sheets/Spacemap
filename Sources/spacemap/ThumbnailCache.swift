@@ -245,12 +245,7 @@ final class ThumbnailCache {
 
             let windows = state.windows(forSpace: space.index)
                 .filter {
-                    $0.shouldDisplay(
-                        showExtraWindows: state.config.showExtraWindows,
-                        ownerIsRegularApplication: IconCache.shared.isRegularApplication(
-                            processIdentifier: $0.pid
-                        )
-                    )
+                    $0.shouldDisplay(showExtraWindows: state.config.showExtraWindows)
                 }
                 .map {
                     CaptureWindow(
