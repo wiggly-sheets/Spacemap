@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.31] - 2026-07-30
+
 ### Fixed
 - The About window License tab now gives its scrollable MIT License text a stable visible layout.
 
