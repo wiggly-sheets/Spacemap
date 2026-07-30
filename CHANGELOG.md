@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Capitalized the packaged executable as `Spacemap` while retaining lowercase `spacemap` for the command-line symlink.
 - Moved About Spacemap above Settings and redesigned its native window with About, Contributors, License, and Software Used tabs.
 
+### Fixed
+- Fixed release builds using the previous Git tag instead of the version declared in `VERSION`.
+
 ## [1.0.27] - 2026-07-29
 
 ### Fixed
