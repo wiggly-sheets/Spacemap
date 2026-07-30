@@ -4,7 +4,7 @@ BUILD_DIR = .build/release
 APP_BUNDLE = Spacemap.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
 INSTALL_PATH = /Applications/$(APP_BUNDLE)
-VERSION  := $(shell git tag --sort=-v:refname 2>/dev/null | head -1 | sed 's/^v//' || (cat VERSION 2>/dev/null) || grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/' || echo "0.0.0")
+VERSION  := $(shell cat VERSION 2>/dev/null || git tag --sort=-v:refname 2>/dev/null | head -1 | sed 's/^v//' || grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/' || echo "0.0.0")
 ARCHIVE   = spacemap-$(VERSION).zip
 STAGE     = spacemap-$(VERSION)
 DMG       = spacemap-$(VERSION).dmg
