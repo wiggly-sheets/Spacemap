@@ -97,7 +97,7 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(window.subLayer, "normal")
     }
 
-    func testNonAXRootProxyRequiresRegularApplicationOrShowExtraWindows() {
+    func testNonAXRootProxyRequiresShowExtraWindows() {
         var window = YabaiWindow(
             id: 12,
             app: "Notes",
@@ -112,14 +112,29 @@ final class ModelTests: XCTestCase {
         window.isVisible = false
         window.isFloating = false
 
-        XCTAssertFalse(window.shouldDisplay(
-            showExtraWindows: false,
-            ownerIsRegularApplication: false
-        ))
-        XCTAssertTrue(window.shouldDisplay(
-            showExtraWindows: false,
-            ownerIsRegularApplication: true
-        ))
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: false))
+        XCTAssertTrue(window.shouldDisplay(showExtraWindows: true))
+    }
+
+    func testClosedNotesBackgroundRecordIsNotDisplayable() {
+        var window = YabaiWindow(
+            id: 34959,
+            app: "Notes",
+            space: 4,
+            frame: .init(x: 855, y: 40, w: 853, h: 1047),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        window.pid = 15032
+        window.role = ""
+        window.subrole = ""
+        window.isRootWindow = true
+        window.hasAXReference = false
+        window.isVisible = false
+        window.isFloating = false
+
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: false))
         XCTAssertTrue(window.shouldDisplay(showExtraWindows: true))
     }
 

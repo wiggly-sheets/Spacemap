@@ -370,10 +370,7 @@ struct YabaiWindow: Decodable {
         case isFloating = "is-floating"
     }
 
-    func shouldDisplay(
-        showExtraWindows: Bool,
-        ownerIsRegularApplication: Bool = false
-    ) -> Bool {
+    func shouldDisplay(showExtraWindows: Bool) -> Bool {
         guard !isHidden,
               !isMinimized,
               id > 0,
@@ -391,16 +388,6 @@ struct YabaiWindow: Decodable {
             subrole == "AXStandardWindow" &&
             isRootWindow != false
         if isStandardUserWindow { return true }
-
-        // yabai can lose AX metadata for an otherwise real window. A root
-        // proxy owned by a normal Dock/Cmd-Tab application is still user-facing.
-        let isRegularApplicationProxy =
-            ownerIsRegularApplication &&
-            (role ?? "").isEmpty &&
-            (subrole ?? "").isEmpty &&
-            isRootWindow == true &&
-            hasAXReference == false
-        if isRegularApplicationProxy { return true }
 
         return showExtraWindows
     }
