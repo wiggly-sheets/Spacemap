@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.30] - 2026-07-30
+
+### Fixed
+- Background-only app records with no Accessibility window reference are no longer treated as visible windows merely because their owner is a regular macOS app.
+
 ## [1.0.29] - 2026-07-30
 
 ### Fixed
