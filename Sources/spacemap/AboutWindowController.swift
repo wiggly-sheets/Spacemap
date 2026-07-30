@@ -148,26 +148,41 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
             "Spacemap is free and open-source software distributed under the MIT License."
         )
 
-        let licenseText = NSTextView()
-        licenseText.string = Self.mitLicense
-        licenseText.isEditable = false
-        licenseText.isSelectable = true
-        licenseText.drawsBackground = false
-        licenseText.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
-        licenseText.textContainerInset = NSSize(width: 8, height: 8)
-
-        let scroll = NSScrollView()
-        scroll.documentView = licenseText
-        scroll.hasVerticalScroller = true
-        scroll.borderType = .bezelBorder
-        scroll.translatesAutoresizingMaskIntoConstraints = false
-        scroll.heightAnchor.constraint(equalToConstant: 220).isActive = true
+        let scroll = Self.makeLicenseScrollView()
 
         let onlineLicense = fixedWidthButton(
             button("View License on GitHub", action: #selector(openLicense))
         )
 
         return panel(views: [summary, scroll, onlineLicense])
+    }
+
+    static func makeLicenseScrollView() -> NSScrollView {
+        let scroll = NSTextView.scrollableTextView()
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+
+        guard let licenseText = scroll.documentView as? NSTextView else {
+            return scroll
+        }
+        licenseText.string = mitLicense
+        licenseText.isEditable = false
+        licenseText.isSelectable = true
+        licenseText.drawsBackground = false
+        licenseText.textColor = .labelColor
+        licenseText.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        licenseText.textContainerInset = NSSize(width: 8, height: 8)
+        licenseText.isHorizontallyResizable = false
+        licenseText.isVerticallyResizable = true
+        licenseText.autoresizingMask = [.width]
+        licenseText.textContainer?.widthTracksTextView = true
+
+        NSLayoutConstraint.activate([
+            scroll.widthAnchor.constraint(equalToConstant: 520),
+            scroll.heightAnchor.constraint(equalToConstant: 220),
+        ])
+        return scroll
     }
 
     private func softwareTab() -> NSView {
