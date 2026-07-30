@@ -245,15 +245,34 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(result.count, 1)
     }
 
-    func testUniqueIconWindowsFiltersBackgroundApps() {
-        let windows = [
+    func testUniqueIconWindowsDoesNotRefilterDisplayedFloatingWindows() {
+        var floating = makeWindow(id: 2, app: "System Settings", isStandard: false)
+        floating.isFloating = true
+        let displayedWindows = [
             makeWindow(id: 1, app: "Firefox"),
-            makeWindow(id: 2, app: "Hammerspoon", isStandard: false),
-            makeWindow(id: 3, app: "Wallpaper Selector", isStandard: false),
+            floating,
         ]
-        let result = CellView.uniqueIconWindows(windows)
-        XCTAssertEqual(result.count, 1)
-        XCTAssertEqual(result.first?.app, "Firefox")
+
+        let result = CellView.uniqueIconWindows(displayedWindows)
+
+        XCTAssertEqual(result.map(\.id), [1, 2])
+    }
+
+    func testIconStripWindowsPreservesOneIconPerWindowSetting() {
+        let displayedWindows = [
+            makeWindow(id: 1, app: "Firefox"),
+            makeWindow(id: 2, app: "Firefox"),
+            makeWindow(id: 3, app: "Safari"),
+        ]
+
+        XCTAssertEqual(
+            CellView.iconStripWindows(displayedWindows, showMultiAppIcons: true).map(\.id),
+            [1, 2, 3]
+        )
+        XCTAssertEqual(
+            CellView.iconStripWindows(displayedWindows, showMultiAppIcons: false).map(\.id),
+            [1, 3]
+        )
     }
 
     // MARK: - CellView.appColor

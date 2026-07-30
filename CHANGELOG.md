@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.29] - 2026-07-30
+
+### Fixed
+- Icon strips now retain floating and extra windows accepted by the same display filter used by rectangle and hybrid views.
+
 ## [1.0.28] - 2026-07-30
 
 ### Added
