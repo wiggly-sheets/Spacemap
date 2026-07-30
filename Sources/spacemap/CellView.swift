@@ -248,8 +248,10 @@ var body: some View {
     
     @ViewBuilder
     private func iconStrip() -> some View {
-        let visible = filteredWindows
-        let icons = showMultiAppIcons ? visible : Self.uniqueIconWindows(visible)
+        let icons = Self.iconStripWindows(
+            filteredWindows,
+            showMultiAppIcons: showMultiAppIcons
+        )
         let ic = iconScale
         let baseIconSize = 12 * uiScale * ic * 2
         let spacing = 2 * uiScale * ic * 2
@@ -275,21 +277,16 @@ var body: some View {
         .padding(.bottom, padding)
     }
     
-    private func uniqueIconWindows() -> [YabaiWindow] {
-        Self.uniqueIconWindows(windows)
+    static func iconStripWindows(
+        _ displayedWindows: [YabaiWindow],
+        showMultiAppIcons: Bool
+    ) -> [YabaiWindow] {
+        showMultiAppIcons ? displayedWindows : uniqueIconWindows(displayedWindows)
     }
 
-    static func uniqueIconWindows(_ windows: [YabaiWindow], showExtraWindows: Bool = false) -> [YabaiWindow] {
+    static func uniqueIconWindows(_ displayedWindows: [YabaiWindow]) -> [YabaiWindow] {
         var seen = Set<String>()
-        return windows.filter {
-            $0.shouldDisplay(
-                showExtraWindows: showExtraWindows,
-                ownerIsRegularApplication: IconCache.shared.isRegularApplication(
-                    processIdentifier: $0.pid
-                )
-            ) &&
-                seen.insert($0.app).inserted
-        }
+        return displayedWindows.filter { seen.insert($0.app).inserted }
     }
     
     private func appIcon(for appName: String) -> NSImage? {
