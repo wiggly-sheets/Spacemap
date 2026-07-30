@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.28] - 2026-07-30
+
+### Added
+- Added a polished Finder DMG with a gray-and-black grid background, installation instructions, and a drag-to-Applications arrow.
+- Added a native About Spacemap window with app identity, version, copyright, Help, and Check for Updates actions.
+- Added macOS 26 adaptive app-icon support while retaining the legacy `.icns` fallback.
+
+### Changed
+- Changed the app bundle and URL-scheme identifiers from `com.jsheffie.spacemap` to `com.zm.spacemap` for the independently maintained fork.
+- Capitalized the packaged executable as `Spacemap` while retaining lowercase `spacemap` for the command-line symlink.
+- Moved About Spacemap above Settings and redesigned its native window with About, Contributors, License, and Software Used tabs.
 
 ## [1.0.27] - 2026-07-29
 

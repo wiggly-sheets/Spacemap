@@ -5,6 +5,9 @@ let package = Package(
     name: "spacemap",
     defaultLocalization: "en",
     platforms: [.macOS(.v13)],
+    products: [
+        .executable(name: "Spacemap", targets: ["spacemap"]),
+    ],
     dependencies: [
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.0"),
     ],

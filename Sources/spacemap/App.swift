@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
+    private var aboutWindowController: AboutWindowController?
     private var menubarRefreshWorkItem: DispatchWorkItem?
     private var menubarRefreshGeneration = 0
     private var isReadyForDeepLinks = false
@@ -321,6 +322,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         ))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(menuItem(
+            title: NSLocalizedString("About Spacemap", comment: ""),
+            action: #selector(showAboutWindow),
+            symbolName: "info.circle"
+        ))
+        menu.addItem(menuItem(
             title: NSLocalizedString("Settings...", comment: ""),
             action: #selector(showSettingsWindow),
             keyEquivalent: ",",
@@ -417,6 +423,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     @objc func checkForUpdates() {
         print("Spacemap: Check for updates clicked")
         sparkleUpdaterController.checkForUpdates(nil)
+    }
+
+    @objc private func showAboutWindow() {
+        NSApp.setActivationPolicy(.regular)
+        if let aboutWindowController {
+            aboutWindowController.showWindow(nil)
+            aboutWindowController.window?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let controller = AboutWindowController(
+            onCheckForUpdates: { [weak self] in self?.checkForUpdates() },
+            onClose: { [weak self] in
+                self?.aboutWindowController = nil
+                DispatchQueue.main.async {
+                    let hasOtherWindow = NSApp.windows.contains {
+                        $0.isVisible && $0.canBecomeKey
+                    }
+                    if !hasOtherWindow {
+                        NSApp.setActivationPolicy(.prohibited)
+                    }
+                }
+            }
+        )
+        aboutWindowController = controller
+        controller.showWindow(nil)
+        controller.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 
     @objc private func installCommandLineTool() {
@@ -684,7 +719,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private let cliSymlinkPath = "/usr/local/bin/spacemap"
-    private let cliExecutablePath = "/Applications/Spacemap.app/Contents/MacOS/spacemap"
+    private let cliExecutablePath = "/Applications/Spacemap.app/Contents/MacOS/Spacemap"
 
     private func ensureCLISymlink(
         allowAuthorizationPrompt: Bool,
@@ -750,7 +785,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func installCLISymlinkWithAuthorization() {
         // This intentionally refuses to overwrite any unrelated item. All
         // paths are app constants, so no user-controlled shell input is used.
-        let command = "if [ -L /usr/local/bin/spacemap ]; then [ $(/usr/bin/readlink /usr/local/bin/spacemap) = /Applications/Spacemap.app/Contents/MacOS/spacemap ] || exit 2; elif [ -e /usr/local/bin/spacemap ]; then exit 2; fi; /bin/mkdir -p /usr/local/bin; if [ ! -L /usr/local/bin/spacemap ]; then /bin/ln -s /Applications/Spacemap.app/Contents/MacOS/spacemap /usr/local/bin/spacemap; fi"
+        let command = "if [ -L /usr/local/bin/spacemap ]; then [ $(/usr/bin/readlink /usr/local/bin/spacemap) = /Applications/Spacemap.app/Contents/MacOS/Spacemap ] || exit 2; elif [ -e /usr/local/bin/spacemap ]; then exit 2; fi; /bin/mkdir -p /usr/local/bin; if [ ! -L /usr/local/bin/spacemap ]; then /bin/ln -s /Applications/Spacemap.app/Contents/MacOS/Spacemap /usr/local/bin/spacemap; fi"
         let source = "do shell script \"\(command)\" with administrator privileges"
         var error: NSDictionary?
         NSAppleScript(source: source)?.executeAndReturnError(&error)

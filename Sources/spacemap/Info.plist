@@ -3,11 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
-	<string>spacemap</string>
+	<string>Spacemap</string>
 	<key>CFBundleIconFile</key>
-	<string>spacemap.icns</string>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.jsheffie.spacemap</string>
+	<string>com.zm.spacemap</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -15,14 +17,14 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.27</string>
+	<string>1.0.28</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>CFBundleURLName</key>
-			<string>com.jsheffie.spacemap</string>
+			<string>com.zm.spacemap</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>spacemap</string>
@@ -30,7 +32,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>1.0.27</string>
+	<string>1.0.28</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAccessibilityUsageDescription</key>
@@ -39,6 +41,8 @@
 	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 Wiggly-Sheets</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Spacemap needs screen recording permission to show window thumbnails of each yabai space.</string>
 	<key>SUFeedURL</key>

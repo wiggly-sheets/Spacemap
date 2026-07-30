@@ -7,40 +7,54 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		f85076bf-a69a-1063-30ae-9d8256ae133f /* AboutWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = b642fb86-5363-b666-0dc1-e6df54bf1772 /* AboutWindowController.swift */; };
 		076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8184fc7a-1e8f-0088-169f-dcda1d7555d9 /* App.swift */; };
+		4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2f2e28ad-f93b-9098-0718-489ce336228a /* CLI.swift */; };
+		7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4773e3cc-160f-5e77-d431-9585eb80e7c4 /* CLISymlinkInstaller.swift */; };
 		118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */; };
 		f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* ConfigReader.swift */; };
+		a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */; };
 		b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */; };
 		e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */; };
 		9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = d1485c56-5612-367e-7199-84db4186fff9 /* HotkeyMonitor.swift */; };
 		8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = bee9b985-0d2c-9e24-8209-2c931c2b414d /* IconCache.swift */; };
 		1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8a9fb303-698c-ba61-9d94-7e9932694e40 /* LiquidGlassBackground.swift */; };
+		306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8dcbf9e9-bdbb-2cae-be48-583060f2c4cf /* MenuBarPreviewRenderer.swift */; };
 		6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96655fa1-2703-8325-90df-cc40a10b79d4 /* Models.swift */; };
 		95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9b213277-b71b-97d3-8e88-990f027afab9 /* SettingsView.swift */; };
 		a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ed77dc76-6db0-2684-66da-9c57949ba5fb /* SettingsWindowController.swift */; };
 		519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = d878303f-7daf-a37e-d75c-e2800de38284 /* SocketListener.swift */; };
+		eb691d40-1ea9-3079-6cc9-bd59f02f0fe0 /* SpaceFocusTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 363043f8-8100-bedf-d434-8be1830e5b9a /* SpaceFocusTarget.swift */; };
+		e67a68ab-5e17-fc18-cfce-7e7d7c7e9295 /* SpaceNavigator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 418a07ce-f892-d850-df47-f535bb2cb088 /* SpaceNavigator.swift */; };
 		4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */; };
 		60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 686138a0-48d9-f5b8-38dd-abf36c17f29b /* ThumbnailCache.swift */; };
 		207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53f068fa-e530-80a8-3b6a-22bbd9be9d6d /* WindowDragHandler.swift */; };
 		1dc951f0-9410-b1e8-f67d-20fe09538d70 /* YabaiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ed9abbc-8690-2d96-1d28-6fc2528a86a4 /* YabaiClient.swift */; };
 		4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = 3cb6e48a-7be2-6fd5-9667-86f0dddb53c7 /* AppIcon.icns */; };
 		29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */ = {isa = PBXBuildFile; fileRef = 3eeebc39-7707-4859-4bce-41fa68eaf754 /* spacemap.icns */; };
-		638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 40e7e7dd-fed6-f791-9132-fbaac27d470c /* Assets.xcassets */; };
+		1ec9e58f-468b-dc34-fb16-f5cefec75b2c /* Assets.car in Resources */ = {isa = PBXBuildFile; fileRef = b34dc6c5-7db6-275b-a422-252934a3ba9a /* Assets.car */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		b642fb86-5363-b666-0dc1-e6df54bf1772 /* AboutWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutWindowController.swift; sourceTree = "<group>"; };
 		8184fc7a-1e8f-0088-169f-dcda1d7555d9 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		2f2e28ad-f93b-9098-0718-489ce336228a /* CLI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLI.swift; sourceTree = "<group>"; };
+		4773e3cc-160f-5e77-d431-9585eb80e7c4 /* CLISymlinkInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLISymlinkInstaller.swift; sourceTree = "<group>"; };
 		240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CellView.swift; sourceTree = "<group>"; };
 		8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* ConfigReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigReader.swift; sourceTree = "<group>"; };
+		ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLink.swift; sourceTree = "<group>"; };
 		e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridView.swift; sourceTree = "<group>"; };
 		f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDWindowController.swift; sourceTree = "<group>"; };
 		d1485c56-5612-367e-7199-84db4186fff9 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
 		bee9b985-0d2c-9e24-8209-2c931c2b414d /* IconCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconCache.swift; sourceTree = "<group>"; };
 		8a9fb303-698c-ba61-9d94-7e9932694e40 /* LiquidGlassBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassBackground.swift; sourceTree = "<group>"; };
+		8dcbf9e9-bdbb-2cae-be48-583060f2c4cf /* MenuBarPreviewRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPreviewRenderer.swift; sourceTree = "<group>"; };
 		96655fa1-2703-8325-90df-cc40a10b79d4 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		9b213277-b71b-97d3-8e88-990f027afab9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		ed77dc76-6db0-2684-66da-9c57949ba5fb /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		d878303f-7daf-a37e-d75c-e2800de38284 /* SocketListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketListener.swift; sourceTree = "<group>"; };
+		363043f8-8100-bedf-d434-8be1830e5b9a /* SpaceFocusTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceFocusTarget.swift; sourceTree = "<group>"; };
+		418a07ce-f892-d850-df47-f535bb2cb088 /* SpaceNavigator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceNavigator.swift; sourceTree = "<group>"; };
 		49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		686138a0-48d9-f5b8-38dd-abf36c17f29b /* ThumbnailCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCache.swift; sourceTree = "<group>"; };
 		53f068fa-e530-80a8-3b6a-22bbd9be9d6d /* WindowDragHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragHandler.swift; sourceTree = "<group>"; };
@@ -48,7 +62,7 @@
 		009b29ab-1092-74ba-a23b-0bb16a8f1313 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		3cb6e48a-7be2-6fd5-9667-86f0dddb53c7 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = file.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		3eeebc39-7707-4859-4bce-41fa68eaf754 /* spacemap.icns */ = {isa = PBXFileReference; lastKnownFileType = file.icns; path = spacemap.icns; sourceTree = "<group>"; };
-		40e7e7dd-fed6-f791-9132-fbaac27d470c /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = SOURCE_ROOT; };
+		b34dc6c5-7db6-275b-a422-252934a3ba9a /* Assets.car */ = {isa = PBXFileReference; lastKnownFileType = file; path = Assets/AppIcon/Assets.car; sourceTree = SOURCE_ROOT; };
 		76ccfddb-adc9-0ddd-7fdc-7eef973f0468 /* spacemap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "spacemap.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4063a448-e9e3-96b4-c000-a87f55fbe829 /* spacemap-arm64.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "spacemap-arm64.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		5bb6cb51-6a5b-cdde-bbc2-130580f8201e /* spacemap-x86_64.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "spacemap-x86_64.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -91,7 +105,7 @@
 			isa = PBXGroup;
 			children = (
 				e5062cba-c8cb-23e4-e527-0e75442c1762 /* Sources */,
-				40e7e7dd-fed6-f791-9132-fbaac27d470c /* Assets.xcassets */,
+				b34dc6c5-7db6-275b-a422-252934a3ba9a /* Assets.car */,
 				3f58e571-b4f5-4552-5fea-70bbe84fcec0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -107,18 +121,25 @@
 		c13d0875-9134-da0c-1161-bfde5e9b85f6 /* spacemap */ = {
 			isa = PBXGroup;
 			children = (
+				b642fb86-5363-b666-0dc1-e6df54bf1772 /* AboutWindowController.swift */,
 				8184fc7a-1e8f-0088-169f-dcda1d7555d9 /* App.swift */,
+				2f2e28ad-f93b-9098-0718-489ce336228a /* CLI.swift */,
+				4773e3cc-160f-5e77-d431-9585eb80e7c4 /* CLISymlinkInstaller.swift */,
 				240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */,
 				8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* ConfigReader.swift */,
+				ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */,
 				e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */,
 				f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */,
 				d1485c56-5612-367e-7199-84db4186fff9 /* HotkeyMonitor.swift */,
 				bee9b985-0d2c-9e24-8209-2c931c2b414d /* IconCache.swift */,
 				8a9fb303-698c-ba61-9d94-7e9932694e40 /* LiquidGlassBackground.swift */,
+				8dcbf9e9-bdbb-2cae-be48-583060f2c4cf /* MenuBarPreviewRenderer.swift */,
 				96655fa1-2703-8325-90df-cc40a10b79d4 /* Models.swift */,
 				9b213277-b71b-97d3-8e88-990f027afab9 /* SettingsView.swift */,
 				ed77dc76-6db0-2684-66da-9c57949ba5fb /* SettingsWindowController.swift */,
 				d878303f-7daf-a37e-d75c-e2800de38284 /* SocketListener.swift */,
+				363043f8-8100-bedf-d434-8be1830e5b9a /* SpaceFocusTarget.swift */,
+				418a07ce-f892-d850-df47-f535bb2cb088 /* SpaceNavigator.swift */,
 				49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */,
 				686138a0-48d9-f5b8-38dd-abf36c17f29b /* ThumbnailCache.swift */,
 				53f068fa-e530-80a8-3b6a-22bbd9be9d6d /* WindowDragHandler.swift */,
@@ -247,7 +268,7 @@
 			files = (
 				4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */,
 				29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */,
-				638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */,
+				1ec9e58f-468b-dc34-fb16-f5cefec75b2c /* Assets.car in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -257,7 +278,7 @@
 			files = (
 				4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */,
 				29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */,
-				638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */,
+				1ec9e58f-468b-dc34-fb16-f5cefec75b2c /* Assets.car in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -267,7 +288,7 @@
 			files = (
 				4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */,
 				29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */,
-				638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */,
+				1ec9e58f-468b-dc34-fb16-f5cefec75b2c /* Assets.car in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -277,7 +298,7 @@
 			files = (
 				4a7c4847-866d-4f4b-529c-91f2958ac467 /* AppIcon.icns in Resources */,
 				29525004-3732-c3e4-21a9-79cf8198123c /* spacemap.icns in Resources */,
-				638a93b9-f1c3-298c-acef-5c20c1c2644a /* Assets.xcassets in Resources */,
+				1ec9e58f-468b-dc34-fb16-f5cefec75b2c /* Assets.car in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -288,18 +309,25 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				f85076bf-a69a-1063-30ae-9d8256ae133f /* AboutWindowController.swift in Sources */,
 				076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */,
+				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
+				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
 				9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */,
 				8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */,
 				1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */,
+				306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */,
 				6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */,
 				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
 				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
 				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
+				eb691d40-1ea9-3079-6cc9-bd59f02f0fe0 /* SpaceFocusTarget.swift in Sources */,
+				e67a68ab-5e17-fc18-cfce-7e7d7c7e9295 /* SpaceNavigator.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
 				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
@@ -311,18 +339,25 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				f85076bf-a69a-1063-30ae-9d8256ae133f /* AboutWindowController.swift in Sources */,
 				076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */,
+				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
+				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
 				9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */,
 				8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */,
 				1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */,
+				306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */,
 				6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */,
 				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
 				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
 				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
+				eb691d40-1ea9-3079-6cc9-bd59f02f0fe0 /* SpaceFocusTarget.swift in Sources */,
+				e67a68ab-5e17-fc18-cfce-7e7d7c7e9295 /* SpaceNavigator.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
 				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
@@ -334,18 +369,25 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				f85076bf-a69a-1063-30ae-9d8256ae133f /* AboutWindowController.swift in Sources */,
 				076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */,
+				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
+				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
 				9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */,
 				8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */,
 				1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */,
+				306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */,
 				6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */,
 				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
 				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
 				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
+				eb691d40-1ea9-3079-6cc9-bd59f02f0fe0 /* SpaceFocusTarget.swift in Sources */,
+				e67a68ab-5e17-fc18-cfce-7e7d7c7e9295 /* SpaceNavigator.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
 				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
@@ -357,18 +399,25 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				f85076bf-a69a-1063-30ae-9d8256ae133f /* AboutWindowController.swift in Sources */,
 				076522a5-bced-cf34-433e-68bf95d1aedf /* App.swift in Sources */,
+				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
+				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
 				9bc450b3-ed8a-46e2-4cf4-6c3c6a5b2a66 /* HotkeyMonitor.swift in Sources */,
 				8de70ebc-bfe1-61b0-59a7-47d23cb34f29 /* IconCache.swift in Sources */,
 				1f27f977-8275-5ebc-3fde-4e3269f7eb5f /* LiquidGlassBackground.swift in Sources */,
+				306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */,
 				6d7e41ce-c386-33cb-2b8e-7cf25eff2f90 /* Models.swift in Sources */,
 				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
 				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
 				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
+				eb691d40-1ea9-3079-6cc9-bd59f02f0fe0 /* SpaceFocusTarget.swift in Sources */,
+				e67a68ab-5e17-fc18-cfce-7e7d7c7e9295 /* SpaceNavigator.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
 				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
@@ -419,8 +468,9 @@
 				INFOPLIST_FILE = Sources/spacemap/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zm.spacemap;
 				PRODUCT_NAME = spacemap;
+				EXECUTABLE_NAME = Spacemap;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = -Onone;
 				SWIFT_VERSION = 5.0;
@@ -446,8 +496,9 @@
 				INFOPLIST_FILE = Sources/spacemap/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zm.spacemap;
 				PRODUCT_NAME = spacemap;
+				EXECUTABLE_NAME = Spacemap;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = RELEASE;
 				SWIFT_OPTIMIZATION_LEVEL = -O;
 				SWIFT_VERSION = 5.0;
@@ -474,8 +525,9 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ARCHS = "arm64";
-				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zm.spacemap;
 				PRODUCT_NAME = spacemap-arm64;
+				EXECUTABLE_NAME = Spacemap;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = -Onone;
 				SWIFT_VERSION = 5.0;
@@ -502,8 +554,9 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ARCHS = "arm64";
-				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zm.spacemap;
 				PRODUCT_NAME = spacemap-arm64;
+				EXECUTABLE_NAME = Spacemap;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = RELEASE;
 				SWIFT_OPTIMIZATION_LEVEL = -O;
 				SWIFT_VERSION = 5.0;
@@ -530,8 +583,9 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ARCHS = "x86_64";
-				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zm.spacemap;
 				PRODUCT_NAME = spacemap-x86_64;
+				EXECUTABLE_NAME = Spacemap;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = -Onone;
 				SWIFT_VERSION = 5.0;
@@ -558,8 +612,9 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ARCHS = "x86_64";
-				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zm.spacemap;
 				PRODUCT_NAME = spacemap-x86_64;
+				EXECUTABLE_NAME = Spacemap;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = RELEASE;
 				SWIFT_OPTIMIZATION_LEVEL = -O;
 				SWIFT_VERSION = 5.0;
@@ -586,8 +641,9 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ARCHS = "arm64 x86_64";
-				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zm.spacemap;
 				PRODUCT_NAME = spacemap-universal;
+				EXECUTABLE_NAME = Spacemap;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = -Onone;
 				SWIFT_VERSION = 5.0;
@@ -614,8 +670,9 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ARCHS = "arm64 x86_64";
-				PRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zm.spacemap;
 				PRODUCT_NAME = spacemap-universal;
+				EXECUTABLE_NAME = Spacemap;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = RELEASE;
 				SWIFT_OPTIMIZATION_LEVEL = -O;
 				SWIFT_VERSION = 5.0;
