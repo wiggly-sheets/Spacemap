@@ -1,4 +1,5 @@
 APP_NAME = spacemap
+BINARY_NAME = Spacemap
 BUILD_DIR = .build/release
 APP_BUNDLE = Spacemap.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
@@ -16,7 +17,7 @@ SPARKLE_PUBLIC_KEY ?= $(shell cat sparklesigner.pub 2>/dev/null | tr -d '\n')
 .PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal generate-xcodeproj test release
 
 build:
-	swift build -c release
+	swift build -c release --product $(BINARY_NAME)
 
 test:
 	swift test
@@ -25,24 +26,25 @@ generate-xcodeproj:
 	python3 scripts/generate-xcodeproj.py
 
 build-arm64:
-	swift build -c release --arch arm64
+	swift build -c release --arch arm64 --product $(BINARY_NAME)
 
 build-x86_64:
-	swift build -c release --arch x86_64
+	swift build -c release --arch x86_64 --product $(BINARY_NAME)
 
 build-universal: build-arm64 build-x86_64
 	mkdir -p .build/universal/release
-	lipo -create -output .build/universal/release/$(APP_NAME) \
-		$(BUILD_ARM64)/$(APP_NAME) \
-		$(BUILD_X86_64)/$(APP_NAME)
-	@echo "Universal binary: .build/universal/release/$(APP_NAME)"
-	@lipo -info .build/universal/release/$(APP_NAME)
+	lipo -create -output .build/universal/release/$(BINARY_NAME) \
+		$(BUILD_ARM64)/$(BINARY_NAME) \
+		$(BUILD_X86_64)/$(BINARY_NAME)
+	@echo "Universal binary: .build/universal/release/$(BINARY_NAME)"
+	@lipo -info .build/universal/release/$(BINARY_NAME)
 
 app: build
 	mkdir -p $(APP_CONTENTS)/MacOS
 	mkdir -p $(APP_CONTENTS)/Frameworks
 	mkdir -p $(APP_CONTENTS)/Resources
-	cp $(BUILD_DIR)/$(APP_NAME) $(APP_CONTENTS)/MacOS/
+	rm -f $(APP_CONTENTS)/MacOS/$(APP_NAME)
+	cp $(BUILD_DIR)/$(BINARY_NAME) $(APP_CONTENTS)/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_CONTENTS)/
 	sed -i '' "s/$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/')/$(VERSION)/g" $(APP_CONTENTS)/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
@@ -51,16 +53,18 @@ app: build
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_CONTENTS)/Frameworks/
 	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
-	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_CONTENTS)/MacOS/$(APP_NAME)
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_CONTENTS)/MacOS/$(BINARY_NAME)
 	cp Sources/spacemap/spacemap.icns $(APP_CONTENTS)/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_CONTENTS)/Resources/AppIcon.icns
+	cp Assets/AppIcon/Assets.car $(APP_CONTENTS)/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_CONTENTS)/Resources/
 
 app-arm64: build-arm64
 	mkdir -p $(APP_NAME)-arm64.app/Contents/MacOS
 	mkdir -p $(APP_NAME)-arm64.app/Contents/Frameworks
 	mkdir -p $(APP_NAME)-arm64.app/Contents/Resources
-	cp $(BUILD_ARM64)/$(APP_NAME) $(APP_NAME)-arm64.app/Contents/MacOS/
+	rm -f $(APP_NAME)-arm64.app/Contents/MacOS/$(APP_NAME)
+	cp $(BUILD_ARM64)/$(BINARY_NAME) $(APP_NAME)-arm64.app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME)-arm64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-arm64.app/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
@@ -69,9 +73,10 @@ app-arm64: build-arm64
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-arm64.app/Contents/Frameworks/
 	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
-	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME)-arm64.app/Contents/MacOS/$(APP_NAME)
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME)-arm64.app/Contents/MacOS/$(BINARY_NAME)
 	cp Sources/spacemap/spacemap.icns $(APP_NAME)-arm64.app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-arm64.app/Contents/Resources/AppIcon.icns
+	cp Assets/AppIcon/Assets.car $(APP_NAME)-arm64.app/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_NAME)-arm64.app/Contents/Resources/
 	@echo "Built $(APP_NAME)-arm64.app (Apple Silicon)"
 
@@ -79,7 +84,8 @@ app-x86_64: build-x86_64
 	mkdir -p $(APP_NAME)-x86_64.app/Contents/MacOS
 	mkdir -p $(APP_NAME)-x86_64.app/Contents/Frameworks
 	mkdir -p $(APP_NAME)-x86_64.app/Contents/Resources
-	cp $(BUILD_X86_64)/$(APP_NAME) $(APP_NAME)-x86_64.app/Contents/MacOS/
+	rm -f $(APP_NAME)-x86_64.app/Contents/MacOS/$(APP_NAME)
+	cp $(BUILD_X86_64)/$(BINARY_NAME) $(APP_NAME)-x86_64.app/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_NAME)-x86_64.app/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-x86_64.app/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
@@ -88,9 +94,10 @@ app-x86_64: build-x86_64
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-x86_64.app/Contents/Frameworks/
 	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
-	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME)-x86_64.app/Contents/MacOS/$(APP_NAME)
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME)-x86_64.app/Contents/MacOS/$(BINARY_NAME)
 	cp Sources/spacemap/spacemap.icns $(APP_NAME)-x86_64.app/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-x86_64.app/Contents/Resources/AppIcon.icns
+	cp Assets/AppIcon/Assets.car $(APP_NAME)-x86_64.app/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_NAME)-x86_64.app/Contents/Resources/
 	@echo "Built $(APP_NAME)-x86_64.app (Intel)"
 
@@ -98,7 +105,8 @@ app-universal: build-universal
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	mkdir -p $(APP_BUNDLE)/Contents/Frameworks
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
-	cp .build/universal/release/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
+	rm -f $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
+	cp .build/universal/release/$(BINARY_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	cp Sources/spacemap/Info.plist $(APP_BUNDLE)/Contents/
 	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
@@ -107,9 +115,10 @@ app-universal: build-universal
 	# Copy Sparkle framework (extract from xcframework structure)
 	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_BUNDLE)/Contents/Frameworks/
 	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
-	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_BUNDLE)/Contents/MacOS/$(BINARY_NAME)
 	cp Sources/spacemap/spacemap.icns $(APP_BUNDLE)/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
+	cp Assets/AppIcon/Assets.car $(APP_BUNDLE)/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_BUNDLE)/Contents/Resources/
 	@echo "Built $(APP_BUNDLE) (Universal: arm64 + x86_64)"
 
@@ -150,10 +159,11 @@ _dmg:
 		--volname "Spacemap" \
 		--volicon Sources/spacemap/spacemap.icns \
 		--window-pos 200 120 \
-		--window-size 600 400 \
+		--window-size 660 400 \
+		--background Assets/DMG/background.png \
 		--icon-size 100 \
-		--icon "Spacemap.app" 175 190 \
-		--app-drop-link 425 190 \
+		--icon "Spacemap.app" 180 215 \
+		--app-drop-link 480 215 \
 		$(OUTPUT) $(DMG_STAGE)/Spacemap.app
 	@rm -rf $(DMG_STAGE)
 	@echo "Created $(OUTPUT)"
@@ -163,16 +173,18 @@ install: app
 	mkdir -p $(INSTALL_PATH)/Contents/MacOS
 	mkdir -p $(INSTALL_PATH)/Contents/Frameworks
 	mkdir -p $(INSTALL_PATH)/Contents/Resources
-	cp $(APP_CONTENTS)/MacOS/$(APP_NAME) $(INSTALL_PATH)/Contents/MacOS/
+	rm -f $(INSTALL_PATH)/Contents/MacOS/$(APP_NAME)
+	cp $(APP_CONTENTS)/MacOS/$(BINARY_NAME) $(INSTALL_PATH)/Contents/MacOS/
 	cp $(APP_CONTENTS)/Info.plist $(INSTALL_PATH)/Contents/
 	cp -R $(APP_CONTENTS)/Frameworks/Sparkle.framework $(INSTALL_PATH)/Contents/Frameworks/
 	cp Sources/spacemap/spacemap.icns $(INSTALL_PATH)/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(INSTALL_PATH)/Contents/Resources/AppIcon.icns
+	cp Assets/AppIcon/Assets.car $(INSTALL_PATH)/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(INSTALL_PATH)/Contents/Resources/
 	# Sign with Sparkle entitlements (ad-hoc for dev builds)
 	codesign --force --sign - --options runtime \
 		--entitlements sparkle-entitlements.plist \
-		$(INSTALL_PATH)/Contents/MacOS/$(APP_NAME)
+		$(INSTALL_PATH)/Contents/MacOS/$(BINARY_NAME)
 	codesign --force --sign - --options runtime \
 		--entitlements sparkle-entitlements.plist \
 		$(INSTALL_PATH)
@@ -183,7 +195,7 @@ run: install
 	open $(INSTALL_PATH)
 
 uninstall:
-	-killall spacemap 2>/dev/null
+	-killall $(BINARY_NAME) 2>/dev/null
 	rm -rf $(INSTALL_PATH)
 	@echo "Removed $(INSTALL_PATH)"
 	@rm -f /usr/local/bin/spacemap
@@ -191,7 +203,7 @@ uninstall:
 install-cli: install
 	@echo "Installing CLI symlink to /usr/local/bin/spacemap..."
 	@mkdir -p /usr/local/bin
-	@ln -sf $(INSTALL_PATH)/Contents/MacOS/spacemap /usr/local/bin/spacemap
+	@ln -sf $(INSTALL_PATH)/Contents/MacOS/$(BINARY_NAME) /usr/local/bin/spacemap
 	@echo "CLI installed. Run 'spacemap --help' for usage."
 
 uninstall-cli:
@@ -207,7 +219,7 @@ dev1: uninstall
 
 dev2: install
 	@# This target kills the app, reinstalls, and relaunches so you just need to re-grant in System Settings.
-	-killall spacemap 2>/dev/null
+	-killall $(BINARY_NAME) 2>/dev/null
 	@sleep 0.5
 	open $(INSTALL_PATH)
 	@echo ""
@@ -217,7 +229,7 @@ dev2: install
 
 permissions:
 	@echo "If your hotkey stopped working after a reinstall:"
-	@echo "  1. killall spacemap"
+	@echo "  1. killall $(BINARY_NAME)"
 	@echo "  2. System Settings → Privacy & Security → Accessibility"
 	@echo "  3. Click − to remove Spacemap"
 	@echo "  4. make run   (will prompt for permission again)"
@@ -290,8 +302,8 @@ distconfig:
 	@cat ~/.config/spacemap/config.toml
 
 symlink:
-	ln -sf /Applications/Spacemap.app/Contents/MacOS/spacemap /usr/local/bin/spacemap
-	@echo "Symlink created: /usr/local/bin/spacemap → /Applications/Spacemap.app/Contents/MacOS/spacemap"
+	ln -sf /Applications/Spacemap.app/Contents/MacOS/$(BINARY_NAME) /usr/local/bin/spacemap
+	@echo "Symlink created: /usr/local/bin/spacemap → /Applications/Spacemap.app/Contents/MacOS/$(BINARY_NAME)"
 	@echo "Note: You may need to run with sudo for /usr/local/bin access"
 
 unsymlink:

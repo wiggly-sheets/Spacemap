@@ -75,8 +75,10 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Distribution & Builds
 
-- **App Icon**: Bundled `.icns` file for macOS app bundle
-- **DMG Assets**: DMG installer with /Applications symlink
+- **App Icon**: Adaptive Icon Composer asset for macOS 26 with a rounded legacy `.icns` fallback
+- **DMG Assets**: Gray-and-black grid background with install guidance, arrow, and Applications symlink
+- **Native About Window**: Tabbed project, contributor/fork, license, and software attribution
+- **Fork Identity**: `com.zm.spacemap` bundle identity and capitalized `Spacemap` executable with lowercase CLI command
 - **Xcode Project Generation**: `scripts/generate-xcodeproj.py` with 4 architecture targets
 - **Architecture-specific Builds**: ARM64, x86_64, universal DMGs via `create-dmg`
 - **CI DMG Verification**: Release workflow mounts each DMG and verifies architecture with `lipo -archs`

@@ -27,10 +27,6 @@ SOURCE_FILES = sorted([
 
 PLIST_FILE = "Info.plist"
 
-# xcassets at project root (copied into bundle by build phase)
-ASSETS_DIR = os.path.join(PROJECT_DIR, "Assets.xcassets")
-
-
 def uuid5(name):
     """Deterministic UUID from a name string."""
     h = hashlib.md5(f"spacemap.{name}".encode()).hexdigest()
@@ -57,7 +53,7 @@ for f in SOURCE_FILES:
 PLIST_REF = uid("fileref", PLIST_FILE)
 APPICON_REF = uid("fileref", "AppIcon.icns")
 SPACEMAP_ICON_REF = uid("fileref", "spacemap.icns")
-ASSETS_REF = uid("fileref", "Assets.xcassets")
+ADAPTIVE_ICON_REF = uid("fileref", "Assets.car")
 
 # Build file refs
 BUILD_FILES = {}
@@ -65,7 +61,7 @@ for f in SOURCE_FILES:
     BUILD_FILES[f] = uid("buildfile", f)
 APPICON_BUILD = uid("buildfile", "AppIcon.icns")
 SPACEMAP_ICON_BUILD = uid("buildfile", "spacemap.icns")
-ASSETS_BUILD = uid("buildfile", "Assets.xcassets")
+ADAPTIVE_ICON_BUILD = uid("buildfile", "Assets.car")
 
 # Targets
 TARGET_DEFAULT = uid("target", "spacemap")
@@ -148,7 +144,7 @@ def generate_build_config(target_id, name, is_debug):
         "SWIFT_ACTIVE_COMPILATION_CONDITIONS": "DEBUG" if is_debug else "RELEASE",
         "SWIFT_OPTIMIZATION_LEVEL": "-Onone" if is_debug else "-O",
         "PRODUCT_NAME": product_name,
-        "PRODUCT_BUNDLE_IDENTIFIER": f"com.jsheffie.spacemap" if target_id == TARGET_DEFAULT else f"com.jsheffie.spacemap.{product_name}",
+        "PRODUCT_BUNDLE_IDENTIFIER": "com.zm.spacemap" if target_id == TARGET_DEFAULT else f"com.zm.spacemap.{product_name}",
         "INFOPLIST_FILE": f"Sources/spacemap/{PLIST_FILE}",
         "LD_RUNPATH_SEARCH_PATHS": [
             "$(inherited)",
@@ -208,7 +204,7 @@ def generate():
         lines.append(f"\t\t{BUILD_FILES[f]} /* {f} in Sources */ = {{isa = PBXBuildFile; fileRef = {FILE_REFS[f]} /* {f} */; }};")
     lines.append(f"\t\t{APPICON_BUILD} /* AppIcon.icns in Resources */ = {{isa = PBXBuildFile; fileRef = {APPICON_REF} /* AppIcon.icns */; }};")
     lines.append(f"\t\t{SPACEMAP_ICON_BUILD} /* spacemap.icns in Resources */ = {{isa = PBXBuildFile; fileRef = {SPACEMAP_ICON_REF} /* spacemap.icns */; }};")
-    lines.append(f"\t\t{ASSETS_BUILD} /* Assets.xcassets in Resources */ = {{isa = PBXBuildFile; fileRef = {ASSETS_REF} /* Assets.xcassets */; }};")
+    lines.append(f"\t\t{ADAPTIVE_ICON_BUILD} /* Assets.car in Resources */ = {{isa = PBXBuildFile; fileRef = {ADAPTIVE_ICON_REF} /* Assets.car */; }};")
     lines.append("/* End PBXBuildFile section */")
     lines.append("")
 
@@ -219,7 +215,7 @@ def generate():
     lines.append(f"\t\t{PLIST_REF} /* Info.plist */ = {{isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = \"<group>\"; }};")
     lines.append(f"\t\t{APPICON_REF} /* AppIcon.icns */ = {{isa = PBXFileReference; lastKnownFileType = file.icns; path = AppIcon.icns; sourceTree = \"<group>\"; }};")
     lines.append(f"\t\t{SPACEMAP_ICON_REF} /* spacemap.icns */ = {{isa = PBXFileReference; lastKnownFileType = file.icns; path = spacemap.icns; sourceTree = \"<group>\"; }};")
-    lines.append(f"\t\t{ASSETS_REF} /* Assets.xcassets */ = {{isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = SOURCE_ROOT; }};")
+    lines.append(f"\t\t{ADAPTIVE_ICON_REF} /* Assets.car */ = {{isa = PBXFileReference; lastKnownFileType = file; path = Assets/AppIcon/Assets.car; sourceTree = SOURCE_ROOT; }};")
     for tid in NATIVE_TARGETS:
         pname = target_product_name(tid)
         pref = target_product_ref(tid)
@@ -248,7 +244,7 @@ def generate():
     lines.append(f"\t\t\tisa = PBXGroup;")
     lines.append(f"\t\t\tchildren = (")
     lines.append(f"\t\t\t\t{SOURCE_GROUP} /* Sources */,")
-    lines.append(f"\t\t\t\t{ASSETS_REF} /* Assets.xcassets */,")
+    lines.append(f"\t\t\t\t{ADAPTIVE_ICON_REF} /* Assets.car */,")
     lines.append(f"\t\t\t\t{PRODUCTS_GROUP} /* Products */,")
     lines.append(f"\t\t\t);")
     lines.append(f"\t\t\tsourceTree = \"<group>\";")
@@ -358,7 +354,7 @@ def generate():
         lines.append(f"\t\t\tfiles = (")
         lines.append(f"\t\t\t\t{APPICON_BUILD} /* AppIcon.icns in Resources */,")
         lines.append(f"\t\t\t\t{SPACEMAP_ICON_BUILD} /* spacemap.icns in Resources */,")
-        lines.append(f"\t\t\t\t{ASSETS_BUILD} /* Assets.xcassets in Resources */,")
+        lines.append(f"\t\t\t\t{ADAPTIVE_ICON_BUILD} /* Assets.car in Resources */,")
         lines.append(f"\t\t\t);")
         lines.append(f"\t\t\trunOnlyForDeploymentPostprocessing = 0;")
         lines.append(f"\t\t}};")
@@ -428,8 +424,9 @@ def generate():
             lines.append(f"\t\t\t\tMACOSX_DEPLOYMENT_TARGET = 13.0;")
             if arch:
                 lines.append(f"\t\t\t\tARCHS = \"{arch}\";")
-            lines.append(f"\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.jsheffie.spacemap;")
+            lines.append(f"\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = com.zm.spacemap;")
             lines.append(f"\t\t\t\tPRODUCT_NAME = {pname};")
+            lines.append(f"\t\t\t\tEXECUTABLE_NAME = Spacemap;")
             lines.append(f"\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = {'DEBUG' if is_debug else 'RELEASE'};")
             lines.append(f"\t\t\t\tSWIFT_OPTIMIZATION_LEVEL = {'-Onone' if is_debug else '-O'};")
             lines.append(f"\t\t\t\tSWIFT_VERSION = 5.0;")
