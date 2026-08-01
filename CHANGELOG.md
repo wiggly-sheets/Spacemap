@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.32] - 2026-08-01
+
 ### Added
 - Added live yabai process and socket diagnostics to Advanced settings.
 - Added a `spacemap(1)` manual page generated with scdoc and linked automatically alongside the CLI.
