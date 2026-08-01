@@ -262,10 +262,13 @@ Install the CLI:
 make install-cli
 ```
 
+This also installs the generated `spacemap(1)` manual. Its scdoc source is
+`docs/spacemap.1.scd`; rebuild it with `make man` and read it with `man spacemap`.
+
 When the app is launched from `/Applications`, it also installs the `spacemap`
-command automatically. If macOS protects `/usr/local/bin`, Spacemap asks for
-administrator approval to create that symlink; it never replaces an unrelated
-item already at that path.
+command and `spacemap(1)` manual links automatically. If macOS protects
+`/usr/local`, Spacemap asks for administrator approval to create them; it never
+replaces unrelated items at either destination.
 
 ---
 

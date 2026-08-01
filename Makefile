@@ -13,14 +13,22 @@ BUILD_ARM64 = .build/arm64-apple-macosx/release
 BUILD_X86_64 = .build/x86_64-apple-macosx/release
 # Sparkle public key for update verification (set via env or read from sparklesigner.pub)
 SPARKLE_PUBLIC_KEY ?= $(shell cat sparklesigner.pub 2>/dev/null | tr -d '\n')
+MAN_SOURCE = docs/spacemap.1.scd
+MAN_PAGE = docs/spacemap.1
 
-.PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal generate-xcodeproj test release
+.PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal generate-xcodeproj test release man
 
 build:
 	swift build -c release --product $(BINARY_NAME)
 
 test:
 	swift test
+
+man: $(MAN_PAGE)
+
+$(MAN_PAGE): $(MAN_SOURCE)
+	@command -v scdoc >/dev/null || (echo "scdoc is required to build $(MAN_PAGE)" && exit 1)
+	scdoc < $(MAN_SOURCE) > $(MAN_PAGE)
 
 generate-xcodeproj:
 	python3 scripts/generate-xcodeproj.py
@@ -39,7 +47,7 @@ build-universal: build-arm64 build-x86_64
 	@echo "Universal binary: .build/universal/release/$(BINARY_NAME)"
 	@lipo -info .build/universal/release/$(BINARY_NAME)
 
-app: build
+app: build man
 	mkdir -p $(APP_CONTENTS)/MacOS
 	mkdir -p $(APP_CONTENTS)/Frameworks
 	mkdir -p $(APP_CONTENTS)/Resources
@@ -58,8 +66,9 @@ app: build
 	cp Sources/spacemap/AppIcon.icns $(APP_CONTENTS)/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(APP_CONTENTS)/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_CONTENTS)/Resources/
+	cp $(MAN_PAGE) $(APP_CONTENTS)/Resources/spacemap.1
 
-app-arm64: build-arm64
+app-arm64: build-arm64 man
 	mkdir -p $(APP_NAME)-arm64.app/Contents/MacOS
 	mkdir -p $(APP_NAME)-arm64.app/Contents/Frameworks
 	mkdir -p $(APP_NAME)-arm64.app/Contents/Resources
@@ -78,9 +87,10 @@ app-arm64: build-arm64
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-arm64.app/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(APP_NAME)-arm64.app/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_NAME)-arm64.app/Contents/Resources/
+	cp $(MAN_PAGE) $(APP_NAME)-arm64.app/Contents/Resources/spacemap.1
 	@echo "Built $(APP_NAME)-arm64.app (Apple Silicon)"
 
-app-x86_64: build-x86_64
+app-x86_64: build-x86_64 man
 	mkdir -p $(APP_NAME)-x86_64.app/Contents/MacOS
 	mkdir -p $(APP_NAME)-x86_64.app/Contents/Frameworks
 	mkdir -p $(APP_NAME)-x86_64.app/Contents/Resources
@@ -99,9 +109,10 @@ app-x86_64: build-x86_64
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-x86_64.app/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(APP_NAME)-x86_64.app/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_NAME)-x86_64.app/Contents/Resources/
+	cp $(MAN_PAGE) $(APP_NAME)-x86_64.app/Contents/Resources/spacemap.1
 	@echo "Built $(APP_NAME)-x86_64.app (Intel)"
 
-app-universal: build-universal
+app-universal: build-universal man
 	mkdir -p $(APP_BUNDLE)/Contents/MacOS
 	mkdir -p $(APP_BUNDLE)/Contents/Frameworks
 	mkdir -p $(APP_BUNDLE)/Contents/Resources
@@ -120,6 +131,7 @@ app-universal: build-universal
 	cp Sources/spacemap/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(APP_BUNDLE)/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_BUNDLE)/Contents/Resources/
+	cp $(MAN_PAGE) $(APP_BUNDLE)/Contents/Resources/spacemap.1
 	@echo "Built $(APP_BUNDLE) (Universal: arm64 + x86_64)"
 
 archive: app
@@ -181,6 +193,7 @@ install: app
 	cp Sources/spacemap/AppIcon.icns $(INSTALL_PATH)/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(INSTALL_PATH)/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(INSTALL_PATH)/Contents/Resources/
+	cp $(MAN_PAGE) $(INSTALL_PATH)/Contents/Resources/spacemap.1
 	# Sign with Sparkle entitlements (ad-hoc for dev builds)
 	codesign --force --sign - --options runtime \
 		--entitlements sparkle-entitlements.plist \
@@ -204,11 +217,14 @@ install-cli: install
 	@echo "Installing CLI symlink to /usr/local/bin/spacemap..."
 	@mkdir -p /usr/local/bin
 	@ln -sf $(INSTALL_PATH)/Contents/MacOS/$(BINARY_NAME) /usr/local/bin/spacemap
-	@echo "CLI installed. Run 'spacemap --help' for usage."
+	@mkdir -p /usr/local/share/man/man1
+	@ln -sf $(INSTALL_PATH)/Contents/Resources/spacemap.1 /usr/local/share/man/man1/spacemap.1
+	@echo "CLI and man page installed. Run 'man spacemap' for usage."
 
 uninstall-cli:
 	@echo "Removing CLI symlink from /usr/local/bin/spacemap..."
 	@rm -f /usr/local/bin/spacemap
+	@rm -f /usr/local/share/man/man1/spacemap.1
 	@echo "CLI uninstalled."
 
 dev1: uninstall

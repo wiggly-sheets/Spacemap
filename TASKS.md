@@ -31,6 +31,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Show Icon Strip Toggle**: Per-cell app icon strip at bottom
 - **Hide Menu Bar Icon Toggle**: Run headless, use hotkey or CLI
 - **Menu Bar Workspace Previews**: Current, nearby, all-space, and compact dot-grid modes with live yabai layout updates
+- **Reliable Menu Bar Dot Updates**: Signal registration bypasses stale launch-time yabai process checks
 
 ### Hotkeys & Navigation
 
@@ -42,7 +43,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### System Integration
 
-- **Symlink Creation**: Automated `/usr/local/bin/spacemap` symlink at launch via `ensureSymlink()`
+- **CLI and Man Page Symlinks**: Automatically verifies and safely creates `/usr/local/bin/spacemap` and `/usr/local/share/man/man1/spacemap.1` at launch
 - **Yabai Mandatory Check**: Prevents launch if yabai is not running; shows critical alert
 - **MRU Spaces Detection**: Warns user and offers to disable macOS MRU spaces
 - **Accessibility Permission Recovery**: Monitors permission and event-tap health, releases HUD keyboard capture on revocation, and restores input handling after re-grant
@@ -70,6 +71,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Simplified HUD_POSITION Config**: Now writes `HUD_POSITION=custom` with separate coordinate keys
 - **Custom HUD Position Memory**: Custom positions persist when switching presets; stored in `CUSTOM_HUD_X`/`CUSTOM_HUD_Y`
 - **Debug/Advanced Settings Section**: Socket Health Interval moved to dedicated section
+- **Backend Health Diagnostics**: Live yabai process and Spacemap signal-socket status in Debug/Advanced settings
 - **Settings UI Reorganization**: Five separate sidebar categories (Grid, Space Names, Appearance, Behavior, Debug/Advanced) with a permanently visible selected category
 - **Native Hotkey Recorder**: Clear button plus regular, F13–F20, and media-key recording
 
@@ -84,6 +86,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **CI DMG Verification**: Release workflow mounts each DMG and verifies architecture with `lipo -archs`
 - **Info.plist Version Injection**: Makefile sed replaces hardcoded 1.0.0 with VERSION file at build time
 - **Homebrew Tap**: `wiggly-sheets/homebrew-spacemap` with arch-conditional cask, auto-updated on release
+- **scdoc Manual**: Generated `spacemap(1)` page bundled with the app and installed alongside the CLI
 - **DMG Fix**: Arch DMGs always contain `Spacemap.app` regardless of arch
 
 ### Testing & CI/CD

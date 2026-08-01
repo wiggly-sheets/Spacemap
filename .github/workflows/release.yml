@@ -28,9 +28,9 @@ jobs:
         with:
           swift-version: "5.9"
 
-      - name: Install create-dmg
+      - name: Install build tools
         run: |
-          brew install create-dmg
+          brew install create-dmg scdoc
 
       - name: Read version
         id: version

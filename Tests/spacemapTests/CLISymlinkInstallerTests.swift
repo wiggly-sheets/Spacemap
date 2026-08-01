@@ -63,4 +63,33 @@ final class CLISymlinkInstallerTests: XCTestCase {
         )
         XCTAssertFalse(FileManager.default.fileExists(atPath: symlinkPath))
     }
+
+    func testCreatesSymlinkForNonExecutableManPage() throws {
+        let manPagePath = temporaryDirectory.appendingPathComponent("spacemap.1").path
+        try ".TH SPACEMAP 1\n".write(toFile: manPagePath, atomically: true, encoding: .utf8)
+        let symlinkPath = temporaryDirectory.appendingPathComponent("share/man/man1/spacemap.1").path
+
+        XCTAssertEqual(
+            CLISymlinkInstaller.install(
+                symlinkPath: symlinkPath,
+                targetPath: manPagePath,
+                targetMustBeExecutable: false
+            ),
+            .installed
+        )
+        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: symlinkPath), manPagePath)
+    }
+
+    func testNonExecutableTargetStillRejectedForCLI() throws {
+        let manPagePath = temporaryDirectory.appendingPathComponent("spacemap.1").path
+        try ".TH SPACEMAP 1\n".write(toFile: manPagePath, atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(
+            CLISymlinkInstaller.install(
+                symlinkPath: temporaryDirectory.appendingPathComponent("bin/spacemap").path,
+                targetPath: manPagePath
+            ),
+            .targetUnavailable
+        )
+    }
 }

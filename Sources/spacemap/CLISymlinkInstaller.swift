@@ -16,9 +16,14 @@ enum CLISymlinkInstaller {
     static func install(
         symlinkPath: String,
         targetPath: String,
+        targetMustBeExecutable: Bool = true,
         fileManager: FileManager = .default
     ) -> CLISymlinkInstallationResult {
-        guard fileManager.isExecutableFile(atPath: targetPath) else {
+        var targetIsDirectory = ObjCBool(false)
+        let targetExists = fileManager.fileExists(atPath: targetPath, isDirectory: &targetIsDirectory)
+        guard targetExists,
+              !targetIsDirectory.boolValue,
+              (!targetMustBeExecutable || fileManager.isExecutableFile(atPath: targetPath)) else {
             return .targetUnavailable
         }
 

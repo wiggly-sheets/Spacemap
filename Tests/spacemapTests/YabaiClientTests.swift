@@ -2,6 +2,36 @@ import XCTest
 @testable import spacemap
 
 final class YabaiClientTests: XCTestCase {
+    override func tearDown() {
+        YabaiClient.resetYabaiProcessCheck()
+        super.tearDown()
+    }
+
+    func testForcedProcessCheckBypassesCachedLaunchFailure() {
+        var running = false
+        YabaiClient.yabaiProcessCheck = { running }
+        YabaiClient.resetYabaiRunningCache()
+
+        XCTAssertFalse(YabaiClient.isYabaiRunning())
+        running = true
+
+        XCTAssertTrue(YabaiClient.isYabaiRunning(forceRefresh: true))
+    }
+
+    func testSignalRegistrationRechecksCachedLaunchFailure() {
+        var processCheckCount = 0
+        YabaiClient.yabaiProcessCheck = {
+            processCheckCount += 1
+            return false
+        }
+        YabaiClient.resetYabaiRunningCache()
+
+        XCTAssertFalse(YabaiClient.isYabaiRunning())
+        YabaiClient.registerSignals(socketPath: "/tmp/spacemap_test.socket")
+
+        XCTAssertEqual(processCheckCount, 2)
+    }
+
     func testSpaceChangedSignalUsesSystemNetcatToShowHUD() {
         let action = YabaiClient.spaceChangedSignalAction(
             socketPath: "/tmp/spacemap_test.socket",
