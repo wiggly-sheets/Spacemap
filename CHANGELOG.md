@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added live yabai process and socket diagnostics to Advanced settings.
+- Added a `spacemap(1)` manual page generated with scdoc and linked automatically alongside the CLI.
+
+### Fixed
+- Adaptive menu-bar workspace dots now keep refreshing after space changes.
+
 ## [1.0.31] - 2026-07-30
 
 ### Fixed

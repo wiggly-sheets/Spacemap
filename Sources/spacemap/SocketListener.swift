@@ -6,6 +6,7 @@ final class SocketListener {
         case show
         case toggle
         case settings
+        case health
     }
 
     private let socketPath: String
@@ -33,9 +34,10 @@ final class SocketListener {
         listenerQueue.async { self.start() }
     }
     
-    static func sendCommand(to socketPath: String, command: UInt8) {
+    @discardableResult
+    static func sendCommand(to socketPath: String, command: UInt8) -> Bool {
         let sock = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard sock >= 0 else { return }
+        guard sock >= 0 else { return false }
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
         let pathBytes = socketPath.utf8CString
@@ -50,12 +52,13 @@ final class SocketListener {
              $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { $0 }
         }, socklen_t(MemoryLayout<sockaddr_un>.size)) == -1 {
             close(sock)
-            return
+            return false
         }
         
         var byte = command
-        write(sock, &byte, 1)
+        let wroteCommand = write(sock, &byte, 1) == 1
         close(sock)
+        return wroteCommand
     }
 
     static func command(for byte: UInt8) -> Command {
@@ -67,6 +70,9 @@ final class SocketListener {
         }
         if byte == 4 || byte == Character("4").asciiValue {
             return .toggle
+        }
+        if byte == 5 || byte == Character("5").asciiValue {
+            return .health
         }
         return .refresh
     }
@@ -135,6 +141,8 @@ final class SocketListener {
                 self.onToggle()
             case .refresh:
                 self.onRefresh()
+            case .health:
+                break
             }
         }
     }

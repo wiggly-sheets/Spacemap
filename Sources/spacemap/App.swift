@@ -30,9 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
         
-        // Keep the CLI available for direct invocation when permissions allow.
+        // Keep the CLI and manual available when permissions allow.
         // Exit-only CLI commands must never trigger an administrator prompt.
-        ensureCLISymlink(allowAuthorizationPrompt: false)
+        ensureCommandLineTools(allowAuthorizationPrompt: false)
         
         // Exit-only CLI commands are handled before AppKit starts.
         NSApp.setActivationPolicy(.prohibited)
@@ -59,9 +59,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Check if app is in /Applications folder, if not, prompt to move
         checkApplicationLocation()
         
-        // Ensure the CLI is installed, offering an explicit authorization flow
+        // Ensure the CLI and manual are installed, offering an explicit authorization flow
         // on macOS setups where /usr/local is root-owned.
-        ensureCLISymlink(allowAuthorizationPrompt: true)
+        ensureCommandLineTools(allowAuthorizationPrompt: true)
         
         setupMenubar()
         isReadyForDeepLinks = true
@@ -344,8 +344,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             symbolName: "rectangle.inset.filled"
         ))
         menu.addItem(menuItem(
-            title: NSLocalizedString("Install Command-Line Tool…", comment: ""),
-            action: #selector(installCommandLineTool),
+            title: NSLocalizedString("Install CLI and Man Page…", comment: ""),
+            action: #selector(installCommandLineTools),
             symbolName: "terminal"
         ))
         menu.addItem(NSMenuItem.separator())
@@ -454,8 +454,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    @objc private func installCommandLineTool() {
-        ensureCLISymlink(allowAuthorizationPrompt: true, showSuccessAlert: true, forceAuthorizationPrompt: true)
+    @objc private func installCommandLineTools() {
+        ensureCommandLineTools(allowAuthorizationPrompt: true, showSuccessAlert: true, forceAuthorizationPrompt: true)
     }
 
     private func restartHotkey(config: GridConfig) {
@@ -720,60 +720,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     private let cliSymlinkPath = "/usr/local/bin/spacemap"
     private let cliExecutablePath = "/Applications/Spacemap.app/Contents/MacOS/Spacemap"
+    private let manPageSymlinkPath = "/usr/local/share/man/man1/spacemap.1"
+    private let manPagePath = "/Applications/Spacemap.app/Contents/Resources/spacemap.1"
 
-    private func ensureCLISymlink(
+    private func ensureCommandLineTools(
         allowAuthorizationPrompt: Bool,
         showSuccessAlert: Bool = false,
         forceAuthorizationPrompt: Bool = false
     ) {
-        switch CLISymlinkInstaller.install(symlinkPath: cliSymlinkPath, targetPath: cliExecutablePath) {
-        case .installed:
-            if showSuccessAlert {
-                showCLIInstallAlert(
-                    style: .informational,
-                    message: NSLocalizedString("Command-Line Tool Ready", comment: ""),
-                    information: NSLocalizedString("You can now use `spacemap` from Terminal.", comment: "")
-                )
-            }
-        case .targetUnavailable:
-            print("Spacemap: CLI target is unavailable at \(cliExecutablePath)")
-        case .conflictingItem:
-            let message = "Spacemap: preserving existing item at \(cliSymlinkPath)"
-            print(message)
-            if showSuccessAlert {
-                showCLIInstallAlert(
-                    style: .warning,
-                    message: NSLocalizedString("Command-Line Tool Not Installed", comment: ""),
-                    information: NSLocalizedString("An unrelated item already exists at /usr/local/bin/spacemap, so Spacemap left it unchanged.", comment: "")
-                )
-            }
-        case .authorizationRequired:
+        let cliResult = CLISymlinkInstaller.install(
+            symlinkPath: cliSymlinkPath,
+            targetPath: cliExecutablePath
+        )
+        let manPageResult = CLISymlinkInstaller.install(
+            symlinkPath: manPageSymlinkPath,
+            targetPath: manPagePath,
+            targetMustBeExecutable: false
+        )
+        let results = [cliResult, manPageResult]
+
+        if results.contains(.authorizationRequired) {
             guard allowAuthorizationPrompt else {
-                print("Spacemap: administrator authorization is required to install the CLI")
+                print("Spacemap: administrator authorization is required to install CLI documentation links")
                 return
             }
             let defaults = UserDefaults.standard
-            if forceAuthorizationPrompt || !defaults.bool(forKey: "HasAskedCLIInstallAuthorization") {
-                defaults.set(true, forKey: "HasAskedCLIInstallAuthorization")
+            let authorizationPromptKey = "HasAskedCLIAndManPageInstallAuthorization"
+            if forceAuthorizationPrompt || !defaults.bool(forKey: authorizationPromptKey) {
+                defaults.set(true, forKey: authorizationPromptKey)
                 promptForCLIInstallAuthorization()
             }
-        case .failed:
+            return
+        }
+
+        if cliResult == .targetUnavailable {
+            print("Spacemap: CLI target is unavailable at \(cliExecutablePath)")
+        } else if cliResult == .conflictingItem {
+            print("Spacemap: preserving existing item at \(cliSymlinkPath)")
+        } else if cliResult == .failed {
             print("Spacemap: failed to create CLI symlink at \(cliSymlinkPath)")
-            if showSuccessAlert {
-                showCLIInstallAlert(
-                    style: .critical,
-                    message: NSLocalizedString("Command-Line Tool Not Installed", comment: ""),
-                    information: NSLocalizedString("Spacemap could not create /usr/local/bin/spacemap.", comment: "")
-                )
-            }
+        }
+
+        if manPageResult == .targetUnavailable {
+            print("Spacemap: man page target is unavailable at \(manPagePath)")
+        } else if manPageResult == .conflictingItem {
+            print("Spacemap: preserving existing item at \(manPageSymlinkPath)")
+        } else if manPageResult == .failed {
+            print("Spacemap: failed to create man page symlink at \(manPageSymlinkPath)")
+        }
+
+        guard showSuccessAlert else { return }
+        if results.contains(.conflictingItem) {
+            showCLIInstallAlert(
+                style: .warning,
+                message: NSLocalizedString("Command-Line Tools Partially Installed", comment: ""),
+                information: NSLocalizedString("Spacemap installed available links but preserved an unrelated item at a destination path.", comment: "")
+            )
+        } else if results.contains(.failed) || results.contains(.targetUnavailable) {
+            showCLIInstallAlert(
+                style: .critical,
+                message: NSLocalizedString("Command-Line Tools Not Installed", comment: ""),
+                information: NSLocalizedString("Spacemap could not install the command-line tool and manual page. You can try again from the menu bar.", comment: "")
+            )
+        } else {
+            showCLIInstallAlert(
+                style: .informational,
+                message: NSLocalizedString("Command-Line Tools Ready", comment: ""),
+                information: NSLocalizedString("You can now use `spacemap` and `man spacemap` from Terminal.", comment: "")
+            )
         }
     }
 
     private func promptForCLIInstallAuthorization() {
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = NSLocalizedString("Install Command-Line Tool?", comment: "")
-        alert.informativeText = NSLocalizedString("Spacemap needs administrator permission to create /usr/local/bin/spacemap. This only adds a symlink to the app; it does not change your shell configuration.", comment: "")
+        alert.messageText = NSLocalizedString("Install Command-Line Tools?", comment: "")
+        alert.informativeText = NSLocalizedString("Spacemap needs administrator permission to link its command and manual page into /usr/local. This does not change your shell configuration.", comment: "")
         alert.addButton(withTitle: NSLocalizedString("Install", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Not Now", comment: ""))
 
@@ -785,7 +807,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func installCLISymlinkWithAuthorization() {
         // This intentionally refuses to overwrite any unrelated item. All
         // paths are app constants, so no user-controlled shell input is used.
-        let command = "if [ -L /usr/local/bin/spacemap ]; then [ $(/usr/bin/readlink /usr/local/bin/spacemap) = /Applications/Spacemap.app/Contents/MacOS/Spacemap ] || exit 2; elif [ -e /usr/local/bin/spacemap ]; then exit 2; fi; /bin/mkdir -p /usr/local/bin; if [ ! -L /usr/local/bin/spacemap ]; then /bin/ln -s /Applications/Spacemap.app/Contents/MacOS/Spacemap /usr/local/bin/spacemap; fi"
+        let command = "/bin/mkdir -p /usr/local/bin /usr/local/share/man/man1; if [ -x /Applications/Spacemap.app/Contents/MacOS/Spacemap ] && [ ! -e /usr/local/bin/spacemap ] && [ ! -L /usr/local/bin/spacemap ]; then /bin/ln -s /Applications/Spacemap.app/Contents/MacOS/Spacemap /usr/local/bin/spacemap; fi; if [ -f /Applications/Spacemap.app/Contents/Resources/spacemap.1 ] && [ ! -e /usr/local/share/man/man1/spacemap.1 ] && [ ! -L /usr/local/share/man/man1/spacemap.1 ]; then /bin/ln -s /Applications/Spacemap.app/Contents/Resources/spacemap.1 /usr/local/share/man/man1/spacemap.1; fi"
         let source = "do shell script \"\(command)\" with administrator privileges"
         var error: NSDictionary?
         NSAppleScript(source: source)?.executeAndReturnError(&error)
@@ -793,17 +815,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         if let error {
             let errorNumber = error[NSAppleScript.errorNumber] as? Int
             if errorNumber != -128 { // User cancelled the authorization dialog.
-                print("Spacemap: authorized CLI installation failed: \(error)")
+                print("Spacemap: authorized command-line tools installation failed: \(error)")
                 showCLIInstallAlert(
                     style: .critical,
-                    message: NSLocalizedString("Command-Line Tool Not Installed", comment: ""),
-                    information: NSLocalizedString("Spacemap could not install the command-line tool. You can try again from the menu bar.", comment: "")
+                    message: NSLocalizedString("Command-Line Tools Not Installed", comment: ""),
+                    information: NSLocalizedString("Spacemap could not install the command-line tool and manual page. You can try again from the menu bar.", comment: "")
                 )
             }
             return
         }
 
-        ensureCLISymlink(allowAuthorizationPrompt: false, showSuccessAlert: true)
+        ensureCommandLineTools(allowAuthorizationPrompt: false, showSuccessAlert: true)
     }
 
     private func showCLIInstallAlert(style: NSAlert.Style, message: String, information: String) {

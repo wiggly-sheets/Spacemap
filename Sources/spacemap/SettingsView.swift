@@ -63,6 +63,34 @@ private struct SettingsFootnote: View {
     }
 }
 
+private struct DiagnosticStatusRow: View {
+    let title: String
+    let isHealthy: Bool?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 10, height: 10)
+            Text(title)
+            Spacer()
+            Text(statusText)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var statusColor: Color {
+        guard let isHealthy else { return .secondary }
+        return isHealthy ? .green : .red
+    }
+
+    private var statusText: String {
+        guard let isHealthy else { return "Checking…" }
+        return isHealthy ? "Running" : "Unavailable"
+    }
+}
+
 extension Notification.Name {
     static let settingsChanged = Notification.Name("settingsChanged")
 }
@@ -132,8 +160,12 @@ struct SettingsView: View {
     @State private var updateMode: UpdateMode = .notify
     @State private var previousUpdateMode: UpdateMode = .notify
     @State private var selectedSection: SidebarSection = .grid
+    @State private var isYabaiHealthy: Bool?
+    @State private var isSocketHealthy: Bool?
+    @State private var isRefreshingDiagnostics = false
     
     private let socketHealthOptions = [15, 30, 45, 60]
+    private let diagnosticsTimer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
     
     private var maxSpacesOptions: [Int] { Array(1...16) }
 
@@ -613,6 +645,16 @@ init() {
                     }
                 case .advanced:
                     Section(header: settingsSectionHeader("Debug/Advanced")) {
+                        DiagnosticStatusRow(title: "Yabai Process", isHealthy: isYabaiHealthy)
+                        DiagnosticStatusRow(title: "Spacemap Signal Socket", isHealthy: isSocketHealthy)
+
+                        Button("Refresh Status") {
+                            refreshDiagnostics()
+                        }
+                        .disabled(isRefreshingDiagnostics)
+
+                        SettingsFootnote(text: "Confirms yabai is running and its signals can reach Spacemap's Unix socket.")
+
                         Picker("Socket Health Interval (s)", selection: $socketHealthInterval) {
                             ForEach(socketHealthOptions, id: \.self) { v in
                                 Text("\(v)").tag(v as Int)
@@ -648,6 +690,12 @@ init() {
             lastCustomHUDX = config.customHUDX
             lastCustomHUDY = config.customHUDY
         }
+        .onChange(of: selectedSection) { section in
+            if section == .advanced { refreshDiagnostics() }
+        }
+        .onReceive(diagnosticsTimer) { _ in
+            if selectedSection == .advanced { refreshDiagnostics() }
+        }
         .formStyle(.grouped)
         .frame(minWidth: 500)
     }
@@ -658,6 +706,21 @@ init() {
             .textCase(nil)
             .foregroundStyle(.primary)
             .padding(.bottom, 4)
+    }
+
+    private func refreshDiagnostics() {
+        guard !isRefreshingDiagnostics else { return }
+        isRefreshingDiagnostics = true
+        let socketPath = "/tmp/spacemap_\(NSUserName()).socket"
+        DispatchQueue.global(qos: .utility).async {
+            let yabaiHealthy = YabaiClient.isYabaiRunning(forceRefresh: true)
+            let socketHealthy = SocketListener.sendCommand(to: socketPath, command: 5)
+            DispatchQueue.main.async {
+                isYabaiHealthy = yabaiHealthy
+                isSocketHealthy = socketHealthy
+                isRefreshingDiagnostics = false
+            }
+        }
     }
 
     private func sidebarIcon(for section: SidebarSection) -> String {

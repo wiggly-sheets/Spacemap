@@ -42,18 +42,35 @@ enum YabaiClient {
     private static var _yabaiRunningCache: (result: Bool, checkedAt: TimeInterval)?
     private static let yabaiCacheTTL: TimeInterval = 5.0
     private static let cacheLock = NSLock()
+    private static func defaultYabaiProcessCheck() -> Bool {
+        let output = (try? shell("/usr/bin/pgrep", "yabai")) ?? ""
+        return !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    static var yabaiProcessCheck: () -> Bool = defaultYabaiProcessCheck
 
-    static func isYabaiRunning() -> Bool {
+    static func isYabaiRunning(forceRefresh: Bool = false) -> Bool {
         cacheLock.lock()
         defer { cacheLock.unlock() }
         let now = ProcessInfo.processInfo.systemUptime
-        if let cached = _yabaiRunningCache, now - cached.checkedAt < yabaiCacheTTL {
+        if !forceRefresh,
+           let cached = _yabaiRunningCache,
+           now - cached.checkedAt < yabaiCacheTTL {
             return cached.result
         }
-        let output = (try? shell("/usr/bin/pgrep", "yabai")) ?? ""
-        let result = !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let result = yabaiProcessCheck()
         _yabaiRunningCache = (result, now)
         return result
+    }
+
+    static func resetYabaiRunningCache() {
+        cacheLock.lock()
+        _yabaiRunningCache = nil
+        cacheLock.unlock()
+    }
+
+    static func resetYabaiProcessCheck() {
+        yabaiProcessCheck = defaultYabaiProcessCheck
+        resetYabaiRunningCache()
     }
     
     static func querySpaces() throws -> [YabaiSpace] {
@@ -110,7 +127,7 @@ enum YabaiClient {
         refreshWorkspacePreviews: Bool = false,
         refreshWindowGeometry: Bool = true
     ) {
-        guard isYabaiRunning() else { return }
+        guard isYabaiRunning(forceRefresh: true) else { return }
         removeSignals()
         let action = spaceChangedSignalAction(
             socketPath: socketPath,

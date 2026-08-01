@@ -17,4 +17,9 @@ final class SocketListenerTests: XCTestCase {
     func testBinaryToggleCommandFromCLI() {
         XCTAssertEqual(SocketListener.command(for: 4), .toggle)
     }
+
+    func testHealthProbeDoesNotTriggerRefresh() {
+        XCTAssertEqual(SocketListener.command(for: 5), .health)
+        XCTAssertEqual(SocketListener.command(for: Character("5").asciiValue!), .health)
+    }
 }
