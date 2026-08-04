@@ -1,23 +1,23 @@
 import Foundation
 import CoreGraphics
 
-enum ConfigReader {
+enum Config {
     static var silentMode = false
     static let configPath = NSString(string: "~/.config/spacemap/config.toml").expandingTildeInPath
 
-    static func load() -> GridConfig {
+    public static func load() -> GridConfig {
         return load(from: configPath)
     }
 
-    static func load(from path: String) -> GridConfig {
+    public static func load(from path: String) -> GridConfig {
         let contents: String
         do {
             var raw = try String(contentsOfFile: path, encoding: .utf8)
             if raw.hasPrefix("\u{FEFF}") { raw = String(raw.dropFirst()) }
             contents = raw
-            if !silentMode { NSLog("spacemap/ConfigReader: successfully read config from \(path)") }
+            if !silentMode { NSLog("spacemap/Config: successfully read config from \(path)") }
         } catch {
-            if !silentMode { NSLog("spacemap/ConfigReader: failed to read config at \(path) — error: \(error)") }
+            if !silentMode { NSLog("spacemap/Config: failed to read config at \(path) — error: \(error)") }
             createDefaultConfigFile(at: path)
             return .default
         }
@@ -32,7 +32,7 @@ enum ConfigReader {
         return .default
     }
 
-    static func parseConfig(_ text: String) -> GridConfig {
+    internal static func parseConfig(_ text: String) -> GridConfig {
         return parseTOMLConfig(text)?.config ?? .default
     }
 
@@ -80,7 +80,7 @@ enum ConfigReader {
             if modifierNames.contains(where: { !canonicalModifiers.contains($0.lowercased()) }) {
                 repair = true
             }
-            let flags = modifiers(from: modifierNames)
+            let flags = Hotkey.modifiers(from: modifierNames)
             switch kind.lowercased() {
             case "none":
                 return HotkeyConfig(key: .none, modifiers: flags)
@@ -141,7 +141,7 @@ enum ConfigReader {
             position = defaults.hudPosition
         }
 
-        let cellStyleName: String = value("cellStyle", default: ConfigReader.cellStyleName(defaults.cellStyle))
+        let cellStyleName: String = value("cellStyle", default: Config.cellStyleName(defaults.cellStyle))
         let showModeName: String = value("showMode", default: defaults.showMode.rawValue)
         let multiMonitorName: String = value("multiMonitorHUDMode", default: defaults.multiMonitorHUDMode.rawValue)
         let unifiedVisibilityName: String = value("unifiedHUDVisibility", default: defaults.unifiedHUDVisibility.rawValue)
@@ -450,43 +450,6 @@ enum ConfigReader {
         return result
     }
 
-    static func hotkeyToString(_ hotkey: HotkeyConfig) -> String {
-        switch hotkey.key {
-        case .none:
-            return "none"
-        case .keyCode(let keyCode):
-            return hotkeyToString(keyCode: keyCode, modifiers: hotkey.modifiers)
-        case .mediaKey(let mediaKey):
-            return hotkeyToString(mediaKey: mediaKey, modifiers: hotkey.modifiers)
-        }
-    }
-
-     private static func modifierNames(for flags: CGEventFlags) -> [String] {
-        var result: [String] = []
-        if flags.contains(.maskControl) { result.append("ctrl") }
-        if flags.contains(.maskCommand) { result.append("cmd") }
-        if flags.contains(.maskAlternate) { result.append("alt") }
-        if flags.contains(.maskShift) { result.append("shift") }
-        if flags.contains(.maskSecondaryFn) { result.append("fn") }
-        return result
-    }
-
-    private static func modifiers(from names: [String]) -> CGEventFlags {
-        var result: CGEventFlags = []
-        for name in names {
-            switch name.lowercased() {
-            case "ctrl": result.insert(.maskControl)
-            case "cmd": result.insert(.maskCommand)
-            case "alt": result.insert(.maskAlternate)
-            case "shift": result.insert(.maskShift)
-            case "fn": result.insert(.maskSecondaryFn)
-            default:
-                break
-            }
-        }
-        return result
-    }
-
     private static func cellStyle(from name: String) -> CellStyle? {
         switch name.lowercased() {
         case "rects": return .rects
@@ -557,106 +520,12 @@ enum ConfigReader {
         return MediaKey(rawValue: name.lowercased())
     }
 
-    static func hotkeyToString(mediaKey: MediaKey, modifiers: CGEventFlags) -> String {
-        let prefix = hotkeyModifierString(modifiers)
-        let keyString = mediaKey.rawValue
-        return prefix.isEmpty ? keyString : "\(prefix)+\(keyString)"
-    }
-
-    private static func hotkeyModifierString(_ modifiers: CGEventFlags) -> String {
-        var modString = ""
-        if modifiers.contains(.maskControl) { modString += "ctrl" }
-        if modifiers.contains(.maskCommand) {
-            if !modString.isEmpty { modString += "+" }
-            modString += "cmd"
-        }
-        if modifiers.contains(.maskAlternate) {
-            if !modString.isEmpty { modString += "+" }
-            modString += "alt"
-        }
-        if modifiers.contains(.maskShift) {
-            if !modString.isEmpty { modString += "+" }
-            modString += "shift"
-        }
-        return modString
-    }
-
-    static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
-        switch keyCode {
-        case 49: return "space"
-        case 48: return "tab"
-        case 36: return "return"
-        case 53: return "escape"
-        case 51: return "delete"
-        case 121: return "pgdn"
-        case 116: return "pgup"
-        case 115: return "home"
-        case 119: return "end"
-        case 123: return "left"
-        case 124: return "right"
-        case 125: return "down"
-        case 126: return "up"
-        case 122: return "f1"
-        case 120: return "f2"
-        case 99:  return "f3"
-        case 118: return "f4"
-        case 96:  return "f5"
-        case 97:  return "f6"
-        case 98:  return "f7"
-        case 100: return "f8"
-        case 101: return "f9"
-        case 109: return "f10"
-        case 103: return "f11"
-        case 111: return "f12"
-        case 105: return "f13"
-        case 107: return "f14"
-        case 113: return "f15"
-        case 106: return "f16"
-        case 64:  return "f17"
-        case 79:  return "f18"
-        case 80:  return "f19"
-        case 90:  return "f20"
-        default:
-            let alphanum: [CGKeyCode: String] = [
-                0: "a", 1: "s", 2: "d", 3: "f", 4: "h", 5: "g",
-                6: "z", 7: "x", 8: "c", 9: "v", 11: "b", 12: "q",
-                13: "w", 14: "e", 15: "r", 16: "y", 17: "t", 18: "1",
-                19: "2", 20: "3", 21: "4", 22: "6", 23: "5", 24: "=",
-                25: "9", 26: "7", 27: "-", 28: "8", 29: "0", 31: "o",
-                32: "u", 33: "i", 34: "p", 35: "l", 36: "j", 37: "k", 38: "n", 39: "m"
-            ]
-            return alphanum[keyCode] ?? "unknown"
-        }
-    }
-
-    static func hotkeyToString(keyCode: CGKeyCode, modifiers: CGEventFlags) -> String {
-        var modString = ""
-        if modifiers.contains(.maskControl) { modString += "ctrl" }
-        if modifiers.contains(.maskCommand) {
-            if !modString.isEmpty { modString += "+" }
-            modString += "cmd"
-        }
-        if modifiers.contains(.maskAlternate) {
-            if !modString.isEmpty { modString += "+" }
-            modString += "alt"
-        }
-        if modifiers.contains(.maskShift) {
-            if !modString.isEmpty { modString += "+" }
-            modString += "shift"
-        }
-        if modString.isEmpty {
-            modString = "none"
-        }
-        let keyString = keyCodeToSymbolicString(keyCode)
-        return (modString == "none" ? "" : modString + "+") + keyString
-    }
-
     private static func backupConfig(_ path: String) {
         guard FileManager.default.fileExists(atPath: path) else { return }
         let backupPath = path + ".bak"
         try? FileManager.default.removeItem(atPath: backupPath)
         try? FileManager.default.copyItem(atPath: path, toPath: backupPath)
-        if !silentMode { NSLog("spacemap/ConfigReader: backed up config to \(backupPath)") }
+        if !silentMode { NSLog("spacemap/Config: backed up config to \(backupPath)") }
     }
 
     private static func createDefaultConfigFile(at path: String) {
@@ -672,11 +541,11 @@ enum ConfigReader {
         }
     }
 
-    static func saveConfig(_ config: GridConfig) {
+    public static func saveConfig(_ config: GridConfig) {
         saveConfig(config, to: configPath)
     }
 
-    static func saveConfig(_ config: GridConfig, to path: String) {
+    public static func saveConfig(_ config: GridConfig, to path: String) {
         let dir = (path as NSString).deletingLastPathComponent
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         backupConfig(path)
@@ -776,7 +645,7 @@ enum ConfigReader {
         case .mediaKey(let mediaKey):
             lines += ["keyKind = \"mediaKey\"", "mediaKey = \(tomlString(mediaKey.rawValue))"]
         }
-        lines.append("modifiers = \(tomlStringArray(modifierNames(for: hotkey.modifiers)))")
+        lines.append("modifiers = \(tomlStringArray(Hotkey.modifierNames(for: hotkey.modifiers)))")
     }
 
     private static func tomlString(_ value: String) -> String {
@@ -803,84 +672,7 @@ enum ConfigReader {
         "[" + values.map(tomlString).joined(separator: ", ") + "]"
     }
 
-    static func parseHotkey(_ value: String) -> HotkeyConfig? {
-        if value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "none" {
-            return HotkeyConfig(key: .none, modifiers: [])
-        }
-        let tokens = value.lowercased().components(separatedBy: "+").map {
-            $0.trimmingCharacters(in: .whitespaces)
-        }
-        guard !tokens.isEmpty else { return nil }
-
-        let modifierTokens = tokens.dropLast()
-        let keyToken = tokens.last!
-
-        var modifiers: CGEventFlags = []
-        for token in modifierTokens {
-            switch token {
-            case "ctrl":  modifiers.insert(.maskControl)
-            case "cmd":   modifiers.insert(.maskCommand)
-            case "alt":   modifiers.insert(.maskAlternate)
-            case "shift": modifiers.insert(.maskShift)
-            case "fn": modifiers.insert(.maskSecondaryFn)
-            default:
-                print("spacemap: unknown modifier '\(token)' in HOTKEY")
-                return nil
-            }
-        }
-
-        if let keyCode = keyCodeFor(keyToken) {
-            return HotkeyConfig(key: .keyCode(keyCode), modifiers: modifiers)
-        }
-        if let mediaKey = mediaKeyFor(keyToken) {
-            return HotkeyConfig(key: .mediaKey(mediaKey), modifiers: modifiers)
-        }
-        print("spacemap: unknown key '\(keyToken)' in HOTKEY")
-        return nil
-    }
-
-    static func keyCodeFor(_ token: String) -> CGKeyCode? {
-        let named: [String: CGKeyCode] = [
-            "space": 49, "tab": 48, "return": 36,
-            "escape": 53, "delete": 51,
-            "pgdn": 121, "pgup": 116,
-            "home": 115, "end": 119,
-            "left": 123, "right": 124, "down": 125, "up": 126,
-            "f1": 122, "f2": 120, "f3": 99,  "f4": 118,
-            "f5": 96,  "f6": 97,  "f7": 98,  "f8": 100,
-            "f9": 101, "f10": 109, "f11": 103, "f12": 111,
-            "f13": 105, "f14": 107, "f15": 113, "f16": 106,
-            "f17": 64, "f18": 79, "f19": 80, "f20": 90,
-        ]
-        if let code = named[token] { return code }
-
-        let alphanum: [String: CGKeyCode] = [
-            "a": 0,  "s": 1,  "d": 2,  "f": 3,  "h": 4,  "g": 5,
-            "z": 6,  "x": 7,  "c": 8,  "v": 9,  "b": 11, "q": 12,
-            "w": 13, "e": 14, "r": 15, "y": 16, "t": 17, "1": 18,
-            "2": 19, "3": 20, "4": 21, "6": 22, "5": 23, "=": 24,
-            "9": 25, "7": 26, "-": 27, "8": 28, "0": 29, "o": 31,
-            "u": 32, "i": 34, "p": 35, "l": 37, "j": 38, "k": 40,
-            "n": 45, "m": 46,
-        ]
-        return alphanum[token]
-    }
-
-    static func mediaKeyFor(_ token: String) -> MediaKey? {
-        switch token.lowercased() {
-        case "play-pause": return .playPause
-        case "next-track": return .nextTrack
-        case "previous-track": return .previousTrack
-        case "volume-up": return .volumeUp
-        case "volume-down": return .volumeDown
-        case "mute": return .mute
-        case "brightness-up": return .brightnessUp
-        case "brightness-down": return .brightnessDown
-        default: return nil
-        }
-    }
-
-    static func cellStyleName(_ style: CellStyle) -> String {
+    internal static func cellStyleName(_ style: CellStyle) -> String {
         switch style {
         case .rects: return "rects"
         case .hybrid: return "hybrid"

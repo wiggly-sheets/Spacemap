@@ -98,6 +98,8 @@ extension Notification.Name {
 // Types CellStyle, ShowMode, ThemeMode, HotkeyConfig, GridConfig defined in Models.swift
 
 struct SettingsView: View {
+    private let clerk = ConfigClerk()
+
     private enum SidebarSection: String, CaseIterable, Identifiable {
         case grid = "Grid"
         case spaceNames = "Space Names"
@@ -145,15 +147,6 @@ struct SettingsView: View {
     // Store last known custom HUD position to preserve it when switching between presets and custom
     @State private var lastCustomHUDX: Double = 0.5
     @State private var lastCustomHUDY: Double = 0.5
-    
-    private var hudPosition: HUDPosition {
-        switch hudPositionKind {
-        case .center: return .center
-        case .top: return .top
-        case .bottom: return .bottom
-        case .custom: return .custom(x: lastCustomHUDX, y: lastCustomHUDY)
-        }
-    }
     
     @State private var isRecording = false
     @State private var monitors: [Any] = []
@@ -217,100 +210,85 @@ struct SettingsView: View {
     }
     
 init() {
-        let config = ConfigReader.load()
-        _cols = State(initialValue: config.cols)
-        _rows = State(initialValue: config.rows)
-        _cellStyle = State(initialValue: config.cellStyle)
-        _hotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hotkey))
-        _pinnedHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.pinnedHotkey))
-        _socketHealthInterval = State(initialValue: nearest(to: config.socketHealthInterval, from: socketHealthOptions))
-        _uiScale = State(initialValue: nearest(to: config.uiScale, from: uiScaleSteps))
-        _autoHideTimeout = State(initialValue: config.autoHideTimeout)
-        _theme = State(initialValue: config.theme)
-        _showMode = State(initialValue: config.showMode)
-        _multiMonitorHUDMode = State(initialValue: config.multiMonitorHUDMode)
-        _unifiedHUDVisibility = State(initialValue: config.unifiedHUDVisibility)
-        _separateHUDVisibility = State(initialValue: config.separateHUDVisibility)
-        _displayNavigationWrap = State(initialValue: config.displayNavigationWrap)
-        _maxSpaces = State(initialValue: config.maxSpaces)
-        _backgroundAlpha = State(initialValue: nearest(to: config.backgroundAlpha, from: backgroundTransparencySteps))
-        _mode = State(initialValue: config.mode)
-        _iconScale = State(initialValue: nearest(to: config.iconScale, from: iconScaleSteps))
-        _showSpaceNumbers = State(initialValue: config.showSpaceNumbers)
-        _showSpaceNames = State(initialValue: config.showSpaceNames)
-        _showIconStrip = State(initialValue: config.showIconStrip)
-        _showMultiAppIcons = State(initialValue: config.showMultiAppIcons)
-        _hideMenuBarIcon = State(initialValue: config.hideMenuBarIcon)
-        _menuBarDisplayMode = State(initialValue: config.menuBarDisplayMode)
-        _menuBarNearbyCount = State(initialValue: config.menuBarNearbyCount)
-        _useVimKeys = State(initialValue: config.useVimKeys)
-        _useArrowKeys = State(initialValue: config.useArrowKeys)
-        // Initialize HUD position state: kind from config.hudPosition, custom position from config.customHUDX/Y
-        _hudPositionKind = State(initialValue: HUDPositionKind(from: config.hudPosition))
-        _lastCustomHUDX = State(initialValue: config.customHUDX)
-        _lastCustomHUDY = State(initialValue: config.customHUDY)
-        _showExtraWindows = State(initialValue: config.showExtraWindows)
-        _focusSpaceOnWindowDrop = State(initialValue: config.focusSpaceOnWindowDrop)
-        _focusSpaceOnWindowDropModifier = State(initialValue: config.focusSpaceOnWindowDropModifier)
-        _showHUDOnSpaceChange = State(initialValue: config.showHUDOnSpaceChange)
-        _spaceNameInputs = State(initialValue: config.spaceNames)
-        _gridLayoutIndex = State(initialValue: findBestGridLayoutIndexFor(cols: config.cols, rows: config.rows, maxSpaces: config.maxSpaces))
-        _updateMode = State(initialValue: config.updateMode)
-        _previousUpdateMode = State(initialValue: config.updateMode)
-    }
-    
-    private func findBestGridLayoutIndexFor(cols: Int, rows: Int, maxSpaces: Int) -> Int {
-        let layouts: [(Int, Int)] = (1...maxSpaces).compactMap { c in
-            maxSpaces % c == 0 ? (c, maxSpaces / c) : nil
-        }
-        for (idx, layout) in layouts.enumerated() {
-            if layout.0 == cols && layout.1 == rows {
-                return idx
-            }
-        }
-        return 0
+        clerk.load(from: Config.load())
+        _cols = State(initialValue: clerk.cols)
+        _rows = State(initialValue: clerk.rows)
+        _cellStyle = State(initialValue: clerk.cellStyle)
+        _hotkeyString = State(initialValue: clerk.hotkeyString)
+        _pinnedHotkeyString = State(initialValue: clerk.pinnedHotkeyString)
+        _socketHealthInterval = State(initialValue: nearest(to: clerk.socketHealthInterval, from: socketHealthOptions))
+        _uiScale = State(initialValue: nearest(to: clerk.uiScale, from: uiScaleSteps))
+        _autoHideTimeout = State(initialValue: clerk.autoHideTimeout)
+        _theme = State(initialValue: clerk.theme)
+        _showMode = State(initialValue: clerk.showMode)
+        _multiMonitorHUDMode = State(initialValue: clerk.multiMonitorHUDMode)
+        _unifiedHUDVisibility = State(initialValue: clerk.unifiedHUDVisibility)
+        _separateHUDVisibility = State(initialValue: clerk.separateHUDVisibility)
+        _displayNavigationWrap = State(initialValue: clerk.displayNavigationWrap)
+        _maxSpaces = State(initialValue: clerk.maxSpaces)
+        _gridLayoutIndex = State(initialValue: 0)
+        _backgroundAlpha = State(initialValue: nearest(to: clerk.backgroundAlpha, from: backgroundTransparencySteps))
+        _mode = State(initialValue: clerk.mode)
+        _iconScale = State(initialValue: nearest(to: clerk.iconScale, from: iconScaleSteps))
+        _showSpaceNumbers = State(initialValue: clerk.showSpaceNumbers)
+        _showSpaceNames = State(initialValue: clerk.showSpaceNames)
+        _showIconStrip = State(initialValue: clerk.showIconStrip)
+        _showMultiAppIcons = State(initialValue: clerk.showMultiAppIcons)
+        _hideMenuBarIcon = State(initialValue: clerk.hideMenuBarIcon)
+        _menuBarDisplayMode = State(initialValue: clerk.menuBarDisplayMode)
+        _menuBarNearbyCount = State(initialValue: clerk.menuBarNearbyCount)
+        _useVimKeys = State(initialValue: clerk.useVimKeys)
+        _useArrowKeys = State(initialValue: clerk.useArrowKeys)
+        _hudPositionKind = State(initialValue: clerk.hudPositionKind)
+        _lastCustomHUDX = State(initialValue: clerk.lastCustomHUDX)
+        _lastCustomHUDY = State(initialValue: clerk.lastCustomHUDY)
+        _showExtraWindows = State(initialValue: clerk.showExtraWindows)
+        _focusSpaceOnWindowDrop = State(initialValue: clerk.focusSpaceOnWindowDrop)
+        _focusSpaceOnWindowDropModifier = State(initialValue: clerk.focusSpaceOnWindowDropModifier)
+        _showHUDOnSpaceChange = State(initialValue: clerk.showHUDOnSpaceChange)
+        _spaceNameInputs = State(initialValue: clerk.spaceNameInputs)
+        _updateMode = State(initialValue: clerk.updateMode)
+        gridLayoutIndex = findBestGridLayoutIndex()
     }
     
     private func saveConfig() {
-        let config = GridConfig(
-            cols: cols,
-            rows: rows,
-            cellStyle: cellStyle,
-            hotkey: ConfigReader.parseHotkey(hotkeyString) ?? GridConfig.default.hotkey,
-            pinnedHotkey: ConfigReader.parseHotkey(pinnedHotkeyString) ?? GridConfig.default.pinnedHotkey,
-            socketHealthInterval: socketHealthInterval,
-            uiScale: uiScale,
-            autoHideTimeout: autoHideTimeout,
-            theme: theme,
-            showMode: showMode,
-            multiMonitorHUDMode: multiMonitorHUDMode,
-            unifiedHUDVisibility: unifiedHUDVisibility,
-            separateHUDVisibility: separateHUDVisibility,
-            displayNavigationWrap: displayNavigationWrap,
-            maxSpaces: maxSpaces,
-            backgroundAlpha: backgroundAlpha,
-            mode: mode,
-            iconScale: iconScale,
-            showSpaceNumbers: showSpaceNumbers,
-            showSpaceNames: showSpaceNames,
-            showIconStrip: showIconStrip,
-            showMultiAppIcons: showMultiAppIcons,
-            hideMenuBarIcon: hideMenuBarIcon,
-            menuBarDisplayMode: menuBarDisplayMode,
-            menuBarNearbyCount: menuBarNearbyCount,
-            spaceNames: spaceNameInputs,
-            useVimKeys: useVimKeys,
-            useArrowKeys: useArrowKeys,
-            hudPosition: hudPosition,
-            customHUDX: lastCustomHUDX,
-            customHUDY: lastCustomHUDY,
-            showExtraWindows: showExtraWindows,
-            focusSpaceOnWindowDrop: focusSpaceOnWindowDrop,
-            focusSpaceOnWindowDropModifier: focusSpaceOnWindowDropModifier,
-            showHUDOnSpaceChange: showHUDOnSpaceChange,
-            updateMode: updateMode
-        )
-        ConfigReader.saveConfig(config)
+        clerk.cols = cols
+        clerk.rows = rows
+        clerk.cellStyle = cellStyle
+        clerk.hotkeyString = hotkeyString
+        clerk.pinnedHotkeyString = pinnedHotkeyString
+        clerk.socketHealthInterval = socketHealthInterval
+        clerk.uiScale = uiScale
+        clerk.autoHideTimeout = autoHideTimeout
+        clerk.theme = theme
+        clerk.showMode = showMode
+        clerk.multiMonitorHUDMode = multiMonitorHUDMode
+        clerk.unifiedHUDVisibility = unifiedHUDVisibility
+        clerk.separateHUDVisibility = separateHUDVisibility
+        clerk.displayNavigationWrap = displayNavigationWrap
+        clerk.maxSpaces = maxSpaces
+        clerk.backgroundAlpha = backgroundAlpha
+        clerk.mode = mode
+        clerk.iconScale = iconScale
+        clerk.showSpaceNumbers = showSpaceNumbers
+        clerk.showSpaceNames = showSpaceNames
+        clerk.showIconStrip = showIconStrip
+        clerk.showMultiAppIcons = showMultiAppIcons
+        clerk.hideMenuBarIcon = hideMenuBarIcon
+        clerk.menuBarDisplayMode = menuBarDisplayMode
+        clerk.menuBarNearbyCount = menuBarNearbyCount
+        clerk.useVimKeys = useVimKeys
+        clerk.useArrowKeys = useArrowKeys
+        clerk.hudPositionKind = hudPositionKind
+        clerk.lastCustomHUDX = lastCustomHUDX
+        clerk.lastCustomHUDY = lastCustomHUDY
+        clerk.showExtraWindows = showExtraWindows
+        clerk.focusSpaceOnWindowDrop = focusSpaceOnWindowDrop
+        clerk.focusSpaceOnWindowDropModifier = focusSpaceOnWindowDropModifier
+        clerk.showHUDOnSpaceChange = showHUDOnSpaceChange
+        clerk.spaceNameInputs = spaceNameInputs
+        clerk.updateMode = updateMode
+        Config.saveConfig(clerk.buildGridConfig())
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
@@ -480,7 +458,7 @@ init() {
 
                         HStack {
                             Button("Open Config File") {
-                                let url = URL(fileURLWithPath: ConfigReader.configPath)
+                                let url = URL(fileURLWithPath: Config.configPath)
                                 NSWorkspace.shared.open(url)
                             }
                             Button("Open Themes Folder") {
@@ -536,7 +514,7 @@ init() {
                         .pickerStyle(.segmented)
                         .onChange(of: hudPositionKind) { _ in saveConfig() }
 
-                        if case .custom = hudPosition {
+                        if case .custom = clerk.hudPosition {
                             SettingsFootnote(text: "Drag the HUD to reposition. Position is saved automatically.")
                         }
 
@@ -686,9 +664,9 @@ init() {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onReceive(NotificationCenter.default.publisher(for: .settingsChanged)) { _ in
-            let config = ConfigReader.load()
-            lastCustomHUDX = config.customHUDX
-            lastCustomHUDY = config.customHUDY
+            clerk.load(from: Config.load())
+            lastCustomHUDX = clerk.lastCustomHUDX
+            lastCustomHUDY = clerk.lastCustomHUDY
         }
         .onChange(of: selectedSection) { section in
             if section == .advanced { refreshDiagnostics() }
@@ -711,10 +689,15 @@ init() {
     private func refreshDiagnostics() {
         guard !isRefreshingDiagnostics else { return }
         isRefreshingDiagnostics = true
-        let socketPath = "/tmp/spacemap_\(NSUserName()).socket"
         DispatchQueue.global(qos: .utility).async {
             let yabaiHealthy = YabaiClient.isYabaiRunning(forceRefresh: true)
-            let socketHealthy = SocketListener.sendCommand(to: socketPath, command: 5)
+            let socketHealthy: Bool
+            do {
+                try SpacemapCommand.health.send()
+                socketHealthy = true
+            } catch {
+                socketHealthy = false
+            }
             DispatchQueue.main.async {
                 isYabaiHealthy = yabaiHealthy
                 isSocketHealthy = socketHealthy
@@ -765,10 +748,7 @@ init() {
         )
     }
     
-    static func hotkeyStringFrom(_ hotkey: HotkeyConfig) -> String {
-        return ConfigReader.hotkeyToString(hotkey)
     }
-}
 
 // MARK: - HotkeyRecorder
 
@@ -883,59 +863,16 @@ struct HotkeyRecorder: View {
     private func handleKeyDown(_ event: NSEvent) {
         guard isRecording else { return }
 
-        var parts: [String] = []
-        let flags = event.modifierFlags
-        if flags.contains(.control) { parts.append("ctrl") }
-        if flags.contains(.command) { parts.append("cmd") }
-        if flags.contains(.option) { parts.append("alt") }
-        if flags.contains(.shift) { parts.append("shift") }
-
-        let keyString: String
-        switch Int(event.keyCode) {
-        case 49: keyString = "space"
-        case 48: keyString = "tab"
-        case 36: keyString = "return"
-        case 53: keyString = "escape"
-        case 51: keyString = "delete"
-        case 76: keyString = "delete"
-        case 121: keyString = "pgdn"
-        case 116: keyString = "pgup"
-        case 115: keyString = "home"
-        case 119: keyString = "end"
-        case 123: keyString = "left"
-        case 124: keyString = "right"
-        case 125: keyString = "down"
-        case 126: keyString = "up"
-        case 122: keyString = "f1"
-        case 120: keyString = "f2"
-        case 99:  keyString = "f3"
-        case 118: keyString = "f4"
-        case 96:  keyString = "f5"
-        case 97:  keyString = "f6"
-        case 98:  keyString = "f7"
-        case 100: keyString = "f8"
-        case 101: keyString = "f9"
-        case 109: keyString = "f10"
-        case 103: keyString = "f11"
-        case 111: keyString = "f12"
-        case 105: keyString = "f13"
-        case 107: keyString = "f14"
-        case 113: keyString = "f15"
-        case 106: keyString = "f16"
-        case 64:  keyString = "f17"
-        case 79:  keyString = "f18"
-        case 80:  keyString = "f19"
-        case 90:  keyString = "f20"
-        default:
-            if let chars = event.charactersIgnoringModifiers, !chars.isEmpty {
-                keyString = String(chars.lowercased().first!)
-            } else {
-                keyString = "\(event.keyCode)"
-            }
-        }
-
-        parts.append(keyString)
-        finishRecording(with: parts.joined(separator: "+"))
+        var cgFlags: CGEventFlags = []
+        let modFlags = event.modifierFlags
+        if modFlags.contains(.control) { cgFlags.insert(.maskControl) }
+        if modFlags.contains(.command) { cgFlags.insert(.maskCommand) }
+        if modFlags.contains(.option) { cgFlags.insert(.maskAlternate) }
+        if modFlags.contains(.shift) { cgFlags.insert(.maskShift) }
+        if modFlags.contains(.function) { cgFlags.insert(.maskSecondaryFn) }
+        let modString = Hotkey.hotkeyModifierString(cgFlags)
+        let keyString = Hotkey.keyCodeToSymbolicString(event.keyCode)
+        finishRecording(with: modString.isEmpty ? keyString : "\(modString)+\(keyString)")
     }
 
     private func handleSystemDefined(_ event: NSEvent) -> Bool {

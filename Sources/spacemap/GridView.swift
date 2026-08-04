@@ -15,12 +15,6 @@ struct GridView: View {
         }
     }
     
-    // These values will be scaled by uiScale
-    private let baseCellWidth: CGFloat = 80
-    private let baseCellHeight: CGFloat = 50
-    private let baseGap: CGFloat = 6
-    private let basePadding: CGFloat = 12
-    
     // ponytail: precomputed once per GridView init, not per body/idealSize call
     private let _visibleSpaceIndices: [Int]
 
@@ -59,7 +53,11 @@ struct GridView: View {
         state.spaces.first { $0.index == index }?.label
     }
     
-    private var visibleSpaceIndices: [Int] { _visibleSpaceIndices }
+    private var visibleSpaceIndices: [Int] {
+        GridLayout.visibleSpaceIndices(maxSpaces: state.config.maxSpaces,
+                                      showMode: state.config.showMode,
+                                      activeIndices: Set(state.spaces.map(\.index)))
+    }
 
     private var displayBoundaries: [DisplayBoundary] {
         guard state.config.multiMonitorHUDMode == .unified,
@@ -133,7 +131,7 @@ struct GridView: View {
             displayBounds: cellDisplayBounds,
             cellStyle: cellStyle,
             onSelect: onSelect,
-            uiScale: effectiveScale,
+            uiScale: GridLayout.effectiveScale(for: uiScale),
             resolvedTheme: resolvedTheme,
             mode: state.config.mode,
             iconScale: 0.2 + CGFloat(state.config.iconScale) * 0.8,
@@ -145,41 +143,19 @@ struct GridView: View {
         )
     }
     
-    static func effectiveScale(for uiScale: Double) -> CGFloat { 0.5 + CGFloat(uiScale) * 3.5 }
-    static func effectiveIconScale(for iconScale: Double) -> CGFloat { 0.2 + CGFloat(iconScale) * 0.8 }
-    
-    private var effectiveScale: CGFloat { Self.effectiveScale(for: uiScale) }
-    var effectiveCellWidth: CGFloat { baseCellWidth * effectiveScale }
-    var effectiveCellHeight: CGFloat { baseCellHeight * effectiveScale }
-    var effectiveGap: CGFloat { baseGap * effectiveScale }
-    var effectivePadding: CGFloat { basePadding * effectiveScale }
-    
+    static func effectiveScale(for uiScale: Double) -> CGFloat { GridLayout.effectiveScale(for: uiScale) }
+    static func effectiveIconScale(for iconScale: Double) -> CGFloat { GridLayout.effectiveIconScale(for: iconScale) }
+
+    private var effectiveScale: CGFloat { GridLayout.effectiveScale(for: uiScale) }
+    var effectiveCellWidth: CGFloat { GridLayout.cellSize(for: uiScale).width }
+    var effectiveCellHeight: CGFloat { GridLayout.cellSize(for: uiScale).height }
+    var effectiveGap: CGFloat { GridLayout.gap(for: uiScale) }
+    var effectivePadding: CGFloat { GridLayout.padding(for: uiScale) }
+
     var idealSize: CGSize {
-        Self.computeIdealSize(
-            cellCount: visibleSpaceIndices.count,
-            cols: state.config.cols,
-            cellWidth: effectiveCellWidth,
-            cellHeight: effectiveCellHeight,
-            gap: effectiveGap,
-            padding: effectivePadding
-        )
-    }
-
-    static func computeIdealSize(cellCount: Int, cols: Int, cellWidth: CGFloat, cellHeight: CGFloat, gap: CGFloat, padding: CGFloat) -> CGSize {
-        let rowCount = Int((cellCount + cols - 1) / cols)
-        let colCount = min(cols, cellCount)
-        let w = CGFloat(colCount) * (cellWidth + gap) - gap + padding * 2
-        let h = CGFloat(rowCount) * (cellHeight + gap) - gap + padding * 2
-        return CGSize(width: w, height: h)
-    }
-
-    static func computeVisibleSpaceIndices(maxSpaces: Int, showMode: ShowMode, activeIndices: Set<Int>) -> [Int] {
-        let maxN = min(maxSpaces, 16)
-        let all = (1...maxN).map { $0 }
-        if showMode == .active {
-            return all.filter { activeIndices.contains($0) }
-        }
-        return all
+        GridLayout.idealSize(visibleIndices: visibleSpaceIndices.count,
+                             cols: state.config.cols,
+                             uiScale: uiScale)
     }
 
     init(
@@ -199,7 +175,7 @@ struct GridView: View {
             self._visibleSpaceIndices = spaceIndices.sorted()
         } else {
             let activeSet = Set(state.spaces.map { $0.index })
-            self._visibleSpaceIndices = Self.computeVisibleSpaceIndices(
+            self._visibleSpaceIndices = GridLayout.visibleSpaceIndices(
                 maxSpaces: state.config.maxSpaces,
                 showMode: state.config.showMode,
                 activeIndices: activeSet

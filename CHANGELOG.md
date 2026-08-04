@@ -9,8 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-
-## [1.0.32] - 2026-08-01
+### Changed
+- Extracted GridState construction and writer flags into a new `GridStateCoordinator` module. The coordinator owns the single write path (fetch/refresh/focused-index update), encodes debounce/cancellation internally, and exposes `latestState` as the single source of truth. `HUDWindowController` is now a thin consumer that drives rendering from coordinator completions.
+- Extracted hotkey parsing/formatting into a new `Hotkey` module (key-code table, modifier mapping, parse/format round-trips). ConfigReader and SettingsView's recorder now share one seam instead of duplicating the keyCode→name switch and modifier formatting.
+- Extracted cell geometry into a new `GridLayout` module (base sizes, scale, ideal size, slot frames, window→cell transforms). GridView, CellView, HUDWindowController, and MenuBarPreviewRenderer now share one seam instead of duplicating 80×50/6/12 magic numbers across four files.
+- Replaced duplicated grid geometry math in HUDWindowController with `GridLayout` calls.
+- Moved agent docs (AGENTS.md, TASKS.md, CONTEXT.md) into DesignDocs/ with root stub; added adr/ and specs/ folders.
 
 ### Added
 - Added live yabai process and socket diagnostics to Advanced settings.
@@ -228,7 +232,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make release RELEASE=x.y.z` target for one-command releases
 - `scripts/generate-changelog.sh` auto-moves `[Unreleased]` to versioned entry on release
 - CHANGELOG gate in `make release` ensures entries exist before tagging
-- Release checklist in AGENTS.md
+- Release checklist in DesignDocs/AGENTS.md
 - `VERSION` file as fallback for version derivation
 
 ### Changed

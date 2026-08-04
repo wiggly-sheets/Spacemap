@@ -12,7 +12,7 @@
 		4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2f2e28ad-f93b-9098-0718-489ce336228a /* CLI.swift */; };
 		7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4773e3cc-160f-5e77-d431-9585eb80e7c4 /* CLISymlinkInstaller.swift */; };
 		118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */; };
-		f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* ConfigReader.swift */; };
+		f131e23f-beba-5011-aa20-a867f67a4e27 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* Config.swift */; };
 		a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */; };
 		b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */; };
 		e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */; };
@@ -41,7 +41,7 @@
 		2f2e28ad-f93b-9098-0718-489ce336228a /* CLI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLI.swift; sourceTree = "<group>"; };
 		4773e3cc-160f-5e77-d431-9585eb80e7c4 /* CLISymlinkInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLISymlinkInstaller.swift; sourceTree = "<group>"; };
 		240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CellView.swift; sourceTree = "<group>"; };
-		8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* ConfigReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigReader.swift; sourceTree = "<group>"; };
+		8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLink.swift; sourceTree = "<group>"; };
 		e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridView.swift; sourceTree = "<group>"; };
 		f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDWindowController.swift; sourceTree = "<group>"; };
@@ -126,7 +126,7 @@
 				2f2e28ad-f93b-9098-0718-489ce336228a /* CLI.swift */,
 				4773e3cc-160f-5e77-d431-9585eb80e7c4 /* CLISymlinkInstaller.swift */,
 				240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */,
-				8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* ConfigReader.swift */,
+				8c5d5cf7-357d-74ba-67cd-f7e144d39ad5 /* Config.swift */,
 				ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */,
 				e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */,
 				f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */,
@@ -314,7 +314,7 @@
 				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
 				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
-				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				f131e23f-beba-5011-aa20-a867f67a4e27 /* Config.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
@@ -344,7 +344,7 @@
 				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
 				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
-				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				f131e23f-beba-5011-aa20-a867f67a4e27 /* Config.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
@@ -374,7 +374,7 @@
 				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
 				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
-				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				f131e23f-beba-5011-aa20-a867f67a4e27 /* Config.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
@@ -404,7 +404,7 @@
 				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
 				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
-				f131e23f-beba-5011-aa20-a867f67a4e27 /* ConfigReader.swift in Sources */,
+				f131e23f-beba-5011-aa20-a867f67a4e27 /* Config.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,

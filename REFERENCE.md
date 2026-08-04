@@ -158,7 +158,7 @@ Sidebar rows are full-width buttons. The selected row is highlighted and exposed
 | `GridView.swift` | `GridView` | SwiftUI grid container, cell layout, theme |
 | `CellView.swift` | `CellView` | Per-cell rendering (rects/icons/thumbnails), space names |
 | `YabaiClient.swift` | `YabaiClient` | yabai CLI wrapper, space/window queries, signal management |
-| `ConfigReader.swift` | `ConfigReader` | Config parsing with inline comments, SPACE_NAMES support |
+| `Config.swift` | `Config` | Config parsing with inline comments, SPACE_NAMES support |
 | `HotkeyMonitor.swift` | `HotkeyMonitor` | Global CGEventTap for hotkey capture |
 | `SocketListener.swift` | `SocketListener` | Unix domain socket server for yabai signals |
 | `WindowDragHandler.swift` | `WindowDragHandler` | Drag-and-drop detection via CGEventTap |

@@ -7,7 +7,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var hotkey: HotkeyMonitor?
     private var pinnedHotkey: HotkeyMonitor?
     private var socketListener: SocketListener?
-    private let socketPath = "/tmp/spacemap_\(NSUserName()).socket"
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
@@ -72,8 +71,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
         // Delay slightly so TCC/LaunchServices finishes registering the app
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            ConfigReader.silentMode = true
-            let config = ConfigReader.load()
+            Config.silentMode = true
+            let config = Config.load()
             self.currentConfig = config
             self.hud.reloadConfig()
             self.hud.prewarmState()
@@ -82,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             self.refreshMenubarPreview(config: config)
             self.hud.onShowSettings = { [weak self] in self?.showSettingsWindow() }
             self.socketListener = SocketListener(
-                socketPath: self.socketPath,
+                socketPath: SpacemapCommand.socketPath,
                 healthInterval: config.socketHealthInterval,
                 onRefresh: { [weak self] in
                     self?.hud.refresh()
@@ -96,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 onSettings: { [weak self] in self?.showSettingsWindow() }
             )
             YabaiClient.registerSignals(
-                socketPath: self.socketPath,
+                socketPath: SpacemapCommand.socketPath,
                 showHUDOnSpaceChange: config.showHUDOnSpaceChange,
                 refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
                 refreshWindowGeometry: self.windowGeometryPreviewsEnabled(for: config)
@@ -109,8 +108,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 queue: .main
             ) { [weak self] _ in
                 guard let self = self else { return }
-                ConfigReader.silentMode = true
-                let config = ConfigReader.load()
+                Config.silentMode = true
+                let config = Config.load()
                 let shouldUpdateYabaiSignals =
                     self.currentConfig?.showHUDOnSpaceChange != config.showHUDOnSpaceChange ||
                     self.currentConfig.map { self.workspacePreviewsEnabled(for: $0) } !=
@@ -124,7 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 self.refreshMenubarPreview(config: config)
                 if shouldUpdateYabaiSignals {
                     YabaiClient.registerSignals(
-                        socketPath: self.socketPath,
+                        socketPath: SpacemapCommand.socketPath,
                         showHUDOnSpaceChange: config.showHUDOnSpaceChange,
                         refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
                         refreshWindowGeometry: self.windowGeometryPreviewsEnabled(for: config)
@@ -190,8 +189,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         case .menu:
             showMenubarMenu()
         case .config:
-            _ = ConfigReader.load()
-            NSWorkspace.shared.open(URL(fileURLWithPath: ConfigReader.configPath))
+            _ = Config.load()
+            NSWorkspace.shared.open(URL(fileURLWithPath: Config.configPath))
         case .themes:
             ThemeManager.shared.reload()
             NSWorkspace.shared.open(ThemeManager.themesDir())
@@ -199,7 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func showMenubarMenu() {
-        let hideAfterClosing = currentConfig?.hideMenuBarIcon ?? ConfigReader.load().hideMenuBarIcon
+        let hideAfterClosing = currentConfig?.hideMenuBarIcon ?? Config.load().hideMenuBarIcon
         if statusItem == nil {
             setupMenubar()
         }
@@ -230,7 +229,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func refreshMenubarPreview(config: GridConfig? = nil) {
-        let config = config ?? currentConfig ?? ConfigReader.load()
+        let config = config ?? currentConfig ?? Config.load()
         guard let item = statusItem else { return }
         menubarRefreshGeneration += 1
         let generation = menubarRefreshGeneration
@@ -312,7 +311,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func setupMenubar() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         applyMenubarIcon(to: item)
-        let config = currentConfig ?? ConfigReader.load()
+        let config = currentConfig ?? Config.load()
         let menu = NSMenu()
         let hotkeyLabel = hotkeyMenuString(config.hotkey)
         menu.addItem(menuItem(
@@ -484,7 +483,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             print("Spacemap: pinned HUD hotkey disabled")
             return
         }
-        guard ConfigReader.hotkeyToString(config.pinnedHotkey) != ConfigReader.hotkeyToString(config.hotkey) else {
+        guard Hotkey.hotkeyToString(config.pinnedHotkey) != Hotkey.hotkeyToString(config.hotkey) else {
             NSLog("Spacemap: pinned HUD hotkey matches the normal hotkey; pinned binding ignored")
             return
         }
@@ -635,9 +634,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             updateMode = .off
         }
 
-        var config = ConfigReader.load()
+        var config = Config.load()
         config.updateMode = updateMode
-        ConfigReader.saveConfig(config)
+        Config.saveConfig(config)
         configureSparkleUpdater(updateMode: updateMode)
     }
 
@@ -881,7 +880,7 @@ print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
 struct SpacemapEntry {
     static func main() {
         #if !DEBUG
-        ConfigReader.silentMode = true
+        Config.silentMode = true
         if let status = CLI.runIfRequested(arguments: CommandLine.arguments) {
             exit(status)
         }

@@ -172,12 +172,12 @@ enum YabaiClient {
     }
 
     static func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
-        let command = showHUDOnSpaceChange ? 2 : 1
+        let command = showHUDOnSpaceChange ? SpacemapCommand.show.rawValue : SpacemapCommand.refresh.rawValue
         return "echo \(command) | /usr/bin/nc -U \(socketPath)"
     }
 
     static func refreshSignalAction(socketPath: String) -> String {
-        "echo 1 | /usr/bin/nc -U \(socketPath)"
+        "echo \(SpacemapCommand.refresh.rawValue) | /usr/bin/nc -U \(socketPath)"
     }
     
     static func removeSignals() {
@@ -208,8 +208,7 @@ enum YabaiClient {
     }
     
     static func showSpacemap() {
-        let path = "/tmp/spacemap_\(NSUserName()).socket"
-        SocketListener.sendCommand(to: path, command: 2)
+        do { try SpacemapCommand.show.send() } catch { fputs("spacemap: \(error)\n", stderr) }
     }
     
     static func moveWindowCreatingSpacesIfNeeded(
