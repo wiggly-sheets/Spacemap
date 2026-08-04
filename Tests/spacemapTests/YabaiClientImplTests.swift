@@ -151,7 +151,6 @@ final class YabaiClientImplTests: XCTestCase {
         client.yabaiProcessCheck = { true }
 
         let expectation = self.expectation(description: "focusSpaceAsync dispatches asynchronously")
-        expectation.isInverted = true
 
         client.focusSpaceAsync(1)
 

@@ -47,8 +47,8 @@ final class HUDDisplayTests: XCTestCase {
     private var delegate: HUDDisplayMockDelegate!
     private var hudDisplay: HUDDisplay!
 
-    private func makeHUDDisplay(dragHandler: WindowDragHandler? = nil) -> HUDDisplay {
-        HUDDisplay(dragHandler: dragHandler, yabaiService: MockYabaiService())
+    private func makeHUDDisplay() -> HUDDisplay {
+        HUDDisplay(yabaiService: MockYabaiService())
     }
 
     private func cannedState(
@@ -345,98 +345,5 @@ final class HUDDisplayTests: XCTestCase {
         // which in turn calls delegate.updateCellFrames
         XCTAssertTrue(delegate.updateCellFramesCalled,
             "updateState should update currentConfig and call render on the delegate")
-    }
-
-    // MARK: - startDragHandler()
-
-    func testStartDragHandlerStartsDragHandler() {
-        // Given
-         let dragHandler = WindowDragHandler(yabaiService: MockYabaiService())
-         hudDisplay = makeHUDDisplay(dragHandler: dragHandler)
-         hudDisplay.delegate = delegate
-
-         // When
-         hudDisplay.startDragHandler()
-
-        // Then - start() should be called on the drag handler;
-        // verify the drag handler is still functional by updating its windows
-        let windows = [
-            YabaiWindow(id: 1, app: "Safari", space: 1,
-                        frame: .init(x: 0, y: 0, w: 800, h: 600),
-                        isHidden: false, isMinimized: false, subLayer: "normal"),
-        ]
-        hudDisplay.updateDragHandlerWindows(windows)
-        XCTAssertEqual(dragHandler.cachedWindows.count, windows.count,
-            "startDragHandler should not prevent subsequent drag handler operations")
-    }
-
-    // MARK: - stopDragHandler()
-
-    func testStopDragHandlerStopsDragHandler() {
-        // Given
-         let dragHandler = WindowDragHandler(yabaiService: MockYabaiService())
-         hudDisplay = makeHUDDisplay(dragHandler: dragHandler)
-         hudDisplay.delegate = delegate
-
-         // When
-         hudDisplay.stopDragHandler()
-
-        // Then - stop() should be called on the drag handler;
-        // verify the drag handler is still functional by updating its windows
-        let windows = [
-            YabaiWindow(id: 1, app: "Safari", space: 1,
-                        frame: .init(x: 0, y: 0, w: 800, h: 600),
-                        isHidden: false, isMinimized: false, subLayer: "normal"),
-        ]
-        hudDisplay.updateDragHandlerWindows(windows)
-        XCTAssertEqual(dragHandler.cachedWindows.count, windows.count,
-            "stopDragHandler should not prevent subsequent drag handler operations")
-    }
-
-    // MARK: - updateDragHandlerWindows
-
-    func testUpdateDragHandlerWindowsUpdatesCachedWindows() {
-        // Given
-         let dragHandler = WindowDragHandler(yabaiService: MockYabaiService())
-         hudDisplay = makeHUDDisplay(dragHandler: dragHandler)
-         hudDisplay.delegate = delegate
-
-         let windows = [
-             YabaiWindow(id: 1, app: "Safari", space: 1,
-                         frame: .init(x: 0, y: 0, w: 800, h: 600),
-                         isHidden: false, isMinimized: false, subLayer: "normal"),
-             YabaiWindow(id: 2, app: "Notes", space: 1,
-                         frame: .init(x: 0, y: 0, w: 400, h: 300),
-                         isHidden: false, isMinimized: false, subLayer: "normal"),
-         ]
-
-         // When
-         hudDisplay.updateDragHandlerWindows(windows)
-
-        // Then
-        XCTAssertEqual(dragHandler.cachedWindows.count, windows.count,
-            "updateDragHandlerWindows should update the drag handler's cachedWindows count")
-        for (index, window) in windows.enumerated() {
-            XCTAssertEqual(dragHandler.cachedWindows[index].id, window.id,
-                "cached window at \(index) should have matching id")
-            XCTAssertEqual(dragHandler.cachedWindows[index].app, window.app,
-                "cached window at \(index) should have matching app")
-        }
-    }
-
-    // MARK: - setDragHandlerFocusedWindowID
-
-    func testSetDragHandlerFocusedWindowIDSetsFocusedWindowID() {
-        // Given
-         let dragHandler = WindowDragHandler(yabaiService: MockYabaiService())
-         hudDisplay = makeHUDDisplay(dragHandler: dragHandler)
-         hudDisplay.delegate = delegate
-
-         // When
-         hudDisplay.setDragHandlerFocusedWindowID(42)
-
-        // Then
-        XCTAssertEqual(dragHandler.focusedWindowIDAtOpen, 42,
-            "setDragHandlerFocusedWindowID should set the drag handler's focusedWindowIDAtOpen")
     }
 }

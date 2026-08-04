@@ -3,7 +3,7 @@ import ServiceManagement
 import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
-    private let hud = HUDWindowController()
+    private lazy var hud: HUDWindowController = { HUDWindowController(yabaiService: yabaiService) }()
     private let yabaiService = YabaiClientImpl()
     private var hotkey: HotkeyMonitor?
     private var pinnedHotkey: HotkeyMonitor?
@@ -497,7 +497,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     @objc private func showSettingsWindow() {
         NSApp.setActivationPolicy(.regular)
-        let settingsWindowController = SettingsWindowController()
+        let settingsWindowController = SettingsWindowController(yabaiService: yabaiService)
         settingsWindowController.showWindow()
         if let window = settingsWindowController.window {
             NotificationCenter.default.addObserver(

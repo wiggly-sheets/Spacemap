@@ -24,7 +24,7 @@ Split the 685-line monolithic `Config` singleton into three focused modules: `Co
 |---|---|---|---|
 | `ConfigValues` | `Sources/spacemap/ConfigValues.swift` | Pure struct with optionals + `toGridConfig()` | Deep: ~200 lines behind 1 method |
 | `TOMLParser` | `Sources/spacemap/TOMLParser.swift` | `parse(_ data: String) -> ConfigValues` | Deep: ~600 lines behind 1 method |
-| `ConfigLoader` | `Sources/spacemap/ConfigLoader.swift` | `load(path:) -> ConfigValues`, `save(_ values: ConfigValues, to path:)`, `createDefaultConfigFile()` | Deep: ~100 lines behind 3 methods |
+| `ConfigLoader` | `Sources/spacemap/ConfigLoader.swift` | `load(from path: String, silentMode: Bool) -> (values: ConfigValues, needsRepair: Bool)`, `save(_ values: ConfigValues, to path:)`, `createDefaultConfigFile(at path: String)` | Deep: ~100 lines behind 3 methods |
 | `Config` | `Sources/spacemap/Config.swift` | Thin facade: `load()`, `saveConfig()`, `parseConfig()` — delegates to ConfigLoader/TOMLParser | Thin: ~50 lines |
 
 ### ConfigValues Struct
@@ -69,7 +69,7 @@ struct ConfigValues {
     var showHUDOnSpaceChange: Bool?
     var updateMode: UpdateMode?
 
-    func toGridConfig() -> GridConfig
+    func toGridConfig() -> (config: GridConfig, needsRepair: Bool)
 }
 ```
 
@@ -82,9 +82,10 @@ struct ConfigValues {
 
 ### ConfigLoader
 
-- `load(path:) -> ConfigValues` — reads file, parses with TOMLParser, handles missing file (create default), handles invalid TOML (backup + replace with defaults)
+- `load(from path: String, silentMode: Bool) -> (values: ConfigValues, needsRepair: Bool)` — reads file, parses with TOMLParser, handles missing file (create default), handles invalid TOML (backup + replace with defaults). Returns a tuple with the loaded values and a `needsRepair` flag indicating whether invalid values were found and replaced with defaults.
 - `save(_ values: ConfigValues, to path:)` — serializes ConfigValues to TOML, writes to file, creates backup before overwrite
-- `createDefaultConfigFile()` — generates default TOML config file
+- `save(_ config: GridConfig, to path:)` — converts GridConfig to ConfigValues and saves
+- `createDefaultConfigFile(at path: String)` — generates default TOML config file at the given path
 - Backup logic is internal to `save` and `load` (not a separate method)
 
 ### Config (thin facade)
