@@ -185,12 +185,12 @@ class YabaiClientImpl: YabaiService {
         windowGeometryRefreshEvents + workspaceTopologyRefreshEvents
     }
 
-    private func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
+    func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
         let command = showHUDOnSpaceChange ? SpacemapCommand.show.rawValue : SpacemapCommand.refresh.rawValue
         return "echo \(command) | /usr/bin/nc -U \(socketPath)"
     }
 
-    private func refreshSignalAction(socketPath: String) -> String {
+    func refreshSignalAction(socketPath: String) -> String {
         "echo \(SpacemapCommand.refresh.rawValue) | /usr/bin/nc -U \(socketPath)"
     }
 

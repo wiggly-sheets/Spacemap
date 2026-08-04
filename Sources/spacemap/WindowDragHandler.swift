@@ -19,11 +19,11 @@ class WindowDragHandler: WindowDragService {
     // The yabai window that had focus when the HUD opened.
     var focusedWindowIDAtOpen: Int? = nil
 
-    private var lastHoveredCell: Int? = nil
-    private var draggedWindowID: Int? = nil
-    private var dragStartPoint: CGPoint? = nil
-    private var frontmostAppAtMouseDown: String? = nil
-    private var isDragging = false
+    var lastHoveredCell: Int? = nil
+    var draggedWindowID: Int? = nil
+    var dragStartPoint: CGPoint? = nil
+    var frontmostAppAtMouseDown: String? = nil
+    var isDragging = false
 
     var dragState: DragState {
         guard dragStartPoint != nil else { return .idle }
@@ -101,7 +101,7 @@ class WindowDragHandler: WindowDragService {
         frontmostAppAtMouseDown = nil
     }
 
-    private func handleMouseDown(at cgPoint: CGPoint) {
+    func handleMouseDown(at cgPoint: CGPoint) {
         dragStartPoint = cgPoint
         isDragging = false
         draggedWindowID = nil
@@ -110,7 +110,7 @@ class WindowDragHandler: WindowDragService {
         frontmostAppAtMouseDown = NSWorkspace.shared.frontmostApplication?.localizedName
     }
 
-    private func handleDrag(at cgPoint: CGPoint) {
+    func handleDrag(at cgPoint: CGPoint) {
         guard !cellFrames.isEmpty else { return }
 
         if !isDragging {
@@ -127,7 +127,7 @@ class WindowDragHandler: WindowDragService {
         }
     }
 
-    private func handleMouseUp(at cgPoint: CGPoint, modifiers: CGEventFlags) {
+    func handleMouseUp(at cgPoint: CGPoint, modifiers: CGEventFlags) {
         defer { reset() }
         guard isDragging,
               let cell = cellSpaceIndex(forCG: cgPoint),
@@ -143,7 +143,7 @@ class WindowDragHandler: WindowDragService {
         }
     }
 
-    private func cellSpaceIndex(forCG cgPoint: CGPoint) -> Int? {
+    func cellSpaceIndex(forCG cgPoint: CGPoint) -> Int? {
         for entry in cellFrames where entry.frame.contains(cgPoint) {
             return entry.spaceIndex
         }
@@ -159,7 +159,7 @@ class WindowDragHandler: WindowDragService {
     // Identify the window being dragged using frontmost app at mouseDown time.
     // For apps with multiple windows, prefer the one focused when the HUD opened,
     // falling back to closest by position.
-    private func findDraggedWindowID(atCG cgPoint: CGPoint) -> Int? {
+    func findDraggedWindowID(atCG cgPoint: CGPoint) -> Int? {
         guard let appName = frontmostAppAtMouseDown else {
             return focusedWindowIDAtOpen
         }

@@ -336,7 +336,7 @@ struct YabaiDisplay: Decodable {
     }
 }
 
-struct YabaiWindow: Decodable {
+struct YabaiWindow: Decodable, Equatable {
     let id: Int
     let app: String
     let space: Int
@@ -352,7 +352,7 @@ struct YabaiWindow: Decodable {
     var isVisible: Bool? = nil
     var isFloating: Bool? = nil
 
-    struct WindowFrame: Decodable {
+    struct WindowFrame: Decodable, Equatable {
         let x: CGFloat
         let y: CGFloat
         let w: CGFloat

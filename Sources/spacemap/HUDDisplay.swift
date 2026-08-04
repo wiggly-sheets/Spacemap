@@ -4,9 +4,9 @@ import SwiftUI
 /// Delegate for HUDDisplay to report visual state changes.
 protocol HUDDisplayDelegate: AnyObject {
     func render(state: GridState)
-    func updateCellFrames(frames: [(spaceIndex: Int, frame: CGRect)])
-    func hudDidShow()
-    func hudDidHide()
+    func updateCellFrames(state: GridState)
+    func show()
+    func hide()
 }
 
 /// Owns NSPanel lifecycle, unified vs separate display modes, cell frame computation, thumbnail preloading.
@@ -56,13 +56,13 @@ final class HUDDisplay {
     }
 
     func show() {
-        delegate?.hudDidShow()
+        delegate?.show()
     }
 
     func hide() {
         tearDownPanels()
         dragHandler?.stop()
-        delegate?.hudDidHide()
+        delegate?.hide()
     }
 
     func updateState(_ state: GridState) {
@@ -120,7 +120,7 @@ final class HUDDisplay {
             }
         }
         syncDragInput(cellFrames: frames)
-        delegate?.updateCellFrames(frames: frames)
+        delegate?.updateCellFrames(state: state)
     }
 
     func preloadIcons(for state: GridState) {
@@ -308,7 +308,7 @@ final class HUDDisplay {
     ) -> GridView {
         GridView(state: state, hoveredCell: hoveredCell, onSelect: { [weak self] index in
             self?.yabaiService.focusSpaceAsync(index)
-            self?.delegate?.hudDidHide()
+            self?.delegate?.hide()
         }, uiScale: currentConfig.uiScale, theme: currentConfig.theme, spaceIndices: spaceIndices)
     }
 

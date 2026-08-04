@@ -57,26 +57,26 @@ final class HUDWindowControllerMockDisplayDelegate: HUDDisplayDelegate {
     private(set) var renderCallCount = 0
     private(set) var lastRenderedState: GridState?
     private(set) var updateCellFramesCallCount = 0
-    private(set) var lastCellFrames: [(spaceIndex: Int, frame: CGRect)]?
-    private(set) var hudDidShowCallCount = 0
-    private(set) var hudDidHideCallCount = 0
+    private(set) var lastState: GridState?
+    private(set) var showCallCount = 0
+    private(set) var hideCallCount = 0
 
     func render(state: GridState) {
         renderCallCount += 1
         lastRenderedState = state
     }
 
-    func updateCellFrames(frames: [(spaceIndex: Int, frame: CGRect)]) {
+    func updateCellFrames(state: GridState) {
         updateCellFramesCallCount += 1
-        lastCellFrames = frames
+        lastState = state
     }
 
-    func hudDidShow() {
-        hudDidShowCallCount += 1
+    func show() {
+        showCallCount += 1
     }
 
-    func hudDidHide() {
-        hudDidHideCallCount += 1
+    func hide() {
+        hideCallCount += 1
     }
 }
 
@@ -103,7 +103,7 @@ final class HUDWindowControllerTests: XCTestCase {
     }
 
     private func makeHUDWindowController() -> HUDWindowController {
-        HUDWindowController()
+        HUDWindowController(yabaiService: MockYabaiService())
     }
 
     // MARK: - show()
