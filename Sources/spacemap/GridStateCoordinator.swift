@@ -30,6 +30,9 @@ final class GridStateCoordinator {
     /// The single source of truth for the last built state.
     private(set) var latestState: GridState?
 
+    /// Public read-only access to the latest state.
+    public var state: GridState? { latestState }
+
     /// Current phase of the write pipeline.
     private(set) var phase: Phase = .idle
 
@@ -145,6 +148,14 @@ final class GridStateCoordinator {
         inFlightWorkItem = nil
         fetchGeneration += 1
         phase = latestState != nil ? .ready : .idle
+    }
+
+    // MARK: - Config
+
+    /// Reload config from disk. The owner keeps this current
+    /// (reloadConfig) before triggering a fetch.
+    public func reloadConfig() {
+        config = Config.load()
     }
 
     // MARK: - Optimistic focus (navigation)

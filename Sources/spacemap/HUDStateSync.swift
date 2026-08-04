@@ -20,11 +20,11 @@ final class DefaultHUDStateSync: HUDStateSync {
     }
 
     var currentState: GridState? {
-        coordinator.latestState
+        coordinator.state
     }
 
     var focusedIndex: Int? {
-        coordinator.latestState?.focusedIndex
+        coordinator.state?.focusedIndex
     }
 
     func updateFocusedIndex(_ index: Int) -> GridState? {
@@ -48,6 +48,6 @@ final class DefaultHUDStateSync: HUDStateSync {
     }
 
     func reloadConfig() {
-        coordinator.config = Config.load()
+        coordinator.reloadConfig()
     }
 }

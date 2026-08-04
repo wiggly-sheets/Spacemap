@@ -2,302 +2,167 @@ import Foundation
 import AppKit
 
 enum YabaiClient {
-    private enum YabaiError: LocalizedError {
-        case commandFailed(arguments: [String], status: Int32, message: String)
-        case spaceCreationMadeNoProgress(target: Int)
+    private static let shared = YabaiClientImpl()
 
-        var errorDescription: String? {
-            switch self {
-            case .commandFailed(let arguments, let status, let message):
-                let detail = message.isEmpty ? "no error output" : message
-                return "yabai \(arguments.joined(separator: " ")) failed with status \(status): \(detail)"
-            case .spaceCreationMadeNoProgress(let target):
-                return "yabai did not create the space needed for target index \(target)"
-            }
-        }
-    }
+    // MARK: - Queue dispatch
 
-    private static let yabaiQueue = DispatchQueue(label: "com.spacemap.yabai", qos: .userInitiated)
-    // Keep interactive focus changes out of the state-query queue. A grid
-    // refresh can wait for multiple yabai queries, but keyboard navigation
-    // should never wait behind it.
-    private static let focusQueue = DispatchQueue(label: "com.spacemap.yabai.focus", qos: .userInteractive)
-
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func runOnYabaiQueue(_ block: @escaping () -> Void) {
-        yabaiQueue.async(execute: block)
+        shared.runOnYabaiQueue(block)
     }
 
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func runOnYabaiQueue(_ workItem: DispatchWorkItem) {
-        yabaiQueue.async(execute: workItem)
+        shared.runOnYabaiQueue(workItem)
     }
 
-    private static let yabaiPath: String = {
-        let arm = "/opt/homebrew/bin/yabai"
-        let intel = "/usr/local/bin/yabai"
-        if FileManager.default.isExecutableFile(atPath: arm) { return arm }
-        if FileManager.default.isExecutableFile(atPath: intel) { return intel }
-        return arm
-    }()
+    // MARK: - Yabai running check
 
-    private static var _yabaiRunningCache: (result: Bool, checkedAt: TimeInterval)?
-    private static let yabaiCacheTTL: TimeInterval = 5.0
-    private static let cacheLock = NSLock()
-    private static func defaultYabaiProcessCheck() -> Bool {
-        let output = (try? shell("/usr/bin/pgrep", "yabai")) ?? ""
-        return !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
+    static var yabaiProcessCheck: () -> Bool {
+        get { shared.yabaiProcessCheck }
+        set { shared.yabaiProcessCheck = newValue }
     }
-    static var yabaiProcessCheck: () -> Bool = defaultYabaiProcessCheck
 
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func isYabaiRunning(forceRefresh: Bool = false) -> Bool {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
-        let now = ProcessInfo.processInfo.systemUptime
-        if !forceRefresh,
-           let cached = _yabaiRunningCache,
-           now - cached.checkedAt < yabaiCacheTTL {
-            return cached.result
-        }
-        let result = yabaiProcessCheck()
-        _yabaiRunningCache = (result, now)
-        return result
+        shared.isYabaiRunning(forceRefresh: forceRefresh)
     }
 
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func resetYabaiRunningCache() {
-        cacheLock.lock()
-        _yabaiRunningCache = nil
-        cacheLock.unlock()
+        shared.resetYabaiRunningCache()
     }
 
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func resetYabaiProcessCheck() {
-        yabaiProcessCheck = defaultYabaiProcessCheck
-        resetYabaiRunningCache()
+        shared.resetYabaiProcessCheck()
     }
-    
+
+    // MARK: - Queries
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func querySpaces() throws -> [YabaiSpace] {
-        guard isYabaiRunning() else { return [] }
-        return try querySpacesRaw()
+        try shared.querySpaces()
     }
 
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func queryDisplays() throws -> [YabaiDisplay] {
-        guard isYabaiRunning() else { return [] }
-        return try queryDisplaysRaw()
+        try shared.queryDisplays()
     }
-    
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func queryWindows() throws -> [YabaiWindow] {
-        guard isYabaiRunning() else { return [] }
-        return try queryWindowsRaw()
+        try shared.queryWindows()
     }
 
-    private static func querySpacesRaw() throws -> [YabaiSpace] {
-        let output = try shell(yabaiPath, "-m", "query", "--spaces")
-        return try JSONDecoder().decode([YabaiSpace].self, from: Data(output.utf8))
-    }
-
-    private static func queryDisplaysRaw() throws -> [YabaiDisplay] {
-        let output = try shell(yabaiPath, "-m", "query", "--displays")
-        return try JSONDecoder().decode([YabaiDisplay].self, from: Data(output.utf8))
-    }
-
-    private static func queryWindowsRaw() throws -> [YabaiWindow] {
-        let output = try shell(yabaiPath, "-m", "query", "--windows")
-        return try JSONDecoder().decode([YabaiWindow].self, from: Data(output.utf8))
-    }
-    
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func queryFocusedWindow() throws -> Int? {
-        guard isYabaiRunning() else { return nil }
-        let output = try shell(yabaiPath, "-m", "query", "--windows", "--window")
-        guard let data = output.data(using: .utf8),
-              let json = try? JSONDecoder().decode(YabaiWindow.self, from: data) else { return nil }
-        return json.id
+        try shared.queryFocusedWindow()
     }
-    
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func queryFocusedSpaceIndex() -> Int? {
-        guard isYabaiRunning() else { return nil }
-        do {
-            let spaces = try querySpacesRaw()
-            return spaces.first { $0.hasFocus }?.index
-        } catch {
-            return nil
-        }
+        shared.queryFocusedSpaceIndex()
     }
-    
+
+    // MARK: - Signals
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func registerSignals(
         socketPath: String,
         showHUDOnSpaceChange: Bool = false,
         refreshWorkspacePreviews: Bool = false,
         refreshWindowGeometry: Bool = true
     ) {
-        guard isYabaiRunning(forceRefresh: true) else { return }
-        removeSignals()
-        let action = spaceChangedSignalAction(
+        shared.registerSignals(
             socketPath: socketPath,
-            showHUDOnSpaceChange: showHUDOnSpaceChange
+            showHUDOnSpaceChange: showHUDOnSpaceChange,
+            refreshWorkspacePreviews: refreshWorkspacePreviews,
+            refreshWindowGeometry: refreshWindowGeometry
         )
-        _ = try? shell(yabaiPath, "-m", "signal", "--add",
-                       "label=spacemap_space_changed",
-                       "event=space_changed",
-                       "action=\(action)")
-        guard refreshWorkspacePreviews else { return }
-        let events = refreshWindowGeometry
-            ? workspacePreviewRefreshEvents
-            : workspaceTopologyRefreshEvents
-        for event in events {
-            _ = try? shell(yabaiPath, "-m", "signal", "--add",
-                           "label=spacemap_\(event)",
-                           "event=\(event)",
-                           "action=\(refreshSignalAction(socketPath: socketPath))")
-        }
     }
 
-    static let windowGeometryRefreshEvents = [
-        "window_created",
-        "window_destroyed",
-        "window_moved",
-        "window_resized",
-        "window_minimized",
-        "window_deminimized"
-    ]
-
-    static let workspaceTopologyRefreshEvents = [
-        "space_created",
-        "space_destroyed",
-        "display_added",
-        "display_removed",
-        "display_moved",
-        "display_resized"
-    ]
-
-    static var workspacePreviewRefreshEvents: [String] {
-        windowGeometryRefreshEvents + workspaceTopologyRefreshEvents
-    }
-
-    static func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
-        let command = showHUDOnSpaceChange ? SpacemapCommand.show.rawValue : SpacemapCommand.refresh.rawValue
-        return "echo \(command) | /usr/bin/nc -U \(socketPath)"
-    }
-
-    static func refreshSignalAction(socketPath: String) -> String {
-        "echo \(SpacemapCommand.refresh.rawValue) | /usr/bin/nc -U \(socketPath)"
-    }
-    
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func removeSignals() {
-        guard isYabaiRunning() else { return }
-        _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_space_changed")
-        for event in workspacePreviewRefreshEvents {
-            _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_\(event)")
-        }
-    }
-    
-    static func focusSpace(_ index: Int) {
-        _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)")
+        shared.removeSignals()
     }
 
+    // MARK: - Focus
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
+    static func focusSpace(_ index: Int) {
+        shared.focusSpace(index)
+    }
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     @discardableResult
     static func focusSpace(_ target: SpaceFocusTarget) -> Bool {
-        do {
-            _ = try shell(yabaiPath, "-m", "space", "--focus", target.value)
-            return true
-        } catch {
-            fputs("spacemap: \(error.localizedDescription)\n", stderr)
-            return false
-        }
+        shared.focusSpace(target)
     }
 
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func focusSpaceAsync(_ index: Int) {
-        focusQueue.async { _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)") }
+        shared.focusSpaceAsync(index)
     }
-    
+
+    // MARK: - Spacemap
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func showSpacemap() {
-        do { try SpacemapCommand.show.send() } catch { fputs("spacemap: \(error)\n", stderr) }
+        shared.showSpacemap()
     }
-    
+
+    // MARK: - Window movement
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func moveWindowCreatingSpacesIfNeeded(
         _ windowID: Int,
         toSpace targetIndex: Int,
         focusDestination: Bool,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
-        yabaiQueue.async {
-            do {
-                guard targetIndex > 0 else {
-                    throw YabaiError.spaceCreationMadeNoProgress(target: targetIndex)
-                }
-
-                var spaces = try querySpacesRaw()
-                while !spaces.contains(where: { $0.index == targetIndex }) {
-                    let previousIndices = Set(spaces.map(\.index))
-                    _ = try shell(yabaiPath, "-m", "space", "--create")
-                    spaces = try querySpacesRaw()
-
-                    guard Set(spaces.map(\.index)) != previousIndices else {
-                        throw YabaiError.spaceCreationMadeNoProgress(target: targetIndex)
-                    }
-                }
-
-                _ = try shell(yabaiPath, "-m", "window", "\(windowID)", "--space", "\(targetIndex)")
-                if focusDestination {
-                    _ = try shell(yabaiPath, "-m", "space", "--focus", "\(targetIndex)")
-                }
-                DispatchQueue.main.async { completion(.success(())) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
+        shared.moveWindowCreatingSpacesIfNeeded(
+            windowID,
+            toSpace: targetIndex,
+            focusDestination: focusDestination,
+            completion: completion
+        )
     }
-    
+
+    // MARK: - Grid state
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
-        // Bypass isYabaiRunning() cache — stale cache returns empty grid silently
-        // Fresh process check instead
-        guard (try? shell("/usr/bin/pgrep", "yabai")).flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }) ?? false else {
-            let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
-            return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
-        }
-        var spaces: [YabaiSpace] = []
-        var displays: [YabaiDisplay] = []
-        var windows: [YabaiWindow] = []
-        let group = DispatchGroup()
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            spaces = (try? querySpacesRaw()) ?? []
-            group.leave()
-        }
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            displays = (try? queryDisplaysRaw()) ?? []
-            group.leave()
-        }
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            windows = (try? queryWindowsRaw()) ?? []
-            group.leave()
-        }
-        group.wait()
-        let resolvedFocus = focusedIndex ?? spaces.first { $0.hasFocus }?.index
-        let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
-        return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus, displays: displays)
+        shared.buildGridState(config: config, focusedIndex: focusedIndex)
     }
 
-    private static func shell(_ args: String...) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: args[0])
-        process.arguments = Array(args.dropFirst())
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-        try process.run()
-        process.waitUntilExit()
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        guard process.terminationStatus == 0 else {
-            let message = String(data: errorData, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            throw YabaiError.commandFailed(
-                arguments: Array(args.dropFirst()),
-                status: process.terminationStatus,
-                message: message
-            )
-        }
-        return String(data: outputData, encoding: .utf8) ?? ""
+    // MARK: - Signal actions
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
+    static func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
+        shared.spaceChangedSignalAction(socketPath: socketPath, showHUDOnSpaceChange: showHUDOnSpaceChange)
+    }
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
+    static func refreshSignalAction(socketPath: String) -> String {
+        shared.refreshSignalAction(socketPath: socketPath)
+    }
+
+    // MARK: - Refresh events
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
+    static var windowGeometryRefreshEvents: [String] {
+        shared.windowGeometryRefreshEvents
+    }
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
+    static var workspaceTopologyRefreshEvents: [String] {
+        shared.workspaceTopologyRefreshEvents
+    }
+
+    @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
+    static var workspacePreviewRefreshEvents: [String] {
+        shared.workspacePreviewRefreshEvents
     }
 }

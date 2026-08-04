@@ -8,26 +8,26 @@ final class HUDDisplayMockDelegate: HUDDisplayDelegate {
     private(set) var renderCalled = false
     private(set) var renderState: GridState?
     private(set) var updateCellFramesCalled = false
-    private(set) var updateCellFramesValue: [(spaceIndex: Int, frame: CGRect)]?
-    private(set) var hudDidShowCalled = false
-    private(set) var hudDidHideCalled = false
+    private(set) var updateCellFramesValue: GridState?
+    private(set) var showCalled = false
+    private(set) var hideCalled = false
 
     func render(state: GridState) {
         renderCalled = true
         renderState = state
     }
 
-    func updateCellFrames(frames: [(spaceIndex: Int, frame: CGRect)]) {
+    func updateCellFrames(state: GridState) {
         updateCellFramesCalled = true
-        updateCellFramesValue = frames
+        updateCellFramesValue = state
     }
 
-    func hudDidShow() {
-        hudDidShowCalled = true
+    func show() {
+        showCalled = true
     }
 
-    func hudDidHide() {
-        hudDidHideCalled = true
+    func hide() {
+        hideCalled = true
     }
 
     func reset() {
@@ -35,8 +35,8 @@ final class HUDDisplayMockDelegate: HUDDisplayDelegate {
         renderState = nil
         updateCellFramesCalled = false
         updateCellFramesValue = nil
-        hudDidShowCalled = false
-        hudDidHideCalled = false
+        showCalled = false
+        hideCalled = false
     }
 }
 
@@ -87,7 +87,7 @@ final class HUDDisplayTests: XCTestCase {
         hudDisplay.show()
 
         // Then
-        XCTAssertTrue(delegate.hudDidShowCalled, "show() should call delegate.hudDidShow()")
+        XCTAssertTrue(delegate.showCalled, "show() should call delegate.show()")
     }
 
     // MARK: - hide()
@@ -97,7 +97,7 @@ final class HUDDisplayTests: XCTestCase {
         hudDisplay.hide()
 
         // Then
-        XCTAssertTrue(delegate.hudDidHideCalled, "hide() should call delegate.hudDidHide()")
+        XCTAssertTrue(delegate.hideCalled, "hide() should call delegate.hide()")
     }
 
     // MARK: - render(state:)
