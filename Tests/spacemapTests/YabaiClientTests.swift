@@ -38,7 +38,7 @@ final class YabaiClientTests: XCTestCase {
             showHUDOnSpaceChange: true
         )
 
-        XCTAssertEqual(action, "echo 2 | /usr/bin/nc -U /tmp/spacemap_test.socket")
+        XCTAssertEqual(action, "echo \(SpacemapCommand.show.rawValue) | /usr/bin/nc -U /tmp/spacemap_test.socket")
     }
 
     func testSpaceChangedSignalRefreshesWhenAutomaticShowIsOff() {
@@ -47,13 +47,13 @@ final class YabaiClientTests: XCTestCase {
             showHUDOnSpaceChange: false
         )
 
-        XCTAssertEqual(action, "echo 1 | /usr/bin/nc -U /tmp/spacemap_test.socket")
+        XCTAssertEqual(action, "echo \(SpacemapCommand.refresh.rawValue) | /usr/bin/nc -U /tmp/spacemap_test.socket")
     }
 
     func testWindowSignalsRefreshTheExistingApp() {
         XCTAssertEqual(
             YabaiClient.refreshSignalAction(socketPath: "/tmp/spacemap_test.socket"),
-            "echo 1 | /usr/bin/nc -U /tmp/spacemap_test.socket"
+            "echo \(SpacemapCommand.refresh.rawValue) | /usr/bin/nc -U /tmp/spacemap_test.socket"
         )
         XCTAssertTrue(YabaiClient.workspacePreviewRefreshEvents.contains("window_created"))
         XCTAssertTrue(YabaiClient.workspacePreviewRefreshEvents.contains("window_destroyed"))
