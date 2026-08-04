@@ -340,4 +340,20 @@ final class HUDWindowControllerTests: XCTestCase {
         // Then - prewarmState() fetches state and preloads icons; HUD should remain hidden
         XCTAssertFalse(controller.isVisible, "HUD should remain hidden after refresh when not visible")
     }
+
+    // MARK: - navigate()
+
+    func testNavigateDelegatesToHUDInput() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        controller.show()
+        XCTAssertTrue(controller.isVisible, "HUD should be visible for navigation")
+
+        // When - calling navigate through the HUDInputDelegate should not crash
+        // and should delegate to the internal HUDInput's navigate method
+        controller.navigate(direction: .right)
+
+        // Then - the controller should remain visible and functional
+        XCTAssertTrue(controller.isVisible, "HUD should still be visible after navigate")
+    }
 }

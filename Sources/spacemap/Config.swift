@@ -1,5 +1,4 @@
 import Foundation
-import CoreGraphics
 
 enum Config {
 
@@ -31,6 +30,10 @@ enum Config {
 
     internal static func cellStyleName(_ style: CellStyle) -> String {
         ConfigLoader.cellStyleName(style)
+    }
+
+    public static func parseHotkey(_ value: String) -> HotkeyConfig? {
+        Hotkey.parseHotkey(value)
     }
 
 }

@@ -19,32 +19,12 @@ final class HUDDisplay {
     private var displayHostingViews: [Int: NSHostingView<AnyView>] = [:]
     private var currentConfig: GridConfig = .default
     private var hoveredCell: Int? = nil
-    private var dragHandler: WindowDragService?
     private var yabaiService: YabaiService
-    private var dragCellFrames: [(spaceIndex: Int, frame: CGRect)] = []
-    private var dragCachedWindows: [YabaiWindow] = []
-    private var dragFocusedWindowIDAtOpen: Int? = nil
 
     var unifiedPanel: NSPanel? { panel }
 
-    init(dragHandler: WindowDragService?, yabaiService: YabaiService) {
-        self.dragHandler = dragHandler
+    init(yabaiService: YabaiService) {
         self.yabaiService = yabaiService
-    }
-
-    private func syncDragInput(
-        cellFrames: [(spaceIndex: Int, frame: CGRect)]? = nil,
-        cachedWindows: [YabaiWindow]? = nil,
-        focusedWindowIDAtOpen: Int?? = nil
-    ) {
-        if let cellFrames { dragCellFrames = cellFrames }
-        if let cachedWindows { dragCachedWindows = cachedWindows }
-        if let focusedWindowIDAtOpen { dragFocusedWindowIDAtOpen = focusedWindowIDAtOpen }
-        dragHandler?.updateInput(WindowDragInput(
-            cellFrames: dragCellFrames,
-            cachedWindows: dragCachedWindows,
-            focusedWindowIDAtOpen: dragFocusedWindowIDAtOpen
-        ))
     }
 
     func updateConfig(_ config: GridConfig) {
@@ -61,7 +41,6 @@ final class HUDDisplay {
 
     func hide() {
         tearDownPanels()
-        dragHandler?.stop()
         delegate?.hide()
     }
 
@@ -95,6 +74,33 @@ final class HUDDisplay {
         updateCellFrames(state: state)
     }
 
+    func computeCellFrames(state: GridState) -> [(spaceIndex: Int, frame: CGRect)] {
+        var frames: [(spaceIndex: Int, frame: CGRect)] = []
+        switch currentConfig.multiMonitorHUDMode {
+        case .unified:
+            let cells = GridLayout.visibleSpaceIndices(
+                maxSpaces: currentConfig.maxSpaces,
+                showMode: currentConfig.showMode,
+                activeIndices: Set(state.spaces.map(\.index))
+            )
+            if let panel {
+                frames.append(contentsOf: cellFrames(for: cells, in: panel))
+            } else {
+                for panel in displayPanels.values {
+                    frames.append(contentsOf: cellFrames(for: cells, in: panel))
+                }
+            }
+        case .separate:
+            for (displayIndex, panel) in displayPanels {
+                frames.append(contentsOf: cellFrames(
+                    for: state.spaces(forDisplay: displayIndex).map(\.index),
+                    in: panel
+                ))
+            }
+        }
+        return frames
+    }
+
     func updateCellFrames(state: GridState) {
         var frames: [(spaceIndex: Int, frame: CGRect)] = []
         switch currentConfig.multiMonitorHUDMode {
@@ -119,7 +125,6 @@ final class HUDDisplay {
                 ))
             }
         }
-        syncDragInput(cellFrames: frames)
         delegate?.updateCellFrames(state: state)
     }
 
@@ -158,22 +163,6 @@ final class HUDDisplay {
         ThumbnailCache.shared.refreshSpaces(requests, force: force)
     }
 
-    func startDragHandler() {
-        dragHandler?.start()
-    }
-
-    func stopDragHandler() {
-        dragHandler?.stop()
-    }
-
-    func updateDragHandlerWindows(_ windows: [YabaiWindow]) {
-        syncDragInput(cachedWindows: windows)
-    }
-
-    func setDragHandlerFocusedWindowID(_ id: Int) {
-        syncDragInput(focusedWindowIDAtOpen: id)
-    }
-
     func savePanelPosition() {
         guard let panel = unifiedPanel ?? displayPanels.first?.value, let screen = NSScreen.main else { return }
         let screenFrame = screen.frame
@@ -187,6 +176,20 @@ final class HUDDisplay {
         Config.saveConfig(config)
         NSLog("spacemap/HUDDisplay: saved custom position x=%.2f y=%.2f", x, y)
         NotificationCenter.default.post(name: Notification.Name("settingsChanged"), object: nil)
+    }
+
+    // MARK: - Prewarm & refresh-render
+
+    func prewarm(state: GridState) {
+        preloadIcons(for: state)
+        refreshThumbnails(state: state, force: true)
+    }
+
+    func refreshAndRender(state: GridState, force: Bool) {
+        preloadIcons(for: state)
+        refreshThumbnails(state: state, force: force)
+        render(state: state)
+        updateCellFrames(state: state)
     }
 
     // MARK: - Private rendering

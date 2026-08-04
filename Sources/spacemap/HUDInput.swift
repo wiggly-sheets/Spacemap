@@ -36,6 +36,22 @@ final class HUDInput {
     private var useVimKeys = false
     private var dragHandlerCellFrames: [(spaceIndex: Int, frame: CGRect)] = []
 
+    // MARK: - Navigation & timer state
+
+    var isPinned = false
+    var autoHideTimeout: TimeInterval = 0
+    private var autoHideTimer: Timer?
+    var lastFocusedSpaceIndex: Int? = nil
+    var currentState: GridState?
+    var config: GridConfig?
+    var yabaiService: YabaiService?
+    var hudStateSync: HUDStateSync?
+    weak var hudDisplay: HUDDisplay?
+    var isPollingFocusedSpace = false
+    private var pollTimer: Timer?
+    var onRefresh: (() -> Void)?
+    var onAutoHide: (() -> Void)?
+
     init(panel: NSPanel?) {
         self.panel = panel
     }
@@ -64,6 +80,10 @@ final class HUDInput {
     func stop() {
         stopSettingsKeyMonitor()
         stopPanelDragMonitor()
+        autoHideTimer?.invalidate()
+        autoHideTimer = nil
+        pollTimer?.invalidate()
+        pollTimer = nil
     }
 
     func startPanelDragMonitor() {
@@ -123,6 +143,82 @@ final class HUDInput {
     }
 
     var panelDragActive: Bool { isPanelDragging }
+
+    // MARK: - Auto-hide timer
+
+    func resetAutoHideTimer() {
+        guard !panelDragActive else { return }
+        autoHideTimer?.invalidate()
+        autoHideTimer = nil
+        guard !isPinned, autoHideTimeout > 0 else { return }
+        autoHideTimer = Timer.scheduledTimer(withTimeInterval: autoHideTimeout, repeats: false) { [weak self] _ in
+            self?.onAutoHide?()
+        }
+    }
+
+    // MARK: - Poll timer
+
+    func startPollTimer() {
+        pollTimer?.invalidate()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self, self.isVisible else { return }
+            self.reconcileSettingsKeyMonitor()
+            guard !self.isPollingFocusedSpace else { return }
+            self.isPollingFocusedSpace = true
+            self.yabaiService?.runOnYabaiQueue { [weak self] in
+                let focused = self?.yabaiService?.queryFocusedSpaceIndex()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.isPollingFocusedSpace = false
+                    guard self.isVisible else { return }
+                    if focused != self.lastFocusedSpaceIndex {
+                        NSLog("spacemap/HUD: poll detected change last=\(self.lastFocusedSpaceIndex ?? -1) current=\(focused ?? -1)")
+                        self.onRefresh?()
+                        self.resetAutoHideTimer()
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Navigation
+
+    func navigate(direction: SpaceNavigationDirection) {
+        guard let currentIdx = lastFocusedSpaceIndex, let state = currentState else { return }
+        let target: Int?
+        switch config?.displayNavigationWrap {
+        case .within:
+            let ss = state.displayIndex(forSpace: currentIdx).map { state.spaces(forDisplay: $0) } ?? state.spaces
+            target = SpaceNavigator.destination(
+                from: currentIdx,
+                visibleSpaceIndices: SpaceNavigator.navigableSpaceIndices(
+                    activeSpaceIndices: ss.map(\.index),
+                    maxSpaces: config?.maxSpaces ?? 10
+                ),
+                columns: config?.cols ?? 8,
+                direction: direction
+            )
+        case .between:
+            target = SpaceNavigator.destinationAcrossDisplays(
+                from: currentIdx,
+                displaySpaceIndices: state.populatedDisplayIndices.map { state.spaces(forDisplay: $0).map(\.index) },
+                maxSpaces: config?.maxSpaces ?? 10,
+                columns: config?.cols ?? 8,
+                direction: direction
+            )
+        case .none:
+            target = nil
+        }
+        guard let target else { return }
+        NSLog("spacemap/HUD: navigate \(direction) from yabai=\(currentIdx) → target yabai=\(target)")
+        yabaiService?.focusSpaceAsync(target)
+        lastFocusedSpaceIndex = target
+        if let optimistic = hudStateSync?.updateFocusedIndex(target) {
+            currentState = optimistic
+            hudDisplay?.updateState(optimistic)
+        }
+        resetAutoHideTimer()
+    }
 
     // MARK: - Keyboard event tap
 
@@ -213,12 +309,13 @@ final class HUDInput {
         return .none
     }
 
-    /// Dispatches an InputAction to the delegate.
+    /// Dispatches an InputAction. Navigation is handled internally;
+    /// settings requests are forwarded to the delegate.
     private func dispatchAction(_ action: InputAction) {
         switch action {
         case .navigate(let direction):
             DispatchQueue.main.async { [weak self] in
-                self?.delegate?.navigate(direction: direction)
+                self?.navigate(direction: direction)
             }
         case .showSettings:
             DispatchQueue.main.async { [weak self] in

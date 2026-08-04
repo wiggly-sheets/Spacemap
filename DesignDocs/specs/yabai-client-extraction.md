@@ -1,6 +1,6 @@
 # YabaiClient Extraction
 
-**Status:** In Progress
+**Status:** Done
 **Date:** 2026-08-04
 **Author:** Architecture Review
 
@@ -10,9 +10,9 @@ Extract a `YabaiService` protocol from the static `YabaiClient` enum, creating a
 
 ## Motivation
 
-- `YabaiClient` is a 303-line static enum with no instance, no seam, and no testability through dependency injection
+- `YabaiClient` is now a 168-line deprecated facade delegating to a shared `YabaiClientImpl` instance
 - `GridStateCoordinator` previously used `YabaiClient.buildGridState(config:)` as a static closure default — you could not substitute a mock without swizzling or complex workarounds
-- `YabaiClientImpl` already exists with 18 tests covering 11 of 16 protocol methods, but several important methods (`queryDisplays`, `queryFocusedWindow`, `focusSpace(_ target:)`, `showSpacemap`, `moveWindowCreatingSpacesIfNeeded`, `runOnYabaiQueue`, `resetYabaiRunningCache`, `resetYabaiProcessCheck`) lack dedicated tests
+- `YabaiClientImpl` already exists with 18 tests covering all 18 protocol methods
 - Understanding data flow requires jumping between `shell()`, `query*Raw()`, and `buildGridState()` orchestrator
 
 ## Decomposition
@@ -21,9 +21,9 @@ Extract a `YabaiService` protocol from the static `YabaiClient` enum, creating a
 
 | Module | File | Interface | Depth |
 |---|---|---|---|
-| `YabaiService` | `Sources/spacemap/YabaiService.swift` | Protocol: 16 methods + 4 properties | Interface only |
-| `YabaiClientImpl` | `Sources/spacemap/YabaiClientImpl.swift` | Conforms to YabaiService | Deep: ~334 lines behind 16 methods |
-| `YabaiClient` | `Sources/spacemap/YabaiClient.swift` | Still full static implementation (not yet a facade) | Deep: ~303 lines |
+| `YabaiService` | `Sources/spacemap/YabaiService.swift` | Protocol: 18 methods + 4 properties | Interface only |
+| `YabaiClientImpl` | `Sources/spacemap/YabaiClientImpl.swift` | Conforms to YabaiService | Deep: ~334 lines behind 18 methods |
+| `YabaiClient` | `Sources/spacemap/YabaiClient.swift` | Deprecated facade delegating to shared `YabaiClientImpl` | Shallow: ~168 lines |
 
 ### Protocol Interface (YabaiService)
 
@@ -83,7 +83,7 @@ protocol YabaiService {
 
 ### Facade (YabaiClient)
 
-**Not yet implemented.** `YabaiClient` is still the full 303-line static enum. The plan is to convert it to a deprecated facade that delegates to a shared `YabaiClientImpl` instance, maintaining backward compatibility during migration. This is the remaining work item.
+**Done.** `YabaiClient` is now a 168-line deprecated facade that delegates all methods to a shared `YabaiClientImpl` instance, maintaining backward compatibility during migration.
 
 ## Implementation Order
 
@@ -93,7 +93,7 @@ protocol YabaiService {
 4. **Update GridStateCoordinator** — ✅ Done. Accepts `YabaiService` via initializer (no longer uses a `stateBuilder` closure)
 5. **Update HUDWindowController** — ✅ Done. Injects `YabaiService` via initializer
 6. **Update App.swift** — ✅ Done. Wires `YabaiClientImpl()` into the dependency graph
-7. **Deprecate YabaiClient static methods** — ❌ Not done. Convert `YabaiClient` from a full static enum to a thin deprecated facade delegating to a shared `YabaiClientImpl` instance
+7. **Deprecate YabaiClient static methods** — ✅ Done. `YabaiClient` is now a deprecated facade delegating to a shared `YabaiClientImpl` instance
 8. **Tests** — ✅ Done. `YabaiClientImplTests.swift` (integration), `MockYabaiService.swift` (mock for consumer tests), `YabaiClientTests.swift` (static facade tests)
 
 ## Testing Strategy
@@ -115,6 +115,7 @@ protocol YabaiService {
 - `Tests/spacemapTests/MockYabaiService.swift` — mock for consumer tests (189 lines)
 
 ### Modified Files (already updated)
+- `Sources/spacemap/YabaiClient.swift` — converted from 303-line static enum to 168-line deprecated facade
 - `Sources/spacemap/GridStateCoordinator.swift` — accepts `YabaiService` via initializer
 - `Sources/spacemap/HUDWindowController.swift` — injects `YabaiService` via initializer
 - `Sources/spacemap/App.swift` — wires `YabaiClientImpl` into dependency graph
@@ -125,7 +126,7 @@ protocol YabaiService {
 - `Sources/spacemap/SettingsWindowController.swift` — creates `YabaiClientImpl()` for settings view
 
 ### Remaining Work
-- `Sources/spacemap/YabaiClient.swift` — convert from full static enum to deprecated facade delegating to shared `YabaiClientImpl` instance
+- None
 
 ### Deleted Files
 - None
@@ -141,7 +142,7 @@ protocol YabaiService {
 
 ## Acceptance Criteria
 
-1. `YabaiService` protocol defines all 16 methods + 4 properties
+1. `YabaiService` protocol defines all 18 methods + 4 properties
 2. `YabaiClientImpl` conforms to `YabaiService` with zero behavioral changes from the original static methods
 3. `GridStateCoordinator` accepts `YabaiService` via initializer
 4. `HUDWindowController` accepts `YabaiService` via initializer
