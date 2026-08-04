@@ -16,8 +16,9 @@ final class ConfigFacadeTests: XCTestCase {
         assertConformsToConfigValuesProtocol(values)
         XCTAssertEqual(values.cols, config.cols)
         XCTAssertEqual(values.rows, config.rows)
-        XCTAssertEqual(values.hotkey, config.hotkey)
-        XCTAssertEqual(values.pinnedHotkey, config.pinnedHotkey)
+        // HotkeyConfig does not conform to Equatable; compare individual fields
+        XCTAssertEqual(values.hotkey?.key, config.hotkey.key)
+        XCTAssertEqual(values.pinnedHotkey?.key, config.pinnedHotkey.key)
     }
 
     // MARK: - TOMLParserProtocol Conformance

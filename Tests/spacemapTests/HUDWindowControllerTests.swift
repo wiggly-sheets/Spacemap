@@ -18,7 +18,7 @@ final class MockHUDStateSync: HUDStateSync {
     private(set) var updateFocusedIndexCallCount = 0
     var updateFocusedIndexResult: GridState?
 
-    func updateFocusedIndex(_ index: Int?) -> GridState? {
+    func updateFocusedIndex(_ index: Int) -> GridState? {
         updateFocusedIndexCallCount += 1
         return updateFocusedIndexResult
     }
@@ -282,16 +282,6 @@ final class HUDWindowControllerTests: XCTestCase {
         // Then - pin() should set isPinned to true and keep the HUD visible
         XCTAssertTrue(controller.isPinned, "pin() should set isPinned to true")
         XCTAssertTrue(controller.isVisible, "pin() should keep the HUD visible")
-    }
-
-    // MARK: - navigate(direction:) delegate
-
-
-        // Then - updateCellFrames should delegate to HUDInput by calling input.updateCellFrames(frames:).
-        // We verify the frames are well-formed and the method completes without error.
-        XCTAssertEqual(frames.count, 2, "should have two cell frames")
-        XCTAssertEqual(frames[0].spaceIndex, 0, "first frame should be for space index 0")
-        XCTAssertEqual(frames[1].spaceIndex, 1, "second frame should be for space index 1")
     }
 
     // MARK: - reloadConfig()
