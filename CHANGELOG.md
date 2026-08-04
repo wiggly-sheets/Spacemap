@@ -10,11 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Extracted GridState construction and writer flags into a new `GridStateCoordinator` module. The coordinator owns the single write path (fetch/refresh/focused-index update), encodes debounce/cancellation internally, and exposes `latestState` as the single source of truth. `HUDWindowController` is now a thin consumer that drives rendering from coordinator completions.
-- Extracted hotkey parsing/formatting into a new `Hotkey` module (key-code table, modifier mapping, parse/format round-trips). ConfigReader and SettingsView's recorder now share one seam instead of duplicating the keyCode→name switch and modifier formatting.
-- Extracted cell geometry into a new `GridLayout` module (base sizes, scale, ideal size, slot frames, window→cell transforms). GridView, CellView, HUDWindowController, and MenuBarPreviewRenderer now share one seam instead of duplicating 80×50/6/12 magic numbers across four files.
-- Replaced duplicated grid geometry math in HUDWindowController with `GridLayout` calls.
-- Moved agent docs (AGENTS.md, TASKS.md, CONTEXT.md) into DesignDocs/ with root stub; added adr/ and specs/ folders.
+- Refactored Config.swift from 685-line monolith to 36-line thin facade delegating to ConfigLoader/TOMLParser. Removed duplicated TOML lexer/serialization code and the duplicated hotkey() nested function.
+- Added ConfigValuesProtocol, TOMLParserProtocol, and ConfigLoaderProtocol protocol interfaces for all config modules.
+- Added protocol-based unit tests (ConfigFacadeTests) verifying Config facade delegation to ConfigLoader/TOMLParser.
+- Added ConfigValues init(from: GridConfig) and ConfigLoader.save(_ config: GridConfig, to path:) for GridConfig ↔ ConfigValues conversion.
 
 ### Added
 - Added live yabai process and socket diagnostics to Advanced settings.

@@ -8,9 +8,11 @@ final class GridStateCoordinatorTests: XCTestCase {
 
     private func makeCoordinator(
         config: GridConfig = .default,
-        stateBuilder: @escaping (GridConfig) -> GridState
+        buildGridState: @escaping (GridConfig, Int?) -> GridState
     ) -> GridStateCoordinator {
-        GridStateCoordinator(config: config, stateBuilder: stateBuilder)
+        let mock = MockYabaiService()
+        mock.buildGridStateClosure = buildGridState
+        return GridStateCoordinator(config: config, yabaiService: mock)
     }
 
     private func cannedState(
@@ -52,7 +54,9 @@ final class GridStateCoordinatorTests: XCTestCase {
             displays: displays
         )
 
-        let coordinator = makeCoordinator(stateBuilder: { _ in expected })
+        let mock = MockYabaiService()
+        mock.buildGridStateClosure = { _, _ in expected }
+        let coordinator = makeCoordinator(buildGridState: mock.buildGridStateClosure!)
         let exp = expectation(description: "fetch completes")
 
         coordinator.fetch {
@@ -77,7 +81,9 @@ final class GridStateCoordinatorTests: XCTestCase {
             YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
             YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: true, label: nil),
         ])
-        let coordinator = makeCoordinator(stateBuilder: { _ in base })
+        let mock = MockYabaiService()
+        mock.buildGridStateClosure = { _, _ in base }
+        let coordinator = makeCoordinator(buildGridState: mock.buildGridStateClosure!)
 
         // Prime the coordinator with the base state
         let primeExp = expectation(description: "prime fetch")
@@ -102,12 +108,13 @@ final class GridStateCoordinatorTests: XCTestCase {
 
     func testDebounceDoesNotDoubleApply() throws {
         var callCount = 0
-        let asyncCoordinator = makeCoordinator(stateBuilder: { _ in
-            // Simulate async work: sleep briefly then return
+        let mock = MockYabaiService()
+        mock.buildGridStateClosure = { _, _ in
             Thread.sleep(forTimeInterval: 0.5)
             callCount += 1
             return self.cannedState(focusedIndex: callCount)
-        })
+        }
+        let asyncCoordinator = makeCoordinator(buildGridState: mock.buildGridStateClosure!)
 
         // Track whether the first completion's side-effect runs
         var firstCompletionCalled = false
@@ -141,11 +148,13 @@ final class GridStateCoordinatorTests: XCTestCase {
 
     func testFetchRefreshCancellation() throws {
         var callCount = 0
-        let asyncCoordinator = makeCoordinator(stateBuilder: { _ in
+        let mock = MockYabaiService()
+        mock.buildGridStateClosure = { _, _ in
             Thread.sleep(forTimeInterval: 0.5)
             callCount += 1
             return self.cannedState(focusedIndex: callCount)
-        })
+        }
+        let asyncCoordinator = makeCoordinator(buildGridState: mock.buildGridStateClosure!)
 
         var firstCompletionCalled = false
 
@@ -173,7 +182,9 @@ final class GridStateCoordinatorTests: XCTestCase {
             YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: true, label: nil),
         ]
         let baseState = cannedState(focusedIndex: 1, spaces: spaces)
-        let coordinator = makeCoordinator(stateBuilder: { _ in baseState })
+        let mock = MockYabaiService()
+        mock.buildGridStateClosure = { _, _ in baseState }
+        let coordinator = makeCoordinator(buildGridState: mock.buildGridStateClosure!)
 
         // Prime
         let primeExp = expectation(description: "prime")
@@ -199,7 +210,9 @@ final class GridStateCoordinatorTests: XCTestCase {
 
         // Now simulate yabai confirming focus changed to 2
         let confirmedState = cannedState(focusedIndex: 2, spaces: spaces)
-        let confirmedCoordinator = makeCoordinator(stateBuilder: { _ in confirmedState })
+        let confirmedMock = MockYabaiService()
+        confirmedMock.buildGridStateClosure = { _, _ in confirmedState }
+        let confirmedCoordinator = makeCoordinator(buildGridState: confirmedMock.buildGridStateClosure!)
         let confirmedPrimeExp = expectation(description: "confirmed prime")
         confirmedCoordinator.fetch { confirmedPrimeExp.fulfill() }
         waitForExpectations(timeout: 1.0)
@@ -221,7 +234,7 @@ final class GridStateCoordinatorTests: XCTestCase {
     // MARK: - Transitions: idle → fetching → ready
 
     func testPhaseTransitions() throws {
-        let coordinator = makeCoordinator(stateBuilder: { _ in self.cannedState() })
+        let coordinator = makeCoordinator(buildGridState: { _, _ in self.cannedState() })
 
         XCTAssertEqual(coordinator.phase, .idle, "initial phase should be idle")
 
@@ -242,7 +255,7 @@ final class GridStateCoordinatorTests: XCTestCase {
         let base = cannedState(focusedIndex: 1, spaces: [
             YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
         ])
-        let coordinator = makeCoordinator(stateBuilder: { _ in base })
+        let coordinator = makeCoordinator(buildGridState: { _, _ in base })
 
         // Prime
         let primeExp = expectation(description: "prime")
@@ -261,7 +274,7 @@ final class GridStateCoordinatorTests: XCTestCase {
     // MARK: - cancelPendingFetch keeps last state
 
     func testCancelPendingFetchKeepsLastState() throws {
-        let coordinator = makeCoordinator(stateBuilder: { _ in self.cannedState(focusedIndex: 1) })
+        let coordinator = makeCoordinator(buildGridState: { _, _ in self.cannedState(focusedIndex: 1) })
 
         let primeExp = expectation(description: "prime")
         coordinator.fetch { primeExp.fulfill() }
