@@ -4,6 +4,7 @@ import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private let hud = HUDWindowController()
+    private let yabaiService = YabaiClientImpl()
     private var hotkey: HotkeyMonitor?
     private var pinnedHotkey: HotkeyMonitor?
     private var socketListener: SocketListener?
@@ -37,7 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         NSApp.setActivationPolicy(.prohibited)
         
         // Check yabai before doing anything else
-        if !YabaiClient.isYabaiRunning() {
+        if !yabaiService.isYabaiRunning() {
             showYabaiAlert()
         }
         
@@ -94,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 onToggle: { [weak self] in self?.hud.toggle() },
                 onSettings: { [weak self] in self?.showSettingsWindow() }
             )
-            YabaiClient.registerSignals(
+            self.yabaiService.registerSignals(
                 socketPath: SpacemapCommand.socketPath,
                 showHUDOnSpaceChange: config.showHUDOnSpaceChange,
                 refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
@@ -122,7 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 self.applyMenubarVisibility(config: config)
                 self.refreshMenubarPreview(config: config)
                 if shouldUpdateYabaiSignals {
-                    YabaiClient.registerSignals(
+                    self.yabaiService.registerSignals(
                         socketPath: SpacemapCommand.socketPath,
                         showHUDOnSpaceChange: config.showHUDOnSpaceChange,
                         refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
@@ -146,7 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
     
     func applicationWillTerminate(_ notification: Notification) {
-        YabaiClient.removeSignals()
+        yabaiService.removeSignals()
         socketListener?.stop()
         if let observer = settingsObserver {
             NotificationCenter.default.removeObserver(observer)
@@ -243,7 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             DispatchQueue.global(qos: .utility).async {
-                let state = YabaiClient.buildGridState(config: config)
+                let state = self.yabaiService.buildGridState(config: config)
                 DispatchQueue.main.async {
                     guard generation == self.menubarRefreshGeneration,
                           let currentItem = self.statusItem else { return }
@@ -881,7 +882,7 @@ struct SpacemapEntry {
     static func main() {
         #if !DEBUG
         Config.silentMode = true
-        if let status = CLI.runIfRequested(arguments: CommandLine.arguments) {
+        if let status = CLI(yabaiService: YabaiClientImpl()).runIfRequested(arguments: CommandLine.arguments) {
             exit(status)
         }
         #endif

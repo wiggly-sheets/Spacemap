@@ -3,26 +3,47 @@ import Cocoa
 // Detects when the user drags a real macOS window over the HUD.
 // Uses a passive global CGEventTap to track mouse position and NSWorkspace to
 // identify which app's window is being dragged.
-class WindowDragHandler {
+class WindowDragHandler: WindowDragService {
     var onHoverCell: ((Int?) -> Void)?      // called with cell spaceIndex or nil
     var onDropInCell: ((Int, Int, CGEventFlags) -> Void)? // (windowID, spaceIndex, held modifiers)
 
+    private let yabaiService: YabaiService
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
-    // Set by HUDWindowController before the HUD becomes visible.
+    // Set via updateInput(_:) by HUDWindowController before the HUD becomes visible.
     // Frames are in Quartz global coordinates (top-left origin of the primary display).
-    var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
+    private var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
     // Cached window list populated at HUD-open time.
-    var cachedWindows: [YabaiWindow] = []
+    private var cachedWindows: [YabaiWindow] = []
     // The yabai window that had focus when the HUD opened.
-    var focusedWindowIDAtOpen: Int? = nil
+    private var focusedWindowIDAtOpen: Int? = nil
 
     private var lastHoveredCell: Int? = nil
     private var draggedWindowID: Int? = nil
     private var dragStartPoint: CGPoint? = nil
     private var frontmostAppAtMouseDown: String? = nil
     private var isDragging = false
+
+    var dragState: DragState {
+        guard dragStartPoint != nil else { return .idle }
+        return .dragging(
+            isDragging: isDragging,
+            draggedWindowID: draggedWindowID,
+            lastHoveredCell: lastHoveredCell,
+            frontmostAppAtMouseDown: frontmostAppAtMouseDown
+        )
+    }
+
+    init(yabaiService: YabaiService) {
+        self.yabaiService = yabaiService
+    }
+
+    func updateInput(_ input: WindowDragInput) {
+        cellFrames = input.cellFrames
+        cachedWindows = input.cachedWindows
+        focusedWindowIDAtOpen = input.focusedWindowIDAtOpen
+    }
 
     func start() {
         guard eventTap == nil else { return }
@@ -72,7 +93,7 @@ class WindowDragHandler {
         reset()
     }
 
-    private func reset() {
+    func reset() {
         isDragging = false
         draggedWindowID = nil
         dragStartPoint = nil
@@ -145,7 +166,7 @@ class WindowDragHandler {
 
         var candidates = cachedWindows.filter { $0.app == appName }
         if candidates.isEmpty {
-            candidates = ((try? YabaiClient.queryWindows()) ?? []).filter { $0.app == appName }
+            candidates = ((try? yabaiService.queryWindows()) ?? []).filter { $0.app == appName }
         }
 
         guard !candidates.isEmpty else { return focusedWindowIDAtOpen }
