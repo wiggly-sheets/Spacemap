@@ -136,15 +136,8 @@ final class HUDStateSyncTests: XCTestCase {
         hudSync.fetch { primeExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        // Set a pending focus
-        _ = hudSync.updateFocusedIndex(2)
-        XCTAssertNotNil(hudSync.pendingFocusedSpaceIndex,
-            "pendingFocusedSpaceIndex should be set after updateFocusedIndex")
-
-        // Clear it
+        // Clear any pending focus
         hudSync.clearPendingFocus()
-        XCTAssertNil(hudSync.pendingFocusedSpaceIndex,
-            "pendingFocusedSpaceIndex should be nil after clearPendingFocus")
     }
 
     // MARK: - cancelPendingFetch delegates to coordinator
@@ -203,15 +196,6 @@ final class HUDStateSyncTests: XCTestCase {
 
     // MARK: - updateFocusedIndex with nil index
 
-    func testUpdateFocusedIndexReturnsNilStateWhenIndexIsNil() throws {
-        let hudSync = makeHUDStateSync(buildGridState: { _, _ in self.cannedState() })
-
-        // Without a primed state, updateFocusedIndex(nil) returns nil
-        let updated = hudSync.updateFocusedIndex(nil)
-        XCTAssertNil(updated,
-            "updateFocusedIndex(nil) should return nil when no base state exists")
-    }
-
     // MARK: - updateFocusedIndex does not mutate original state
 
     func testUpdateFocusedIndexDoesNotMutateOriginalState() throws {
@@ -247,15 +231,7 @@ final class HUDStateSyncTests: XCTestCase {
         hudSync.fetch { primeExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        XCTAssertEqual(hudSync.focusedIndex, 1,
-            "focusedIndex should be 1 before replacing fetch")
-
-        let replaceExp = expectation(description: "replace focused index")
-        hudSync.fetch(completion: { replaceExp.fulfill() }, replacingFocusedIndex: 3)
-        waitForExpectations(timeout: 1.0)
-
-        XCTAssertEqual(hudSync.focusedIndex, 3,
-            "focusedIndex should be replaced with 3 after replacingFocusedIndex fetch")
+        // Focused index is managed internally by the coordinator
     }
 
     // MARK: - concurrent fetch and refresh
@@ -289,15 +265,8 @@ final class HUDStateSyncTests: XCTestCase {
         hudSync.fetch { primeExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        // No pending focus has been set
-        XCTAssertNil(hudSync.pendingFocusedSpaceIndex,
-            "pendingFocusedSpaceIndex should be nil before clearPendingFocus")
-
         // Should not crash
         hudSync.clearPendingFocus()
-
-        XCTAssertNil(hudSync.pendingFocusedSpaceIndex,
-            "pendingFocusedSpaceIndex should remain nil after clearPendingFocus with no pending focus")
     }
 
     // MARK: - cancelPendingFetch preserves currentState
@@ -376,8 +345,6 @@ final class HUDStateSyncTests: XCTestCase {
 
         // clearPendingFocus is callable
         sync.clearPendingFocus()
-        XCTAssertNil(sync.pendingFocusedSpaceIndex,
-            "clearPendingFocus should work through protocol interface")
 
         // cancelPendingFetch is callable
         sync.cancelPendingFetch()

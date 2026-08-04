@@ -13,11 +13,11 @@ class WindowDragHandler: WindowDragService {
 
     // Set via updateInput(_:) by HUDWindowController before the HUD becomes visible.
     // Frames are in Quartz global coordinates (top-left origin of the primary display).
-    private var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
+    var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
     // Cached window list populated at HUD-open time.
-    private var cachedWindows: [YabaiWindow] = []
+    var cachedWindows: [YabaiWindow] = []
     // The yabai window that had focus when the HUD opened.
-    private var focusedWindowIDAtOpen: Int? = nil
+    var focusedWindowIDAtOpen: Int? = nil
 
     private var lastHoveredCell: Int? = nil
     private var draggedWindowID: Int? = nil

@@ -15,7 +15,7 @@ class HUDWindowController {
     private let yabaiService: YabaiService
     private var _config: GridConfig? = nil
     private var config: GridConfig {
-        get { _config ?? Config.load().also { _config = $0 } }
+        get { _config ?? Config.load() }
         set { _config = newValue }
     }
     var onShowSettings: (() -> Void)?
@@ -88,7 +88,7 @@ class HUDWindowController {
         isToggling = true
         isPinned = true
         isVisible ? resetAutoHideTimer() : show()
-        DispatchBox.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.isToggling = false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.isToggling = false }
     }
 
     func show() {
@@ -106,7 +106,7 @@ class HUDWindowController {
         hudInput.start()
         if config.multiMonitorHUDMode == .unified,
            config.unifiedHUDVisibility == .active,
-           case .custom = config.hudPosition = config.hudPosition {
+           case .custom = config.hudPosition {
             hudInput.startPanelDragMonitor()
         }
         hudStateSync.fetch { [weak self] in self?.renderRefreshedState(force: true, refreshFocusedWindow: true) }

@@ -85,7 +85,11 @@ final class ConfigValuesTests: XCTestCase {
     }
 
     func testToGridConfigWithMissingFieldsUsesDefaults() {
-        let values = ConfigValues(cols: 5, rows: nil, cellStyle: nil, theme: nil)
+        var values = ConfigValues()
+        values.cols = 5
+        values.rows = nil
+        values.cellStyle = nil
+        values.theme = nil
         let (config, needsRepair) = values.toGridConfig()
 
         XCTAssertTrue(needsRepair)
