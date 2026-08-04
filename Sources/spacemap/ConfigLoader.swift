@@ -17,7 +17,7 @@ enum ConfigLoader: ConfigLoaderProtocol {
             return (ConfigValues(), true)
         }
 
-        let values = TOMLParser.parse(contents)
+        let values = (try? TOMLParser.parse(contents)) ?? ConfigValues()
         let (_, needsRepair) = values.toGridConfig()
         if needsRepair {
             save(values, to: path)
@@ -88,7 +88,9 @@ enum ConfigLoader: ConfigLoaderProtocol {
         ]
         let spaceNames = values.spaceNames ?? defaults.spaceNames
         for key in spaceNames.keys.sorted() {
-            lines.append("\(tomlString(String(key))) = \(tomlString(spaceNames[key]!))")
+            if let name = spaceNames[key] {
+                lines.append("\(tomlString(String(key))) = \(tomlString(name))")
+            }
         }
 
         lines += [

@@ -16,7 +16,7 @@ enum Config {
     }
 
     internal static func parseConfig(_ text: String) -> GridConfig {
-        let values = TOMLParser.parse(text)
+        let values = try! TOMLParser.parse(text)
         return values.toGridConfig().config
     }
 

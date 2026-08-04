@@ -304,7 +304,7 @@ var body: some View {
     static func appColor(_ name: String, theme: AppTheme, windowCount: Int) -> Color {
         let t = theme
         let rects = [t.rect1, t.rect2, t.rect3]
-        let base = rects[abs(name.hashValue) % 3]
+        let base = rects[(name.hashValue % 3 + 3) % 3]
         if windowCount <= 3 {
             return Color(hex: base)
         }
@@ -323,9 +323,9 @@ var body: some View {
             h /= 6
             if h < 0 { h += 1 }
         }
-        let hash = abs(name.hashValue)
-        let sat = 0.35 + Double(hash % 35) / 100.0
-        let lit = 0.50 + Double((hash / 35) % 35) / 100.0
+        let hash = name.hashValue % 35
+        let sat = 0.35 + Double(hash >= 0 ? hash : hash + 35) / 100.0
+        let lit = 0.50 + Double(((hash / 35) % 35 + 35) % 35) / 100.0
         let c = (1 - abs(2 * lit - 1)) * sat
         let x = c * (1 - abs((h * 6).truncatingRemainder(dividingBy: 2) - 1))
         let m = lit - c / 2

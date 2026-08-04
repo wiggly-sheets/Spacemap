@@ -120,8 +120,9 @@ final class SocketListener {
         }
 
         var buf = [UInt8](repeating: 0, count: 1)
-        read(clientFd, &buf, buf.count)
+        let bytesRead = read(clientFd, &buf, buf.count)
         close(clientFd)
+        guard bytesRead == 1 else { return }
 
         DispatchQueue.main.async {
             switch Self.command(for: buf[0]) {

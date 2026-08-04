@@ -175,7 +175,7 @@ final class HUDDisplay {
         config.customHUDY = y
         Config.saveConfig(config)
         NSLog("spacemap/HUDDisplay: saved custom position x=%.2f y=%.2f", x, y)
-        NotificationCenter.default.post(name: Notification.Name("settingsChanged"), object: nil)
+        NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
     // MARK: - Prewarm & refresh-render

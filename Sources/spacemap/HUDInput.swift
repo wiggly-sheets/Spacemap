@@ -73,6 +73,11 @@ final class HUDInput {
         self.dragHandlerCellFrames = frames
     }
 
+    deinit {
+        stopSettingsKeyMonitor()
+        stopPanelDragMonitor()
+    }
+
     func start() {
         startSettingsKeyMonitor()
     }

@@ -43,7 +43,7 @@ protocol ConfigValuesProtocol {
 }
 
 protocol TOMLParserProtocol {
-    static func parse(_ data: String) -> ConfigValues
+    static func parse(_ data: String) throws -> ConfigValues
 }
 
 protocol ConfigLoaderProtocol {

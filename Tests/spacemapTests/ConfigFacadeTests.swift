@@ -25,7 +25,7 @@ final class ConfigFacadeTests: XCTestCase {
 
     func testTOMLParserConformsToProtocol() {
         let parser: TOMLParserProtocol.Type = TOMLParser.self
-        let values = parser.parse("[grid]\ncols = 5\n")
+        let values = try! parser.parse("[grid]\ncols = 5\n")
         XCTAssertEqual(values.cols, 5)
     }
 
@@ -88,7 +88,7 @@ final class ConfigFacadeTests: XCTestCase {
         """
 
         let facadeResult = Config.parseConfig(toml)
-        let directResult = TOMLParser.parse(toml).toGridConfig().config
+        let directResult = try! TOMLParser.parse(toml).toGridConfig().config
 
         XCTAssertEqual(facadeResult.cols, directResult.cols)
         XCTAssertEqual(facadeResult.rows, directResult.rows)
