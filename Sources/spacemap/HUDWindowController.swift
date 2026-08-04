@@ -2,189 +2,136 @@ import AppKit
 import SwiftUI
 
 class HUDWindowController {
-    // Unified mode owns one panel; separate mode owns one panel per yabai display.
-    private var panel: NSPanel?
-    private var displayPanels: [Int: NSPanel] = [:]
-    private var isVisible = false
-    private var isPinned = false
-    private var _config: GridConfig? = nil
-    private var config: GridConfig {
-        get {
-            if let c = _config {
-                return c
-            } else {
-                _config = Config.load()
-                return _config!
-            }
-        }
-        set {
-            _config = newValue
-        }
-    }
-    private var hoveredCell: Int? = nil
-    // Snapshot of grid state taken when HUD opens; reused for hover rerenders so
-    // the thumbnail layout doesn't flicker during a drag and cachedWindows stays stable.
-    private var currentState: GridState? = nil
-    /// Coordinates GridState construction. The coordinator is the single writer;
-    /// latestState here is a read-only mirror of its published state.
-    private let gridStateCoordinator: GridStateCoordinator
-    /// Persists while the HUD is hidden, allowing the next show to render its
-    /// complete grid immediately while yabai supplies a fresh snapshot.
-    private var latestState: GridState? { gridStateCoordinator.latestState }
     private var autoHideTimer: Timer?
     private var pollTimer: Timer?
-    private let dragHandler = WindowDragHandler()
+    private var dragHandler: WindowDragHandler
+    private var hoveredCell: Int? = nil
+    private var currentState: GridState? = nil
     private var lastFocusedSpaceIndex: Int? = nil
-    private var isToggling = false   // prevents re-entry during toggle animations
-    private var hostingView: NSHostingView<AnyView>?
-    private var displayHostingViews: [Int: NSHostingView<AnyView>] = [:]
-    var onShowSettings: (() -> Void)?
-    private var keyboardEventTap: CFMachPort?
-    private var keyboardRunLoopSource: CFRunLoopSource?
-    // Panel drag state for custom position mode
-    private var panelDragMonitor: Any?
-    private var panelDragStart: CGPoint?   // initial mouse location on drag start
-    private var panelDragDidMove = false
-    private var panelDragOffset: CGPoint?  // not used maybe
-    private var panelDragOrigin: CGPoint?  // initial panel origin on drag start
-    private var isPanelDragging = false
+    var isVisible = false
+    var isPinned = false
+    var isToggling = false
     private var isPollingFocusedSpace = false
-    /// Pending focus selected by navigation, owned by the coordinator.
-    private var pendingFocusedSpaceIndex: Int? { gridStateCoordinator.pendingFocusedSpaceIndex }
-    /// True while the navigation focus is still inside its deadline.
-    private var isPendingFocusValid: Bool { gridStateCoordinator.isPendingFocusValid }
+    private let yabaiService: YabaiService
+    private var _config: GridConfig? = nil
+    private var config: GridConfig {
+        get { _config ?? Config.load().also { _config = $0 } }
+        set { _config = newValue }
+    }
+    var onShowSettings: (() -> Void)?
 
-    init() {
-        self.gridStateCoordinator = GridStateCoordinator()
+    private let hudInput: HUDInput
+    private let hudDisplay: HUDDisplay
+    private let hudStateSync: HUDStateSync
+
+    init(yabaiService: YabaiService = YabaiClientImpl()) {
+        self.yabaiService = yabaiService
+        self.hudStateSync = DefaultHUDStateSync(coordinator: GridStateCoordinator(yabaiService: yabaiService))
+        self.hudDisplay = HUDDisplay(dragHandler: nil, yabaiService: yabaiService)
+        self.hudInput = HUDInput(panel: nil)
+        self.dragHandler = WindowDragHandler(yabaiService: yabaiService)
+        setupDelegates()
+    }
+
+    private func setupDelegates() {
+        hudInput.delegate = self
+        hudDisplay.delegate = self
+        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys)
         dragHandler.onHoverCell = { [weak self] cell in
             guard let self, isVisible, let state = currentState else { return }
             hoveredCell = cell
-            renderState(state)
-            self.resetAutoHideTimer()
+            hudDisplay.updateHoveredCell(cell)
+            hudDisplay.render(state: state)
+            resetAutoHideTimer()
         }
         dragHandler.onDropInCell = { [weak self] windowID, spaceIndex, modifiers in
             guard let self else { return }
             hoveredCell = nil
             resetAutoHideTimer()
-            let focusDestination = config.focusSpaceOnWindowDrop.shouldFocus(
+            let focusDestination = self.config.focusSpaceOnWindowDrop.shouldFocus(
                 eventFlags: modifiers,
-                requiredModifier: config.focusSpaceOnWindowDropModifier
+                requiredModifier: self.config.focusSpaceOnWindowDropModifier
             )
-            YabaiClient.moveWindowCreatingSpacesIfNeeded(
-                windowID,
-                toSpace: spaceIndex,
-                focusDestination: focusDestination
+            self.yabaiService.moveWindowCreatingSpacesIfNeeded(
+                windowID, toSpace: spaceIndex, focusDestination: focusDestination
             ) { [weak self] result in
                 guard let self else { return }
                 if case .failure(let error) = result {
                     NSLog("spacemap/HUD: window drop failed: \(error.localizedDescription)")
                 }
-                refreshState()
-                resetAutoHideTimer()
+                self.refreshState()
+                self.resetAutoHideTimer()
             }
         }
     }
-    
+
+    // MARK: - Public interface
+
     func toggle() {
-        guard !isToggling else { 
-            NSLog("spacemap/HUD: toggle ignored, isToggling=\(isToggling)")
-            return 
-        }
-        NSLog("spacemap/HUD: toggle called, isVisible=\(isVisible)")
+        guard !isToggling else { return }
         isToggling = true
         isPinned = false
-        if isVisible { hide() } else { show() }
-        // Reset isToggling after a short delay to allow for animation settle
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.isToggling = false
-        }
+        isVisible ? hide() : show()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.isToggling = false }
     }
 
     func togglePinned() {
         guard !isToggling else { return }
         isToggling = true
-        if isVisible, isPinned {
-            hide()
-        } else {
-            isPinned = true
-            if isVisible {
-                resetAutoHideTimer()
-            } else {
-                show()
-            }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.isToggling = false
-        }
+        if isVisible, isPinned { hide() }
+        else { isPinned = true; isVisible ? resetAutoHideTimer() : show() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.isToggling = false }
     }
 
     func pin() {
         guard !isToggling, !(isVisible && isPinned) else { return }
         isToggling = true
         isPinned = true
-        if isVisible {
-            resetAutoHideTimer()
-        } else {
-            show()
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.isToggling = false
-        }
+        isVisible ? resetAutoHideTimer() : show()
+        DispatchBox.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.isToggling = false }
     }
-    
+
     func show() {
         guard !isVisible else { return }
-        tearDownPanels()
-        NSLog("spacemap/HUD: show() called")
+        hudDisplay.hide()
         reloadConfig()
-        
         isVisible = true
-        if let latestState {
-            displayCachedState(latestState)
+        if let state = hudStateSync.currentState {
+            hudDisplay.updateState(state)
         } else {
             renderEmptyState()
         }
         resetAutoHideTimer()
         startPollTimer()
-        startSettingsKeyMonitor()
+        hudInput.start()
         if config.multiMonitorHUDMode == .unified,
            config.unifiedHUDVisibility == .active,
-           case .custom = config.hudPosition {
-            startPanelDragMonitor()
+           case .custom = config.hudPosition = config.hudPosition {
+            hudInput.startPanelDragMonitor()
         }
-        
-        // Fetch data in background, update UI when ready
-        gridStateCoordinator.fetch { [weak self] in
-            self?.renderRefreshedState(force: true, refreshFocusedWindow: true)
-        }
+        hudStateSync.fetch { [weak self] in self?.renderRefreshedState(force: true, refreshFocusedWindow: true) }
     }
 
-    /// Query once at launch so the first HUD invocation can render complete
-    /// content too, rather than showing an empty frame while yabai is queried.
     func prewarmState() {
-        gridStateCoordinator.fetch { [weak self] in
-            guard let self else { return }
-            if let state = self.latestState {
-                self.preloadIcons(for: state)
-                self.refreshAllThumbnails(state: state, force: true)
-                if self.isVisible, self.currentState == nil {
-                    self.displayCachedState(state)
-                }
+        hudStateSync.fetch { [weak self] in
+            guard let self, let state = self.hudStateSync.currentState else { return }
+            self.hudDisplay.preloadIcons(for: state)
+            self.hudDisplay.refreshThumbnails(state: state, force: true)
+            if self.isVisible, self.currentState == nil {
+                self.hudDisplay.updateState(state)
             }
         }
     }
-    
+
     private func startPollTimer() {
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self, self.isVisible else { return }
-            self.reconcileSettingsKeyMonitor()
+            self.hudInput.reconcileSettingsKeyMonitor()
             guard !self.isPollingFocusedSpace else { return }
             self.isPollingFocusedSpace = true
-            // Do not enqueue another poll while one is waiting behind a refresh.
-            // Otherwise polls can delay interactive focus commands indefinitely.
-            YabaiClient.runOnYabaiQueue { [weak self] in
-                let focused = YabaiClient.queryFocusedSpaceIndex()
+            self.yabaiService.runOnYabaiQueue { [weak self, yabaiService] in
+                let focused = yabaiService.queryFocusedSpaceIndex()
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.isPollingFocusedSpace = false
@@ -194,28 +141,34 @@ class HUDWindowController {
             }
         }
     }
-    
+
     private func renderEmptyState() {
         guard config.multiMonitorHUDMode == .unified else { return }
-        let emptyState = StateFactory.emptyState(config: config)
-        renderState(emptyState)
+        let emptyState = GridState(
+            config: config, spaces: [], windows: [],
+            displayBounds: NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440),
+            focusedIndex: nil
+        )
+        hudDisplay.render(state: emptyState)
     }
 
-    private func displayCachedState(_ cachedState: GridState) {
-        // Create state with current config but preserve spaces/windows/displayBounds from cached state
-        let state = StateFactory.state(cachedState, withConfig: config)
+    private func renderRefreshedState(force: Bool, refreshFocusedWindow: Bool = false) {
+        guard isVisible, let state = hudStateSync.currentState else { return }
         currentState = state
         dragHandler.cachedWindows = state.windows
-        preloadIcons(for: state)
-        renderState(state)
-        updateCellFrames(state: state)
+        hudDisplay.preloadIcons(for: state)
+        hudDisplay.refreshThumbnails(state: state, force: force)
+        hudDisplay.render(state: state)
+        hudDisplay.updateCellFrames(state: state)
         lastFocusedSpaceIndex = state.focusedIndex
         dragHandler.start()
+        if refreshFocusedWindow { refreshFocusedWindowID() }
+        NSLog("spacemap/HUD: state refresh complete, focused=\(state.focusedIndex ?? -1), spaces=\(state.spaces.count), windows=\(state.windows.count)")
     }
 
     private func refreshFocusedWindowID() {
-        YabaiClient.runOnYabaiQueue { [weak self] in
-            let focusedWindowID = try? YabaiClient.queryFocusedWindow()
+        yabaiService.runOnYabaiQueue { [weak self, yabaiService] in
+            let focusedWindowID = try? yabaiService.queryFocusedWindow()
             DispatchQueue.main.async {
                 guard let self, self.isVisible, let focusedWindowID else { return }
                 self.dragHandler.focusedWindowIDAtOpen = focusedWindowID
@@ -223,575 +176,64 @@ class HUDWindowController {
         }
     }
 
-    private func preloadIcons(for state: GridState) {
-        guard config.cellStyle == .icons || config.cellStyle == .hybrid || config.showIconStrip else { return }
-        let visibleWindows = state.windows.filter {
-            $0.shouldDisplay(showExtraWindows: config.showExtraWindows)
-        }
-        IconCache.shared.preload(appNames: visibleWindows.map(\.app))
-    }
-    
     func hide() {
-        guard isVisible else { 
-            // Already hidden; do nothing
-            return
-        }
-        NSLog("spacemap/HUD: hide() called")
+        guard isVisible else { return }
         isPinned = false
         dragHandler.stop()
         autoHideTimer?.invalidate()
         autoHideTimer = nil
         pollTimer?.invalidate()
         pollTimer = nil
-        
-        tearDownPanels()
-        
+        hudDisplay.hide()
         isVisible = false
         hoveredCell = nil
         currentState = nil
         isPollingFocusedSpace = false
-        gridStateCoordinator.clearPendingFocus()
-        gridStateCoordinator.cancelPendingFetch()
+        hudStateSync.clearPendingFocus()
+        hudStateSync.cancelPendingFetch()
         dragHandler.cellFrames = []
         dragHandler.cachedWindows = []
         dragHandler.focusedWindowIDAtOpen = nil
-        stopSettingsKeyMonitor()
-        stopPanelDragMonitor()
+        hudInput.stop()
     }
-    
-    // Called by SocketListener — also handles full content refresh (windows moved etc.)
+
     func refresh() {
-        guard isVisible else {
-            refreshCachedFocus()
-            return
-        }
+        guard isVisible else { refreshCachedFocus(); return }
         resetAutoHideTimer()
         refreshState()
     }
 
-    /// Keep the highlighted space current while the HUD is hidden without
-    /// paying for a complete windows/displays refresh on every space signal.
     private func refreshCachedFocus() {
-        guard gridStateCoordinator.latestState != nil else {
-            prewarmState()
-            return
-        }
-        YabaiClient.runOnYabaiQueue { [weak self] in
-            let focusedIndex = YabaiClient.queryFocusedSpaceIndex()
+        guard hudStateSync.currentState != nil else { prewarmState(); return }
+        yabaiService.runOnYabaiQueue { [weak self, yabaiService] in
+            let focusedIndex = yabaiService.queryFocusedSpaceIndex()
             DispatchQueue.main.async {
                 guard let self, !self.isVisible, let focusedIndex else { return }
-                // Focused-index-only update; no full windows/displays refresh.
-                self.gridStateCoordinator.fetch(replacingFocusedIndex: focusedIndex)
+                self.hudStateSync.fetch {
+                    _ = self.hudStateSync.updateFocusedIndex(focusedIndex)
+                }
             }
         }
     }
-    
+
     private func refreshState() {
         guard isVisible else { return }
-        gridStateCoordinator.refresh { [weak self] in
-            self?.renderRefreshedState(force: false)
-        }
+        hudStateSync.refresh { [weak self] in self?.renderRefreshedState(force: false) }
     }
 
-    /// Shared completion handling for coordinator fetch/refresh: mirrors the
-    /// side effects the HUD previously performed inline in fetchStateAndRender
-    /// and refreshState.
-    private func renderRefreshedState(force: Bool, refreshFocusedWindow: Bool = false) {
-        guard isVisible, let state = latestState else { return }
-        currentState = state
-        dragHandler.cachedWindows = state.windows
-        preloadIcons(for: state)
-        refreshAllThumbnails(state: state, force: force)
-        renderState(state)
-        updateCellFrames(state: state)
-        lastFocusedSpaceIndex = state.focusedIndex
-        dragHandler.start()
-        if refreshFocusedWindow {
-            refreshFocusedWindowID()
-        }
-        NSLog("spacemap/HUD: state refresh complete, focused=\(state.focusedIndex ?? -1), spaces=\(state.spaces.count), windows=\(state.windows.count)")
-    }
-    
-    private func renderState(_ state: GridState) {
-        switch config.multiMonitorHUDMode {
-        case .unified:
-            renderUnifiedState(state)
-        case .separate:
-            renderSeparateStates(state)
-        }
+    func reloadConfig() {
+        _config = nil
+        hudStateSync.reloadConfig()
     }
 
-    private func renderUnifiedState(_ state: GridState) {
-        let gridView = makeGridView(state: state, hoveredCell: hoveredCell)
-        let size = gridView.idealSize
-
-        if config.unifiedHUDVisibility == .all {
-            if let panel {
-                panel.orderOut(nil)
-                panel.close()
-                self.panel = nil
-                hostingView = nil
-            }
-
-            let displayIndices = state.populatedDisplayIndices
-            let staleIndices = Set(displayPanels.keys).subtracting(displayIndices)
-            for index in staleIndices {
-                displayPanels[index]?.orderOut(nil)
-                displayPanels[index]?.close()
-                displayPanels[index] = nil
-                displayHostingViews[index] = nil
-            }
-
-            for displayIndex in displayIndices {
-                guard let screen = screen(forDisplay: displayIndex, in: state) else { continue }
-                let panel: NSPanel
-                if let existing = displayPanels[displayIndex] {
-                    panel = existing
-                } else {
-                    panel = makePanel()
-                    displayPanels[displayIndex] = panel
-                }
-
-                let hostingView = NSHostingView(rootView: AnyView(gridView))
-                hostingView.frame = NSRect(origin: .zero, size: size)
-                panel.contentView = hostingView
-                displayHostingViews[displayIndex] = hostingView
-                panel.setContentSize(size)
-                panel.setFrameOrigin(config.hudPosition.point(for: size, screen: screen.frame))
-                panel.orderFrontRegardless()
-            }
-            return
-        }
-
-        closeDisplayPanels()
-        if panel == nil { panel = makePanel() }
-        guard let panel else { return }
-
-        let hostingView = NSHostingView(rootView: AnyView(gridView))
-        hostingView.frame = NSRect(origin: .zero, size: size)
-        panel.contentView = hostingView
-        self.hostingView = hostingView
-
-        panel.setContentSize(size)
-        let focusedScreen = state.focusedIndex
-            .flatMap { state.displayIndex(forSpace: $0) }
-            .flatMap { screen(forDisplay: $0, in: state) }
-        if let screen = focusedScreen ?? NSScreen.main {
-            panel.setFrameOrigin(config.hudPosition.point(for: size, screen: screen.frame))
-        }
-        panel.orderFrontRegardless()
-    }
-
-    private func renderSeparateStates(_ state: GridState) {
-        if let panel {
-            panel.orderOut(nil)
-            panel.close()
-            self.panel = nil
-            hostingView = nil
-        }
-
-        let displayIndices: [Int]
-        if config.separateHUDVisibility == .active,
-           let focusedIndex = state.focusedIndex,
-           let focusedDisplayIndex = state.displayIndex(forSpace: focusedIndex) {
-            displayIndices = [focusedDisplayIndex]
-        } else {
-            displayIndices = state.populatedDisplayIndices
-        }
-        let staleIndices = Set(displayPanels.keys).subtracting(displayIndices)
-        for index in staleIndices {
-            displayPanels[index]?.orderOut(nil)
-            displayPanels[index]?.close()
-            displayPanels[index] = nil
-            displayHostingViews[index] = nil
-        }
-
-        for displayIndex in displayIndices {
-            let spaces = state.spaces(forDisplay: displayIndex).map(\.index)
-            guard !spaces.isEmpty else { continue }
-            guard let screen = screen(forDisplay: displayIndex, in: state) else { continue }
-
-            let panel: NSPanel
-            if let existing = displayPanels[displayIndex] {
-                panel = existing
-            } else {
-                panel = makePanel()
-                displayPanels[displayIndex] = panel
-            }
-
-            let gridView = makeGridView(state: state, hoveredCell: hoveredCell, spaceIndices: spaces)
-            let size = gridView.idealSize
-            let hostingView = NSHostingView(rootView: AnyView(gridView))
-            hostingView.frame = NSRect(origin: .zero, size: size)
-            panel.contentView = hostingView
-            displayHostingViews[displayIndex] = hostingView
-            panel.setContentSize(size)
-            panel.setFrameOrigin(config.hudPosition.point(for: size, screen: screen.frame))
-            panel.orderFrontRegardless()
-        }
-    }
-
-    private func makeGridView(
-        state: GridState,
-        hoveredCell: Int?,
-        spaceIndices: [Int]? = nil
-    ) -> GridView {
-        GridView(state: state, hoveredCell: hoveredCell, onSelect: { [weak self] index in
-            YabaiClient.focusSpaceAsync(index)
-            self?.hide()
-        }, uiScale: config.uiScale, theme: config.theme, spaceIndices: spaceIndices)
-    }
-
-    private func updateCellFrames(state: GridState) {
-        var frames: [(spaceIndex: Int, frame: CGRect)] = []
-        switch config.multiMonitorHUDMode {
-        case .unified:
-            let cells = GridLayout.visibleSpaceIndices(
-                maxSpaces: config.maxSpaces,
-                showMode: config.showMode,
-                activeIndices: Set(state.spaces.map(\.index))
-            )
-            if let panel {
-                frames.append(contentsOf: cellFrames(for: cells, in: panel))
-            } else {
-                for panel in displayPanels.values {
-                    frames.append(contentsOf: cellFrames(for: cells, in: panel))
-                }
-            }
-        case .separate:
-            for (displayIndex, panel) in displayPanels {
-                frames.append(contentsOf: cellFrames(
-                    for: state.spaces(forDisplay: displayIndex).map(\.index),
-                    in: panel
-                ))
-            }
-        }
-        dragHandler.cellFrames = frames
-    }
-
-    private func cellFrames(for cells: [Int], in panel: NSPanel) -> [(spaceIndex: Int, frame: CGRect)] {
-        guard !cells.isEmpty else { return [] }
-        let cols = max(1, min(config.cols, cells.count))
-        let gridLocalFrames = GridLayout.cellFrames(count: cells.count, cols: cols, uiScale: config.uiScale)
-        let origin = panel.frame.origin
-        let quartzMaxY = quartzMainScreenFrame.maxY
-        let panelMaxY = origin.y + panel.frame.height
-
-        return cells.enumerated().map { offset, spaceIndex in
-            var gridLocal = gridLocalFrames[offset]
-            gridLocal.origin.x += origin.x
-            gridLocal.origin.y = quartzMaxY - panelMaxY + gridLocal.origin.y + gridLocal.height
-            return (spaceIndex, gridLocal)
-        }
-    }
-
-    private func screen(forDisplay displayIndex: Int, in state: GridState) -> NSScreen? {
-        let screens = NSScreen.screens
-        guard !screens.isEmpty else { return nil }
-        guard let yabaiDisplay = state.displays.first(where: { $0.index == displayIndex }) else {
-            return screens.indices.contains(displayIndex - 1) ? screens[displayIndex - 1] : NSScreen.main
-        }
-
-        let yabaiFrame = yabaiDisplay.frame.cgFrame
-        let appKitFrame = CGRect(
-            x: yabaiFrame.minX,
-            y: quartzMainScreenFrame.maxY - yabaiFrame.maxY,
-            width: yabaiFrame.width,
-            height: yabaiFrame.height
-        )
-        return screens.min { first, second in
-            screenMatchScore(first.frame, targetFrame: appKitFrame) <
-                screenMatchScore(second.frame, targetFrame: appKitFrame)
-        }
-    }
-
-    private func screenMatchScore(_ screenFrame: CGRect, targetFrame: CGRect) -> CGFloat {
-        abs(screenFrame.minX - targetFrame.minX) +
-            abs(screenFrame.minY - targetFrame.minY) +
-            abs(screenFrame.width - targetFrame.width) +
-            abs(screenFrame.height - targetFrame.height)
-    }
-
-    private func closeDisplayPanels() {
-        for panel in displayPanels.values {
-            panel.orderOut(nil)
-            panel.close()
-        }
-        displayPanels.removeAll()
-        displayHostingViews.removeAll()
-    }
-
-    private func tearDownPanels() {
-        if let panel {
-            panel.orderOut(nil)
-            panel.close()
-        }
-        panel = nil
-        hostingView = nil
-        closeDisplayPanels()
-    }
-    
-    private func makePanel() -> NSPanel {
-        let p = NSPanel(
-            contentRect: .zero,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        p.isOpaque = false
-        p.backgroundColor = .clear
-        p.level = .floating
-        p.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        p.hasShadow = true
-        return p
-    }
-    
     private func resetAutoHideTimer() {
-        if isPanelDragging { return }
+        if hudInput.panelDragActive { return }
         autoHideTimer?.invalidate()
         autoHideTimer = nil
         guard !isPinned else { return }
         if config.autoHideTimeout > 0 {
-            autoHideTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(config.autoHideTimeout), repeats: false) { [weak self] _ in
-                self?.hide()
-            }
+            autoHideTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(config.autoHideTimeout), repeats: false) { [weak self] _ in self?.hide() }
         }
-    }
-    
-    func reloadConfig() {
-        _config = nil
-        gridStateCoordinator.config = Config.load()
-    }
-
-    private func refreshAllThumbnails(state: GridState, force: Bool = false) {
-        guard #available(macOS 14.0, *) else { return }
-        guard config.cellStyle == .thumbnails else { return }
-
-        let visibleSpaceIndices: Set<Int>
-        switch config.multiMonitorHUDMode {
-        case .unified:
-            visibleSpaceIndices = Set(GridLayout.visibleSpaceIndices(
-                maxSpaces: config.maxSpaces,
-                showMode: config.showMode,
-                activeIndices: Set(state.spaces.map(\.index))
-            ))
-        case .separate:
-            visibleSpaceIndices = Set(state.spaces.map(\.index))
-        }
-
-        let backingScale = NSScreen.screens.map(\.backingScaleFactor).max() ?? 2
-        let thumbnailPixelSize = GridLayout.thumbnailPixelSize(for: config.uiScale, backingScale: backingScale)
-        let requests = ThumbnailCache.captureRequests(
-            for: state,
-            spaceIndices: visibleSpaceIndices,
-            thumbnailPixelSize: thumbnailPixelSize
-        )
-
-        ThumbnailCache.shared.refreshSpaces(requests, force: force)
-    }
-
-    private func startPanelDragMonitor() {
-        guard panelDragMonitor == nil else { return }
-        panelDragMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
-            guard let self, let panel = self.panel, self.isVisible else { return event }
-            guard let window = panel.contentView?.window else { return event }
-            let loc = window.convertPoint(fromScreen: NSEvent.mouseLocation)
-            guard panel.contentView?.bounds.contains(loc) == true else { return event }
-
-            switch event.type {
-            case .leftMouseDown:
-                self.panelDragStart = NSEvent.mouseLocation
-                self.panelDragOrigin = panel.frame.origin
-                self.panelDragDidMove = false
-                self.isPanelDragging = true
-                // Cancel any timer already ticking — resetAutoHideTimer() only
-                // prevents *new* timers from being scheduled while dragging;
-                // it doesn't touch one already in flight from before the drag
-                // started, which is what let the HUD hide itself mid-drag.
-                self.autoHideTimer?.invalidate()
-                self.autoHideTimer = nil
-            case .leftMouseDragged:
-                guard let start = self.panelDragStart,
-                      let origin = self.panelDragOrigin else { break }
-                let current = NSEvent.mouseLocation
-                let dx = current.x - start.x
-                let dy = current.y - start.y
-                // Check if over a cell — if so, don't move panel
-                let cgPoint = self.quartzPoint(fromAppKit: current)
-                let overCell = self.dragHandler.cellFrames.contains { $0.frame.contains(cgPoint) }
-                if !overCell {
-                    var newOrigin = origin
-                    newOrigin.x += dx
-                    newOrigin.y += dy
-                    panel.setFrameOrigin(newOrigin)
-                    self.panelDragDidMove = true
-                }
-            case .leftMouseUp:
-                if self.panelDragDidMove {
-                    self.savePanelPosition()
-                }
-                self.panelDragStart = nil
-                self.panelDragOrigin = nil
-                self.panelDragDidMove = false
-                // Drag has ended — allow the auto-hide timer to run again and
-                // start it fresh now, rather than leaving it suppressed for
-                // the rest of the HUD session.
-                self.isPanelDragging = false
-                self.resetAutoHideTimer()
-            default: break
-            }
-            return event
-        }
-    }
-
-    private func stopPanelDragMonitor() {
-        if let monitor = panelDragMonitor {
-            NSEvent.removeMonitor(monitor)
-            panelDragMonitor = nil
-        }
-        panelDragStart = nil
-        panelDragOrigin = nil
-        panelDragDidMove = false
-        isPanelDragging = false
-    }
-
-    private func savePanelPosition() {
-        guard let panel = panel, let screen = NSScreen.main else { return }
-        let screenFrame = screen.frame
-        let panelFrame = panel.frame
-        let x = Double((panelFrame.midX - screenFrame.minX) / screenFrame.width)
-        let y = Double((panelFrame.midY - screenFrame.minY) / screenFrame.height)
-        var config = Config.load()
-        config.hudPosition = .custom(x: x, y: y)
-        config.customHUDX = x
-        config.customHUDY = y
-        Config.saveConfig(config)
-        NSLog("spacemap/HUD: saved custom position x=%.2f y=%.2f", x, y)
-        NotificationCenter.default.post(name: Notification.Name("settingsChanged"), object: nil)
-    }
-
-    private func startSettingsKeyMonitor() {
-        guard keyboardEventTap == nil, AXIsProcessTrusted() else { return }
-        let mask = CGEventMask(
-            (1 << CGEventType.keyDown.rawValue) |
-            (1 << CGEventType.keyUp.rawValue)
-        )
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .tailAppendEventTap,
-            options: .defaultTap,
-            eventsOfInterest: mask,
-            callback: { _, type, event, refcon in
-                guard let refcon else { return Unmanaged.passUnretained(event) }
-                let controller = Unmanaged<HUDWindowController>.fromOpaque(refcon).takeUnretainedValue()
-                guard AXIsProcessTrusted() else {
-                    DispatchQueue.main.async {
-                        controller.stopSettingsKeyMonitor()
-                    }
-                    return Unmanaged.passUnretained(event)
-                }
-                if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                    if let tap = controller.keyboardEventTap {
-                        CGEvent.tapEnable(tap: tap, enable: true)
-                    }
-                    return Unmanaged.passUnretained(event)
-                }
-                guard controller.isVisible else { return Unmanaged.passUnretained(event) }
-                if type == .keyDown {
-                    controller.handleHUDKeyDown(event)
-                }
-                return nil
-            },
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
-        ) else {
-            NSLog("spacemap/HUD: keyboard capture event tap creation failed")
-            return
-        }
-        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
-            CFMachPortInvalidate(tap)
-            return
-        }
-        keyboardEventTap = tap
-        keyboardRunLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-    }
-
-    private func reconcileSettingsKeyMonitor() {
-        if AXIsProcessTrusted() {
-            startSettingsKeyMonitor()
-        } else if keyboardEventTap != nil {
-            NSLog("spacemap/HUD: Accessibility revoked; releasing keyboard capture")
-            stopSettingsKeyMonitor()
-        }
-    }
-
-    private func stopSettingsKeyMonitor() {
-        if let source = keyboardRunLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        }
-        if let tap = keyboardEventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-            CFMachPortInvalidate(tap)
-        }
-        keyboardRunLoopSource = nil
-        keyboardEventTap = nil
-    }
-
-    private func handleHUDKeyDown(_ event: CGEvent) {
-        let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-        let flags = event.flags
-        if Self.isSettingsShortcut(keyCode: keyCode, flags: flags) {
-            DispatchQueue.main.async { [weak self] in
-                self?.hide()
-                self?.onShowSettings?()
-            }
-            return
-        }
-        if let direction = Self.navigationDirection(
-            keyCode: keyCode,
-            flags: flags,
-            useArrowKeys: config.useArrowKeys,
-            useVimKeys: config.useVimKeys
-        ) {
-            DispatchQueue.main.async { [weak self] in
-                self?.navigateSpace(direction)
-            }
-        }
-    }
-
-    static func isSettingsShortcut(keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
-        keyCode == 43 && flags.contains(.maskCommand)
-    }
-
-    static func navigationDirection(
-        keyCode: CGKeyCode,
-        flags: CGEventFlags,
-        useArrowKeys: Bool,
-        useVimKeys: Bool
-    ) -> SpaceNavigationDirection? {
-        guard !flags.contains(.maskControl),
-              !flags.contains(.maskCommand),
-              !flags.contains(.maskAlternate) else { return nil }
-        if useArrowKeys {
-            switch keyCode {
-            case 123: return .left
-            case 124: return .right
-            case 125: return .down
-            case 126: return .up
-            default: break
-            }
-        }
-        if useVimKeys {
-            switch keyCode {
-            case 38: return .down
-            case 40: return .up
-            case 37: return .right
-            case 4: return .left
-            default: break
-            }
-        }
-        return nil
     }
 
     private func navigateSpace(_ direction: SpaceNavigationDirection) {
@@ -799,110 +241,65 @@ class HUDWindowController {
         let target: Int?
         switch config.displayNavigationWrap {
         case .within:
-            let sourceSpaces: [YabaiSpace]
-            if let displayIndex = state.displayIndex(forSpace: currentIdx) {
-                sourceSpaces = state.spaces(forDisplay: displayIndex)
-            } else {
-                sourceSpaces = state.spaces
-            }
-            let cells = SpaceNavigator.navigableSpaceIndices(
-                activeSpaceIndices: sourceSpaces.map(\.index),
-                maxSpaces: config.maxSpaces
-            )
-            target = SpaceNavigator.destination(
-                from: currentIdx,
-                visibleSpaceIndices: cells,
-                columns: config.cols,
-                direction: direction
-            )
+            let sourceSpaces = state.displayIndex(forSpace: currentIdx).map { state.spaces(forDisplay: $0) } ?? state.spaces
+            let cells = SpaceNavigator.navigableSpaceIndices(activeSpaceIndices: sourceSpaces.map(\.index), maxSpaces: config.maxSpaces)
+            target = SpaceNavigator.destination(from: currentIdx, visibleSpaceIndices: cells, columns: config.cols, direction: direction)
         case .between:
             target = SpaceNavigator.destinationAcrossDisplays(
                 from: currentIdx,
-                displaySpaceIndices: state.populatedDisplayIndices.map {
-                    state.spaces(forDisplay: $0).map(\.index)
-                },
-                maxSpaces: config.maxSpaces,
-                columns: config.cols,
-                direction: direction
+                displaySpaceIndices: state.populatedDisplayIndices.map { state.spaces(forDisplay: $0).map(\.index) },
+                maxSpaces: config.maxSpaces, columns: config.cols, direction: direction
             )
         }
         guard let target else { return }
-        
         NSLog("spacemap/HUD: navigate \(direction) from yabai=\(currentIdx) → target yabai=\(target)")
-        YabaiClient.focusSpaceAsync(target)
+        yabaiService.focusSpaceAsync(target)
         lastFocusedSpaceIndex = target
-        
-        // Update coordinator with optimistic focus and render immediately
-        if let optimistic = gridStateCoordinator.updateFocusedIndex(target) {
+        if let optimistic = hudStateSync.updateFocusedIndex(target) {
             currentState = optimistic
-            renderOptimisticFocus(target, in: optimistic)
+            hudDisplay.updateState(optimistic)
         }
         resetAutoHideTimer()
     }
 
-    /// Optimistically update the HUD display without recreating panels or
-    /// hosting views. Falls back to a full render when no hosting views
-    /// exist yet (e.g., HUD just opened).
-    private func renderOptimisticFocus(_ focusedIndex: Int, in state: GridState) {
-        let pendingState = StateFactory.state(state, withFocusedIndex: focusedIndex)
-        if let hostingView {
-            hostingView.rootView = AnyView(makeGridView(state: pendingState, hoveredCell: hoveredCell))
-        } else if !displayHostingViews.isEmpty {
-            for (displayIndex, hostingView) in displayHostingViews {
-                if config.multiMonitorHUDMode == .unified {
-                    hostingView.rootView = AnyView(makeGridView(
-                        state: pendingState,
-                        hoveredCell: hoveredCell
-                    ))
-                } else {
-                    let spaces = state.spaces(forDisplay: displayIndex).map(\.index)
-                    hostingView.rootView = AnyView(makeGridView(
-                        state: pendingState,
-                        hoveredCell: hoveredCell,
-                        spaceIndices: spaces
-                    ))
-                }
-            }
-        } else {
-            renderState(pendingState)
-        }
-    }
-
     private func handlePolledFocus(_ focusedIndex: Int?) {
-        // Handle pending focus logic
-        if let pending = pendingFocusedSpaceIndex {
-            if focusedIndex == pending {
-                // Poll confirms our pending focus - clear it and refresh
-                gridStateCoordinator.clearPendingFocus()
-                refreshState()
-                return
-            }
-            if isPendingFocusValid {
-                // The focus command is still in flight. Ignore the stale result
-                // so it cannot overwrite the optimistic selection.
-                return
-            }
-            // Deadline expired - clear pending focus
-            gridStateCoordinator.clearPendingFocus()
-        }
-        
         if focusedIndex != lastFocusedSpaceIndex {
             NSLog("spacemap/HUD: poll detected change last=\(lastFocusedSpaceIndex ?? -1) current=\(focusedIndex ?? -1)")
             refreshState()
             resetAutoHideTimer()
         }
     }
+}
 
-    /// AppKit uses a bottom-left origin; Quartz (and yabai's frames) use the
-    /// top-left corner of the primary display as their global origin.
-    private var quartzMainScreenFrame: CGRect {
-        let mainDisplayID = CGMainDisplayID()
-        return NSScreen.screens.first { screen in
-            (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == mainDisplayID
-        }?.frame ?? NSScreen.screens.first?.frame ?? .zero
+// MARK: - HUDInputDelegate
+
+extension HUDWindowController: HUDInputDelegate {
+    func navigate(direction: SpaceNavigationDirection) {
+        navigateSpace(direction)
     }
 
-    private func quartzPoint(fromAppKit point: CGPoint) -> CGPoint {
-        CGPoint(x: point.x, y: quartzMainScreenFrame.maxY - point.y)
+    func showSettings() {
+        hide()
+        onShowSettings?()
+    }
+}
+
+// MARK: - HUDDisplayDelegate
+
+extension HUDWindowController: HUDDisplayDelegate {
+    func render(state: GridState) {
+        // HUDDisplay handles rendering internally
+    }
+
+    func updateCellFrames(frames: [(spaceIndex: Int, frame: CGRect)]) {
+        dragHandler.cellFrames = frames
+    }
+
+    func hudDidShow() {
+        // Post-show logic if needed
+    }
+
+    func hudDidHide() {
+        hide()
     }
 }

@@ -3,7 +3,7 @@ import SwiftUI
 
 class SettingsWindowController: NSWindowController {
     convenience init() {
-        let hostingController = NSHostingController(rootView: SettingsView())
+        let hostingController = NSHostingController(rootView: SettingsView(yabaiService: YabaiClientImpl()))
         let windowRect = NSRect(x: 0, y: 0, width: 520, height: 850)
         let window = NSWindow(
             contentRect: windowRect,

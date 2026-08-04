@@ -99,6 +99,7 @@ extension Notification.Name {
 
 struct SettingsView: View {
     private let clerk = ConfigClerk()
+    private let yabaiService: YabaiService
 
     private enum SidebarSection: String, CaseIterable, Identifiable {
         case grid = "Grid"
@@ -209,7 +210,8 @@ struct SettingsView: View {
         return closest
     }
     
-init() {
+init(yabaiService: YabaiService) {
+        self.yabaiService = yabaiService
         clerk.load(from: Config.load())
         _cols = State(initialValue: clerk.cols)
         _rows = State(initialValue: clerk.rows)
@@ -690,7 +692,7 @@ init() {
         guard !isRefreshingDiagnostics else { return }
         isRefreshingDiagnostics = true
         DispatchQueue.global(qos: .utility).async {
-            let yabaiHealthy = YabaiClient.isYabaiRunning(forceRefresh: true)
+            let yabaiHealthy = yabaiService.isYabaiRunning(forceRefresh: true)
             let socketHealthy: Bool
             do {
                 try SpacemapCommand.health.send()

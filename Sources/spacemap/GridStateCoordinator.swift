@@ -5,7 +5,7 @@ import Foundation
 /// across HUDWindowController.
 ///
 /// Responsibilities
-/// - Build fresh GridState via `YabaiClient.buildGridState` on the yabai queue.
+/// - Build fresh GridState via `YabaiService.buildGridState` on the yabai queue.
 /// - Own the latest state so no other type constructs or mutates it by hand.
 /// - Own pending-focus preservation (`updateFocusedIndex` + `refresh`).
 /// - Own debounce/cancellation (replaces the HUD's `refreshWorkItem`,
@@ -56,15 +56,14 @@ final class GridStateCoordinator {
 
     private var inFlightWorkItem: DispatchWorkItem?
 
-    /// Injectable state builder for tests. Production default shells out to yabai.
-    private let stateBuilder: (GridConfig) -> GridState
+    private let yabaiService: YabaiService
 
     init(
         config: GridConfig? = nil,
-        stateBuilder: @escaping (GridConfig) -> GridState = { YabaiClient.buildGridState(config: $0) }
+        yabaiService: YabaiService = YabaiClientImpl()
     ) {
         self.config = config
-        self.stateBuilder = stateBuilder
+        self.yabaiService = yabaiService
     }
 
     // MARK: - Fetch / refresh
@@ -79,7 +78,14 @@ final class GridStateCoordinator {
     ///   - replacingFocusedIndex: optional focused-index-only update.
     func fetch(completion: (() -> Void)? = nil, replacingFocusedIndex: Int? = nil) {
         if let replacingFocusedIndex, let latestState {
-            let updated = StateFactory.state(latestState, withFocusedIndex: replacingFocusedIndex)
+            let updated = GridState(
+                config: latestState.config,
+                spaces: latestState.spaces,
+                windows: latestState.windows,
+                displayBounds: latestState.displayBounds,
+                focusedIndex: replacingFocusedIndex,
+                displays: latestState.displays
+            )
             self.latestState = updated
             phase = .ready
             completion?()
@@ -94,7 +100,7 @@ final class GridStateCoordinator {
 
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            let state = self.stateBuilder(config)
+            let state = self.yabaiService.buildGridState(config: config, focusedIndex: nil)
             DispatchQueue.main.async { [weak self] in
                 guard let self, generation == self.fetchGeneration else { return }
                 self.latestState = state
@@ -103,7 +109,7 @@ final class GridStateCoordinator {
             }
         }
         inFlightWorkItem = work
-        YabaiClient.runOnYabaiQueue(work)
+        yabaiService.runOnYabaiQueue(work)
     }
 
     /// Fetch a fresh GridState, preserving an in-flight optimistic focus
@@ -119,7 +125,7 @@ final class GridStateCoordinator {
 
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            let state = self.stateBuilder(config)
+            let state = self.yabaiService.buildGridState(config: config, focusedIndex: nil)
             DispatchQueue.main.async { [weak self] in
                 guard let self, generation == self.fetchGeneration else { return }
                 let displayedState = self.statePreservingPendingFocus(state)
@@ -129,7 +135,7 @@ final class GridStateCoordinator {
             }
         }
         inFlightWorkItem = work
-        YabaiClient.runOnYabaiQueue(work)
+        yabaiService.runOnYabaiQueue(work)
     }
 
     /// Cancel any in-flight fetch so a stale completion cannot publish after
@@ -155,7 +161,14 @@ final class GridStateCoordinator {
             ? Date().addingTimeInterval(Self.pendingFocusTimeout)
             : nil
         guard let base = latestState else { return nil }
-        let updated = StateFactory.state(base, withFocusedIndex: focusedIndex)
+        let updated = GridState(
+            config: base.config,
+            spaces: base.spaces,
+            windows: base.windows,
+            displayBounds: base.displayBounds,
+            focusedIndex: focusedIndex,
+            displays: base.displays
+        )
         latestState = updated
         phase = .ready
         return updated
@@ -171,7 +184,14 @@ final class GridStateCoordinator {
     /// mutating `latestState`. Returns nil when no state exists yet.
     func state(withFocusedIndex focusedIndex: Int?) -> GridState? {
         guard let latestState else { return nil }
-        return StateFactory.state(latestState, withFocusedIndex: focusedIndex)
+        return GridState(
+            config: latestState.config,
+            spaces: latestState.spaces,
+            windows: latestState.windows,
+            displayBounds: latestState.displayBounds,
+            focusedIndex: focusedIndex,
+            displays: latestState.displays
+        )
     }
 
     // MARK: - Private
@@ -184,6 +204,13 @@ final class GridStateCoordinator {
             clearPendingFocus()
             return state
         }
-        return StateFactory.state(state, withFocusedIndex: pending)
+        return GridState(
+            config: state.config,
+            spaces: state.spaces,
+            windows: state.windows,
+            displayBounds: state.displayBounds,
+            focusedIndex: pending,
+            displays: state.displays
+        )
     }
 }
