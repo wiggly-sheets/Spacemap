@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var socketListener: SocketListener?
     private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
+    private var settingsWindowObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
     private var aboutWindowController: AboutWindowController?
     private var menubarRefreshWorkItem: DispatchWorkItem?
@@ -500,11 +501,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let settingsWindowController = SettingsWindowController(yabaiService: yabaiService)
         settingsWindowController.showWindow()
         if let window = settingsWindowController.window {
-            NotificationCenter.default.addObserver(
+            settingsWindowObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
                 object: window,
                 queue: .main
-            ) { _ in
+            ) { [weak self] _ in
+                self?.settingsWindowObserver = nil
                 NSApp.setActivationPolicy(.prohibited)
             }
         }

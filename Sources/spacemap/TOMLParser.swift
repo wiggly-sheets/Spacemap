@@ -1,11 +1,22 @@
 import Foundation
 import CoreGraphics
 
+enum TOMLParserError: LocalizedError {
+    case parseFailure(reason: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .parseFailure(let reason):
+            return "TOML parse failure: \(reason)"
+        }
+    }
+}
+
 enum TOMLParser: TOMLParserProtocol {
 
-    static func parse(_ data: String) -> ConfigValues {
+    static func parse(_ data: String) throws -> ConfigValues {
         guard let parsedObject = parseTOMLObject(data) else {
-            return ConfigValues()
+            throw TOMLParserError.parseFailure(reason: "malformed TOML")
         }
         let object = normalizedTOMLObject(parsedObject)
         return decodedTOMLConfig(object)
@@ -14,6 +25,11 @@ enum TOMLParser: TOMLParserProtocol {
     // MARK: - TOML Parsing
 
     private static func parseTOMLObject(_ text: String) -> [String: Any]? {
+        // Check if the input is empty or contains only whitespace
+        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return nil
+        }
+
         var root: [String: Any] = [:]
         var tables: [String: [String: Any]] = [:]
         var currentTable: String?
@@ -106,6 +122,22 @@ enum TOMLParser: TOMLParserProtocol {
             object[key] as? T
         }
 
+        func positiveInt(_ key: String) -> Int? {
+            if let intValue = object[key] as? Int, intValue > 0 { return intValue }
+            return nil
+        }
+
+        func nonNegativeInt(_ key: String) -> Int? {
+            if let intValue = object[key] as? Int, intValue >= 0 { return intValue }
+            return nil
+        }
+
+        func rangedDouble(_ key: String) -> Double? {
+            if let doubleValue = object[key] as? Double, (0...1).contains(doubleValue) { return doubleValue }
+            if let intValue = object[key] as? Int, (0...1).contains(Double(intValue)) { return Double(intValue) }
+            return nil
+        }
+
         func double(_ key: String) -> Double? {
             if let result = object[key] as? Double { return result }
             if let result = object[key] as? Int { return Double(result) }
@@ -113,8 +145,8 @@ enum TOMLParser: TOMLParserProtocol {
         }
 
         // Grid section
-        values.cols = value("cols")
-        values.rows = value("rows")
+        values.cols = positiveInt("cols")
+        values.rows = positiveInt("rows")
         if let name: String = value("cellStyle") {
             values.cellStyle = cellStyle(from: name)
         }
@@ -130,7 +162,7 @@ enum TOMLParser: TOMLParserProtocol {
         if let name: String = value("separateHUDVisibility") {
             values.separateHUDVisibility = hudVisibility(from: name)
         }
-        values.maxSpaces = value("maxSpaces")
+        values.maxSpaces = positiveInt("maxSpaces")
         values.showSpaceNumbers = value("showSpaceNumbers")
         values.showIconStrip = value("showIconStrip")
         values.showMultiAppIcons = value("showMultiAppIcons")
@@ -153,19 +185,19 @@ enum TOMLParser: TOMLParserProtocol {
         if let name: String = value("mode") {
             values.mode = themeMode(from: name)
         }
-        values.backgroundAlpha = double("backgroundAlpha")
-        values.iconScale = double("iconScale")
-        values.uiScale = double("uiScale")
+        values.backgroundAlpha = rangedDouble("backgroundAlpha")
+        values.iconScale = rangedDouble("iconScale")
+        values.uiScale = rangedDouble("uiScale")
 
         // Behavior section
-        values.autoHideTimeout = value("autoHideTimeout")
+        values.autoHideTimeout = nonNegativeInt("autoHideTimeout")
         if let name: String = value("displayNavigationWrap") {
             values.displayNavigationWrap = displayNavigationWrap(from: name)
         }
         values.useVimKeys = value("useVimKeys")
         values.useArrowKeys = value("useArrowKeys")
-        values.customHUDX = double("customHUDX")
-        values.customHUDY = double("customHUDY")
+        values.customHUDX = rangedDouble("customHUDX")
+        values.customHUDY = rangedDouble("customHUDY")
         if let name: String = value("focusSpaceOnWindowDrop") {
             values.focusSpaceOnWindowDrop = WindowDropFocusMode(rawValue: name.lowercased())
         }
@@ -177,7 +209,7 @@ enum TOMLParser: TOMLParserProtocol {
         if let name: String = value("menuBarDisplayMode") {
             values.menuBarDisplayMode = menuBarDisplayMode(from: name)
         }
-        values.menuBarNearbyCount = value("menuBarNearbyCount")
+        values.menuBarNearbyCount = positiveInt("menuBarNearbyCount")
         if let name: String = value("updateMode") {
             values.updateMode = updateMode(from: name)
         }
@@ -209,7 +241,7 @@ enum TOMLParser: TOMLParserProtocol {
         }
 
         // Advanced section
-        values.socketHealthInterval = value("socketHealthInterval")
+        values.socketHealthInterval = positiveInt("socketHealthInterval")
         values.showExtraWindows = value("showExtraWindows")
 
         return values

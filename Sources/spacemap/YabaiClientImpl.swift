@@ -23,12 +23,12 @@ class YabaiClientImpl: YabaiService {
     // should never wait behind it.
     private let focusQueue = DispatchQueue(label: "com.spacemap.yabai.focus", qos: .userInteractive)
 
-    private let yabaiPath: String = {
+    private let yabaiPath: String? = {
         let arm = "/opt/homebrew/bin/yabai"
         let intel = "/usr/local/bin/yabai"
         if FileManager.default.isExecutableFile(atPath: arm) { return arm }
         if FileManager.default.isExecutableFile(atPath: intel) { return intel }
-        return arm
+        return nil
     }()
 
     private var _yabaiRunningCache: (result: Bool, checkedAt: TimeInterval)?
@@ -101,22 +101,25 @@ class YabaiClientImpl: YabaiService {
     }
 
     private func querySpacesRaw() throws -> [YabaiSpace] {
+        guard let yabaiPath = yabaiPath else { return [] }
         let output = try shell(yabaiPath, "-m", "query", "--spaces")
         return try JSONDecoder().decode([YabaiSpace].self, from: Data(output.utf8))
     }
 
     private func queryDisplaysRaw() throws -> [YabaiDisplay] {
+        guard let yabaiPath = yabaiPath else { return [] }
         let output = try shell(yabaiPath, "-m", "query", "--displays")
         return try JSONDecoder().decode([YabaiDisplay].self, from: Data(output.utf8))
     }
 
     private func queryWindowsRaw() throws -> [YabaiWindow] {
+        guard let yabaiPath = yabaiPath else { return [] }
         let output = try shell(yabaiPath, "-m", "query", "--windows")
         return try JSONDecoder().decode([YabaiWindow].self, from: Data(output.utf8))
     }
 
     func queryFocusedWindow() throws -> Int? {
-        guard isYabaiRunning() else { return nil }
+        guard isYabaiRunning(), let yabaiPath = yabaiPath else { return nil }
         let output = try shell(yabaiPath, "-m", "query", "--windows", "--window")
         guard let data = output.data(using: .utf8),
               let json = try? JSONDecoder().decode(YabaiWindow.self, from: data) else { return nil }
@@ -147,6 +150,7 @@ class YabaiClientImpl: YabaiService {
             socketPath: socketPath,
             showHUDOnSpaceChange: showHUDOnSpaceChange
         )
+        guard let yabaiPath = yabaiPath else { return }
         _ = try? shell(yabaiPath, "-m", "signal", "--add",
                        "label=spacemap_space_changed",
                        "event=space_changed",
@@ -195,7 +199,7 @@ class YabaiClientImpl: YabaiService {
     }
 
     func removeSignals() {
-        guard isYabaiRunning() else { return }
+        guard isYabaiRunning(), let yabaiPath = yabaiPath else { return }
         _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_space_changed")
         for event in workspacePreviewRefreshEvents {
             _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_\(event)")
@@ -205,11 +209,13 @@ class YabaiClientImpl: YabaiService {
     // MARK: - Focus
 
     func focusSpace(_ index: Int) {
+        guard let yabaiPath = yabaiPath, isYabaiRunning() else { return }
         _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)")
     }
 
     @discardableResult
     func focusSpace(_ target: SpaceFocusTarget) -> Bool {
+        guard let yabaiPath = yabaiPath, isYabaiRunning() else { return false }
         do {
             _ = try shell(yabaiPath, "-m", "space", "--focus", target.value)
             return true
@@ -221,8 +227,8 @@ class YabaiClientImpl: YabaiService {
 
     func focusSpaceAsync(_ index: Int) {
         focusQueue.async { [weak self] in
-            guard let self = self else { return }
-            _ = try? self.shell(self.yabaiPath, "-m", "space", "--focus", "\(index)")
+            guard let self = self, let yabaiPath = self.yabaiPath, self.isYabaiRunning() else { return }
+            _ = try? self.shell(yabaiPath, "-m", "space", "--focus", "\(index)")
         }
     }
 
@@ -250,7 +256,10 @@ class YabaiClientImpl: YabaiService {
                 var spaces = try self.querySpacesRaw()
                 while !spaces.contains(where: { $0.index == targetIndex }) {
                     let previousIndices = Set(spaces.map(\.index))
-                    _ = try self.shell(self.yabaiPath, "-m", "space", "--create")
+                    guard let yabaiPath = self.yabaiPath else {
+                        throw YabaiError.commandFailed(arguments: ["space", "--create"], status: -1, message: "yabai not found")
+                    }
+                    _ = try self.shell(yabaiPath, "-m", "space", "--create")
                     spaces = try self.querySpacesRaw()
 
                     guard Set(spaces.map(\.index)) != previousIndices else {
@@ -258,9 +267,12 @@ class YabaiClientImpl: YabaiService {
                     }
                 }
 
-                _ = try self.shell(self.yabaiPath, "-m", "window", "\(windowID)", "--space", "\(targetIndex)")
+                guard let yabaiPath = self.yabaiPath else {
+                    throw YabaiError.commandFailed(arguments: ["window", "\(windowID)", "--space", "\(targetIndex)"], status: -1, message: "yabai not found")
+                }
+                _ = try self.shell(yabaiPath, "-m", "window", "\(windowID)", "--space", "\(targetIndex)")
                 if focusDestination {
-                    _ = try self.shell(self.yabaiPath, "-m", "space", "--focus", "\(targetIndex)")
+                    _ = try self.shell(yabaiPath, "-m", "space", "--focus", "\(targetIndex)")
                 }
                 DispatchQueue.main.async { completion(.success(())) }
             } catch {

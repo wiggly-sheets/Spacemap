@@ -81,6 +81,10 @@ class WindowDragHandler: WindowDragService {
         CGEvent.tapEnable(tap: tap, enable: true)
     }
 
+    deinit {
+        stop()
+    }
+
     func stop() {
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
