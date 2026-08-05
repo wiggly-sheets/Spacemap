@@ -169,4 +169,8 @@ struct ConfigValues: ConfigValuesProtocol {
         )
         return (config, needsRepair)
     }
+
+    var gridConfig: GridConfig {
+        gridConfig
+    }
 }

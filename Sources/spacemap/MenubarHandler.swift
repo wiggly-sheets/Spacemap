@@ -171,7 +171,7 @@ class MenubarHandler {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
     }
 
-    private func applyMenubarIcon(to item: NSStatusItem) {
+    func applyMenubarIcon(to item: NSStatusItem) {
         item.length = NSStatusItem.squareLength
         item.button?.image = NSImage(
             systemSymbolName: "square.grid.3x3",
@@ -181,7 +181,7 @@ class MenubarHandler {
         item.button?.toolTip = "Spacemap"
     }
 
-    private func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String {
+    func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String {
         switch hotkey.key {
         case .none:
             return "None"

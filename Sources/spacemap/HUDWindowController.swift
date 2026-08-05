@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+
 class HUDWindowController {
     private var dragHandler: WindowDragHandler
     private var hoveredCell: Int? = nil
@@ -10,26 +11,27 @@ class HUDWindowController {
     var isVisible = false
     var isPinned = false
     var isToggling = false
-    private let yabaiService: YabaiService
+    private let services: SpacemapServices
     private var _config: GridConfig? = nil
-    private var config: GridConfig { get { _config ?? Config.load() } set { _config = newValue } }
+    private var config: GridConfig { get { _config ?? services.appConfig.load() } set { _config = newValue } }
     var onShowSettings: (() -> Void)?
     private let hudInput: HUDInput
     private let hudDisplay: HUDDisplay
     private let hudStateSync: HUDStateSync
-    init(yabaiService: YabaiService = YabaiClientImpl()) {
-        self.yabaiService = yabaiService
-        self.hudStateSync = DefaultHUDStateSync(coordinator: GridStateCoordinator(yabaiService: yabaiService))
-        self.hudDisplay = HUDDisplay(yabaiService: yabaiService)
+
+    init(services: SpacemapServices) {
+        self.services = services
+        self.hudStateSync = DefaultHUDStateSync(coordinator: GridStateCoordinator(yabaiService: services.yabaiService))
+        self.hudDisplay = HUDDisplay(yabaiService: services.yabaiService)
         self.hudInput = HUDInput(panel: nil)
-        self.dragHandler = WindowDragHandler(yabaiService: yabaiService)
+        self.dragHandler = WindowDragHandler(yabaiService: services.yabaiService)
         setupDelegates()
     }
     private func setupDelegates() {
         hudInput.delegate = self
         hudDisplay.delegate = self
         hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys)
-        hudInput.yabaiService = yabaiService
+        hudInput.yabaiService = services.yabaiService
         hudInput.config = config
     }
 
@@ -56,7 +58,7 @@ class HUDWindowController {
                 resetAutoHideTimer()
                 let modifiers = CGEventFlags(rawValue: UInt64(NSEvent.modifierFlags.rawValue))
                 let fd = config.focusSpaceOnWindowDrop.shouldFocus(eventFlags: modifiers, requiredModifier: config.focusSpaceOnWindowDropModifier)
-                yabaiService.moveWindowCreatingSpacesIfNeeded(windowID, toSpace: cell, focusDestination: fd) { [weak self] result in
+                services.yabaiService.moveWindowCreatingSpacesIfNeeded(windowID, toSpace: cell, focusDestination: fd) { [weak self] result in
                     guard let self else { return }
                     if case .failure(let error) = result { NSLog("spacemap/HUD: window drop failed: \(error.localizedDescription)") }
                     self.refresh()
@@ -133,11 +135,11 @@ class HUDWindowController {
         hudInput.lastFocusedSpaceIndex = state.focusedIndex
         dragHandler.start()
         if refreshFocusedWindow {
-            yabaiService.runOnYabaiQueue { [weak self, yabaiService] in
-                let focusedWindowID = try? yabaiService.queryFocusedWindow()
+            services.yabaiService.runOnYabaiQueue { [weak self] in
+                guard let self = self else { return }
+                let focusedWindowID = try? services.yabaiService.queryFocusedWindow()
                 DispatchQueue.main.async {
-                    guard let self, self.isVisible, let focusedWindowID else { return }
-                    self.focusedWindowIDAtOpen = focusedWindowID
+                    guard let focusedWindowID = focusedWindowID else { return }
                     let cellFrames = self.hudDisplay.computeCellFrames(state: state)
                     self.dragHandler.updateInput(WindowDragInput(cellFrames: cellFrames, cachedWindows: state.windows, focusedWindowIDAtOpen: focusedWindowID))
                 }
@@ -160,10 +162,11 @@ class HUDWindowController {
     func refresh() {
         guard isVisible else {
             guard hudStateSync.currentState != nil else { prewarmState(); return }
-            yabaiService.runOnYabaiQueue { [weak self, yabaiService] in
-                let focusedIndex = yabaiService.queryFocusedSpaceIndex()
-                DispatchQueue.main.async {
-                    guard let self, !self.isVisible, let focusedIndex else { return }
+            services.yabaiService.runOnYabaiQueue { [weak self] in
+                guard let self = self else { return }
+                let focusedIndex = services.yabaiService.queryFocusedSpaceIndex()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, !self.isVisible, let focusedIndex = focusedIndex else { return }
                     self.hudStateSync.fetch { _ = self.hudStateSync.updateFocusedIndex(focusedIndex) }
                 }
             }

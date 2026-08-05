@@ -3,8 +3,8 @@ import ServiceManagement
 import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
-    private lazy var hud: HUDWindowController = { HUDWindowController(yabaiService: yabaiService) }()
-    private let yabaiService = YabaiClientImpl()
+    private let services: SpacemapServices
+    private lazy var hud: HUDWindowController = { HUDWindowController(services: services) }()
     private var hotkey: HotkeyMonitor?
     private var pinnedHotkey: HotkeyMonitor?
     private var socketListener: SocketListener?
@@ -28,6 +28,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         return controller
     }()
 
+    init(services: SpacemapServices = SpacemapServices()) {
+        self.services = services
+        super.init()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
         
@@ -39,8 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         NSApp.setActivationPolicy(.prohibited)
         
         // Check yabai before doing anything else
-        if !yabaiService.isYabaiRunning() {
-            showYabaiAlert()
+        if !services.yabaiService.isYabaiRunning(forceRefresh: true) {
+            services.showYabaiAlert()
         }
         
         // Check the Mission Control settings that keep space locations stable.
@@ -96,7 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 onToggle: { [weak self] in self?.hud.toggle() },
                 onSettings: { [weak self] in self?.showSettingsWindow() }
             )
-            self.yabaiService.registerSignals(
+            self.services.yabaiService.registerSignals(
                 socketPath: SpacemapCommand.socketPath,
                 showHUDOnSpaceChange: config.showHUDOnSpaceChange,
                 refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
@@ -124,7 +129,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 self.applyMenubarVisibility(config: config)
                 self.refreshMenubarPreview(config: config)
                 if shouldUpdateYabaiSignals {
-                    self.yabaiService.registerSignals(
+                    services.yabaiService.registerSignals(
                         socketPath: SpacemapCommand.socketPath,
                         showHUDOnSpaceChange: config.showHUDOnSpaceChange,
                         refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
@@ -148,9 +153,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
     
     func applicationWillTerminate(_ notification: Notification) {
-        yabaiService.removeSignals()
+        services.yabaiService.removeSignals()
         socketListener?.stop()
         if let observer = settingsObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = settingsWindowObserver {
             NotificationCenter.default.removeObserver(observer)
         }
     }
@@ -194,7 +202,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             _ = Config.load()
             NSWorkspace.shared.open(URL(fileURLWithPath: Config.configPath))
         case .themes:
-            ThemeManager.shared.reload()
+            services.themeService.reload()
             NSWorkspace.shared.open(ThemeManager.themesDir())
         }
     }
@@ -238,14 +246,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         menubarRefreshWorkItem?.cancel()
 
         if config.menuBarDisplayMode == .icon {
-            applyMenubarIcon(to: item)
+            self.services.applyMenubarIcon(to: item)
             return
         }
 
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             DispatchQueue.global(qos: .utility).async {
-                let state = self.yabaiService.buildGridState(config: config)
+                let state = self.services.yabaiService.buildGridState(config: config, focusedIndex: nil)
                 DispatchQueue.main.async {
                     guard generation == self.menubarRefreshGeneration,
                           let currentItem = self.statusItem else { return }
@@ -255,7 +263,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                         currentItem.button?.imageScaling = .scaleProportionallyDown
                         currentItem.button?.toolTip = NSLocalizedString("Spacemap workspace preview", comment: "")
                     } else {
-                        self.applyMenubarIcon(to: currentItem)
+                        self.services.applyMenubarIcon(to: currentItem)
                     }
                 }
             }
@@ -312,10 +320,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     private func setupMenubar() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        applyMenubarIcon(to: item)
+        self.services.applyMenubarIcon(to: item)
         let config = currentConfig ?? Config.load()
         let menu = NSMenu()
-        let hotkeyLabel = hotkeyMenuString(config.hotkey)
+        let hotkeyLabel = self.services.hotkeyMenuString(config.hotkey)
         menu.addItem(menuItem(
             title: String(format: NSLocalizedString("Show/Hide Map (%@)", comment: ""), hotkeyLabel),
             action: #selector(toggleHUD),
@@ -498,7 +506,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     @objc private func showSettingsWindow() {
         NSApp.setActivationPolicy(.regular)
-        let settingsWindowController = SettingsWindowController(yabaiService: yabaiService)
+        let settingsWindowController = SettingsWindowController(yabaiService: services.yabaiService)
         settingsWindowController.showWindow()
         if let window = settingsWindowController.window {
             settingsWindowObserver = NotificationCenter.default.addObserver(
@@ -655,7 +663,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         
         let response = alert.runModal()
         if response == .alertSecondButtonReturn {
-            NSWorkspace.shared.open(URL(string: "https://github.com/koekeishiya/yabai")!)
+            guard let yabaiURL = URL(string: "https://github.com/koekeishiya/yabai") else { return }
+            NSWorkspace.shared.open(yabaiURL)
         }
         NSApp.terminate(nil)
     }

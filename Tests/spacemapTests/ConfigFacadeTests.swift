@@ -68,7 +68,7 @@ final class ConfigFacadeTests: XCTestCase {
 
         let facadeResult = Config.load(from: path)
         let directResult = ConfigLoader.load(from: path, silentMode: true)
-            .values.toGridConfig().config
+            .values.gridConfig
 
         XCTAssertEqual(facadeResult.cols, directResult.cols)
         XCTAssertEqual(facadeResult.rows, directResult.rows)
@@ -88,7 +88,7 @@ final class ConfigFacadeTests: XCTestCase {
         """
 
         let facadeResult = Config.parseConfig(toml)
-        let directResult = try! TOMLParser.parse(toml).toGridConfig().config
+        let directResult = try! TOMLParser.parse(toml).gridConfig
 
         XCTAssertEqual(facadeResult.cols, directResult.cols)
         XCTAssertEqual(facadeResult.rows, directResult.rows)
@@ -110,7 +110,7 @@ final class ConfigFacadeTests: XCTestCase {
         values.cols = 10
         values.rows = 5
         values.theme = "nord"
-        let config = values.toGridConfig().config
+        let config = values.gridConfig
 
         Config.saveConfig(config, to: path)
 

@@ -1,7 +1,22 @@
 import AppKit
 
-enum Alerts {
-    static func showYabaiAlert() {
+protocol AlertsService {
+    func showYabaiAlert()
+    func isMRUSpacesEnabled() -> Bool
+    func showMRUAlert()
+    func showSeparateSpacesAlert()
+}
+
+final class AlertsServiceImpl: AlertsService {
+    private let process: ProcessProtocol
+    private let workspace: WorkspaceProtocol
+
+    init(process: ProcessProtocol = Process(), workspace: WorkspaceProtocol = NSWorkspace.shared) {
+        self.process = process
+        self.workspace = workspace
+    }
+
+    func showYabaiAlert() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
@@ -13,30 +28,30 @@ enum Alerts {
 
         let response = alert.runModal()
         if response == .alertSecondButtonReturn {
-            NSWorkspace.shared.open(URL(string: "https://github.com/koekeishiya/yabai")!)
+            workspace.open(URL(string: "https://github.com/koekeishiya/yabai")!)
         }
         NSApp.terminate(nil)
     }
 
-    static func isMRUSpacesEnabled() -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-        process.arguments = ["read", "com.apple.dock", "mru-spaces"]
+    func isMRUSpacesEnabled() -> Bool {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+        proc.arguments = ["read", "com.apple.dock", "mru-spaces"]
         let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = Pipe()
         do {
-            try process.run()
+            try proc.run()
         } catch {
             return false
         }
-        process.waitUntilExit()
+        proc.waitUntilExit()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(data: data, encoding: .utf8) ?? ""
         return output.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
     }
 
-    static func showMRUAlert() {
+    func showMRUAlert() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
@@ -61,7 +76,7 @@ enum Alerts {
         NSApp.setActivationPolicy(.prohibited)
     }
 
-    static func showSeparateSpacesAlert() {
+    func showSeparateSpacesAlert() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
@@ -72,8 +87,11 @@ enum Alerts {
         alert.addButton(withTitle: NSLocalizedString("Open System Settings", comment: ""))
 
         if alert.runModal() == .alertSecondButtonReturn {
-            NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
+            workspace.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
         }
         NSApp.setActivationPolicy(.prohibited)
     }
 }
+
+// Backward-compatible typealias for existing code that references `Alerts`
+typealias Alerts = AlertsServiceImpl

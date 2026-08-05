@@ -12,7 +12,7 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
-        let config = values.toGridConfig().config
+        let config = values.gridConfig
 
         XCTAssertTrue(needsRepair)
         XCTAssertEqual(config.cols, GridConfig.default.cols)
@@ -36,7 +36,7 @@ final class ConfigLoaderTests: XCTestCase {
         try toml.write(toFile: path, atomically: true, encoding: .utf8)
 
         let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
-        let config = values.toGridConfig().config
+        let config = values.gridConfig
 
         XCTAssertTrue(needsRepair)
         XCTAssertEqual(config.cols, 6)
@@ -62,7 +62,7 @@ final class ConfigLoaderTests: XCTestCase {
         try toml.write(toFile: path, atomically: true, encoding: .utf8)
 
         let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
-        let config = values.toGridConfig().config
+        let config = values.gridConfig
 
         XCTAssertTrue(needsRepair)
         XCTAssertEqual(config.cols, 5)
