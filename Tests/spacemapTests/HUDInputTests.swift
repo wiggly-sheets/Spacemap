@@ -29,7 +29,7 @@ final class HUDInputTests: XCTestCase {
     // MARK: - Helpers
     
     private func createHUDInput(panel: NSPanel? = nil) -> HUDInput {
-        return HUDInput(panel: panel)
+        return HUDInput(panel: panel, yabaiService: MockYabaiService())
     }
     
     private func createMockPanel() -> NSPanel {

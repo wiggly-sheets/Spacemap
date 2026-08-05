@@ -51,7 +51,7 @@ final class HUDDisplay {
             hostingView.rootView = AnyView(gridView)
         } else if !displayHostingViews.isEmpty {
             for (displayIndex, hostingView) in displayHostingViews {
-                if currentConfig.multiMonitorHUDMode == .unified {
+                let mode = currentConfig.multiMonitorHUDMode.hudMode(for: displayIndex, in: state)\n                if mode == .unified {
                     hostingView.rootView = AnyView(makeGridView(state: state, hoveredCell: hoveredCell))
                 } else {
                     let spaces = state.spaces(forDisplay: displayIndex).map(\.index)

@@ -63,7 +63,7 @@ final class GridStateCoordinator {
 
     init(
         config: GridConfig? = nil,
-        yabaiService: YabaiService = YabaiClientImpl()
+        yabaiService: YabaiService
     ) {
         self.config = config
         self.yabaiService = yabaiService

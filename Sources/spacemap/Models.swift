@@ -11,6 +11,19 @@ enum MultiMonitorHUDMode: String, CaseIterable, Identifiable {
     case separate
 
     var id: String { rawValue }
+
+    /// Returns the appropriate HUD display mode for the given display index.
+    /// For unified mode, always returns .unified.
+    /// For separate mode, returns .separate if the display has spaces, otherwise .hidden.
+    func hudMode(for displayIndex: Int, in state: GridState) -> HUDDisplayMode {
+        switch self {
+        case .unified:
+            return .unified
+        case .separate:
+            let spaces = state.spaces(forDisplay: displayIndex)
+            return spaces.isEmpty ? .hidden : .separate
+        }
+    }
 }
 enum SeparateHUDVisibility: String, CaseIterable, Identifiable {
     case all
@@ -294,7 +307,10 @@ struct AppTheme: Equatable {
     )
 
     static func named(_ name: String) -> AppTheme {
-        ThemeManager.shared.named(name)
+        // This is a temporary workaround until we can inject the ThemeService properly
+        // In the ideal implementation, this would use an injected ThemeService
+        let themeService = ThemeService()
+        return themeService.named(name)
     }
 }
 

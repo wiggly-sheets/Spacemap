@@ -2,14 +2,16 @@ import AppKit
 
 class DeepLinkHandler {
     private let hud: HUDWindowController
+    private let themeService: ThemeService
     private let showSettings: () -> Void
     private let showMenu: () -> Void
 
     var isReady = false
     private var pendingActions: [DeepLinkAction] = []
 
-    init(hud: HUDWindowController, showSettings: @escaping () -> Void, showMenu: @escaping () -> Void) {
+    init(hud: HUDWindowController, themeService: ThemeService, showSettings: @escaping () -> Void, showMenu: @escaping () -> Void) {
         self.hud = hud
+        self.themeService = themeService
         self.showSettings = showSettings
         self.showMenu = showMenu
     }
@@ -34,7 +36,7 @@ class DeepLinkHandler {
         actions.forEach(handle)
     }
 
-    private func handle(_ action: DeepLinkAction) {
+    func handle(_ action: DeepLinkAction) {
         switch action {
         case .toggleHUD:
             hud.toggle()
@@ -48,7 +50,7 @@ class DeepLinkHandler {
             _ = Config.load()
             NSWorkspace.shared.open(URL(fileURLWithPath: Config.configPath))
         case .themes:
-            ThemeManager.shared.reload()
+            themeService.reload()
             NSWorkspace.shared.open(ThemeManager.themesDir())
         }
     }
