@@ -245,7 +245,7 @@ class MenubarHandler {
         NSWorkspace.shared.open(url)
     }
 
-    @objc private func menubarToggleLaunchAtLogin() {
+    @objc private func menubarToggleLoginAtLabelImpl() {
         let service = SMAppService.mainApp
         let newEnabled = service.status != .enabled
         onSetLoginAtLogin(newEnabled)
@@ -256,5 +256,9 @@ class MenubarHandler {
                 break
             }
         }
+    }
+
+    @objc public func menubarToggleLaunchAtLogin() {
+        self.menubarToggleLoginAtLabelImpl()
     }
 }

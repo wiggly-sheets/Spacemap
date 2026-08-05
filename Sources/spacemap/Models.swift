@@ -1,6 +1,12 @@
 import Foundation
 import CoreGraphics
 
+enum HUDDisplayMode {
+    case unified
+    case separate
+    case hidden
+}
+
 enum CellStyle: Int, CaseIterable, Identifiable {
     case rects, hybrid, icons, thumbnails, simple
     var id: Int { rawValue }
