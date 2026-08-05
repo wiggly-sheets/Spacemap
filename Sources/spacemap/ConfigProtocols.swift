@@ -40,6 +40,8 @@ protocol ConfigValuesProtocol {
     var updateMode: UpdateMode? { get set }
 
     func toGridConfig() -> (config: GridConfig, needsRepair: Bool)
+
+    var gridConfig: GridConfig { get }
 }
 
 protocol TOMLParserProtocol {

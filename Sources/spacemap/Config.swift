@@ -7,17 +7,17 @@ enum Config {
 
     public static func load() -> GridConfig {
         let (values, _) = ConfigLoader.load(from: configPath, silentMode: silentMode)
-        return values.toGridConfig().config
+        return values.gridConfig
     }
 
     public static func load(from path: String) -> GridConfig {
         let (values, _) = ConfigLoader.load(from: path, silentMode: silentMode)
-        return values.toGridConfig().config
+        return values.gridConfig
     }
 
     internal static func parseConfig(_ text: String) -> GridConfig {
-        let values = try! TOMLParser.parse(text)
-        return values.toGridConfig().config
+        let values = (try? TOMLParser.parse(text)) ?? ConfigValues()
+        return values.gridConfig
     }
 
     public static func saveConfig(_ config: GridConfig) {

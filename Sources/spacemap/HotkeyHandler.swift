@@ -4,12 +4,14 @@ class HotkeyHandler {
     private var hotkey: HotkeyMonitor?
     private var pinnedHotkey: HotkeyMonitor?
     private let hud: HUDWindowController
+    private let hotkeyMonitorFactory: HotkeyMonitorFactory
 
-    init(hud: HUDWindowController) {
+    init(hud: HUDWindowController, hotkeyMonitorFactory: HotkeyMonitorFactory = HotkeyMonitorFactory()) {
         self.hud = hud
+        self.hotkeyMonitorFactory = hotkeyMonitorFactory
     }
 
-    func restartHotkey(config: GridConfig) {
+    public func restartHotkey(config: GridConfig) {
         self.hotkey?.stop()
         self.hotkey = nil
         self.pinnedHotkey?.stop()
@@ -18,22 +20,22 @@ class HotkeyHandler {
         self.startPinnedHotkey(config: config)
     }
 
-    private func startHotkey(config: GridConfig) {
+    public func startHotkey(config: GridConfig) {
         guard !config.hotkey.isDisabled else { return }
-        let monitor = HotkeyMonitor(config: config.hotkey) { [weak self] in
+        let monitor = hotkeyMonitorFactory.makeHotkeyMonitor(config: config.hotkey) { [weak self] in
             self?.hud.toggle()
         }
         monitor.start()
         hotkey = monitor
     }
 
-    private func startPinnedHotkey(config: GridConfig) {
+    public func startPinnedHotkey(config: GridConfig) {
         guard !config.pinnedHotkey.isDisabled else { return }
         guard Hotkey.hotkeyToString(config.pinnedHotkey) != Hotkey.hotkeyToString(config.hotkey) else {
             NSLog("Spacemap: pinned HUD hotkey matches the normal hotkey; pinned binding ignored")
             return
         }
-        let monitor = HotkeyMonitor(config: config.pinnedHotkey) { [weak self] in
+        let monitor = hotkeyMonitorFactory.makeHotkeyMonitor(config: config.pinnedHotkey) { [weak self] in
             self?.hud.togglePinned()
         }
         monitor.start()

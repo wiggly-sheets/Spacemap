@@ -326,4 +326,131 @@ func testKeyCodeToSymbolicStringAlphanumericRoundtrip() {
         XCTAssertEqual(Config.cellStyleName(.thumbnails), "thumbnails")
         XCTAssertEqual(Config.cellStyleName(.simple), "simple")
     }
+
+    // MARK: - HotkeyConfig
+
+    func testHotkeyConfigDefault() {
+        let hk = HotkeyConfig.default
+        XCTAssertEqual(hk.keyCode, 121)
+        XCTAssertTrue(hk.modifiers.contains(.maskControl))
+        XCTAssertFalse(hk.isDisabled)
+    }
+
+    func testHotkeyConfigNoneIsDisabled() {
+        let hk = HotkeyConfig(key: .none, modifiers: [])
+        XCTAssertTrue(hk.isDisabled)
+        XCTAssertNil(hk.keyCode)
+        XCTAssertNil(hk.mediaKey)
+    }
+
+    func testHotkeyConfigMediaKey() {
+        let hk = HotkeyConfig(key: .mediaKey(.playPause), modifiers: .maskCommand)
+        XCTAssertFalse(hk.isDisabled)
+        XCTAssertEqual(hk.mediaKey, .playPause)
+        XCTAssertNil(hk.keyCode)
+    }
+
+    // MARK: - HotkeyKey
+
+    func testHotkeyKeyEquatable() {
+        let a = HotkeyKey.keyCode(121)
+        let b = HotkeyKey.keyCode(121)
+        let c = HotkeyKey.keyCode(49)
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, c)
+    }
+
+    func testHotkeyKeyMediaKeyEquatable() {
+        let a = HotkeyKey.mediaKey(.playPause)
+        let b = HotkeyKey.mediaKey(.playPause)
+        let c = HotkeyKey.mediaKey(.nextTrack)
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, c)
+    }
+
+    // MARK: - MediaKey
+
+    func testMediaKeyAllCases() {
+        XCTAssertEqual(MediaKey.playPause.rawValue, "play-pause")
+        XCTAssertEqual(MediaKey.nextTrack.rawValue, "next-track")
+        XCTAssertEqual(MediaKey.previousTrack.rawValue, "previous-track")
+        XCTAssertEqual(MediaKey.volumeUp.rawValue, "volume-up")
+        XCTAssertEqual(MediaKey.volumeDown.rawValue, "volume-down")
+        XCTAssertEqual(MediaKey.mute.rawValue, "mute")
+        XCTAssertEqual(MediaKey.brightnessUp.rawValue, "brightness-up")
+        XCTAssertEqual(MediaKey.brightnessDown.rawValue, "brightness-down")
+    }
+
+    // MARK: - WindowDropFocusMode
+
+    func testWindowDropFocusModeNever() {
+        XCTAssertFalse(WindowDropFocusMode.never.shouldFocus(eventFlags: [], requiredModifier: .command))
+        XCTAssertFalse(WindowDropFocusMode.never.shouldFocus(eventFlags: [.maskCommand], requiredModifier: .command))
+    }
+
+    func testWindowDropFocusModeAlways() {
+        XCTAssertTrue(WindowDropFocusMode.always.shouldFocus(eventFlags: [], requiredModifier: .command))
+        XCTAssertTrue(WindowDropFocusMode.always.shouldFocus(eventFlags: [.maskCommand], requiredModifier: .command))
+    }
+
+    func testWindowDropFocusModeModifierWithNoModifier() {
+        XCTAssertFalse(WindowDropFocusMode.modifier.shouldFocus(eventFlags: [], requiredModifier: .command))
+    }
+
+    // MARK: - WindowDropFocusModifier
+
+    func testWindowDropFocusModifierEventFlags() {
+        XCTAssertEqual(WindowDropFocusModifier.command.eventFlag, .maskCommand)
+        XCTAssertEqual(WindowDropFocusModifier.function.eventFlag, .maskSecondaryFn)
+        XCTAssertEqual(WindowDropFocusModifier.option.eventFlag, .maskAlternate)
+        XCTAssertEqual(WindowDropFocusModifier.control.eventFlag, .maskControl)
+        XCTAssertEqual(WindowDropFocusModifier.shift.eventFlag, .maskShift)
+    }
+
+    // MARK: - HUDPosition
+
+    func testHUDPositionAllPresets() {
+        XCTAssertEqual(HUDPosition.allPresets, [.center, .top, .bottom])
+    }
+
+    func testHUDPositionCustomX() {
+        let pos = HUDPosition.custom(x: 0.5, y: 0.5)
+        if case .custom(let x, let y) = pos {
+            XCTAssertEqual(x, 0.5)
+            XCTAssertEqual(y, 0.5)
+        } else {
+            XCTFail("Expected custom position")
+        }
+    }
+
+    // MARK: - HUDPositionKind
+
+    func testHUDPositionKindFromPosition() {
+        XCTAssertEqual(HUDPositionKind(from: .center), .center)
+        XCTAssertEqual(HUDPositionKind(from: .top), .top)
+        XCTAssertEqual(HUDPositionKind(from: .bottom), .bottom)
+        XCTAssertEqual(HUDPositionKind(from: .custom(x: 0.5, y: 0.5)), .custom)
+    }
+
+    // MARK: - GridState focusedIndex equality
+
+    func testGridStateEqualityIgnoresNonFocusedFields() {
+        let state1 = GridState(
+            config: .default,
+            spaces: [],
+            windows: [],
+            displayBounds: .zero,
+            focusedIndex: 1,
+            displays: []
+        )
+        let state2 = GridState(
+            config: .default,
+            spaces: [YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil)],
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            focusedIndex: 1,
+            displays: []
+        )
+        XCTAssertEqual(state1, state2, "GridState equality only compares focusedIndex")
+    }
 }
