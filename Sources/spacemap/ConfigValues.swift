@@ -171,6 +171,6 @@ struct ConfigValues: ConfigValuesProtocol {
     }
 
     var gridConfig: GridConfig {
-        gridConfig
+        toGridConfig().config
     }
 }
