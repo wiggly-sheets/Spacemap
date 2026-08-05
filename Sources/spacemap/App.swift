@@ -8,24 +8,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var hotkey: HotkeyMonitor?
     private var pinnedHotkey: HotkeyMonitor?
     private var socketListener: SocketListener?
-    private var statusItem: NSStatusItem?
     private var settingsObserver: NSObjectProtocol?
     private var settingsWindowObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
     private var aboutWindowController: AboutWindowController?
-    private var menubarRefreshWorkItem: DispatchWorkItem?
-    private var menubarRefreshGeneration = 0
     private var isReadyForDeepLinks = false
     private var pendingDeepLinks: [DeepLinkAction] = []
     private lazy var sparkleUpdaterController: SPUStandardUpdaterController = {
-        print("Spacemap: Initializing Sparkle updater controller")
-        let controller = SPUStandardUpdaterController(
-            startingUpdater: false,
-            updaterDelegate: self,
-            userDriverDelegate: nil
-        )
-        print("Spacemap: Sparkle updater controller initialized")
-        return controller
+        services.sparkleController
     }()
 
     init(services: SpacemapServices = SpacemapServices()) {
@@ -69,34 +59,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // on macOS setups where /usr/local is root-owned.
         ensureCommandLineTools(allowAuthorizationPrompt: true)
         
-        setupMenubar()
+        services.setupMenubar()
         isReadyForDeepLinks = true
-        handlePendingDeepLinks()
-        
+        services.handlePendingDeepLinks()
+
         // Trigger Sparkle initialization early so updater starts on launch
-        _ = sparkleUpdaterController
+        _ = services.sparkleController
 
         // Delay slightly so TCC/LaunchServices finishes registering the app
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             Config.silentMode = true
-            let config = Config.load()
+            let config = services.currentConfig
             self.currentConfig = config
             self.hud.reloadConfig()
             self.hud.prewarmState()
             self.restartHotkey(config: config)
             self.applyMenubarVisibility(config: config)
             self.refreshMenubarPreview(config: config)
-            self.hud.onShowSettings = { [weak self] in self?.showSettingsWindow() }
-            self.socketListener = SocketListener(
+            self.hud.onShowSettings = { [weak self] in self?.services.showSettingsWindow() }
+            self.socketListener = services.makeSocketListener(
                 socketPath: SpacemapCommand.socketPath,
                 healthInterval: config.socketHealthInterval,
                 onRefresh: { [weak self] in
                     self?.hud.refresh()
-                    self?.refreshMenubarPreview()
+                    self?.services.refreshMenubarPreview()
                 },
                 onShow: { [weak self] in
                     self?.hud.show()
-                    self?.refreshMenubarPreview()
+                    self?.services.refreshMenubarPreview()
                 },
                 onToggle: { [weak self] in self?.hud.toggle() },
                 onSettings: { [weak self] in self?.showSettingsWindow() }
@@ -116,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             ) { [weak self] _ in
                 guard let self = self else { return }
                 Config.silentMode = true
-                let config = Config.load()
+                let config = services.currentConfig
                 let shouldUpdateYabaiSignals =
                     self.currentConfig?.showHUDOnSpaceChange != config.showHUDOnSpaceChange ||
                     self.currentConfig.map { self.workspacePreviewsEnabled(for: $0) } !=
@@ -125,9 +115,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                         self.windowGeometryPreviewsEnabled(for: config)
                 self.currentConfig = config
                 self.hud.reloadConfig()
-                self.restartHotkey(config: config)
-                self.applyMenubarVisibility(config: config)
-                self.refreshMenubarPreview(config: config)
+                self.services.restartHotkey(config: config)
+                self.services.applyMenubarVisibility(config: config)
+                self.services.refreshMenubarPreview(config: config)
                 if shouldUpdateYabaiSignals {
                     services.yabaiService.registerSignals(
                         socketPath: SpacemapCommand.socketPath,
@@ -138,16 +128,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 }
             }
 
-            self.configureSparkleUpdater(updateMode: config.updateMode)
+            self.services.configureSparkleUpdater(updateMode: config.updateMode)
         }
         #if !DEBUG
         if args.contains("--show-menu") {
             // Show menu and continue running
-            self.showMenubarMenu()
+            self.services.showMenubarMenu()
         }
         if args.contains("--settings") {
             // Show settings window and continue running
-            self.showSettingsWindow()
+            self.services.showSettingsWindow()
         }
         #endif
     }
@@ -199,8 +189,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         case .menu:
             showMenubarMenu()
         case .config:
-            _ = Config.load()
-            NSWorkspace.shared.open(URL(fileURLWithPath: Config.configPath))
+            _ = services.currentConfig
+            NSWorkspace.shared.open(URL(fileURLWithPath: services.configPath))
         case .themes:
             services.themeService.reload()
             NSWorkspace.shared.open(ThemeManager.themesDir())
@@ -208,26 +198,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func showMenubarMenu() {
-        let hideAfterClosing = currentConfig?.hideMenuBarIcon ?? Config.load().hideMenuBarIcon
-        if statusItem == nil {
-            setupMenubar()
-        }
-        statusItem?.button?.performClick(nil)
-        if hideAfterClosing {
-            statusItem?.isVisible = false
-            statusItem = nil
-        }
+        services.showMenubarMenu()
     }
 
     private func applyMenubarVisibility(config: GridConfig) {
-        if config.hideMenuBarIcon {
-            if let item = statusItem {
-                item.isVisible = false
-            }
-            statusItem = nil
-        } else if statusItem == nil {
-            setupMenubar()
-        }
+        services.applyMenubarVisibility(config: config)
     }
 
     private func workspacePreviewsEnabled(for config: GridConfig) -> Bool {
@@ -239,160 +214,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func refreshMenubarPreview(config: GridConfig? = nil) {
-        let config = config ?? currentConfig ?? Config.load()
-        guard let item = statusItem else { return }
-        menubarRefreshGeneration += 1
-        let generation = menubarRefreshGeneration
-        menubarRefreshWorkItem?.cancel()
-
-        if config.menuBarDisplayMode == .icon {
-            self.services.applyMenubarIcon(to: item)
-            return
-        }
-
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            DispatchQueue.global(qos: .utility).async {
-                let state = self.services.yabaiService.buildGridState(config: config, focusedIndex: nil)
-                DispatchQueue.main.async {
-                    guard generation == self.menubarRefreshGeneration,
-                          let currentItem = self.statusItem else { return }
-                    if let image = MenuBarPreviewRenderer.image(for: state) {
-                        currentItem.length = image.size.width + 8
-                        currentItem.button?.image = image
-                        currentItem.button?.imageScaling = .scaleProportionallyDown
-                        currentItem.button?.toolTip = NSLocalizedString("Spacemap workspace preview", comment: "")
-                    } else {
-                        self.services.applyMenubarIcon(to: currentItem)
-                    }
-                }
-            }
-        }
-        menubarRefreshWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
+        services.refreshMenubarPreview(config: config)
     }
 
     private func applyMenubarIcon(to item: NSStatusItem) {
-        item.length = NSStatusItem.squareLength
-        item.button?.image = NSImage(
-            systemSymbolName: "square.grid.3x3",
-            accessibilityDescription: "Spacemap"
-        )
-        item.button?.imageScaling = .scaleProportionallyDown
-        item.button?.toolTip = "Spacemap"
+        services.applyMenubarIcon(to: item)
     }
 
     private func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String {
-        switch hotkey.key {
-        case .none:
-            return "None"
-        case .mediaKey(let mediaKey):
-            var parts: [String] = []
-            if hotkey.modifiers.contains(.maskControl) { parts.append("⌃") }
-            if hotkey.modifiers.contains(.maskCommand) { parts.append("⌘") }
-            if hotkey.modifiers.contains(.maskAlternate) { parts.append("⌥") }
-            if hotkey.modifiers.contains(.maskShift) { parts.append("⇧") }
-            parts.append(mediaKey.rawValue)
-            return parts.joined(separator: "+")
-        case .keyCode(let keyCode):
-            var parts: [String] = []
-            if hotkey.modifiers.contains(.maskControl) { parts.append("⌃") }
-            if hotkey.modifiers.contains(.maskCommand) { parts.append("⌘") }
-            if hotkey.modifiers.contains(.maskAlternate) { parts.append("⌥") }
-            if hotkey.modifiers.contains(.maskShift) { parts.append("⇧") }
-            switch keyCode {
-            case 121: parts.append("PgDn")
-            case 116: parts.append("PgUp")
-            case 49:  parts.append("Space")
-            case 48:  parts.append("Tab")
-            case 36:  parts.append("Return")
-            case 53:  parts.append("Esc")
-            case 51:  parts.append("Del")
-            case 123: parts.append("←")
-            case 124: parts.append("→")
-            case 125: parts.append("↓")
-            case 126: parts.append("↑")
-            default:  parts.append("?")
-            }
-            return parts.joined(separator: "+")
-        }
+        services.hotkeyMenuString(hotkey)
     }
 
-    private func setupMenubar() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        self.services.applyMenubarIcon(to: item)
-        let config = currentConfig ?? Config.load()
-        let menu = NSMenu()
-        let hotkeyLabel = self.services.hotkeyMenuString(config.hotkey)
-        menu.addItem(menuItem(
-            title: String(format: NSLocalizedString("Show/Hide Map (%@)", comment: ""), hotkeyLabel),
-            action: #selector(toggleHUD),
-            symbolName: "square.grid.3x3"
-        ))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(menuItem(
-            title: NSLocalizedString("About Spacemap", comment: ""),
-            action: #selector(showAboutWindow),
-            symbolName: "info.circle"
-        ))
-        menu.addItem(menuItem(
-            title: NSLocalizedString("Settings...", comment: ""),
-            action: #selector(showSettingsWindow),
-            keyEquivalent: ",",
-            symbolName: "command"
-        ))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(menuItem(
-            title: NSLocalizedString("Open Accessibility Permissions (for hotkeys)", comment: ""),
-            action: #selector(openAccessibility),
-            symbolName: "accessibility"
-        ))
-        menu.addItem(menuItem(
-            title: NSLocalizedString("Open Screen Recording Permissions (for thumbnails)", comment: ""),
-            action: #selector(openScreenRecording),
-            symbolName: "rectangle.inset.filled"
-        ))
-        menu.addItem(menuItem(
-            title: NSLocalizedString("Install CLI and Man Page…", comment: ""),
-            action: #selector(installCommandLineTools),
-            symbolName: "terminal"
-        ))
-        menu.addItem(NSMenuItem.separator())
-        // Launch at Login
-        let launchAtLoginItem = menuItem(
-            title: NSLocalizedString("Launch at Login", comment: ""),
-            action: #selector(toggleLaunchAtLogin),
-            symbolName: "power"
-        )
-        launchAtLoginItem.tag = 1001
-        let isEnabled = SMAppService.mainApp.status == .enabled
-        if isEnabled {
-            launchAtLoginItem.state = .on
-        }
-        menu.addItem(launchAtLoginItem)
-        menu.addItem(menuItem(
-            title: NSLocalizedString("Check for Updates...", comment: ""),
-            action: #selector(checkForUpdates),
-            symbolName: "arrow.down.circle"
-        ))
-        menu.addItem(NSMenuItem.separator())
-        let restartItem = menuItem(
-            title: NSLocalizedString("Restart Spacemap", comment: ""),
-            action: #selector(restartApp),
-            keyEquivalent: "r",
-            symbolName: "arrow.triangle.2.circlepath"
-        )
-        restartItem.keyEquivalentModifierMask = .command
-        menu.addItem(restartItem)
-        menu.addItem(menuItem(
-            title: NSLocalizedString("Quit Spacemap", comment: ""),
-            action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q",
-            symbolName: "xmark.circle"
-        ))
-        item.menu = menu
-        statusItem = item
-        refreshMenubarPreview(config: config)
+private func setupMenubar() {
+        services.setupMenubar()
     }
 
     private func menuItem(
@@ -430,8 +264,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc func checkForUpdates() {
-        print("Spacemap: Check for updates clicked")
-        sparkleUpdaterController.checkForUpdates(nil)
+        services.checkForUpdates()
     }
 
     @objc private func showAboutWindow() {
@@ -645,10 +478,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             updateMode = .off
         }
 
-        var config = Config.load()
+        var config = services.currentConfig
         config.updateMode = updateMode
-        Config.saveConfig(config)
-        configureSparkleUpdater(updateMode: updateMode)
+        services.appConfig.save(config)
+        services.configureSparkleUpdater(updateMode: updateMode)
     }
 
     private func showYabaiAlert() {
@@ -848,29 +681,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
 private func configureSparkleUpdater(updateMode: UpdateMode) {
-print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
-        let updater = sparkleUpdaterController.updater
-        print("Spacemap: Updater feed URL: \(String(describing: updater.feedURL))")
-        print("Spacemap: Current auto-check setting: \(updater.automaticallyChecksForUpdates)")
-        print("Spacemap: Current auto-download setting: \(updater.automaticallyDownloadsUpdates)")
-        
-        switch updateMode {
-        case .auto:
-            updater.automaticallyDownloadsUpdates = true
-            updater.automaticallyChecksForUpdates = true
-        case .notify:
-            updater.automaticallyDownloadsUpdates = false
-            updater.automaticallyChecksForUpdates = true
-        case .off:
-            updater.automaticallyChecksForUpdates = false
-        }
-        
-        print("Spacemap: After config - auto-check: \(updater.automaticallyChecksForUpdates), auto-download: \(updater.automaticallyDownloadsUpdates)")
-        
-        // startUpdater is idempotent — no-ops if already started
-        if updateMode != .off {
-            sparkleUpdaterController.startUpdater()
-        }
+        services.configureSparkleUpdater(updateMode: updateMode)
     }
 
     // MARK: - SPUUpdaterDelegate
