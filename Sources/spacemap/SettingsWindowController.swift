@@ -3,7 +3,7 @@ import SwiftUI
 
 class SettingsWindowController: NSWindowController {
     convenience init(yabaiService: YabaiService) {
-        let hostingController = NSHostingController(rootView: SettingsView(yabaiService: yabaiService))
+        let hostingController = NSHostingController(rootView: SettingsView())
         let windowRect = NSRect(x: 0, y: 0, width: 520, height: 850)
         let window = NSWindow(
             contentRect: windowRect,
@@ -21,7 +21,7 @@ class SettingsWindowController: NSWindowController {
         window.setFrame(windowRect, display: true)
         self.init(window: window)
     }
-    
+
     func showWindow() {
         super.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)

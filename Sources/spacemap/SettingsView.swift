@@ -130,7 +130,7 @@ struct SettingsView: View {
     }
 
 init() {
-        let config = ConfigReader.load()
+        let config = Config.load()
         _cols = State(initialValue: config.cols)
         _rows = State(initialValue: config.rows)
         _cellStyle = State(initialValue: config.cellStyle)
@@ -189,8 +189,8 @@ init() {
             cols: cols,
             rows: rows,
             cellStyle: cellStyle,
-            hotkey: ConfigReader.parseHotkey(hotkeyString) ?? GridConfig.default.hotkey,
-            pinnedHotkey: ConfigReader.parseHotkey(pinnedHotkeyString) ?? GridConfig.default.pinnedHotkey,
+            hotkey: Config.parseHotkey(hotkeyString) ?? GridConfig.default.hotkey,
+            pinnedHotkey: Config.parseHotkey(pinnedHotkeyString) ?? GridConfig.default.pinnedHotkey,
             socketHealthInterval: socketHealthInterval,
             uiScale: uiScale,
             autoHideTimeout: autoHideTimeout,
@@ -223,7 +223,7 @@ init() {
             showHUDOnSpaceChange: showHUDOnSpaceChange,
             updateMode: updateMode
         )
-        ConfigReader.saveConfig(config)
+        Config.saveConfig(config)
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
@@ -302,7 +302,7 @@ init() {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .settingsChanged)) { _ in
-            let config = ConfigReader.load()
+            let config = Config.load()
             lastCustomHUDX = config.customHUDX
             lastCustomHUDY = config.customHUDY
         }
@@ -332,6 +332,6 @@ init() {
     }
 
     static func hotkeyStringFrom(_ hotkey: HotkeyConfig) -> String {
-        return ConfigReader.hotkeyToString(hotkey)
+        return Hotkey.hotkeyToString(hotkey)
     }
 }

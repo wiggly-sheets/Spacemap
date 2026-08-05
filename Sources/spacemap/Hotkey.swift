@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import AppKit
 
 public enum Hotkey {
 
@@ -220,6 +221,21 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
         case "brightness-down": return .brightnessDown
         default: return nil
         }
+    }
+
+    static func parseHotkeyFromEvent(_ event: NSEvent) -> HotkeyConfig {
+        var modifiers: CGEventFlags = []
+        if event.modifierFlags.contains(.control) { modifiers.insert(.maskControl) }
+        if event.modifierFlags.contains(.command) { modifiers.insert(.maskCommand) }
+        if event.modifierFlags.contains(.option) { modifiers.insert(.maskAlternate) }
+        if event.modifierFlags.contains(.shift) { modifiers.insert(.maskShift) }
+        if event.modifierFlags.contains(.function) { modifiers.insert(.maskSecondaryFn) }
+
+        let keyCode = event.keyCode
+        if keyCode > 0 {
+            return HotkeyConfig(key: .keyCode(keyCode), modifiers: modifiers)
+        }
+        return HotkeyConfig(key: .none, modifiers: [])
     }
 
 }

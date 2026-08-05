@@ -11,7 +11,7 @@ final class AlertsServiceImpl: AlertsService {
     private let process: ProcessProtocol
     private let workspace: WorkspaceProtocol
 
-    init(process: ProcessProtocol = Process(), workspace: WorkspaceProtocol = NSWorkspace.shared) {
+    init(process: ProcessProtocol = Process(), workspace: WorkspaceProtocol = NSWorkspace.shared as WorkspaceProtocol) {
         self.process = process
         self.workspace = workspace
     }

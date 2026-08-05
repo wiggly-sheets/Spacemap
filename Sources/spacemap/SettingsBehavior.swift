@@ -35,11 +35,11 @@ struct SettingsBehavior: View {
 
     var body: some View {
         Section(header: SettingsSectionHeader(title: "Behavior")) {
-            SettingsSharedViews.HotkeyRecorder(label: "Hotkey", hotkey: $hotkeyString)
+            HotkeyRecorder(label: "Hotkey", hotkey: $hotkeyString)
                 .onChange(of: hotkeyString) { _ in onSave() }
-            SettingsSharedViews.HotkeyRecorder(label: "Pinned HUD Hotkey", hotkey: $pinnedHotkeyString)
+            HotkeyRecorder(label: "Pinned HUD Hotkey", hotkey: $pinnedHotkeyString)
                 .onChange(of: pinnedHotkeyString) { _ in onSave() }
-            SettingsSharedViews.SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. Use a different shortcut from the normal hotkey.")
+            SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. Use a different shortcut from the normal hotkey.")
 
             Picker("HUD Position", selection: $hudPositionKind) {
                 Text("Center").tag(HUDPositionKind.center)
@@ -51,7 +51,7 @@ struct SettingsBehavior: View {
             .onChange(of: hudPositionKind) { _ in onSave() }
 
             if case .custom = hudPositionKind {
-                SettingsSharedViews.SettingsFootnote(text: "Drag the HUD to reposition. Position is saved automatically.")
+                SettingsFootnote(text: "Drag the HUD to reposition. Position is saved automatically.")
             }
 
             HStack {
@@ -75,7 +75,7 @@ struct SettingsBehavior: View {
                 }
                 .pickerStyle(.segmented)
                 .onChange(of: displayNavigationWrap) { _ in onSave() }
-                SettingsSharedViews.SettingsFootnote(text: displayNavigationWrap == .within
+                SettingsFootnote(text: displayNavigationWrap == .within
                     ? "Keeps navigation within the display containing the focused space."
                     : "Allows navigation to wrap from one display's spaces into another's.")
             }
@@ -99,19 +99,19 @@ struct SettingsBehavior: View {
                 .pickerStyle(.menu)
                 .onChange(of: focusSpaceOnWindowDropModifier) { _ in onSave() }
             }
-            SettingsSharedViews.SettingsFootnote(text: focusSpaceOnWindowDrop == .modifier
+            SettingsFootnote(text: focusSpaceOnWindowDrop == .modifier
                 ? "Switches to the destination only when the selected modifier is held while dropping."
                 : "Controls whether the destination space is focused after a dragged window is moved.")
 
             Toggle("Show HUD on Space Change", isOn: $showHUDOnSpaceChange)
                 .onChange(of: showHUDOnSpaceChange) { _ in onSave() }
-            SettingsSharedViews.SettingsFootnote(text: "Shows the HUD whenever yabai changes spaces, including changes triggered by skhd.")
+            SettingsFootnote(text: "Shows the HUD whenever yabai changes spaces, including changes triggered by skhd.")
 
             Toggle("Hide Menu Bar Icon", isOn: $hideMenuBarIcon)
                 .onChange(of: hideMenuBarIcon) { _ in onSave() }
 
             if hideMenuBarIcon {
-                SettingsSharedViews.SettingsFootnote(text: "Access settings by relaunching the app or pressing ⌘, while the HUD is open.")
+                SettingsFootnote(text: "Access settings by relaunching the app or pressing ⌘, while the HUD is open.")
             } else {
                 Picker("Menu Bar Display", selection: $menuBarDisplayMode) {
                     Text("Icon").tag(MenuBarDisplayMode.icon)
@@ -134,9 +134,9 @@ struct SettingsBehavior: View {
                 }
 
                 if menuBarDisplayMode == .dots {
-                    SettingsSharedViews.SettingsFootnote(text: "Shows the configured workspace grid as dots, highlighting the focused space.")
+                    SettingsFootnote(text: "Shows the configured workspace grid as dots, highlighting the focused space.")
                 } else if menuBarDisplayMode != .icon {
-                    SettingsSharedViews.SettingsFootnote(text: "Draws each space's live window layout in the menu bar. All spaces are shown full size in one horizontal row.")
+                    SettingsFootnote(text: "Draws each space's live window layout in the menu bar. All spaces are shown full size in one horizontal row.")
                 }
             }
 

@@ -93,13 +93,13 @@ struct HotkeyRecorder: View {
     }
 
     private func handleKeyDown(_ event: NSEvent) {
-        let hotkeyConfig = HotkeyConfig.from(event)
+        let hotkeyConfig = Hotkey.parseHotkeyFromEvent(event)
         hotkey = HotkeyRecorder.hotkeyStringFrom(hotkeyConfig, event: event)
         stopRecording()
     }
 
     private func handleFlagsChanged(_ event: NSEvent) {
-        let hotkeyConfig = HotkeyConfig.from(event)
+        let hotkeyConfig = Hotkey.parseHotkeyFromEvent(event)
         if hotkeyConfig.isDisabled {
             hotkey = "none"
             stopRecording()

@@ -11,12 +11,7 @@ final class MenubarManager {
         // currentConfig can be used if needed; currently not stored but passed to methods
     }
 
-    var statusItem: NSStatusItem? {
-        get { return self.statusItem }
-        set { self.statusItem = newValue }
-    }
-
-    func setupMenubarItem() {
+    func setupMenubar() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         self.services.applyMenubarIcon(to: item)
         self.statusItem = item
@@ -33,7 +28,7 @@ final class MenubarManager {
             }
             statusItem = nil
         } else if statusItem == nil {
-            setupMenubarItem()
+            setupMenubar()
         }
     }
 

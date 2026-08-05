@@ -11,10 +11,12 @@ struct SettingsAppearanceView: View {
 
     let onSave: () -> Void
 
+    private let themeManager = ThemeManager()
+
     var body: some View {
         Section(header: settingsSectionHeader("Appearance")) {
             Picker("Theme", selection: $theme) {
-                ForEach(ThemeManager.shared.allNames(), id: \.self) { name in
+                ForEach(themeManager.allNames(), id: \.self) { name in
                     Text(name.capitalized).tag(name)
                 }
             }
@@ -22,7 +24,7 @@ struct SettingsAppearanceView: View {
 
             HStack {
                 Button("Open Config File") {
-                    let url = URL(fileURLWithPath: ConfigReader.configPath)
+                    let url = URL(fileURLWithPath: AppConfig().configPath)
                     NSWorkspace.shared.open(url)
                 }
                 Button("Open Themes Folder") {
