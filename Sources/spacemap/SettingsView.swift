@@ -452,7 +452,7 @@ init(yabaiService: YabaiService) {
                 case .appearance:
                     Section(header: settingsSectionHeader("Appearance")) {
                         Picker("Theme", selection: $theme) {
-                            ForEach(ThemeManager.shared.allNames(), id: \.self) { name in
+                            ForEach(ThemeManager().allNames(), id: \.self) { name in
                                 Text(name.capitalized).tag(name)
                             }
                         }

@@ -103,7 +103,10 @@ final class HUDWindowControllerTests: XCTestCase {
     }
 
     private func makeHUDWindowController() -> HUDWindowController {
-        HUDWindowController(yabaiService: MockYabaiService())
+        HUDWindowController(services: SpacemapServices(
+            yabaiService: MockYabaiService(),
+            alertsService: Alerts() // Uses the Alerts typealias which is AlertsServiceImpl
+        ))
     }
 
     // MARK: - show()
