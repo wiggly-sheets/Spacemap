@@ -21,17 +21,21 @@ class HUDWindowController {
             _config = newValue
         }
     }
-    private var hoveredCell: Int? = nil
+    // Internal for test observability of navigation/jump flow.
+    var hoveredCell: Int? = nil
     // Snapshot of grid state taken when HUD opens; reused for hover rerenders so
     // the thumbnail layout doesn't flicker during a drag and cachedWindows stays stable.
-    private var currentState: GridState? = nil
+    var currentState: GridState? = nil
     // Persists while the HUD is hidden, allowing the next show to render its
     // complete grid immediately while yabai supplies a fresh snapshot.
     private var latestState: GridState? = nil
+
+    // Visual feedback for jump-to-space number entry
+    var displayNumber: Int? = nil
     private var autoHideTimer: Timer?
     private var pollTimer: Timer?
     private let dragHandler = WindowDragHandler()
-    private var lastFocusedSpaceIndex: Int? = nil
+    var lastFocusedSpaceIndex: Int? = nil
     private var isToggling = false   // prevents re-entry during toggle animations
     private var hostingView: NSHostingView<AnyView>?
     private var displayHostingViews: [Int: NSHostingView<AnyView>] = [:]
@@ -48,8 +52,14 @@ class HUDWindowController {
     private var refreshWorkItem: DispatchWorkItem?
     private var isFetching = false  // prevents concurrent fetches
     private var isPollingFocusedSpace = false
-    private var pendingFocusedSpaceIndex: Int?
-    private var pendingFocusDeadline: Date?
+    var pendingFocusedSpaceIndex: Int?
+    var pendingFocusDeadline: Date?
+
+    // Number entry for jump-to-space feature. The number-accumulation logic is
+    // internal (rather than private) so unit tests can drive the entry flow
+    // without a real window server connection.
+    var pendingNumber: String = ""
+    var numberEntryTimer: Timer?
     
     init() {
         dragHandler.onHoverCell = { [weak self] cell in
@@ -240,6 +250,7 @@ class HUDWindowController {
             displayBounds: NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440),
             focusedIndex: nil
         )
+        currentState = emptyState
         renderState(emptyState)
     }
 
@@ -313,6 +324,7 @@ class HUDWindowController {
         isPollingFocusedSpace = false
         pendingFocusedSpaceIndex = nil
         pendingFocusDeadline = nil
+        displayNumber = nil
         dragHandler.cellFrames = []
         dragHandler.cachedWindows = []
         dragHandler.focusedWindowIDAtOpen = nil
@@ -393,7 +405,7 @@ class HUDWindowController {
     }
 
     private func renderUnifiedState(_ state: GridState) {
-        let gridView = makeGridView(state: state, hoveredCell: hoveredCell)
+        let gridView = makeGridView(state: state, hoveredCell: hoveredCell, displayNumber: displayNumber)
         let size = gridView.idealSize
 
         if config.unifiedHUDVisibility == .all {
@@ -505,9 +517,10 @@ class HUDWindowController {
     private func makeGridView(
         state: GridState,
         hoveredCell: Int?,
+        displayNumber: Int? = nil,
         spaceIndices: [Int]? = nil
     ) -> GridView {
-        GridView(state: state, hoveredCell: hoveredCell, onSelect: { [weak self] index in
+        GridView(state: state, hoveredCell: hoveredCell, displayNumber: displayNumber, onSelect: { [weak self] index in
             YabaiClient.focusSpaceAsync(index)
             self?.hide()
         }, uiScale: config.uiScale, theme: config.theme, spaceIndices: spaceIndices)
@@ -830,6 +843,16 @@ class HUDWindowController {
             }
             return
         }
+
+        // Handle number keys for jump-to-space feature
+        if config.jumpToSpaceEnabled,
+           let number = Self.numberFromKeyCode(keyCode: keyCode, flags: flags) {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleNumberEntry(number)
+            }
+            return
+        }
+
         if let direction = Self.navigationDirection(
             keyCode: keyCode,
             flags: flags,
@@ -956,10 +979,10 @@ class HUDWindowController {
         switch config.multiMonitorHUDMode {
         case .unified:
             if let hostingView {
-                hostingView.rootView = AnyView(makeGridView(state: pendingState, hoveredCell: hoveredCell))
+                hostingView.rootView = AnyView(makeGridView(state: pendingState, hoveredCell: hoveredCell, displayNumber: displayNumber))
             } else if !displayHostingViews.isEmpty {
                 for hostingView in displayHostingViews.values {
-                    hostingView.rootView = AnyView(makeGridView(state: pendingState, hoveredCell: hoveredCell))
+                    hostingView.rootView = AnyView(makeGridView(state: pendingState, hoveredCell: hoveredCell, displayNumber: displayNumber))
                 }
             } else {
                 renderState(pendingState)
@@ -1008,5 +1031,111 @@ class HUDWindowController {
 
     private func quartzPoint(fromAppKit point: CGPoint) -> CGPoint {
         CGPoint(x: point.x, y: quartzMainScreenFrame.maxY - point.y)
+    }
+
+    // MARK: - Number Entry for Jump-to-Space
+
+    /// Extracts a number from a key event (0-9 from main keyboard or numpad)
+    static func numberFromKeyCode(keyCode: CGKeyCode, flags: CGEventFlags) -> Int? {
+        // Ignore modifier keys (except shift for numpad on some layouts)
+        // Like vim/arrow keys, number keys work without modifiers to avoid
+        // interfering with normal text input when HUD is visible
+        guard !flags.contains(.maskControl),
+              !flags.contains(.maskCommand),
+              !flags.contains(.maskAlternate) else { return nil }
+
+        // Main keyboard numbers (0-9)
+        switch keyCode {
+        case 18: return 1
+        case 19: return 2
+        case 20: return 3
+        case 21: return 4
+        case 23: return 5
+        case 22: return 6
+        case 26: return 7
+        case 28: return 8
+        case 25: return 9
+        case 29: return 0
+        default: break
+        }
+
+        // Numpad numbers (if available)
+        switch keyCode {
+        case 82: return 0
+        case 83: return 1
+        case 84: return 2
+        case 85: return 3
+        case 86: return 4
+        case 87: return 5
+        case 88: return 6
+        case 89: return 7
+        case 91: return 8
+        case 92: return 9
+        default: return nil
+        }
+    }
+
+    /// Handles entry of a number for jump-to-space feature
+    func handleNumberEntry(_ number: Int) {
+        // Append number to pending entry
+        pendingNumber.append("\(number)")
+
+        // Update display number for visual feedback
+        displayNumber = Int(pendingNumber)
+
+        // Reset or start the entry timer for all number entry
+        // This allows multi-digit space selection (e.g., "10" for space 10)
+        numberEntryTimer?.invalidate()
+        numberEntryTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            self.processPendingNumber()
+        }
+
+        // Provide immediate feedback (optional: could highlight the number in HUD)
+        NSLog("spacemap/HUD: number entry: \(pendingNumber)")
+    }
+
+    /// Processes the accumulated number and jumps to that space if valid
+    func processPendingNumber() {
+        defer {
+            pendingNumber = ""
+            displayNumber = nil // Clear display number after processing
+        }
+
+        guard let targetIndex = Int(pendingNumber), !pendingNumber.isEmpty else {
+            NSLog("spacemap/HUD: invalid number entry: \(pendingNumber)")
+            displayNumber = nil
+            return
+        }
+
+        guard let state = currentState else {
+            NSLog("spacemap/HUD: no current state for jump")
+            displayNumber = nil
+            return
+        }
+
+        // Validate that the space exists
+        let validSpaceIndices = state.spaces.map { $0.index }
+        guard validSpaceIndices.contains(targetIndex) else {
+            NSLog("spacemap/HUD: space \(targetIndex) does not exist")
+            displayNumber = nil
+            return
+        }
+
+        NSLog("spacemap/HUD: jumping to space \(targetIndex)")
+        jumpToSpace(index: targetIndex, in: state)
+    }
+
+    /// Jumps directly to the specified space index
+    func jumpToSpace(index: Int, in state: GridState) {
+        // Set pending focus to prevent race conditions with polling
+        pendingFocusedSpaceIndex = index
+        pendingFocusDeadline = Date().addingTimeInterval(1)
+
+        // Focus the space
+        YabaiClient.focusSpaceAsync(index)
+        lastFocusedSpaceIndex = index
+        renderPendingFocus(index, in: state)
+        resetAutoHideTimer()
     }
 }

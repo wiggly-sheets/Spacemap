@@ -200,6 +200,7 @@ struct GridConfig {
     var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
     var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
     var showHUDOnSpaceChange: Bool = false // show the HUD after any yabai space change
+    var jumpToSpaceEnabled: Bool = false // allow number keys to jump to spaces
     var updateMode: UpdateMode // auto | notify | off
 
     static let `default` = GridConfig(
@@ -217,6 +218,7 @@ struct GridConfig {
         customHUDY: 0.5, showExtraWindows: false,
         focusSpaceOnWindowDrop: .never, focusSpaceOnWindowDropModifier: .command,
         showHUDOnSpaceChange: false,
+        jumpToSpaceEnabled: false,
         updateMode: .notify
     )
 }
