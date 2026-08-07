@@ -7,51 +7,45 @@ final class MenubarHandlerTests: XCTestCase {
 
     func testHotkeyMenuStringNone() {
         let config = HotkeyConfig(key: .none, modifiers: [])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(config), "None")
+        XCTAssertEqual(makeHandler().hotkeyMenuString(config), "None")
     }
 
     func testHotkeyMenuStringKeyCodeNoModifier() {
         let config = HotkeyConfig(key: .keyCode(49), modifiers: [])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(config), "Space")
+        XCTAssertEqual(makeHandler().hotkeyMenuString(config), "Space")
     }
 
     func testHotkeyMenuStringKeyCodeWithModifier() {
         let config = HotkeyConfig(key: .keyCode(121), modifiers: .maskControl)
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(config), "⌃PgDn")
+        XCTAssertEqual(makeHandler().hotkeyMenuString(config), "⌃+PgDn")
     }
 
     func testHotkeyMenuStringKeyCodeWithMultipleModifiers() {
         let config = HotkeyConfig(key: .keyCode(0), modifiers: [.maskCommand, .maskShift])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(config), "⌘⇧a")
+        XCTAssertEqual(makeHandler().hotkeyMenuString(config), "⌘+⇧+?")
     }
 
     func testHotkeyMenuStringMediaKey() {
         let config = HotkeyConfig(key: .mediaKey(.playPause), modifiers: [.maskCommand])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(config), "⌘play-pause")
+        XCTAssertEqual(makeHandler().hotkeyMenuString(config), "⌘+play-pause")
     }
 
     func testHotkeyMenuStringArrowKeys() {
-        let leftConfig = HotkeyConfig(key: .keyCode(123), modifiers: [])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(leftConfig), "←")
-
-        let rightConfig = HotkeyConfig(key: .keyCode(124), modifiers: [])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(rightConfig), "→")
-
-        let upConfig = HotkeyConfig(key: .keyCode(126), modifiers: [])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(upConfig), "↑")
-
-        let downConfig = HotkeyConfig(key: .keyCode(125), modifiers: [])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(downConfig), "↓")
+        let handler = makeHandler()
+        XCTAssertEqual(handler.hotkeyMenuString(HotkeyConfig(key: .keyCode(123), modifiers: [])), "←")
+        XCTAssertEqual(handler.hotkeyMenuString(HotkeyConfig(key: .keyCode(124), modifiers: [])), "→")
+        XCTAssertEqual(handler.hotkeyMenuString(HotkeyConfig(key: .keyCode(126), modifiers: [])), "↑")
+        XCTAssertEqual(handler.hotkeyMenuString(HotkeyConfig(key: .keyCode(125), modifiers: [])), "↓")
     }
 
     func testHotkeyMenuStringUnknownKeyCode() {
         let config = HotkeyConfig(key: .keyCode(999), modifiers: [])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(config), "?")
+        XCTAssertEqual(makeHandler().hotkeyMenuString(config), "?")
     }
 
     func testHotkeyMenuStringHyperModifier() {
         let config = HotkeyConfig(key: .keyCode(36), modifiers: [.maskControl, .maskCommand, .maskAlternate, .maskShift])
-        XCTAssertEqual(MenubarHandler.hotkeyMenuString(config), "⌃⌘⌥⇧Return")
+        XCTAssertEqual(makeHandler().hotkeyMenuString(config), "⌃+⌘+⌥+⇧+Return")
     }
 
     // MARK: - workspacePreviewsEnabled
@@ -60,22 +54,19 @@ final class MenubarHandlerTests: XCTestCase {
         var config = GridConfig.default
         config.hideMenuBarIcon = false
         config.menuBarDisplayMode = .dots
-        let handler = makeHandler(config: config)
-        XCTAssertTrue(handler.services.yabaiService.workspacePreviewsEnabled(for: config))
+        XCTAssertTrue(makeHotkeyHandler().workspacePreviewsEnabled(for: config))
     }
 
     func testWorkspacePreviewsDisabledWhenMenuBarHidden() {
         var config = GridConfig.default
         config.hideMenuBarIcon = true
-        let handler = makeHandler(config: config)
-        XCTAssertFalse(handler.services.yabaiService.workspacePreviewsEnabled(for: config))
+        XCTAssertFalse(makeHotkeyHandler().workspacePreviewsEnabled(for: config))
     }
 
     func testWorkspacePreviewsDisabledWhenIconMode() {
         var config = GridConfig.default
         config.menuBarDisplayMode = .icon
-        let handler = makeHandler(config: config)
-        XCTAssertFalse(handler.services.yabaiService.workspacePreviewsEnabled(for: config))
+        XCTAssertFalse(makeHotkeyHandler().workspacePreviewsEnabled(for: config))
     }
 
     // MARK: - windowGeometryPreviewsEnabled
@@ -84,40 +75,39 @@ final class MenubarHandlerTests: XCTestCase {
         var config = GridConfig.default
         config.hideMenuBarIcon = false
         config.menuBarDisplayMode = .dots
-        let handler = makeHandler(config: config)
-        XCTAssertFalse(handler.services.yabaiService.windowGeometryPreviewsEnabled(for: config))
+        XCTAssertFalse(makeHotkeyHandler().windowGeometryPreviewsEnabled(for: config))
     }
 
     func testWindowGeometryPreviewsEnabledWhenNearbyMode() {
         var config = GridConfig.default
         config.hideMenuBarIcon = false
         config.menuBarDisplayMode = .nearby
-        let handler = makeHandler(config: config)
-        XCTAssertTrue(handler.services.yabaiService.windowGeometryPreviewsEnabled(for: config))
+        XCTAssertTrue(makeHotkeyHandler().windowGeometryPreviewsEnabled(for: config))
     }
 
     func testWindowGeometryPreviewsDisabledWhenMenuBarHidden() {
         var config = GridConfig.default
         config.hideMenuBarIcon = true
-        let handler = makeHandler(config: config)
-        XCTAssertFalse(handler.services.yabaiService.windowGeometryPreviewsEnabled(for: config))
+        XCTAssertFalse(makeHotkeyHandler().windowGeometryPreviewsEnabled(for: config))
     }
 
     // MARK: - Helpers
 
-    private func makeHandler(config: GridConfig) -> MenubarHandler {
+    private func makeHandler() -> MenubarHandler {
         MenubarHandler(
-            services: SpacemapServices(
-                yabaiService: MockYabaiService(),
-                alertsService: Alerts() // Uses the Alerts typealias which is AlertsServiceImpl
-            ),
+            yabaiService: MockYabaiService(),
             onToggleHUD: {},
             onShowAbout: {},
             onShowSettings: {},
             onInstallCLI: {},
             onCheckForUpdates: {},
             onRestartApp: {},
+            onGetConfig: { GridConfig.default },
             onSetLoginAtLogin: { _ in }
         )
+    }
+
+    private func makeHotkeyHandler() -> HotkeyHandler {
+        HotkeyHandler(hud: HUDWindowController(services: SpacemapServices(yabaiService: MockYabaiService())))
     }
 }
