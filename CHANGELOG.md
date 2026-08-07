@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [Unreleased]
+### Added
+- Add space jumps using number keys
 
+### Changed
+- Update Sparkle appcast
 
 ## [1.0.33] - 2026-08-05
 
