@@ -6,6 +6,7 @@ struct GridView: View {
     let onSelect: (Int) -> Void
     let uiScale: Double
     let theme: String
+    let displayNumber: Int? // For jump-to-space visual feedback
     
     private var isDarkMode: Bool {
         switch state.config.mode {
@@ -13,6 +14,10 @@ struct GridView: View {
         case .dark:  return true
         case .auto:  return NSApp.effectiveAppearance.name == .darkAqua
         }
+    }
+
+    private var textColor: Color {
+        isDarkMode ? Color.white : Color.black
     }
     
     // These values will be scaled by uiScale
@@ -44,6 +49,13 @@ struct GridView: View {
                         makeCell(for: spaceIndex, row: row)
                     }
                 }
+            }
+        }
+        .overlay(alignment: .center) {
+            if let displayNumber = displayNumber {
+                Text("\(displayNumber)")
+                    .font(.system(size: 96, weight: .bold))
+                    .foregroundColor(textColor.opacity(0.8))
             }
         }
         .padding(effectivePadding)
@@ -185,6 +197,7 @@ struct GridView: View {
     init(
         state: GridState,
         hoveredCell: Int?,
+        displayNumber: Int? = nil,
         onSelect: @escaping (Int) -> Void,
         uiScale: Double = 1.0,
         theme: String = "default",
@@ -192,6 +205,7 @@ struct GridView: View {
     ) {
         self.state = state
         self.hoveredCell = hoveredCell
+        self.displayNumber = displayNumber
         self.onSelect = onSelect
         self.uiScale = uiScale
         self.theme = theme

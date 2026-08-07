@@ -180,6 +180,8 @@ enum ConfigReader {
             repair = true
         }
 
+        let jumpToSpaceEnabled = value("jumpToSpaceEnabled", default: false)
+        if !silentMode { NSLog("spacemap/ConfigReader: jumpToSpaceEnabled decoded as \(jumpToSpaceEnabled) (default: false)") }
         let config = GridConfig(
             cols: valid(value("cols", default: defaults.cols), default: defaults.cols) { $0 > 0 },
             rows: valid(value("rows", default: defaults.rows), default: defaults.rows) { $0 > 0 },
@@ -216,6 +218,7 @@ enum ConfigReader {
             focusSpaceOnWindowDrop: resolvedWindowDropFocusMode ?? defaults.focusSpaceOnWindowDrop,
             focusSpaceOnWindowDropModifier: windowDropModifier ?? defaults.focusSpaceOnWindowDropModifier,
             showHUDOnSpaceChange: value("showHUDOnSpaceChange", default: defaults.showHUDOnSpaceChange),
+            jumpToSpaceEnabled: jumpToSpaceEnabled,
             updateMode: resolvedUpdateMode ?? defaults.updateMode
         )
         return (config, repair)
@@ -243,7 +246,7 @@ enum ConfigReader {
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
             "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange",
             "focusSpaceOnWindowDropModifier", "hideMenuBarIcon", "menuBarDisplayMode",
-            "menuBarNearbyCount", "updateMode"
+            "menuBarNearbyCount", "updateMode", "jumpToSpaceEnabled"
         ])
         flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows"])
 
@@ -743,7 +746,8 @@ enum ConfigReader {
             "hideMenuBarIcon = \(config.hideMenuBarIcon)",
             "menuBarDisplayMode = \(tomlString(config.menuBarDisplayMode.rawValue))",
             "menuBarNearbyCount = \(config.menuBarNearbyCount)",
-            "updateMode = \(tomlString(config.updateMode.rawValue))"
+            "updateMode = \(tomlString(config.updateMode.rawValue))",
+            "jumpToSpaceEnabled = \(config.jumpToSpaceEnabled)"
         ]
         appendHotkey(config.hotkey, section: "behavior.hotkey", to: &lines)
         appendHotkey(config.pinnedHotkey, section: "behavior.pinnedHotkey", to: &lines)

@@ -192,6 +192,18 @@ enum YabaiClient {
         _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)")
     }
 
+    // Test seam mirroring yabaiProcessCheck: tests can substitute a spy closure
+    // to verify a space-focus is issued without shelling out to yabai.
+    static var focusSpaceAsyncHook: ((Int) -> Void)? = nil
+
+    static func focusSpaceAsync(_ index: Int) {
+        if let hook = focusSpaceAsyncHook {
+            hook(index)
+            return
+        }
+        focusQueue.async { _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)") }
+    }
+
     @discardableResult
     static func focusSpace(_ target: SpaceFocusTarget) -> Bool {
         do {
@@ -201,10 +213,6 @@ enum YabaiClient {
             fputs("spacemap: \(error.localizedDescription)\n", stderr)
             return false
         }
-    }
-
-    static func focusSpaceAsync(_ index: Int) {
-        focusQueue.async { _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)") }
     }
     
     static func showSpacemap() {

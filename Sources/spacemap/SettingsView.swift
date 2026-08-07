@@ -142,6 +142,7 @@ struct SettingsView: View {
     @State private var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
     @State private var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
     @State private var showHUDOnSpaceChange: Bool = false
+    @State private var jumpToSpaceEnabled: Bool = false
     // Store last known custom HUD position to preserve it when switching between presets and custom
     @State private var lastCustomHUDX: Double = 0.5
     @State private var lastCustomHUDY: Double = 0.5
@@ -253,6 +254,7 @@ init() {
         _focusSpaceOnWindowDrop = State(initialValue: config.focusSpaceOnWindowDrop)
         _focusSpaceOnWindowDropModifier = State(initialValue: config.focusSpaceOnWindowDropModifier)
         _showHUDOnSpaceChange = State(initialValue: config.showHUDOnSpaceChange)
+        _jumpToSpaceEnabled = State(initialValue: config.jumpToSpaceEnabled)
         _spaceNameInputs = State(initialValue: config.spaceNames)
         _gridLayoutIndex = State(initialValue: findBestGridLayoutIndexFor(cols: config.cols, rows: config.rows, maxSpaces: config.maxSpaces))
         _updateMode = State(initialValue: config.updateMode)
@@ -308,6 +310,7 @@ init() {
             focusSpaceOnWindowDrop: focusSpaceOnWindowDrop,
             focusSpaceOnWindowDropModifier: focusSpaceOnWindowDropModifier,
             showHUDOnSpaceChange: showHUDOnSpaceChange,
+            jumpToSpaceEnabled: jumpToSpaceEnabled,
             updateMode: updateMode
         )
         ConfigReader.saveConfig(config)
@@ -553,6 +556,8 @@ init() {
                             .onChange(of: useArrowKeys) { _ in saveConfig() }
                         Toggle("Navigate with Vim Keys (hjkl)", isOn: $useVimKeys)
                             .onChange(of: useVimKeys) { _ in saveConfig() }
+                        Toggle("Jump to Space with Number Keys", isOn: $jumpToSpaceEnabled)
+                            .onChange(of: jumpToSpaceEnabled) { _ in saveConfig() }
 
                         if useArrowKeys || useVimKeys {
                             Picker("Display Navigation", selection: $displayNavigationWrap) {
