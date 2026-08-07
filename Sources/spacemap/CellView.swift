@@ -272,7 +272,16 @@ var body: some View {
         _ displayedWindows: [YabaiWindow],
         showMultiAppIcons: Bool
     ) -> [YabaiWindow] {
-        showMultiAppIcons ? displayedWindows : uniqueIconWindows(displayedWindows)
+        let sorted = displayedWindows.sorted {
+            if $0.cgFrame.minX == $1.cgFrame.minX {
+                if $0.cgFrame.minY == $1.cgFrame.minY {
+                    return $0.id < $1.id
+                }
+                return $0.cgFrame.minY < $1.cgFrame.minY
+            }
+            return $0.cgFrame.minX < $1.cgFrame.minX
+        }
+        return showMultiAppIcons ? sorted : uniqueIconWindows(sorted)
     }
 
     static func uniqueIconWindows(_ displayedWindows: [YabaiWindow]) -> [YabaiWindow] {

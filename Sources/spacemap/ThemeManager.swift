@@ -130,7 +130,7 @@ class ThemeManager {
         ]
     }
 
-    private static func hex(_ value: UInt32) -> String {
+    static func hex(_ value: UInt32) -> String {
         let s = String(value, radix: 16)
         return String(repeating: "0", count: max(0, 6 - s.count)) + s
     }
