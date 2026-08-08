@@ -18,6 +18,10 @@ class SettingsWindowController: NSWindowController {
         window.maxSize = NSSize(width: 800, height: 10000)
         window.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
+        window.setFrameUsingName("Settings Window")
+        if !window.frameAutosaveName.isEmpty {
+            window.setFrameAutosaveName("")
+        }
         window.setFrame(windowRect, display: true)
         self.init(window: window)
     }
