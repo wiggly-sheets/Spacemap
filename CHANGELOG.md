@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Redesigned the README with a visual project overview, install guide, feature tour, configuration reference, and troubleshooting flow.
 
+### Fixed
+- Keep menu-bar workspace dots responsive by skipping unnecessary window-geometry queries.
+- Release HUD keyboard capture and hide the HUD immediately when Accessibility permission is revoked.
+- Made CI icon-preload tests independent of the runner's installed apps.
+
 
 ## [1.0.36] - 2026-08-08
 

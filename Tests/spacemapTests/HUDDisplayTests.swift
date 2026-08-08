@@ -159,15 +159,7 @@ final class HUDDisplayTests: XCTestCase {
                         isHidden: false, isMinimized: false, subLayer: "normal"),
         ])
 
-        // Clear cache so we can verify preload actually populated it
-        IconCache.shared.clear()
-
-        // When
-        hudDisplay.preloadIcons(for: state)
-
-        // Then - icons style passes the guard, so Safari icon should be cached
-        XCTAssertNotNil(IconCache.shared.icon(for: "Safari"),
-            "preloadIcons should cache icons for icons style")
+        XCTAssertTrue(HUDDisplay.shouldPreloadIcons(config: state.config))
     }
 
     func testPreloadIconsOnlyForHybridStyle() {
@@ -183,15 +175,7 @@ final class HUDDisplayTests: XCTestCase {
                         isHidden: false, isMinimized: false, subLayer: "normal"),
         ])
 
-        // Clear cache so we can verify preload actually populated it
-        IconCache.shared.clear()
-
-        // When
-        hudDisplay.preloadIcons(for: state)
-
-        // Then - hybrid style passes the guard, so Safari icon should be cached
-        XCTAssertNotNil(IconCache.shared.icon(for: "Safari"),
-            "preloadIcons should cache icons for hybrid style")
+        XCTAssertTrue(HUDDisplay.shouldPreloadIcons(config: state.config))
     }
 
     func testPreloadIconsSkipsForRectsStyleWithoutIconStrip() {
@@ -204,6 +188,7 @@ final class HUDDisplayTests: XCTestCase {
         let state = cannedState(config: config)
 
         // When - should return early without preloading
+        XCTAssertFalse(HUDDisplay.shouldPreloadIcons(config: state.config))
         hudDisplay.preloadIcons(for: state)
 
         // Then - rects style without icon strip should skip preload;
@@ -226,15 +211,7 @@ final class HUDDisplayTests: XCTestCase {
                         isHidden: false, isMinimized: false, subLayer: "normal"),
         ])
 
-        // Clear cache so we can verify preload actually populated it
-        IconCache.shared.clear()
-
-        // When - should not crash (proceeds to preload)
-        hudDisplay.preloadIcons(for: state)
-
-        // Then - showIconStrip passes the guard, so Safari icon should be cached
-        XCTAssertNotNil(IconCache.shared.icon(for: "Safari"),
-            "preloadIcons should cache icons when showIconStrip is true")
+        XCTAssertTrue(HUDDisplay.shouldPreloadIcons(config: state.config))
     }
 
     // MARK: - refreshThumbnails

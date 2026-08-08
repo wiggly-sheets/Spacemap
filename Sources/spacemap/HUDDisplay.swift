@@ -118,11 +118,15 @@ final class HUDDisplay {
     }
 
     func preloadIcons(for state: GridState) {
-        guard currentConfig.cellStyle == .icons || currentConfig.cellStyle == .hybrid || currentConfig.showIconStrip else { return }
+        guard Self.shouldPreloadIcons(config: currentConfig) else { return }
         let visibleWindows = state.windows.filter {
             $0.shouldDisplay(showExtraWindows: currentConfig.showExtraWindows)
         }
         IconCache.shared.preload(appNames: visibleWindows.map(\.app))
+    }
+
+    static func shouldPreloadIcons(config: GridConfig) -> Bool {
+        config.cellStyle == .icons || config.cellStyle == .hybrid || config.showIconStrip
     }
 
     func refreshThumbnails(state: GridState, force: Bool = false) {

@@ -55,6 +55,8 @@ final class HUDInput {
     var onAutoHide: (() -> Void)?
     var onNumberEntry: ((Int?) -> Void)?
     var onPanelDragEnded: (() -> Void)?
+    var onAccessibilityRevoked: (() -> Void)?
+    private var didNotifyAccessibilityRevocation = false
     private var pendingNumber = ""
     private var numberEntryTimer: Timer?
 
@@ -279,7 +281,7 @@ final class HUDInput {
                 let input = Unmanaged<HUDInput>.fromOpaque(refcon).takeUnretainedValue()
                 guard AXIsProcessTrusted() else {
                     DispatchQueue.main.async {
-                        input.stopSettingsKeyMonitor()
+                        input.handleAccessibilityState(isTrusted: false)
                     }
                     return Unmanaged.passUnretained(event)
                 }
@@ -312,11 +314,22 @@ final class HUDInput {
     }
 
     func reconcileSettingsKeyMonitor() {
-        if AXIsProcessTrusted() {
+        handleAccessibilityState(isTrusted: AXIsProcessTrusted())
+    }
+
+    func handleAccessibilityState(isTrusted: Bool) {
+        if isTrusted {
+            didNotifyAccessibilityRevocation = false
             startSettingsKeyMonitor()
-        } else if keyboardEventTap != nil {
-            NSLog("spacemap/HUDInput: Accessibility revoked; releasing keyboard capture")
-            stopSettingsKeyMonitor()
+        } else {
+            if keyboardEventTap != nil {
+                NSLog("spacemap/HUDInput: Accessibility revoked; releasing keyboard capture")
+                stopSettingsKeyMonitor()
+            }
+            if isVisible, !didNotifyAccessibilityRevocation {
+                didNotifyAccessibilityRevocation = true
+                onAccessibilityRevoked?()
+            }
         }
     }
 

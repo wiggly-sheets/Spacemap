@@ -69,6 +69,19 @@ final class MenubarHandlerTests: XCTestCase {
         XCTAssertFalse(config.needsWorkspacePreviews)
     }
 
+    func testDotPreviewStateSkipsWindowGeometry() {
+        var config = GridConfig.default
+        config.menuBarDisplayMode = .dots
+        let spaces = [YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil)]
+
+        let state = MenubarHandler.dotPreviewState(config: config, spaces: spaces)
+
+        XCTAssertEqual(state.focusedIndex, 1)
+        XCTAssertEqual(state.spaces.count, 1)
+        XCTAssertEqual(state.spaces.first?.index, 1)
+        XCTAssertTrue(state.windows.isEmpty)
+    }
+
     // MARK: - windowGeometryPreviewsEnabled
 
     func testWindowGeometryPreviewsEnabledWhenDotsMode() {
