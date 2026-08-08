@@ -65,10 +65,10 @@ We're excited to have you contribute to Spacemap. This is a native macOS utility
 1. **Reproduce the issue** - document steps to trigger it
 2. **Fix the root cause** - don't bandage symptoms
 3. **Test thoroughly** - verify fix works in all scenarios
-4. **Update docs** - add notes to `TASKS.md` if needed
+4. **Update docs** - add notes to `DesignDocs/TASKS.md` if needed
 
 ### New Features
-1. **Check TASKS.md** - see if it's already planned
+1. **Check DesignDocs/TASKS.md** - see if it's already planned
 2. **Open an issue first** - describe the feature and get feedback
 3. **Start small** - minimal viable implementation
 4. **Test with yabai** - verify actual workspace interactions
@@ -129,7 +129,7 @@ swift test --filter ConfigTests   # Run a specific test class
 ## Getting Help
 
 - Check `DEVELOPER.md` for technical deep-dive
-- Check `TASKS.md` for roadmap and known issues
+- Check `DesignDocs/TASKS.md` for roadmap and known issues
 - Check `SUPPORT.md` for where to get help and what to include in a report
 - Check `README.md` for user-facing documentation
 

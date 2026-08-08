@@ -346,4 +346,237 @@ final class ModelTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - GridState display methods
+
+    func testDisplayIndexForMissingSpaceReturnsNil() {
+        let state = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: nil)
+        XCTAssertNil(state.displayIndex(forSpace: 99), "Unknown space should return nil")
+    }
+
+    func testDisplayBoundsForMissingSpaceReturnsFallback() {
+        let fallback = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let state = GridState(config: .default, spaces: [], windows: [], displayBounds: fallback, focusedIndex: nil)
+        XCTAssertEqual(state.displayBounds(forSpace: 99), fallback, "Unknown space should return displayBounds")
+    }
+
+    func testDisplayBoundsForSpaceWithDisplay() {
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 2, hasFocus: false, isVisible: true, label: nil),
+        ]
+        let displays = [
+            YabaiDisplay(index: 2, frame: .init(x: 1440, y: 0, w: 1920, h: 1080), hasFocus: false),
+        ]
+        let state = GridState(
+            config: .default,
+            spaces: spaces,
+            windows: [],
+            displayBounds: .zero,
+            focusedIndex: nil,
+            displays: displays
+        )
+        XCTAssertEqual(state.displayBounds(forSpace: 1), CGRect(x: 1440, y: 0, width: 1920, height: 1080))
+    }
+
+    func testPopulatedDisplayIndicesEmpty() {
+        let state = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: nil)
+        XCTAssertTrue(state.populatedDisplayIndices.isEmpty, "No spaces should mean no display indices")
+    }
+
+    func testPopulatedDisplayIndicesDeduplicatedAndSorted() {
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 2, hasFocus: false, isVisible: true, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 1, hasFocus: true, isVisible: true, label: nil),
+            YabaiSpace(id: 3, index: 3, display: 2, hasFocus: false, isVisible: true, label: nil),
+            YabaiSpace(id: 4, index: 4, display: 1, hasFocus: false, isVisible: true, label: nil),
+        ]
+        let state = GridState(config: .default, spaces: spaces, windows: [], displayBounds: .zero, focusedIndex: nil)
+        XCTAssertEqual(state.populatedDisplayIndices, [1, 2], "Should be deduplicated and sorted")
+    }
+
+    func testSpacesForDisplayEmpty() {
+        let state = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: nil)
+        XCTAssertTrue(state.spaces(forDisplay: 1).isEmpty, "No spaces should return empty array")
+    }
+
+    func testSpacesForDisplayFilteredAndSorted() {
+        let spaces = [
+            YabaiSpace(id: 1, index: 3, display: 1, hasFocus: false, isVisible: true, label: nil),
+            YabaiSpace(id: 2, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
+            YabaiSpace(id: 3, index: 2, display: 1, hasFocus: false, isVisible: true, label: nil),
+        ]
+        let state = GridState(config: .default, spaces: spaces, windows: [], displayBounds: .zero, focusedIndex: nil)
+        XCTAssertEqual(state.spaces(forDisplay: 1).map(\.index), [1, 2, 3], "Should be sorted by index")
+    }
+
+    func testSpacesForDisplayDifferentDisplay() {
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 2, hasFocus: false, isVisible: true, label: nil),
+        ]
+        let state = GridState(config: .default, spaces: spaces, windows: [], displayBounds: .zero, focusedIndex: nil)
+        XCTAssertEqual(state.spaces(forDisplay: 1).map(\.index), [1])
+        XCTAssertEqual(state.spaces(forDisplay: 2).map(\.index), [2])
+        XCTAssertTrue(state.spaces(forDisplay: 3).isEmpty)
+    }
+
+    func testWindowsForSpaceEmpty() {
+        let state = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: nil)
+        XCTAssertTrue(state.windows(forSpace: 1).isEmpty, "No windows should return empty array")
+    }
+
+    func testWindowsForSpaceGroupedCorrectly() {
+        let windows = [
+            YabaiWindow(id: 1, app: "A", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "normal"),
+            YabaiWindow(id: 2, app: "B", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "normal"),
+            YabaiWindow(id: 3, app: "C", space: 2, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "normal"),
+        ]
+        let state = GridState(config: .default, spaces: [], windows: windows, displayBounds: .zero, focusedIndex: nil)
+        XCTAssertEqual(state.windows(forSpace: 1).count, 2)
+        XCTAssertEqual(state.windows(forSpace: 2).count, 1)
+        XCTAssertEqual(state.windows(forSpace: 3).count, 0)
+    }
+
+    // MARK: - GridState initWithDisplays
+
+    func testGridStateWithDisplays() {
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
+        ]
+        let displays = [
+            YabaiDisplay(index: 1, frame: .init(x: 0, y: 0, w: 1440, h: 900), hasFocus: true),
+        ]
+        let state = GridState(
+            config: .default,
+            spaces: spaces,
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
+            focusedIndex: 1,
+            displays: displays
+        )
+        XCTAssertEqual(state.displays.count, 1)
+        XCTAssertEqual(state.displays.first?.index, 1)
+    }
+
+    // MARK: - YabaiWindow cgFrame
+
+    func testYabaiWindowCGFrame() {
+        let window = YabaiWindow(
+            id: 1,
+            app: "Test",
+            space: 1,
+            frame: .init(x: 100, y: 200, w: 300, h: 400),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        XCTAssertEqual(window.cgFrame, CGRect(x: 100, y: 200, width: 300, height: 400))
+    }
+
+    // MARK: - YabaiWindow shouldDisplay edge cases
+
+    func testShouldDisplayHiddenWindow() {
+        let window = YabaiWindow(
+            id: 1,
+            app: "Test",
+            space: 1,
+            frame: .init(x: 0, y: 0, w: 100, h: 100),
+            isHidden: true,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: true))
+    }
+
+    func testShouldDisplayMinimizedWindow() {
+        let window = YabaiWindow(
+            id: 1,
+            app: "Test",
+            space: 1,
+            frame: .init(x: 0, y: 0, w: 100, h: 100),
+            isHidden: false,
+            isMinimized: true,
+            subLayer: "normal"
+        )
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: true))
+    }
+
+    func testShouldDisplayZeroWidthWindow() {
+        let window = YabaiWindow(
+            id: 1,
+            app: "Test",
+            space: 1,
+            frame: .init(x: 0, y: 0, w: 0, h: 100),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: true))
+    }
+
+    func testShouldDisplayZeroHeightWindow() {
+        let window = YabaiWindow(
+            id: 1,
+            app: "Test",
+            space: 1,
+            frame: .init(x: 0, y: 0, w: 100, h: 0),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: true))
+    }
+
+    func testShouldDisplayNegativeSpace() {
+        let window = YabaiWindow(
+            id: 1,
+            app: "Test",
+            space: -1,
+            frame: .init(x: 0, y: 0, w: 100, h: 100),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: true))
+    }
+
+    func testShouldDisplayZeroIDWindow() {
+        let window = YabaiWindow(
+            id: 0,
+            app: "Test",
+            space: 1,
+            frame: .init(x: 0, y: 0, w: 100, h: 100),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: true))
+    }
+
+    func testShouldDisplayEmptyAppName() {
+        var window = YabaiWindow(
+            id: 1,
+            app: "",
+            space: 1,
+            frame: .init(x: 0, y: 0, w: 100, h: 100),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: true))
+        window.role = "AXWindow"
+        window.subrole = "AXStandardWindow"
+        window.isRootWindow = true
+        XCTAssertFalse(window.shouldDisplay(showExtraWindows: true), "Empty app name should still be filtered")
+    }
+
+    // MARK: - YabaiWindow equality
+
+    func testYabaiWindowEquality() {
+        let w1 = YabaiWindow(id: 1, app: "A", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "normal")
+        let w2 = YabaiWindow(id: 1, app: "A", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "normal")
+        let w3 = YabaiWindow(id: 2, app: "A", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "normal")
+        XCTAssertEqual(w1, w2, "Same fields should be equal")
+        XCTAssertNotEqual(w1, w3, "Different id should not be equal")
+    }
 }

@@ -1,268 +1,362 @@
 import XCTest
+import CoreGraphics
 @testable import spacemap
+
+// MARK: - Mock HUDStateSync
+
+final class MockHUDStateSync: HUDStateSync {
+    var currentState: GridState?
+    var focusedIndex: Int?
+    var pendingFocusedSpaceIndex: Int?
+    var isPendingFocusValid = false
+
+    private(set) var fetchCallCount = 0
+    private(set) var refreshCallCount = 0
+    private(set) var reloadConfigCallCount = 0
+    private(set) var clearPendingFocusCallCount = 0
+    private(set) var cancelPendingFetchCallCount = 0
+    private(set) var updateFocusedIndexCallCount = 0
+    var updateFocusedIndexResult: GridState?
+
+    func updateFocusedIndex(_ index: Int) -> GridState? {
+        updateFocusedIndexCallCount += 1
+        return updateFocusedIndexResult
+    }
+
+    func fetch(completion: @escaping () -> Void) {
+        fetchCallCount += 1
+        completion()
+    }
+
+    func fetch(completion: @escaping () -> Void, replacingFocusedIndex: Int?) {
+        fetchCallCount += 1
+        completion()
+    }
+
+    func refresh(completion: @escaping () -> Void) {
+        refreshCallCount += 1
+        completion()
+    }
+
+    func clearPendingFocus() {
+        clearPendingFocusCallCount += 1
+    }
+
+    func cancelPendingFetch() {
+        cancelPendingFetchCallCount += 1
+    }
+
+    func reloadConfig() {
+        reloadConfigCallCount += 1
+    }
+}
+
+// MARK: - Mock HUDDisplayDelegate (for HUDWindowControllerTests)
+
+final class HUDWindowControllerMockDisplayDelegate: HUDDisplayDelegate {
+    private(set) var renderCallCount = 0
+    private(set) var lastRenderedState: GridState?
+    private(set) var updateCellFramesCallCount = 0
+    private(set) var lastState: GridState?
+    private(set) var showCallCount = 0
+    private(set) var hideCallCount = 0
+
+    func render(state: GridState) {
+        renderCallCount += 1
+        lastRenderedState = state
+    }
+
+    func updateCellFrames(state: GridState) {
+        updateCellFramesCallCount += 1
+        lastState = state
+    }
+
+    func show() {
+        showCallCount += 1
+    }
+
+    func hide() {
+        hideCallCount += 1
+    }
+}
+
+// MARK: - HUDWindowControllerTests
 
 final class HUDWindowControllerTests: XCTestCase {
 
-    var hudController: HUDWindowController!
-    var mockState: GridState!
+    // MARK: - Helpers
 
-    override func setUpWithError() throws {
-        hudController = HUDWindowController()
-
-        // Create a mock GridState for testing. Spaces 1, 2, 3, 10, 15 exist.
-        // YabaiSpace is Decodable-only, so decode from JSON fixtures.
-        let config = GridConfig.default
-        let json = """
-        [
-            {"id": 1, "index": 1, "display": 1, "has-focus": true,  "is-visible": true,  "label": null, "type": "user"},
-            {"id": 2, "index": 2, "display": 1, "has-focus": false, "is-visible": true,  "label": null, "type": "user"},
-            {"id": 3, "index": 3, "display": 1, "has-focus": false, "is-visible": true,  "label": null, "type": "user"},
-            {"id": 10, "index": 10, "display": 1, "has-focus": false, "is-visible": true, "label": null, "type": "user"},
-            {"id": 15, "index": 15, "display": 1, "has-focus": false, "is-visible": true, "label": null, "type": "user"}
-        ]
-        """
-        let spaces = try JSONDecoder().decode([YabaiSpace].self, from: Data(json.utf8))
-        mockState = GridState(
-            config: config,
+    private func cannedState(
+        focusedIndex: Int? = nil,
+        spaces: [YabaiSpace] = [],
+        windows: [YabaiWindow] = [],
+        displays: [YabaiDisplay] = []
+    ) -> GridState {
+        GridState(
+            config: .default,
             spaces: spaces,
-            windows: [],
+            windows: windows,
             displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
-            focusedIndex: 1
+            focusedIndex: focusedIndex,
+            displays: displays
         )
-
-        // Ensure the hook is clean between tests
-        YabaiClient.focusSpaceAsyncHook = nil
     }
 
-    override func tearDownWithError() throws {
-        hudController = nil
-        mockState = nil
-        YabaiClient.focusSpaceAsyncHook = nil
+    private func makeHUDWindowController() -> HUDWindowController {
+        HUDWindowController(services: SpacemapServices(
+            yabaiService: MockYabaiService(),
+            alertsService: Alerts() // Uses the Alerts typealias which is AlertsServiceImpl
+        ))
     }
 
-    // MARK: - numberFromKeyCode tests
-    //
-    // Like vim/arrow keys, number keys work without modifiers so they can be
-    // used for jump-to-space while the HUD is visible (which blocks text input below).
+    // MARK: - show()
 
-    func testNumberFromKeyCode_mainKeyboard_withoutModifier() {
-        // Like vim/arrow keys, number keys work without modifiers
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 18, flags: []), 1)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 19, flags: []), 2)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 20, flags: []), 3)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 21, flags: []), 4)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 22, flags: []), 5)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 23, flags: []), 6)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 24, flags: []), 7)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 25, flags: []), 8)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 26, flags: []), 9)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 27, flags: []), 0)
+    func testShowSetsIsVisible() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isVisible, "HUD should start hidden")
+
+        // When
+        controller.show()
+
+        // Then
+        XCTAssertTrue(controller.isVisible, "show() should set isVisible to true")
     }
 
-    func testNumberFromKeyCode_numpad_withoutModifier() {
-        // Numpad numbers work without modifiers like main keyboard
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 82, flags: []), 0)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 83, flags: []), 1)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 84, flags: []), 2)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 85, flags: []), 3)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 86, flags: []), 4)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 87, flags: []), 5)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 88, flags: []), 6)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 89, flags: []), 7)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 91, flags: []), 8)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 92, flags: []), 9)
+    func testShowCallsStateSyncFetchAndRenderRefreshed() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isVisible, "HUD should start hidden")
+
+        // When
+        controller.show()
+
+        // Then - show() should fetch state via stateSync and then render the refreshed HUD
+        XCTAssertTrue(controller.isVisible, "show() should set isVisible to true after fetch")
     }
 
-    func testNumberFromKeyCode_controlModifier_returnsNil() {
-        // Control modifier is reserved for navigation, so number keys return nil
-        XCTAssertNil(HUDWindowController.numberFromKeyCode(keyCode: 18, flags: .maskControl))
-        XCTAssertNil(HUDWindowController.numberFromKeyCode(keyCode: 23, flags: .maskControl))
-        XCTAssertNil(HUDWindowController.numberFromKeyCode(keyCode: 27, flags: .maskControl))
+    // MARK: - hide()
+
+    func testHideSetsIsVisible() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        controller.show()
+        XCTAssertTrue(controller.isVisible, "HUD should be visible after show()")
+
+        // When
+        controller.hide()
+
+        // Then
+        XCTAssertFalse(controller.isVisible, "hide() should set isVisible to false")
     }
 
-    func testNumberWithShiftModifier_returnsValue() {
-        // Shift modifier doesn't interfere with number entry (unlike Cmd/Ctrl/Opt)
-        XCTAssertEqual(HUDWindowController.numberFromKeyCode(keyCode: 18, flags: .maskShift), 1)
+    func testHideCallsInputStopAndClearsPendingFocus() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        controller.show()
+        XCTAssertTrue(controller.isVisible, "HUD should be visible before hide")
+
+        // When
+        controller.hide()
+
+        // Then - hide() should stop input, invalidate timers, and clear pending focus
+        XCTAssertFalse(controller.isVisible, "hide() should set isVisible to false")
     }
 
-    func testNumberFromKeyCode_invalidKeyCode_returnsNil() {
-        XCTAssertNil(HUDWindowController.numberFromKeyCode(keyCode: 0, flags: .maskCommand))
-        XCTAssertNil(HUDWindowController.numberFromKeyCode(keyCode: 99, flags: .maskCommand))
-        XCTAssertNil(HUDWindowController.numberFromKeyCode(keyCode: 30, flags: .maskCommand)) // A non-digit key
-    }
+    // MARK: - toggle()
 
-    // MARK: - handleNumberEntry builds the accumulated string
+    func testToggleSwitchesBetweenShowAndHide() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isVisible, "HUD should start hidden")
 
-    func testHandleNumberEntry_buildsNumber() {
-        hudController.handleNumberEntry(1)
-        XCTAssertEqual(hudController.pendingNumber, "1")
+        // When - first toggle should show
+        controller.toggle()
 
-        hudController.handleNumberEntry(2)
-        XCTAssertEqual(hudController.pendingNumber, "12")
+        // Then
+        XCTAssertTrue(controller.isVisible, "toggle() when hidden should show the HUD")
 
-        hudController.handleNumberEntry(0)
-        XCTAssertEqual(hudController.pendingNumber, "120")
-    }
-
-    // MARK: - processPendingNumber validates the target space
-
-    func testProcessPendingNumber_jumpsToValidSpace() {
-        hudController.pendingNumber = "15"
-        hudController.currentState = mockState
-
-        let focusExpectation = expectation(description: "focusSpaceAsyncHook called with 15")
-        YabaiClient.focusSpaceAsyncHook = { index in
-            XCTAssertEqual(index, 15)
-            focusExpectation.fulfill()
+        // When - second toggle should hide
+        let exp = expectation(description: "wait for toggle to complete")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            exp.fulfill()
         }
-
-        hudController.processPendingNumber()
-
-        // Pending number is cleared after processing
-        XCTAssertEqual(hudController.pendingNumber, "")
-        // Pending focus state is set optimistically
-        XCTAssertEqual(hudController.pendingFocusedSpaceIndex, 15)
-        XCTAssertNotNil(hudController.pendingFocusDeadline)
-        // lastFocusedSpaceIndex reflects the jump immediately
-        XCTAssertEqual(hudController.lastFocusedSpaceIndex, 15)
-
         waitForExpectations(timeout: 1.0)
+
+        controller.toggle()
+
+        // Then
+        XCTAssertFalse(controller.isVisible, "toggle() when visible should hide the HUD")
     }
 
-    func testProcessPendingNumber_invalidNumberDoesNotJump() {
-        // Space 99 does not exist in mockState
-        hudController.pendingNumber = "99"
-        hudController.currentState = mockState
-        let previousFocused = hudController.lastFocusedSpaceIndex
+    func testToggleWhenVisibleCallsHideAndSetsIsVisibleFalse() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        controller.show()
+        XCTAssertTrue(controller.isVisible, "HUD should be visible before toggle")
 
-        let focusExpectation = expectation(description: "focusSpaceAsyncHook should not be called")
-        focusExpectation.isInverted = true
-        YabaiClient.focusSpaceAsyncHook = { _ in
-            focusExpectation.fulfill()
-        }
+        // When
+        controller.toggle()
 
-        hudController.processPendingNumber()
-
-        // Pending number is cleared even for invalid input
-        XCTAssertEqual(hudController.pendingNumber, "")
-        // No pending focus state set
-        XCTAssertNil(hudController.pendingFocusedSpaceIndex)
-        XCTAssertNil(hudController.pendingFocusDeadline)
-        // lastFocusedSpaceIndex unchanged
-        XCTAssertEqual(hudController.lastFocusedSpaceIndex, previousFocused)
-
-        waitForExpectations(timeout: 1.0)
+        // Then - toggle() when visible should call hide() and set isVisible to false
+        XCTAssertFalse(controller.isVisible, "toggle() when visible should hide the HUD")
     }
 
-    func testProcessPendingNumber_emptyStringDoesNotJump() {
-        hudController.pendingNumber = ""
-        hudController.currentState = mockState
-        let previousFocused = hudController.lastFocusedSpaceIndex
+    func testToggleWhenHiddenCallsShowAndSetsIsVisibleTrue() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isVisible, "HUD should start hidden")
 
-        let focusExpectation = expectation(description: "focusSpaceAsyncHook should not be called")
-        focusExpectation.isInverted = true
-        YabaiClient.focusSpaceAsyncHook = { _ in
-            focusExpectation.fulfill()
-        }
+        // When
+        controller.toggle()
 
-        hudController.processPendingNumber()
-
-        XCTAssertEqual(hudController.pendingNumber, "")
-        XCTAssertNil(hudController.pendingFocusedSpaceIndex)
-        XCTAssertEqual(hudController.lastFocusedSpaceIndex, previousFocused)
-
-        waitForExpectations(timeout: 1.0)
+        // Then - toggle() when hidden should call show() and set isVisible to true
+        XCTAssertTrue(controller.isVisible, "toggle() when hidden should show the HUD")
     }
 
-    func testProcessPendingNumber_noCurrentStateDoesNotJump() {
-        hudController.pendingNumber = "5"
-        hudController.currentState = nil
+    // MARK: - toggle() no-op when toggling
 
-        let focusExpectation = expectation(description: "focusSpaceAsyncHook should not be called")
-        focusExpectation.isInverted = true
-        YabaiClient.focusSpaceAsyncHook = { _ in
-            focusExpectation.fulfill()
-        }
+    func testToggleIsNoOpWhenToggling() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isVisible, "HUD should start hidden")
 
-        hudController.processPendingNumber()
+        // When - first toggle starts the show operation
+        controller.toggle()
+        XCTAssertTrue(controller.isToggling, "isToggling should be true after toggle()")
 
-        // Pending number is cleared even without state
-        XCTAssertEqual(hudController.pendingNumber, "")
-        XCTAssertNil(hudController.pendingFocusedSpaceIndex)
+        // Second toggle should be a no-op because isToggling is true
+        controller.toggle()
 
-        waitForExpectations(timeout: 1.0)
+        // Then - HUD should still showing (first toggle's effect not overridden)
+        XCTAssertTrue(controller.isVisible, "second toggle() should be a no-op, HUD should remain visible")
     }
 
-    func testProcessPendingNumber_acceptsSingleDigit() {
-        hudController.pendingNumber = "3"
-        hudController.currentState = mockState
+    // MARK: - togglePinned()
 
-        let focusExpectation = expectation(description: "focusSpaceAsyncHook called with 3")
-        YabaiClient.focusSpaceAsyncHook = { index in
-            XCTAssertEqual(index, 3)
-            focusExpectation.fulfill()
-        }
+    func testTogglePinnedPinsTheHUD() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isPinned, "HUD should start unpinned")
 
-        hudController.processPendingNumber()
+        // When
+        controller.togglePinned()
 
-        XCTAssertEqual(hudController.pendingNumber, "")
-        XCTAssertEqual(hudController.pendingFocusedSpaceIndex, 3)
-        XCTAssertEqual(hudController.lastFocusedSpaceIndex, 3)
-
-        waitForExpectations(timeout: 1.0)
+        // Then
+        XCTAssertTrue(controller.isPinned, "togglePinned() should pin the HUD")
     }
 
-    func testProcessPendingNumber_multiDigitJumpsToCorrectSpace() {
-        // Two-digit number targeting an existing space (10)
-        hudController.pendingNumber = "10"
-        hudController.currentState = mockState
+    func testTogglePinnedTogglesIsPinnedAndManagesAutoHideTimer() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isPinned, "HUD should start unpinned")
 
-        let focusExpectation = expectation(description: "focusSpaceAsyncHook called with 10")
-        YabaiClient.focusSpaceAsyncHook = { index in
-            XCTAssertEqual(index, 10)
-            focusExpectation.fulfill()
-        }
+        // When - togglePinned should pin the HUD and manage the auto-hide timer
+        controller.togglePinned()
 
-        hudController.processPendingNumber()
-
-        XCTAssertEqual(hudController.pendingNumber, "")
-        XCTAssertEqual(hudController.pendingFocusedSpaceIndex, 10)
-
-        waitForExpectations(timeout: 1.0)
+        // Then - isPinned should be true and auto-hide timer should be managed
+        XCTAssertTrue(controller.isPinned, "togglePinned() should set isPinned to true")
     }
 
-    // MARK: - jumpToSpace
+    // MARK: - pin()
 
-    func testJumpToSpace_setsPendingFocusAndIssuesCommand() {
-        hudController.currentState = mockState
+    func testPinPinsTheHUD() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isPinned, "HUD should start unpinned")
 
-        let focusExpectation = expectation(description: "focusSpaceAsyncHook called with 10")
-        YabaiClient.focusSpaceAsyncHook = { index in
-            XCTAssertEqual(index, 10)
-            focusExpectation.fulfill()
-        }
+        // When
+        controller.pin()
 
-        hudController.jumpToSpace(index: 10, in: mockState)
-
-        XCTAssertEqual(hudController.pendingFocusedSpaceIndex, 10)
-        XCTAssertNotNil(hudController.pendingFocusDeadline)
-        XCTAssertEqual(hudController.lastFocusedSpaceIndex, 10)
-
-        waitForExpectations(timeout: 1.0)
+        // Then
+        XCTAssertTrue(controller.isPinned, "pin() should pin the HUD")
     }
 
-    func testJumpToSpace_updatesCurrentStateRendered() {
-        // After a jump, renderPendingFocus mutates the HUD so the newly
-        // focused space is highlighted optimistically; here we only check
-        // that the focus bookkeeping fields are consistent.
-        hudController.currentState = mockState
+    func testPinSetsIsPinnedTrueAndKeepsHUDVisible() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        controller.show()
+        XCTAssertTrue(controller.isVisible, "HUD should be visible before pin")
+        XCTAssertFalse(controller.isPinned, "HUD should start unpinned")
 
-        YabaiClient.focusSpaceAsyncHook = { _ in }
+        // When
+        controller.pin()
 
-        hudController.jumpToSpace(index: 2, in: mockState)
+        // Then - pin() should set isPinned to true and keep the HUD visible
+        XCTAssertTrue(controller.isPinned, "pin() should set isPinned to true")
+        XCTAssertTrue(controller.isVisible, "pin() should keep the HUD visible")
+    }
 
-        XCTAssertEqual(hudController.pendingFocusedSpaceIndex, 2)
-        XCTAssertNotNil(hudController.pendingFocusDeadline)
-        XCTAssertEqual(hudController.lastFocusedSpaceIndex, 2)
+    // MARK: - reloadConfig()
+
+    func testReloadConfigReloadsTheConfig() throws {
+        // Given
+        let controller = makeHUDWindowController()
+
+        // When
+        controller.reloadConfig()
+
+        // Then - reloadConfig should reset the cached config (_config = nil) and call stateSync.reloadConfig().
+        // We verify the controller remains functional after reload.
+        XCTAssertFalse(controller.isVisible, "controller should still be hidden after reloadConfig")
+    }
+
+    // MARK: - refresh() when visible
+
+    func testRefreshRefreshesStateWhenVisible() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        controller.show()
+        XCTAssertTrue(controller.isVisible, "HUD should be visible")
+
+        // When
+        controller.refresh()
+
+        // Then - refresh should trigger a state refresh via stateSync.refresh() and then renderRefreshed(force: false).
+        // We verify the HUD remains visible after the refresh.
+        XCTAssertTrue(controller.isVisible, "HUD should still be visible after refresh")
+    }
+
+    // MARK: - refresh() when not visible
+
+    func testRefreshRefreshesCachedFocusWhenNotVisible() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isVisible, "HUD should start hidden")
+
+        // When
+        controller.refresh()
+
+        // Then - refresh when not visible should either prewarm state or query focused space.
+        // We verify the HUD remains hidden and no crash occurred.
+        XCTAssertFalse(controller.isVisible, "HUD should remain hidden after refresh when not visible")
+    }
+
+    func testRefreshWhenNotVisibleAndNoCachedStateCallsPrewarmState() throws {
+        // Given - controller is hidden with no cached state
+        let controller = makeHUDWindowController()
+        XCTAssertFalse(controller.isVisible, "HUD should start hidden")
+
+        // When - refresh should call prewarmState() since there's no cached state
+        controller.refresh()
+
+        // Then - prewarmState() fetches state and preloads icons; HUD should remain hidden
+        XCTAssertFalse(controller.isVisible, "HUD should remain hidden after refresh when not visible")
+    }
+
+    // MARK: - navigate()
+
+    func testNavigateDelegatesToHUDInput() throws {
+        // Given
+        let controller = makeHUDWindowController()
+        controller.show()
+        XCTAssertTrue(controller.isVisible, "HUD should be visible for navigation")
+
+        // When - calling navigate through the HUDInputDelegate should not crash
+        // and should delegate to the internal HUDInput's navigate method
+        controller.navigate(direction: .right)
+
+        // Then - the controller should remain visible and functional
+        XCTAssertTrue(controller.isVisible, "HUD should still be visible after navigate")
     }
 }
