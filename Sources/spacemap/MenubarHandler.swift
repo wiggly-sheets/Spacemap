@@ -152,7 +152,17 @@ class MenubarHandler {
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             DispatchQueue.global(qos: .utility).async {
-                let state = self.yabaiService.buildGridState(config: config, focusedIndex: nil)
+                let state: GridState
+                if config.menuBarDisplayMode == .dots {
+                    // Dots need only workspace identity and focus. Avoid querying every
+                    // window on each signal, which can queue previews behind yabai work.
+                    state = Self.dotPreviewState(
+                        config: config,
+                        spaces: (try? self.yabaiService.querySpaces()) ?? []
+                    )
+                } else {
+                    state = self.yabaiService.buildGridState(config: config, focusedIndex: nil)
+                }
                 DispatchQueue.main.async {
                     guard generation == self.menubarRefreshGeneration,
                           let currentItem = self.statusItem else { return }
@@ -169,6 +179,16 @@ class MenubarHandler {
         }
         menubarRefreshWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
+    }
+
+    static func dotPreviewState(config: GridConfig, spaces: [YabaiSpace]) -> GridState {
+        GridState(
+            config: config,
+            spaces: spaces,
+            windows: [],
+            displayBounds: NSScreen.main?.frame ?? .zero,
+            focusedIndex: spaces.first(where: \.hasFocus)?.index
+        )
     }
 
     func applyMenubarIcon(to item: NSStatusItem) {

@@ -149,6 +149,19 @@ final class HUDInputTests: XCTestCase {
         XCTAssertFalse(delegate.navigateCalled, "Delegate navigate should not be called when input is not visible")
         XCTAssertFalse(delegate.showSettingsCalled, "Delegate showSettings should not be called when input is not visible")
     }
+
+    func testAccessibilityRevocationClosesVisibleHUD() {
+        let hudInput = createHUDInput()
+        let revoked = expectation(description: "accessibility revocation")
+        hudInput.updateVisibility(true)
+        hudInput.onAccessibilityRevoked = { revoked.fulfill() }
+
+        // The callback is used by the controller to hide the HUD, so a revoked
+        // event tap cannot leave its non-activating panel over other apps.
+        hudInput.handleAccessibilityState(isTrusted: false)
+
+        wait(for: [revoked], timeout: 0.1)
+    }
     
     // MARK: - Config Tests
     

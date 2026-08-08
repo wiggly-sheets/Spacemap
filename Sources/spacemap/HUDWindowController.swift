@@ -38,6 +38,7 @@ class HUDWindowController {
         hudInput.onAutoHide = { [weak self] in self?.hide() }
         hudInput.onNumberEntry = { [weak self] number in self?.hudDisplay.updateDisplayNumber(number) }
         hudInput.onPanelDragEnded = { [weak self] in self?.hudDisplay.savePanelPosition() }
+        hudInput.onAccessibilityRevoked = { [weak self] in self?.hide() }
         dragHandler.onHoverCell = { [weak self] cell in
             guard let self, self.isVisible, let state = self.currentState else { return }
             self.hoveredCell = cell
