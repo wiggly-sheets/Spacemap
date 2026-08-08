@@ -3,28 +3,47 @@ import Cocoa
 // Detects when the user drags a real macOS window over the HUD.
 // Uses a passive global CGEventTap to track mouse position and NSWorkspace to
 // identify which app's window is being dragged.
-class WindowDragHandler {
+class WindowDragHandler: WindowDragService {
     var onHoverCell: ((Int?) -> Void)?      // called with cell spaceIndex or nil
-    var onDropInCell: ((Int, Int) -> Void)? // (windowID, spaceIndex)
+    var onDropInCell: ((Int, Int, CGEventFlags) -> Void)? // (windowID, spaceIndex, held modifiers)
 
+    private let yabaiService: YabaiService
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
-    // Set by HUDWindowController before the HUD becomes visible.
+    // Set via updateInput(_:) by HUDWindowController before the HUD becomes visible.
     // Frames are in Quartz global coordinates (top-left origin of the primary display).
     var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
     // Cached window list populated at HUD-open time.
-    var cachedWindows: [Window] = []
-    // The window that had focus when the HUD opened.
+    var cachedWindows: [YabaiWindow] = []
+    // The yabai window that had focus when the HUD opened.
     var focusedWindowIDAtOpen: Int? = nil
-    // WindowManager instance for querying window manager (yabai or aerospace)
-    weak var windowManager: WindowManager?
 
-    private var lastHoveredCell: Int? = nil
-    private var draggedWindowID: Int? = nil
-    private var dragStartPoint: CGPoint? = nil
-    private var frontmostAppAtMouseDown: String? = nil
-    private var isDragging = false
+    var lastHoveredCell: Int? = nil
+    var draggedWindowID: Int? = nil
+    var dragStartPoint: CGPoint? = nil
+    var frontmostAppAtMouseDown: String? = nil
+    var isDragging = false
+
+    var dragState: DragState {
+        guard dragStartPoint != nil else { return .idle }
+        return .dragging(
+            isDragging: isDragging,
+            draggedWindowID: draggedWindowID,
+            lastHoveredCell: lastHoveredCell,
+            frontmostAppAtMouseDown: frontmostAppAtMouseDown
+        )
+    }
+
+    init(yabaiService: YabaiService) {
+        self.yabaiService = yabaiService
+    }
+
+    func updateInput(_ input: WindowDragInput) {
+        cellFrames = input.cellFrames
+        cachedWindows = input.cachedWindows
+        focusedWindowIDAtOpen = input.focusedWindowIDAtOpen
+    }
 
     func start() {
         guard eventTap == nil else { return }
@@ -47,7 +66,7 @@ class WindowDragHandler {
                 switch type {
                 case .leftMouseDown:    handler.handleMouseDown(at: cgPoint)
                 case .leftMouseDragged: handler.handleDrag(at: cgPoint)
-                case .leftMouseUp:      handler.handleMouseUp(at: cgPoint)
+                case .leftMouseUp:      handler.handleMouseUp(at: cgPoint, modifiers: event.flags)
                 default: break
                 }
                 return nil
@@ -62,6 +81,10 @@ class WindowDragHandler {
         CGEvent.tapEnable(tap: tap, enable: true)
     }
 
+    deinit {
+        stop()
+    }
+
     func stop() {
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
@@ -74,7 +97,7 @@ class WindowDragHandler {
         reset()
     }
 
-    private func reset() {
+    func reset() {
         isDragging = false
         draggedWindowID = nil
         dragStartPoint = nil
@@ -82,7 +105,7 @@ class WindowDragHandler {
         frontmostAppAtMouseDown = nil
     }
 
-    private func handleMouseDown(at cgPoint: CGPoint) {
+    func handleMouseDown(at cgPoint: CGPoint) {
         dragStartPoint = cgPoint
         isDragging = false
         draggedWindowID = nil
@@ -91,7 +114,7 @@ class WindowDragHandler {
         frontmostAppAtMouseDown = NSWorkspace.shared.frontmostApplication?.localizedName
     }
 
-    private func handleDrag(at cgPoint: CGPoint) {
+    func handleDrag(at cgPoint: CGPoint) {
         guard !cellFrames.isEmpty else { return }
 
         if !isDragging {
@@ -108,7 +131,7 @@ class WindowDragHandler {
         }
     }
 
-    private func handleMouseUp(at cgPoint: CGPoint) {
+    func handleMouseUp(at cgPoint: CGPoint, modifiers: CGEventFlags) {
         defer { reset() }
         guard isDragging,
               let cell = cellSpaceIndex(forCG: cgPoint),
@@ -120,11 +143,11 @@ class WindowDragHandler {
         }
         DispatchQueue.main.async { [weak self] in
             self?.onHoverCell?(nil)
-            self?.onDropInCell?(windowID, cell)
+            self?.onDropInCell?(windowID, cell, modifiers)
         }
     }
 
-    private func cellSpaceIndex(forCG cgPoint: CGPoint) -> Int? {
+    func cellSpaceIndex(forCG cgPoint: CGPoint) -> Int? {
         for entry in cellFrames where entry.frame.contains(cgPoint) {
             return entry.spaceIndex
         }
@@ -140,27 +163,14 @@ class WindowDragHandler {
     // Identify the window being dragged using frontmost app at mouseDown time.
     // For apps with multiple windows, prefer the one focused when the HUD opened,
     // falling back to closest by position.
-    private func findDraggedWindowID(atCG cgPoint: CGPoint) -> Int? {
+    func findDraggedWindowID(atCG cgPoint: CGPoint) -> Int? {
         guard let appName = frontmostAppAtMouseDown else {
             return focusedWindowIDAtOpen
         }
 
-        var candidates: [Window] = []
-        if let wm = windowManager {
-            do {
-                let windows = try wm.queryWindows()
-                candidates = windows.filter { $0.app == appName }
-            } catch {
-                // Fallback to cached if query fails
-                candidates = cachedWindows.filter { $0.app == appName }
-            }
-        } else {
-            // No window manager available, use cached
-            candidates = cachedWindows.filter { $0.app == appName }
-        }
-
+        var candidates = cachedWindows.filter { $0.app == appName }
         if candidates.isEmpty {
-            return focusedWindowIDAtOpen
+            candidates = ((try? yabaiService.queryWindows()) ?? []).filter { $0.app == appName }
         }
 
         guard !candidates.isEmpty else { return focusedWindowIDAtOpen }

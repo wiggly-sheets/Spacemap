@@ -40,6 +40,7 @@ jobs:
           path: .build
           key: spm-${{ runner.os }}-${{ github.workspace }}-${{ hashFiles('Package.resolved', 'Package.swift') }}
           restore-keys: spm-${{ runner.os }}-${{ github.workspace }}-
+      - run: brew install scdoc
       - run: make app-universal
       - uses: actions/upload-artifact@v4
         with:

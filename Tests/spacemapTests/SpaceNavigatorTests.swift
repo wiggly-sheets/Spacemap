@@ -1,7 +1,52 @@
 import XCTest
+import CoreGraphics
 @testable import spacemap
 
 final class SpaceNavigatorTests: XCTestCase {
+    func testHUDKeyboardRoutingRecognizesNavigationKeys() {
+        XCTAssertEqual(
+            HUDInput.navigationDirection(
+                keyCode: 4,
+                flags: [],
+                useArrowKeys: false,
+                useVimKeys: true
+            ),
+            .left
+        )
+        XCTAssertEqual(
+            HUDInput.navigationDirection(
+                keyCode: 126,
+                flags: [],
+                useArrowKeys: true,
+                useVimKeys: false
+            ),
+            .up
+        )
+        XCTAssertNil(
+            HUDInput.navigationDirection(
+                keyCode: 4,
+                flags: [.maskCommand],
+                useArrowKeys: true,
+                useVimKeys: true
+            )
+        )
+    }
+
+    func testHUDKeyboardRoutingRecognizesSettingsShortcut() {
+        XCTAssertTrue(
+            HUDInput.isSettingsShortcut(
+                keyCode: 43,
+                flags: [.maskCommand]
+            )
+        )
+        XCTAssertFalse(
+            HUDInput.isSettingsShortcut(
+                keyCode: 43,
+                flags: []
+            )
+        )
+    }
+
     func testNavigableSpacesExcludeEmptyPlaceholderCells() {
         let cells = SpaceNavigator.navigableSpaceIndices(
             activeSpaceIndices: [3, 1, 20, 3],

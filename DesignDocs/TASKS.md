@@ -6,14 +6,14 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Core Features & CLI
 
-- **CLI Options**: `--version`, `--help`, `--config`, `--trigger`, `--show-menu`, `--settings`
+- **CLI Options**: `--version`, `--help`, `--config`, `--trigger`, `--space <selector>`, `--show-menu`, `--settings`
 - **Settings Window**: Permanent System Settings-style sidebar with highlighted categories, separate live-save detail forms, space-name editor, and hotkey recorder
 - **Launch at Login**: Toggle with state indicator and first-launch prompt
 - **Move to Applications Prompt**: First-launch prompt to move app to /Applications
-- **Config File Self-Heal**: Auto-generates on first launch, self-heals missing keys, handles BOM/CR/LF
-- **Config Validation**: Validates keys/values on load, logs warnings for invalid entries
+- **TOML-only Config**: Uses grouped Settings-aligned TOML at `~/.config/spacemap/config.toml`
+- **Config File Self-Heal**: Auto-generates on first launch and repairs missing or invalid fields
+- **Config Validation**: Validates TOML keys and values on load
 - **Config Backup**: Backs up to `.bak` before any config overwrite (self-heal or first-load normalize)
-- **on/off Boolean Config**: Writes `on`/`off` for booleans; accepts all formats (`true`, `false`, `1`, `0`, `yes`, `no`, `on`, `off`)
 
 ### HUD & Display
 
@@ -26,26 +26,30 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Space Display Options
 
-- **Show Space Numbers Toggle**: Per-cell space number display
+- **Show Space Numbers Toggle**: Per-cell space number display with consistent scaled insets at every HUD size
 - **Show Space Names Toggle**: Per-cell custom name display
 - **Show Icon Strip Toggle**: Per-cell app icon strip at bottom
 - **Hide Menu Bar Icon Toggle**: Run headless, use hotkey or CLI
+- **Menu Bar Workspace Previews**: Current, nearby, all-space, and compact dot-grid modes with live yabai layout updates
+- **Reliable Menu Bar Dot Updates**: Signal registration bypasses stale launch-time yabai process checks
 
 ### Hotkeys & Navigation
 
 - **Hotkey Rapid-Press Fix**: `isToggling` guard in `HUDWindowController`
-- **F13-F20 Hotkeys + Hyper/Capslock/Fn Modifiers**: Full keyboard support in config parser
+- **F13-F20 Hotkeys + Fn Modifier**: Extended keyboard support in the config parser
 - **Grid-aware Keyboard Navigation**: Arrow keys + vim keys (hjkl) with row/column wrapping
+- **HUD Keyboard Isolation**: Consumes keyboard input while visible so navigation keys do not reach other apps
 - **Auto-Hide Timeout Fix**: Fixed HUD not hiding and hotkey double-trigger
 
 ### System Integration
 
-- **Symlink Creation**: Automated `/usr/local/bin/spacemap` symlink at launch via `ensureSymlink()`
-- **Supported Manager Check**: Prevents launch if neither yabai nor AeroSpace is running; shows a critical alert
+- **CLI and Man Page Symlinks**: Automatically verifies and safely creates `/usr/local/bin/spacemap` and `/usr/local/share/man/man1/spacemap.1` at launch
+- **Yabai Mandatory Check**: Prevents launch if yabai is not running; shows critical alert
 - **MRU Spaces Detection**: Warns user and offers to disable macOS MRU spaces
-- **Accessibility Permission Request**: Polls every 2s until granted, registers hotkey automatically
+- **Accessibility Permission Recovery**: Monitors permission and event-tap health, releases HUD keyboard capture on revocation, and restores input handling after re-grant
 - **Dynamic yabai Path**: Auto-detects ARM (`/opt/homebrew/bin/yabai`) or Intel (`/usr/local/bin/yabai`) via FileManager
 - **Menubar Improvements**: Hotkey symbols shown, Cmd+R restart, Screen Recording permissions link
+- **Legible Menu Bar Dot Grid**: Workspace dots expand horizontally and use more menu-bar height for readability
 
 ### Theming & Customization
 
@@ -55,8 +59,11 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Window Features
 
-- **Window Previews / Thumbnails**: ScreenCaptureKit-based per-space thumbnail capture (experimental)
-- **Show Extra Windows**: `SHOW_EXTRA_WINDOWS` toggle to display utility/floating windows (sublayer=normal)
+- **Window Previews / Thumbnails**: ScreenCaptureKit-based all-space capture with HUD exclusion, deterministic window assignment, bounded concurrency, and atomic cache refreshes
+- **Hybrid Cell Style**: Rectangle layout with a proportionally scaled app icon centered in every window rectangle
+- **Icon Cell Layout**: One icon per yabai window with geometry-aware placement, including duplicate-app windows and correct split ordering
+- **Show Extra Windows**: `SHOW_EXTRA_WINDOWS` toggle to display nonstandard utility/background window records
+- **Conditional Focus After Window Drop**: Never, always, or only while holding a selected modifier
 
 ### Settings UI Improvements
 
@@ -64,23 +71,27 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Simplified HUD_POSITION Config**: Now writes `HUD_POSITION=custom` with separate coordinate keys
 - **Custom HUD Position Memory**: Custom positions persist when switching presets; stored in `CUSTOM_HUD_X`/`CUSTOM_HUD_Y`
 - **Debug/Advanced Settings Section**: Socket Health Interval moved to dedicated section
+- **Backend Health Diagnostics**: Live yabai process and Spacemap signal-socket status in Debug/Advanced settings
 - **Settings UI Reorganization**: Five separate sidebar categories (Grid, Space Names, Appearance, Behavior, Debug/Advanced) with a permanently visible selected category
 - **Native Hotkey Recorder**: Clear button plus regular, F13–F20, and media-key recording
 
 ### Distribution & Builds
 
-- **App Icon**: Bundled `.icns` file for macOS app bundle
-- **DMG Assets**: DMG installer with /Applications symlink
+- **App Icon**: Adaptive Icon Composer asset for macOS 26 with a rounded legacy `.icns` fallback
+- **DMG Assets**: Gray-and-black grid background with install guidance, arrow, and Applications symlink
+- **Native About Window**: Tabbed project, contributor/fork, license, and software attribution
+- **Fork Identity**: `com.zm.spacemap` bundle identity and capitalized `Spacemap` executable with lowercase CLI command
 - **Xcode Project Generation**: `scripts/generate-xcodeproj.py` with 4 architecture targets
 - **Architecture-specific Builds**: ARM64, x86_64, universal DMGs via `create-dmg`
 - **CI DMG Verification**: Release workflow mounts each DMG and verifies architecture with `lipo -archs`
 - **Info.plist Version Injection**: Makefile sed replaces hardcoded 1.0.0 with VERSION file at build time
 - **Homebrew Tap**: `wiggly-sheets/homebrew-spacemap` with arch-conditional cask, auto-updated on release
+- **scdoc Manual**: Generated `spacemap(1)` page bundled with the app and installed alongside the CLI
 - **DMG Fix**: Arch DMGs always contain `Spacemap.app` regardless of arch
 
 ### Testing & CI/CD
 
-- **Unit Test Suite**: 168 tests across 8 files
+- **Unit Test Suite**: 210 tests across 13 files
 - **GitHub Actions CI/CD**: CI (swift test + build), Release (3 DMGs + checksums), Dependabot
 - **Rendering Math Tests**: 8 unit tests for scale mapping (min/max/midpoint/monotonicity)
 
@@ -147,14 +158,14 @@ A living list of planned features, known bugs, and future improvements for the p
 | Task                            | Description                                                                                         | Status     |
 | ------------------------------- | --------------------------------------------------------------------------------------------------- | ---------- |
 | **Native Spaces Support** | Drop yabai dependency for native macOS Spaces                                                       | 🔄 Planned |
-| **Other WM Support**      | AeroSpace support through the window-manager abstraction; other managers remain future work          | ✅ AeroSpace |
+| **Other WM Support**      | Add support for aerospace/rectangle/etc.                                                            | 🔄 Planned |
 | **Raycast Extension**     | Raycast extension to toggle HUD, change config (cell style, theme, grid size, etc.) from Raycast UI | 🔄 Planned |
 
 ### Build & CI
 
 | Task                               | Description                                                                                                             | Status  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- |
-| **Unit Tests**               | 168 tests across 8 files (AeroSpaceTests, CLISymlinkInstallerTests, HotkeyTests, ConfigTests, ThemeTests, ModelTests, CellViewGridViewTests, SpaceNavigatorTests) | ✅ Done |
+| **Unit Tests**               | 193 tests across 9 files (CLISymlinkInstallerTests, HotkeyTests, ConfigTests, ThemeTests, ModelTests, CellViewGridViewTests, SpaceNavigatorTests, DeepLinkTests, ThumbnailCacheTests) | ✅ Done |
 | **GitHub Actions / CI**      | `ci.yml` (swift test + build on push/PR), `release.yml` (3 DMGs + checksums on tag), Dependabot                     | ✅ Done |
 | **Xcode Project**            | Generated from SPM, 4 targets (default, arm64, x86_64, universal) via`scripts/generate-xcodeproj.py`                  | ✅ Done |
 | **Architecture Builds**      | ARM64, x86_64, universal DMGs via`create-dmg`                                                                         | ✅ Done |

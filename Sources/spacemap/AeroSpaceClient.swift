@@ -1,391 +1,158 @@
-import Foundation
 import AppKit
-import ApplicationServices
+import Foundation
 
-final class AeroSpaceClient: WindowManager {
-    static let shared = AeroSpaceClient()
-
-    var type: WindowManagerType { .aerospace }
-
+/// AeroSpace adapter for the app's existing workspace-service seam.
+/// It deliberately produces Yabai model values so all HUD, menu, input, and
+/// drag code use one pipeline regardless of selected window manager.
+final class AeroSpaceClient: YabaiService {
+    private let queue = DispatchQueue(label: "com.spacemap.aerospace", qos: .userInitiated)
+    private let focusQueue = DispatchQueue(label: "com.spacemap.aerospace.focus", qos: .userInteractive)
     private let aerospacePath: String = {
         let arm = "/opt/homebrew/bin/aerospace"
         let intel = "/usr/local/bin/aerospace"
-        if FileManager.default.isExecutableFile(atPath: arm) { return arm }
-        if FileManager.default.isExecutableFile(atPath: intel) { return intel }
-        return arm
+        return FileManager.default.isExecutableFile(atPath: arm) ? arm : intel
     }()
+    private var eventListener: Process?
+    private var runningCache: (value: Bool, checked: TimeInterval)?
+    private let cacheLock = NSLock()
 
-    private var _aerospaceRunningCache: (result: Bool, checkedAt: TimeInterval)?
-    private let aerospaceCacheTTL: TimeInterval = 5.0
+    var yabaiProcessCheck: () -> Bool = { false }
+    let windowGeometryRefreshEvents: [String] = []
+    let workspaceTopologyRefreshEvents: [String] = []
+    let workspacePreviewRefreshEvents: [String] = []
 
-    private var cachedWorkspaces: [AeroSpaceWorkspace] = []
-    private var lastWorkspacesFetch: TimeInterval = 0
-    private let workspacesCacheTTL: TimeInterval = 2.0
-    private var eventListenerProcess: Process?
+    init() {
+        yabaiProcessCheck = { [unowned self] in self.defaultProcessCheck() }
+    }
 
-    private init() {}
+    func runOnYabaiQueue(_ block: @escaping () -> Void) { queue.async(execute: block) }
+    func runOnYabaiQueue(_ workItem: DispatchWorkItem) { queue.async(execute: workItem) }
 
-    func isRunning() -> Bool {
+    func isYabaiRunning(forceRefresh: Bool = false) -> Bool {
+        cacheLock.lock(); defer { cacheLock.unlock() }
         let now = ProcessInfo.processInfo.systemUptime
-        if let cached = _aerospaceRunningCache, now - cached.checkedAt < aerospaceCacheTTL {
-            return cached.result
-        }
-        let output = (try? shell("/usr/bin/pgrep", "aerospace")) ?? ""
-        let result = !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        _aerospaceRunningCache = (result, now)
-        return result
+        if !forceRefresh, let cache = runningCache, now - cache.checked < 5 { return cache.value }
+        let value = yabaiProcessCheck()
+        runningCache = (value, now)
+        return value
     }
 
-    private func isAerospaceRunning() -> Bool { isRunning() }
+    func resetYabaiRunningCache() { cacheLock.lock(); runningCache = nil; cacheLock.unlock() }
+    func resetYabaiProcessCheck() { yabaiProcessCheck = { [unowned self] in self.defaultProcessCheck() }; resetYabaiRunningCache() }
 
-    private func querySpaces() -> [Space] {
-        guard isAerospaceRunning() else { return [] }
-        do {
-            let workspaces = try fetchWorkspaces()
-            let focusedName = (try? fetchFocusedWorkspaceName()) ?? workspaces.first?.name
-
-            return workspaces.enumerated().map { offset, ws in
-                Space(
-                    id: offset + 1,
-                    index: offset + 1,
-                    display: ws.monitor,
-                    hasFocus: ws.name == focusedName,
-                    label: ws.name
-                )
-            }
-        } catch {
-            return []
-        }
-    }
-
-    func queryWindows() throws -> [Window] {
-        guard isAerospaceRunning() else { return [] }
-        let output = try shell(
-            aerospacePath,
-            "list-windows",
-            "--all",
-            "--json",
-            "--format",
-            "%{window-id}%{app-name}%{workspace}%{window-title}%{window-is-fullscreen}%{window-layout}"
-        )
-        let aerospaceWindows = try JSONDecoder().decode([AeroSpaceWindow].self, from: Data(output.utf8))
-
+    func querySpaces() throws -> [YabaiSpace] {
         let workspaces = try fetchWorkspaces()
-
-        return aerospaceWindows.compactMap { aw -> Window? in
-            let spaceIndex = (workspaces.firstIndex { $0.name == aw.workspace } ?? 0) + 1
-            let frame = getWindowFrame(forApp: aw.appName, windowTitle: aw.windowTitle)
-                ?? Window.WindowFrame(x: 0, y: 0, w: 100, h: 100)
-
-            return Window(
-                id: aw.windowId,
-                app: aw.appName,
-                space: spaceIndex,
-                frame: frame,
-                isHidden: aw.isHidden,
-                isMinimized: false,
-                subLayer: aw.sublayer ?? "below"
-            )
+        let focused = try focusedWorkspace()
+        return workspaces.enumerated().map { offset, workspace in
+            YabaiSpace(id: offset + 1, index: offset + 1, display: workspace.monitor, hasFocus: workspace.name == focused, isVisible: true, label: workspace.name)
         }
     }
 
-    private func getWindowFrame(forApp appName: String, windowTitle: String?) -> Window.WindowFrame? {
-        let runningApps = NSWorkspace.shared.runningApplications
-        guard let app = runningApps.first(where: { $0.localizedName == appName }) else { return nil }
-
-        let appRef = AXUIElementCreateApplication(app.processIdentifier)
-        var windowsRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(appRef, kAXWindowsAttribute as CFString, &windowsRef) == .success,
-              let windows = windowsRef as? [AXUIElement] else { return nil }
-
-        for window in windows {
-            if let title = getWindowTitle(window), let targetTitle = windowTitle, title == targetTitle {
-                return getWindowFrameFromAX(window)
-            }
+    func queryDisplays() throws -> [YabaiDisplay] {
+        NSScreen.screens.enumerated().map { offset, screen in
+            YabaiDisplay(index: offset + 1, frame: .init(x: screen.frame.minX, y: screen.frame.minY, w: screen.frame.width, h: screen.frame.height), hasFocus: screen == NSScreen.main)
         }
-        return windows.first.flatMap { getWindowFrameFromAX($0) }
     }
 
-    private func getWindowTitle(_ axWindow: AXUIElement) -> String? {
-        var titleRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(axWindow, kAXTitleAttribute as CFString, &titleRef) == .success else { return nil }
-        return titleRef as? String
-    }
-
-    private func getWindowFrameFromAX(_ axWindow: AXUIElement) -> Window.WindowFrame? {
-        var positionRef: CFTypeRef?
-        var sizeRef: CFTypeRef?
-
-        guard AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &positionRef) == .success,
-              AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &sizeRef) == .success,
-              let positionValue = positionRef, let sizeValue = sizeRef else { return nil }
-
-        var position = CGPoint.zero
-        var size = CGSize.zero
-
-        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
-              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else { return nil }
-
-        return Window.WindowFrame(x: position.x, y: position.y, w: size.width, h: size.height)
+    func queryWindows() throws -> [YabaiWindow] {
+        let workspaces = try fetchWorkspaces()
+        let output = try shell(aerospacePath, "list-windows", "--all", "--json", "--format", "%{window-id}%{app-name}%{workspace}%{window-title}%{window-is-fullscreen}%{window-layout}")
+        let windows = try JSONDecoder().decode([AeroSpaceWindow].self, from: Data(output.utf8))
+        return windows.compactMap { window in
+            guard let space = workspaces.firstIndex(where: { $0.name == window.workspace }).map({ $0 + 1 }) else { return nil }
+            let frame = frame(for: window.appName, title: window.windowTitle) ?? .init(x: 0, y: 0, w: 100, h: 100)
+            return YabaiWindow(id: window.windowId, app: window.appName, space: space, frame: frame, isHidden: window.isHidden, isMinimized: false, subLayer: window.sublayer ?? "below", pid: nil, role: "AXWindow", subrole: "AXStandardWindow", isRootWindow: true, hasAXReference: true, isVisible: true, isFloating: nil)
+        }
     }
 
     func queryFocusedWindow() throws -> Int? {
-        guard isAerospaceRunning() else { return nil }
-        let output = try shell(
-            aerospacePath,
-            "list-windows",
-            "--focused",
-            "--json",
-            "--format",
-            "%{window-id}%{app-name}%{workspace}%{window-title}%{window-is-fullscreen}%{window-layout}"
-        )
-        let windows = try JSONDecoder().decode([AeroSpaceWindow].self, from: Data(output.utf8))
-        return windows.first?.windowId
+        let output = try shell(aerospacePath, "list-windows", "--focused", "--json", "--format", "%{window-id}%{app-name}%{workspace}%{window-title}%{window-is-fullscreen}%{window-layout}")
+        return try JSONDecoder().decode([AeroSpaceWindow].self, from: Data(output.utf8)).first?.windowId
     }
+    func queryFocusedSpaceIndex() -> Int? { guard let focused = try? focusedWorkspace(), let spaces = try? fetchWorkspaces() else { return nil }; return spaces.firstIndex { $0.name == focused }.map { $0 + 1 } }
 
-    func queryFocusedSpaceIndex() -> Int? {
-        guard isAerospaceRunning() else { return nil }
-        do {
-            let workspaces = try fetchWorkspaces()
-            let focusedName = try fetchFocusedWorkspaceName()
-            return workspaces.firstIndex { $0.name == focusedName }.map { $0 + 1 }
-        } catch {
-            return nil
-        }
-    }
-
-    func buildGridState(config: GridConfig) -> GridState {
-        guard isAerospaceRunning() else {
-            let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
-            return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
-        }
-
-        let spaces = querySpaces()
-        let windows = (try? queryWindows()) ?? []
-        let resolvedFocus = spaces.first { $0.hasFocus }?.index
-        let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
-        let displays = NSScreen.screens.enumerated().map { offset, screen in
-            YabaiDisplay(
-                index: offset + 1,
-                frame: YabaiDisplay.Frame(
-                    x: screen.frame.minX,
-                    y: screen.frame.minY,
-                    w: screen.frame.width,
-                    h: screen.frame.height
-                ),
-                hasFocus: screen == NSScreen.main
-            )
-        }
-        return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus, displays: displays)
-    }
-
-    func focusSpaceAsync(_ index: Int) {
-        guard isAerospaceRunning() else { return }
-        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
-            guard let self else { return }
-            do {
-                let workspaces = try fetchWorkspaces()
-                if index > 0 && index <= workspaces.count {
-                    let workspaceName = workspaces[index - 1].name
-                    _ = try? shell(aerospacePath, "workspace", workspaceName)
-                }
-            } catch {}
-        }
-    }
-
-    func moveWindowCreatingSpacesIfNeeded(
-        _ windowID: Int,
-        toSpace spaceIndex: Int,
-        focusDestination: Bool,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self else { return }
-            do {
-                let workspaces = try fetchWorkspaces()
-                guard spaceIndex > 0, spaceIndex <= workspaces.count else {
-                    throw AeroSpaceError.workspaceDoesNotExist(index: spaceIndex)
-                }
-                let workspaceName = workspaces[spaceIndex - 1].name
-                _ = try shell(aerospacePath, "move-node-to-workspace", workspaceName, "--window-id", "\(windowID)")
-                if focusDestination {
-                    _ = try? shell(aerospacePath, "workspace", workspaceName)
-                }
-                DispatchQueue.main.async { completion(.success(())) }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
-            }
-        }
-    }
-
-    func runOnQueue(_ block: @escaping () -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async(execute: block)
-    }
-
-    func runOnQueue(_ workItem: DispatchWorkItem) {
-        DispatchQueue.global(qos: .userInitiated).async(execute: workItem)
-    }
-
-    func registerRefreshSignals(socketPath: String) {
-        removeRefreshSignals()
+    func registerSignals(socketPath: String, showHUDOnSpaceChange: Bool, refreshWorkspacePreviews: Bool, refreshWindowGeometry: Bool) {
+        removeSignals()
         let process = Process()
         process.executableURL = URL(fileURLWithPath: aerospacePath)
-        process.arguments = [
-            "subscribe",
-            "--no-send-initial",
-            "focus-changed",
-            "focused-monitor-changed",
-            "focused-workspace-changed",
-            "window-detected"
-        ]
-        let outputPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = FileHandle.nullDevice
-        outputPipe.fileHandleForReading.readabilityHandler = { handle in
-            guard !handle.availableData.isEmpty else { return }
-            SocketListener.sendCommand(to: socketPath, command: 1)
+        process.arguments = ["subscribe", "--no-send-initial", "focus-changed", "focused-monitor-changed", "focused-workspace-changed", "window-detected", "window-moved", "window-destroyed"]
+        let pipe = Pipe(); process.standardOutput = pipe; process.standardError = FileHandle.nullDevice
+        pipe.fileHandleForReading.readabilityHandler = { _ in
+            let command = showHUDOnSpaceChange ? SpacemapCommand.show.rawValue : SpacemapCommand.refresh.rawValue
+            SocketListener.sendCommand(to: socketPath, command: command)
         }
-        do {
-            try process.run()
-            eventListenerProcess = process
-        } catch {
-            outputPipe.fileHandleForReading.readabilityHandler = nil
-            NSLog("spacemap/AeroSpace: failed to subscribe to events: \(error.localizedDescription)")
+        do { try process.run(); eventListener = process } catch { NSLog("spacemap/AeroSpace: event subscription failed: \(error.localizedDescription)") }
+    }
+    func removeSignals() { eventListener?.standardOutput = nil; eventListener?.terminate(); eventListener = nil }
+
+    func focusSpace(_ index: Int) { focusSpaceAsync(index) }
+    func focusSpace(_ target: SpaceFocusTarget) -> Bool { guard let index = Int(target.value) else { return false }; focusSpaceAsync(index); return true }
+    func focusSpaceAsync(_ index: Int) { focusQueue.async { [weak self] in guard let self, let workspaces = try? self.fetchWorkspaces(), workspaces.indices.contains(index - 1) else { return }; _ = try? self.shell(self.aerospacePath, "workspace", workspaces[index - 1].name) } }
+    func showSpacemap() { try? SpacemapCommand.show.send() }
+
+    func moveWindowCreatingSpacesIfNeeded(_ windowID: Int, toSpace targetIndex: Int, focusDestination: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            do {
+                let workspaces = try self.fetchWorkspaces()
+                guard workspaces.indices.contains(targetIndex - 1) else { throw AeroSpaceError.workspaceDoesNotExist(targetIndex) }
+                let name = workspaces[targetIndex - 1].name
+                _ = try self.shell(self.aerospacePath, "move-node-to-workspace", name, "--window-id", "\(windowID)")
+                if focusDestination { _ = try? self.shell(self.aerospacePath, "workspace", name) }
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch { DispatchQueue.main.async { completion(.failure(error)) } }
         }
     }
 
-    func removeRefreshSignals() {
-        eventListenerProcess?.terminate()
-        eventListenerProcess = nil
+    func buildGridState(config: GridConfig, focusedIndex: Int?) -> GridState {
+        guard isYabaiRunning(forceRefresh: true) else { return GridState(config: config, spaces: [], windows: [], displayBounds: NSScreen.main?.frame ?? .zero, focusedIndex: nil) }
+        let spaces = (try? querySpaces()) ?? []
+        return GridState(config: config, spaces: spaces, windows: (try? queryWindows()) ?? [], displayBounds: NSScreen.main?.frame ?? .zero, focusedIndex: focusedIndex ?? spaces.first(where: \.hasFocus)?.index, displays: (try? queryDisplays()) ?? [])
     }
 
-    // MARK: - Private Helpers
-
-    private func fetchWorkspaces() throws -> [AeroSpaceWorkspace] {
-        let now = ProcessInfo.processInfo.systemUptime
-        if now - lastWorkspacesFetch < workspacesCacheTTL && !cachedWorkspaces.isEmpty {
-            return cachedWorkspaces
-        }
-        let output = try shell(
-            aerospacePath,
-            "list-workspaces",
-            "--all",
-            "--json",
-            "--format",
-            "%{workspace}%{monitor-id}"
-        )
-        cachedWorkspaces = try JSONDecoder().decode([AeroSpaceWorkspace].self, from: Data(output.utf8))
-        lastWorkspacesFetch = now
-        return cachedWorkspaces
+    private func fetchWorkspaces() throws -> [AeroSpaceWorkspace] { try decode("list-workspaces", "--all", "--json", "--format", "%{workspace}%{monitor-id}") }
+    private func focusedWorkspace() throws -> String { guard let name = try decode("list-workspaces", "--focused", "--json", "--format", "%{workspace}%{monitor-id}").first?.name else { throw AeroSpaceError.noFocusedWorkspace }; return name }
+    private func decode(_ args: String...) throws -> [AeroSpaceWorkspace] { try JSONDecoder().decode([AeroSpaceWorkspace].self, from: Data(shell(aerospacePath, args).utf8)) }
+    private func shell(_ executable: String, _ arguments: String...) throws -> String { try shell(executable, arguments) }
+    private func shell(_ executable: String, _ arguments: [String]) throws -> String {
+        let process = Process(); process.executableURL = URL(fileURLWithPath: executable); process.arguments = arguments
+        let output = Pipe(); let error = Pipe(); process.standardOutput = output; process.standardError = error
+        try process.run(); process.waitUntilExit()
+        guard process.terminationStatus == 0 else { throw AeroSpaceError.commandFailed(String(data: error.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "") }
+        return String(data: output.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+    }
+    private func frame(for appName: String, title: String?) -> YabaiWindow.WindowFrame? {
+        guard let app = NSWorkspace.shared.runningApplications.first(where: { $0.localizedName == appName }) else { return nil }
+        let application = AXUIElementCreateApplication(app.processIdentifier); var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(application, kAXWindowsAttribute as CFString, &value) == .success, let windows = value as? [AXUIElement] else { return nil }
+        let window = windows.first { window in var result: CFTypeRef?; return AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &result) == .success && result as? String == title } ?? windows.first
+        guard let window else { return nil }; var position: CFTypeRef?; var size: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &position) == .success, AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &size) == .success, let position, let size else { return nil }
+        let positionValue = position as! AXValue
+        let sizeValue = size as! AXValue
+        var point = CGPoint.zero; var dimensions = CGSize.zero; guard AXValueGetValue(positionValue, .cgPoint, &point), AXValueGetValue(sizeValue, .cgSize, &dimensions) else { return nil }
+        return .init(x: point.x, y: point.y, w: dimensions.width, h: dimensions.height)
     }
 
-    private func fetchFocusedWorkspaceName() throws -> String {
-        let output = try shell(
-            aerospacePath,
-            "list-workspaces",
-            "--focused",
-            "--json",
-            "--format",
-            "%{workspace}%{monitor-id}"
-        )
-        let workspaces = try JSONDecoder().decode([AeroSpaceWorkspace].self, from: Data(output.utf8))
-        guard let workspace = workspaces.first else {
-            throw AeroSpaceError.noFocusedWorkspace
-        }
-        return workspace.name
-    }
-
-    private func shell(_ args: String...) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: args[0])
-        process.arguments = Array(args.dropFirst())
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-        try process.run()
-        process.waitUntilExit()
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        guard process.terminationStatus == 0 else {
-            let message = String(data: errorData, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            throw AeroSpaceError.commandFailed(
-                arguments: Array(args.dropFirst()),
-                status: process.terminationStatus,
-                message: message
-            )
-        }
-        return String(data: outputData, encoding: .utf8) ?? ""
+    private func defaultProcessCheck() -> Bool {
+        guard let output = try? shell("/usr/bin/pgrep", "aerospace") else { return false }
+        return !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
-private enum AeroSpaceError: LocalizedError {
-    case workspaceDoesNotExist(index: Int)
-    case commandFailed(arguments: [String], status: Int32, message: String)
-    case noFocusedWorkspace
+private enum AeroSpaceError: LocalizedError { case workspaceDoesNotExist(Int), noFocusedWorkspace, commandFailed(String); var errorDescription: String? { switch self { case .workspaceDoesNotExist(let index): return "AeroSpace workspace \(index) does not exist"; case .noFocusedWorkspace: return "AeroSpace did not report a focused workspace"; case .commandFailed(let message): return message } } }
 
-    var errorDescription: String? {
-        switch self {
-        case .workspaceDoesNotExist(let index):
-            return "AeroSpace workspace \(index) does not exist"
-        case .commandFailed(let arguments, let status, let message):
-            let detail = message.isEmpty ? "no error output" : message
-            return "aerospace \(arguments.joined(separator: " ")) failed with status \(status): \(detail)"
-        case .noFocusedWorkspace:
-            return "AeroSpace did not report a focused workspace"
-        }
-    }
-}
-
-// MARK: - AeroSpace Data Models
-
-struct AeroSpaceWorkspace: Decodable {
-    let name: String
-    let monitor: Int
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        name = try container.decode(String.self, forKey: .name)
-        monitor = try container.decodeIfPresent(Int.self, forKey: .monitor) ?? 0
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case name = "workspace"
-        case monitor = "monitor-id"
-    }
-}
-
+struct AeroSpaceWorkspace: Decodable { let name: String; let monitor: Int; enum CodingKeys: String, CodingKey { case name = "workspace"; case monitor = "monitor-id" } }
 struct AeroSpaceWindow: Decodable {
-    let windowId: Int
-    let appName: String
-    let workspace: String
-    let windowTitle: String?
-    let isFullscreen: Bool
-    let windowLayout: String?
-    let isHidden: Bool
-    let sublayer: String?
-
-    enum CodingKeys: String, CodingKey {
-        case windowId = "window-id"
-        case appName = "app-name"
-        case workspace = "workspace"
-        case windowTitle = "window-title"
-        case isFullscreen = "is-fullscreen"
-        case windowLayout = "window-layout"
-        case isHidden = "is-hidden"
-        case sublayer = "sublayer"
-    }
-
+    let windowId: Int; let appName: String; let workspace: String; let windowTitle: String?; let isHidden: Bool; let sublayer: String?
+    enum CodingKeys: String, CodingKey { case windowId = "window-id"; case appName = "app-name"; case workspace; case windowTitle = "window-title"; case isHidden = "is-hidden"; case sublayer }
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        windowId = try container.decode(Int.self, forKey: .windowId)
-        appName = try container.decode(String.self, forKey: .appName)
-        workspace = try container.decode(String.self, forKey: .workspace)
-        windowTitle = try container.decodeIfPresent(String.self, forKey: .windowTitle)
-        isFullscreen = try container.decodeIfPresent(Bool.self, forKey: .isFullscreen) ?? false
-        windowLayout = try container.decodeIfPresent(String.self, forKey: .windowLayout)
-        isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
-        sublayer = try container.decodeIfPresent(String.self, forKey: .sublayer)
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        windowId = try values.decode(Int.self, forKey: .windowId)
+        appName = try values.decode(String.self, forKey: .appName)
+        workspace = try values.decode(String.self, forKey: .workspace)
+        windowTitle = try values.decodeIfPresent(String.self, forKey: .windowTitle)
+        isHidden = try values.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
+        sublayer = try values.decodeIfPresent(String.self, forKey: .sublayer)
     }
 }

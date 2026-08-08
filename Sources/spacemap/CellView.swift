@@ -5,12 +5,15 @@ import AppKit
 ///
 /// Supported cell styles:
 /// - .rects:      Colored rectangles representing window positions/sizes
-/// - .icons:      Window icons positioned at their actual locations
+/// - .hybrid:     Rectangles with a small centered app icon
+/// - .icons:      Window icons arranged from yabai's window geometry
 /// - .thumbnails: Live window content thumbnails (requires screen recording permission)
 /// - .simple:     Empty cells with no window content
 ///
 /// Icon strip at the bottom is controlled separately by `showIconStrip`.
 struct CellView: View {
+    @ObservedObject private var thumbnailStore = ThumbnailStore.shared
+
     let spaceIndex: Int
     let spaceLabel: String?
     let spaceName: String? // config-based name
@@ -23,8 +26,6 @@ struct CellView: View {
     let onSelect: (Int) -> Void
     
     // These values will be passed from GridView
-    private let baseCellWidth: CGFloat = 80
-    private let baseCellHeight: CGFloat = 50
     private let uiScale: CGFloat
     private let resolvedTheme: AppTheme
     private let mode: ThemeMode
@@ -34,7 +35,6 @@ struct CellView: View {
     private let showIconStrip: Bool
     private let showMultiAppIcons: Bool
     private let showExtraWindows: Bool
-    private let windowFilter: ([YabaiWindow]) -> [YabaiWindow]
 
     private var isDarkMode: Bool {
         switch mode {
@@ -45,13 +45,9 @@ struct CellView: View {
     }
 
     private var filteredWindows: [YabaiWindow] {
-        windowFilter(windows)
+        windows.filter { $0.shouldDisplay(showExtraWindows: showExtraWindows) }
     }
 
-    private var cellSize: CGSize {
-        CGSize(width: baseCellWidth * uiScale, height: baseCellHeight * uiScale)
-    }
-    
 init(spaceIndex: Int,
             spaceLabel: String? = nil,
             spaceName: String? = nil,
@@ -90,9 +86,6 @@ init(spaceIndex: Int,
         self.showIconStrip = showIconStrip
         self.showMultiAppIcons = showMultiAppIcons
         self.showExtraWindows = showExtraWindows
-        self.windowFilter = showExtraWindows
-            ? { $0.filter { !$0.isHidden && !$0.isMinimized } }
-            : { $0.filter { $0.isRealWindow } }
     }
 
     
@@ -101,15 +94,24 @@ var body: some View {
             RoundedRectangle(cornerRadius: 4)
                 .fill(backgroundColor)
 
-            if cellStyle != .simple {
+            switch cellStyle {
+            case .rects:
                 ForEach(filteredWindows, id: \.id) { window in
-                    switch cellStyle {
-                    case .rects:      windowRect(window)
-                    case .icons:      windowIcon(window)
-                    case .thumbnails: thumbnailImage(spaceIndex)
-                    case .simple:     EmptyView()
-                    }
+                    windowRect(window)
                 }
+            case .hybrid:
+                ForEach(filteredWindows, id: \.id) { window in
+                    windowRect(window)
+                }
+                ForEach(filteredWindows, id: \.id) { window in
+                    hybridWindowIcon(window)
+                }
+            case .icons:
+                iconGrid()
+            case .thumbnails:
+                thumbnailImage(spaceIndex)
+            case .simple:
+                EmptyView()
             }
 
             if showIconStrip {
@@ -121,7 +123,7 @@ var body: some View {
                 Text("\(spaceIndex)")
                     .font(.system(size: 12 * uiScale, weight: .bold))
                     .foregroundColor(textColor.opacity(0.7))
-                    .position(x: 12, y: 16)
+                    .position(GridLayout.spaceNumberPosition(for: uiScale))
             }
 
             // Show space name (if exists) in center
@@ -129,7 +131,7 @@ var body: some View {
                 Text(name)
                     .font(.system(size: 14 * uiScale, weight: .medium))
                     .foregroundColor(textColor)
-                    .position(x: cellSize.width / 2, y: cellSize.height / 2)
+                    .position(GridLayout.spaceNamePosition(in: GridLayout.cellSize(forEffectiveScale: uiScale)))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -139,7 +141,7 @@ var body: some View {
             RoundedRectangle(cornerRadius: 4)
                 .strokeBorder(borderColor, lineWidth: borderWidth)
         )
-        .frame(width: cellSize.width, height: cellSize.height)
+        .frame(width: GridLayout.cellSize(forEffectiveScale: uiScale).width, height: GridLayout.cellSize(forEffectiveScale: uiScale).height)
         .onTapGesture { onSelect(spaceIndex) }
     }
     
@@ -179,47 +181,73 @@ var body: some View {
     
     @ViewBuilder
     private func windowRect(_ window: YabaiWindow) -> some View {
-        let scaleX = cellSize.width / displayBounds.width
-        let scaleY = cellSize.height / displayBounds.height
-        let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
-        let y = (window.cgFrame.minY - displayBounds.minY) * scaleY
-        let w = max(window.cgFrame.width * scaleX, 2)
-        let h = max(window.cgFrame.height * scaleY, 2)
-        
-        RoundedRectangle(cornerRadius: 1)
-            .fill(appColor(window.app).opacity(0.6))
-            .frame(width: w, height: h)
-            .offset(x: x, y: y)
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
+        if let frame = GridLayout.scaledWindowFrame(
+            windowFrame: window.cgFrame,
+            displayBounds: displayBounds,
+            cellSize: cs
+        ) {
+            RoundedRectangle(cornerRadius: 1)
+                .fill(appColor(window.app).opacity(0.6))
+                .frame(width: frame.width, height: frame.height)
+                .offset(x: frame.minX, y: frame.minY)
+        }
     }
-    
-    @ViewBuilder
-    private func windowIcon(_ window: YabaiWindow) -> some View {
-        let scaleX = cellSize.width / displayBounds.width
-        let scaleY = cellSize.height / displayBounds.height
-        let x = (window.cgFrame.minX - displayBounds.minX) * scaleX
-        let y = (window.cgFrame.minY - displayBounds.minY) * scaleY
-        let w = max(window.cgFrame.width * scaleX, 14)
-        let h = max(window.cgFrame.height * scaleY, 14)
-        let iconSize = min(w, h)
 
-        if let icon = appIcon(for: window.app) {
+    @ViewBuilder
+    private func hybridWindowIcon(_ window: YabaiWindow) -> some View {
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
+        if let frame = GridLayout.scaledWindowFrame(
+            windowFrame: window.cgFrame,
+            displayBounds: displayBounds,
+            cellSize: cs
+        ), let icon = appIcon(for: window.app) {
+            let iconSize = GridLayout.hybridIconSize(uiScale: uiScale, windowFrame: frame)
             Image(nsImage: icon)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: iconSize, height: iconSize)
-                .offset(x: x, y: y)
+                .position(x: frame.midX, y: frame.midY)
+        }
+    }
+    
+    @ViewBuilder
+    private func iconGrid() -> some View {
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
+        let layouts = GridLayout.windowIconLayouts(
+            windows: filteredWindows,
+            displayBounds: displayBounds,
+            cellSize: cs
+        )
+
+        ForEach(layouts) { layout in
+            windowIcon(layout)
+        }
+    }
+
+    @ViewBuilder
+    private func windowIcon(_ layout: GridLayout.WindowIconLayout) -> some View {
+        if let icon = appIcon(for: layout.app) {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: layout.frame.width, height: layout.frame.height)
+                .offset(x: layout.frame.minX, y: layout.frame.minY)
         }
     }
     
     @ViewBuilder
     private func iconStrip() -> some View {
-        let visible = filteredWindows
-        let icons = showMultiAppIcons ? visible : Self.uniqueIconWindows(visible)
+        let icons = Self.iconStripWindows(
+            filteredWindows,
+            showMultiAppIcons: showMultiAppIcons
+        )
         let ic = iconScale
         let baseIconSize = 12 * uiScale * ic * 2
         let spacing = 2 * uiScale * ic * 2
         let padding = 3 * uiScale * ic * 2
-        let availableWidth = cellSize.width - padding * 2
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
+        let availableWidth = cs.width - padding * 2
         let neededWidth = CGFloat(icons.count) * baseIconSize + CGFloat(max(0, icons.count - 1)) * spacing
         let fitScale: CGFloat = neededWidth > availableWidth ? availableWidth / neededWidth : 1.0
         let finalIconSize = baseIconSize * fitScale
@@ -240,16 +268,25 @@ var body: some View {
         .padding(.bottom, padding)
     }
     
-    private func uniqueIconWindows() -> [YabaiWindow] {
-        Self.uniqueIconWindows(windows)
+    static func iconStripWindows(
+        _ displayedWindows: [YabaiWindow],
+        showMultiAppIcons: Bool
+    ) -> [YabaiWindow] {
+        let sorted = displayedWindows.sorted {
+            if $0.cgFrame.minX == $1.cgFrame.minX {
+                if $0.cgFrame.minY == $1.cgFrame.minY {
+                    return $0.id < $1.id
+                }
+                return $0.cgFrame.minY < $1.cgFrame.minY
+            }
+            return $0.cgFrame.minX < $1.cgFrame.minX
+        }
+        return showMultiAppIcons ? sorted : uniqueIconWindows(sorted)
     }
 
-    static func uniqueIconWindows(_ windows: [YabaiWindow], showExtraWindows: Bool = false) -> [YabaiWindow] {
+    static func uniqueIconWindows(_ displayedWindows: [YabaiWindow]) -> [YabaiWindow] {
         var seen = Set<String>()
-        let filter: (YabaiWindow) -> Bool = showExtraWindows
-            ? { !$0.isHidden && !$0.isMinimized }
-            : { $0.isRealWindow }
-        return windows.filter { filter($0) && seen.insert($0.app).inserted }
+        return displayedWindows.filter { seen.insert($0.app).inserted }
     }
     
     private func appIcon(for appName: String) -> NSImage? {
@@ -258,13 +295,14 @@ var body: some View {
     
     private func thumbnailImage(_ spaceIndex: Int) -> some View {
         guard #available(macOS 14.0, *),
-              let nsImage = ThumbnailCache.shared.thumbnailNSImage(forSpace: spaceIndex) else {
+               let nsImage = thumbnailStore.image(forSpace: spaceIndex) else {
             return AnyView(Color.clear)
         }
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
         return AnyView(Image(nsImage: nsImage)
             .resizable()
             .aspectRatio(contentMode: .fill)
-            .frame(width: cellSize.width, height: cellSize.height)
+            .frame(width: cs.width, height: cs.height)
             .clipped())
     }
     
@@ -275,7 +313,7 @@ var body: some View {
     static func appColor(_ name: String, theme: AppTheme, windowCount: Int) -> Color {
         let t = theme
         let rects = [t.rect1, t.rect2, t.rect3]
-        let base = rects[abs(name.hashValue) % 3]
+        let base = rects[(name.hashValue % 3 + 3) % 3]
         if windowCount <= 3 {
             return Color(hex: base)
         }
@@ -294,9 +332,9 @@ var body: some View {
             h /= 6
             if h < 0 { h += 1 }
         }
-        let hash = abs(name.hashValue)
-        let sat = 0.35 + Double(hash % 35) / 100.0
-        let lit = 0.50 + Double((hash / 35) % 35) / 100.0
+        let hash = name.hashValue % 35
+        let sat = 0.35 + Double(hash >= 0 ? hash : hash + 35) / 100.0
+        let lit = 0.50 + Double(((hash / 35) % 35 + 35) % 35) / 100.0
         let c = (1 - abs(2 * lit - 1)) * sat
         let x = c * (1 - abs((h * 6).truncatingRemainder(dividingBy: 2) - 1))
         let m = lit - c / 2

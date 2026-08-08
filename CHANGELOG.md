@@ -19,6 +19,162 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated user, support, contributor, and developer documentation to describe both yabai and AeroSpace support.
 
 
+## [1.0.35] - 2026-08-08
+
+### Fixed
+- Prevented HUD cells from applying UI scale twice; restored centered sizing and HUD keyboard navigation wiring.
+- Preserve one shared HUD controller across lifecycle, hotkey, menu bar, and deep-link paths.
+- Keep Settings windows alive and activate the app when opening them.
+- Restored HUD window-drag hover/drop handling and custom panel-position persistence.
+
+### Changed
+- Decomposed TOML parsing, thumbnail request/compositing, and HUD coordinate transforms behind focused modules.
+- Removed unused composition modules, centralized menu-bar preview signal policy, and consolidated command-line tool operations.
+- Split model declarations into configuration, theme, and yabai domain files.
+- Refactored Config.swift from 685-line monolith to 36-line thin facade delegating to ConfigLoader/TOMLParser. Removed duplicated TOML lexer/serialization code and the duplicated hotkey() nested function.
+- Added ConfigValuesProtocol, TOMLParserProtocol, and ConfigLoaderProtocol protocol interfaces for all config modules.
+- Added protocol-based unit tests (ConfigFacadeTests) verifying Config facade delegation to ConfigLoader/TOMLParser.
+- Added ConfigValues init(from: GridConfig) and ConfigLoader.save(_ config: GridConfig, to path:) for GridConfig ↔ ConfigValues conversion.
+
+## [1.0.34] - 2026-08-07
+
+### Added
+- Added space jumps using number keys.
+
+## [1.0.33] - 2026-08-05
+
+### Changed
+- Icon strips now order app icons by on-screen window position (left-to-right, then top-to-bottom) instead of yabai's raw window order.
+
+## [1.0.32] - 2026-08-01
+
+### Added
+- Added optional number-key space jumps, including multi-digit space numbers and HUD feedback.
+- Added Appearance setting to draw HUD panel shadow; default enabled.
+- Added live yabai process and socket diagnostics to Advanced settings.
+- Added a `spacemap(1)` manual page generated with scdoc and linked automatically alongside the CLI.
+
+### Fixed
+- Adaptive menu-bar workspace dots now keep refreshing after space changes.
+
+## [1.0.31] - 2026-07-30
+
+### Fixed
+- The About window License tab now gives its scrollable MIT License text a stable visible layout.
+
+## [1.0.30] - 2026-07-30
+
+### Fixed
+- Background-only app records with no Accessibility window reference are no longer treated as visible windows merely because their owner is a regular macOS app.
+
+## [1.0.29] - 2026-07-30
+
+### Fixed
+- Icon strips now retain floating and extra windows accepted by the same display filter used by rectangle and hybrid views.
+
+## [1.0.28] - 2026-07-30
+
+### Added
+- Added a polished Finder DMG with a gray-and-black grid background, installation instructions, and a drag-to-Applications arrow.
+- Added a native About Spacemap window with app identity, version, copyright, Help, and Check for Updates actions.
+- Added macOS 26 adaptive app-icon support while retaining the legacy `.icns` fallback.
+
+### Changed
+- Changed the app bundle and URL-scheme identifiers from `com.jsheffie.spacemap` to `com.zm.spacemap` for the independently maintained fork.
+- Capitalized the packaged executable as `Spacemap` while retaining lowercase `spacemap` for the command-line symlink.
+- Moved About Spacemap above Settings and redesigned its native window with About, Contributors, License, and Software Used tabs.
+
+### Fixed
+- Fixed release builds using the previous Git tag instead of the version declared in `VERSION`.
+
+## [1.0.27] - 2026-07-29
+
+### Fixed
+- Keyboard input is released immediately if Accessibility permission is revoked while the HUD is visible.
+
+## [1.0.26] - 2026-07-29
+
+### Changed
+- The visible HUD now consumes keyboard input after handling its own navigation and Settings shortcuts, preventing keystrokes from reaching other apps.
+
+## [1.0.25] - 2026-07-29
+
+### Changed
+- Enlarged menu-bar workspace dots and let wide grid layouts use more horizontal space for legibility.
+
+## [1.0.24] - 2026-07-29
+
+### Changed
+- Expanded focus-after-window-drop behavior to Never, Always, or While Holding Modifier, with Command, Fn, Option, Control, and Shift choices.
+
+## [1.0.23] - 2026-07-29
+
+### Added
+- Added configurable menu-bar workspace previews for the current space, nearby spaces, or every active space, using live yabai window geometry.
+- Added a compact menu-bar dot-grid mode that mirrors the configured workspace layout and highlights the focused space.
+
+### Changed
+- Menu-bar preview settings now stay hidden while the menu-bar icon itself is disabled.
+- The all-spaces menu-bar preview now renders every space at full size in one horizontal row.
+- Miniature menu-bar windows now have visible separation between adjacent panes.
+
+## [1.0.22] - 2026-07-29
+
+### Changed
+- Replaced the JSONC config with TOML-only configuration at `~/.config/spacemap/config.toml`.
+- Organized TOML settings into the same Grid, Space Names, Appearance, Behavior, and Advanced sections used by Settings.
+- Removed obsolete config aliases, older-yabai classification compatibility, redundant macOS 13 availability branches, and stale config decoding infrastructure.
+
+## [1.0.21] - 2026-07-29
+
+### Added
+- Added an off-by-default setting to show the HUD automatically whenever yabai changes spaces.
+- Added `spacemap --space <selector>` for power-user and skhd navigation that focuses yabai spaces and shows the HUD, supporting indices 1–16, directional selectors, and labels.
+
+### Fixed
+- Yabai space-change signals now use macOS's system netcat so Homebrew netcat installations cannot break HUD updates.
+- Exit-only CLI commands now run before AppKit startup, and `--trigger` toggles the existing HUD through its socket instead of launching a transient second HUD.
+
+
+## [1.0.20] - 2026-07-29
+
+### Added
+- Added a Hybrid cell style that preserves rectangle rendering while centering a larger, proportionally scaled app icon in every window rectangle.
+
+### Changed
+- Moved space-number labels closer to the top-left while preserving proportional insets across HUD sizes.
+- Moved Show Extra Windows into Debug/Advanced settings while preserving its explanatory help text.
+
+### Fixed
+- Hybrid cells, icon strips, and thumbnails now combine yabai window metadata with cached macOS app activation policy, retaining regular app windows even when AX fields disappear while Show Extra Windows controls utility/background records.
+- Global hotkeys now recover without an app restart after Accessibility permission changes, event-tap invalidation, system disablement, or delayed tap creation.
+
+
+## [1.0.19] - 2026-07-29
+
+### Changed
+- Thumbnail cell style now refreshes every visible space when the HUD opens instead of updating only the focused space after navigation.
+- Thumbnail capture now renders directly at the cell's backing resolution, limits concurrent window captures, and debounces duplicate refresh events.
+- Thumbnail cells observe atomic cache updates directly instead of rebuilding HUD panels, and each cell draws its thumbnail only once.
+- Icon-style cells now render every yabai window, use yabai geometry for correct spatial placement, give one window the full cell, and divide two-window layouts into exact spatial halves.
+
+### Fixed
+- Thumbnail captures now exclude the Spacemap HUD and deterministically compose each space from its own yabai windows.
+- Startup prewarming and atomic full-cache generations prevent mismatched, partially loaded, or stale space thumbnails.
+- Thumbnail capture now rejects yabai's non-accessible helper-window records while including unmanaged on-screen overlays such as Raycast on the currently visible space.
+- Space-number labels now keep a consistent scaled inset from cell edges at every HUD size.
+
+## [1.0.18] - 2026-07-27
+
+### Fixed
+- Deep-link parsing now handles opaque `spacemap:action` URLs consistently across supported macOS versions.
+
+
+## [1.0.17] - 2026-07-27
+
+### Added
+- Added `spacemap://` deep links for toggling or pinning the HUD, opening Settings or the menu-bar menu, and revealing the config file or themes folder.
+
 ## [1.0.16] - 2026-07-25
 
 ### Added
@@ -110,7 +266,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make release RELEASE=x.y.z` target for one-command releases
 - `scripts/generate-changelog.sh` auto-moves `[Unreleased]` to versioned entry on release
 - CHANGELOG gate in `make release` ensures entries exist before tagging
-- Release checklist in AGENTS.md
+- Release checklist in DesignDocs/AGENTS.md
 - `VERSION` file as fallback for version derivation
 
 ### Changed

@@ -4,6 +4,209 @@ import CoreGraphics
 
 final class CellViewGridViewTests: XCTestCase {
 
+    func testMenuBarCurrentModeReturnsFocusedSpace() {
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .current,
+                nearbyCount: 3,
+                spaces: makeSpaces(1...6),
+                focusedIndex: 4
+            ),
+            [4]
+        )
+    }
+
+    func testMenuBarNearbyModeCentersAndShiftsAtEdges() {
+        let spaces = makeSpaces(1...6)
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .nearby,
+                nearbyCount: 3,
+                spaces: spaces,
+                focusedIndex: 4
+            ),
+            [3, 4, 5]
+        )
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .nearby,
+                nearbyCount: 3,
+                spaces: spaces,
+                focusedIndex: 1
+            ),
+            [1, 2, 3]
+        )
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .nearby,
+                nearbyCount: 3,
+                spaces: spaces,
+                focusedIndex: 6
+            ),
+            [4, 5, 6]
+        )
+    }
+
+    func testMenuBarAllModeUsesEveryActiveSpace() {
+        XCTAssertEqual(
+            MenuBarPreviewRenderer.spaceIndices(
+                mode: .all,
+                nearbyCount: 3,
+                spaces: makeSpaces(1...6),
+                focusedIndex: 3
+            ),
+            [1, 2, 3, 4, 5, 6]
+        )
+    }
+
+    func testMenuBarDotsModeExpandsForLegibility() throws {
+        var config = GridConfig.default
+        config.menuBarDisplayMode = .dots
+        config.cols = 8
+        config.rows = 2
+        config.maxSpaces = 16
+        let state = GridState(
+            config: config,
+            spaces: makeSpaces(1...6),
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            focusedIndex: 3
+        )
+
+        let image = try XCTUnwrap(MenuBarPreviewRenderer.image(for: state))
+        XCTAssertEqual(image.size, CGSize(width: 46.5, height: 20))
+    }
+
+    func testMenuBarWindowFramesLeaveVisiblePaneGaps() throws {
+        let separated = try XCTUnwrap(
+            MenuBarPreviewRenderer.separatedWindowFrame(
+                CGRect(x: 0, y: 0, width: 15, height: 7)
+            )
+        )
+
+        XCTAssertEqual(separated, CGRect(x: 0.55, y: 0.55, width: 13.9, height: 5.9))
+    }
+
+    // MARK: - CellView label positioning
+
+    func testSpaceNumberPositionScalesWithHUD() {
+        XCTAssertEqual(GridLayout.spaceNumberPosition(for: 0.5), CGPoint(x: 4, y: 5))
+        XCTAssertEqual(GridLayout.spaceNumberPosition(for: 1), CGPoint(x: 8, y: 10))
+        XCTAssertEqual(GridLayout.spaceNumberPosition(for: 4), CGPoint(x: 32, y: 40))
+    }
+
+    func testSpaceNamePositionStaysCenteredAcrossCellSizes() {
+        XCTAssertEqual(
+            GridLayout.spaceNamePosition(in: CGSize(width: 40, height: 25)),
+            CGPoint(x: 20, y: 12.5)
+        )
+        XCTAssertEqual(
+            GridLayout.spaceNamePosition(in: CGSize(width: 320, height: 200)),
+            CGPoint(x: 160, y: 100)
+        )
+    }
+
+    func testScaledWindowFramePreservesRectangleGeometry() throws {
+        let frame = try XCTUnwrap(GridLayout.scaledWindowFrame(
+            windowFrame: CGRect(x: 960, y: 0, width: 960, height: 540),
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            cellSize: CGSize(width: 80, height: 50)
+        ))
+
+        XCTAssertEqual(frame, CGRect(x: 40, y: 0, width: 40, height: 25))
+    }
+
+    func testHybridIconSizeKeepsSameProportionAcrossUIScales() {
+        let baseSize = GridLayout.hybridIconSize(
+            uiScale: 1,
+            windowFrame: CGRect(x: 0, y: 0, width: 80, height: 50)
+        )
+        let largeSize = GridLayout.hybridIconSize(
+            uiScale: 4,
+            windowFrame: CGRect(x: 0, y: 0, width: 320, height: 200)
+        )
+
+        XCTAssertEqual(baseSize, 26.25, accuracy: 0.001)
+        XCTAssertEqual(largeSize, 105, accuracy: 0.001)
+        XCTAssertEqual(largeSize / baseSize, 4, accuracy: 0.001)
+    }
+
+    func testHybridIconSizeCapsProportionallyInsideSmallRectangles() {
+        let baseSize = GridLayout.hybridIconSize(
+            uiScale: 1,
+            windowFrame: CGRect(x: 0, y: 0, width: 8, height: 6)
+        )
+        let largeSize = GridLayout.hybridIconSize(
+            uiScale: 3,
+            windowFrame: CGRect(x: 0, y: 0, width: 24, height: 18)
+        )
+
+        XCTAssertEqual(baseSize, 4.5, accuracy: 0.001)
+        XCTAssertEqual(largeSize, 13.5, accuracy: 0.001)
+        XCTAssertEqual(largeSize / baseSize, 3, accuracy: 0.001)
+    }
+
+    func testSingleWindowIconGetsEntireCell() throws {
+        let layouts = GridLayout.windowIconLayouts(
+            windows: [makeWindow(id: 1, app: "Safari", frame: CGRect(x: 500, y: 300, width: 700, height: 500))],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            cellSize: CGSize(width: 80, height: 50)
+        )
+
+        XCTAssertEqual(layouts.count, 1)
+        XCTAssertEqual(layouts[0].frame, CGRect(x: 0, y: 0, width: 80, height: 50))
+    }
+
+    func testTwoWindowsOfSameAppGetSeparateHalves() {
+        let layouts = GridLayout.windowIconLayouts(
+            windows: [
+                makeWindow(id: 1, app: "Safari", frame: CGRect(x: 0, y: 0, width: 960, height: 1080)),
+                makeWindow(id: 2, app: "Safari", frame: CGRect(x: 960, y: 0, width: 960, height: 1080)),
+            ],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            cellSize: CGSize(width: 80, height: 50)
+        )
+
+        XCTAssertEqual(layouts.map(\.windowID), [1, 2])
+        XCTAssertEqual(layouts.map(\.frame), [
+            CGRect(x: 0, y: 0, width: 40, height: 50),
+            CGRect(x: 40, y: 0, width: 40, height: 50),
+        ])
+    }
+
+    func testTwoWindowIconsFollowYabaiLeftRightOrder() {
+        let layouts = GridLayout.windowIconLayouts(
+            windows: [
+                makeWindow(id: 2, app: "Notes", frame: CGRect(x: 960, y: 0, width: 960, height: 1080)),
+                makeWindow(id: 1, app: "Safari", frame: CGRect(x: 0, y: 0, width: 960, height: 1080)),
+            ],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            cellSize: CGSize(width: 80, height: 50)
+        )
+
+        XCTAssertEqual(layouts.map(\.app), ["Safari", "Notes"])
+        XCTAssertEqual(layouts[0].frame.minX, 0)
+        XCTAssertEqual(layouts[1].frame.minX, 40)
+    }
+
+    func testThreeWindowIconsUseYabaiGeometry() {
+        let layouts = GridLayout.windowIconLayouts(
+            windows: [
+                makeWindow(id: 1, app: "Safari", frame: CGRect(x: 0, y: 0, width: 960, height: 1080)),
+                makeWindow(id: 2, app: "Notes", frame: CGRect(x: 960, y: 0, width: 960, height: 540)),
+                makeWindow(id: 3, app: "Mail", frame: CGRect(x: 960, y: 540, width: 960, height: 540)),
+            ],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            cellSize: CGSize(width: 80, height: 50)
+        )
+
+        XCTAssertEqual(layouts.map(\.frame), [
+            CGRect(x: 0, y: 0, width: 40, height: 50),
+            CGRect(x: 40, y: 0, width: 40, height: 25),
+            CGRect(x: 40, y: 25, width: 40, height: 25),
+        ])
+    }
+
     // MARK: - CellView.uniqueIconWindows
 
     func testUniqueIconWindowsDeduplicatesByApp() {
@@ -42,15 +245,34 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(result.count, 1)
     }
 
-    func testUniqueIconWindowsFiltersBackgroundApps() {
-        let windows = [
+    func testUniqueIconWindowsDoesNotRefilterDisplayedFloatingWindows() {
+        var floating = makeWindow(id: 2, app: "System Settings", isStandard: false)
+        floating.isFloating = true
+        let displayedWindows = [
             makeWindow(id: 1, app: "Firefox"),
-            makeWindow(id: 2, app: "Hammerspoon", subLayer: "normal"),
-            makeWindow(id: 3, app: "Wallpaper Selector", subLayer: "normal"),
+            floating,
         ]
-        let result = CellView.uniqueIconWindows(windows)
-        XCTAssertEqual(result.count, 1)
-        XCTAssertEqual(result.first?.app, "Firefox")
+
+        let result = CellView.uniqueIconWindows(displayedWindows)
+
+        XCTAssertEqual(result.map(\.id), [1, 2])
+    }
+
+    func testIconStripWindowsPreservesOneIconPerWindowSetting() {
+        let displayedWindows = [
+            makeWindow(id: 1, app: "Firefox"),
+            makeWindow(id: 2, app: "Firefox"),
+            makeWindow(id: 3, app: "Safari"),
+        ]
+
+        XCTAssertEqual(
+            CellView.iconStripWindows(displayedWindows, showMultiAppIcons: true).map(\.id),
+            [1, 2, 3]
+        )
+        XCTAssertEqual(
+            CellView.iconStripWindows(displayedWindows, showMultiAppIcons: false).map(\.id),
+            [1, 3]
+        )
     }
 
     // MARK: - CellView.appColor
@@ -87,93 +309,65 @@ final class CellViewGridViewTests: XCTestCase {
         }
     }
 
-    // MARK: - GridView.computeVisibleSpaceIndices
+    // MARK: - GridLayout.visibleSpaceIndices
 
     func testVisibleIndicesShowAll() {
-        let indices = GridView.computeVisibleSpaceIndices(
+        let indices = GridLayout.visibleSpaceIndices(
             maxSpaces: 8, showMode: .all, activeIndices: Set([1, 3])
         )
         XCTAssertEqual(indices, [1, 2, 3, 4, 5, 6, 7, 8])
     }
 
     func testVisibleIndicesShowActiveOnly() {
-        let indices = GridView.computeVisibleSpaceIndices(
+        let indices = GridLayout.visibleSpaceIndices(
             maxSpaces: 8, showMode: .active, activeIndices: Set([1, 3, 5])
         )
         XCTAssertEqual(indices, [1, 3, 5])
     }
 
     func testVisibleIndicesMaxSpacesLimitsOutput() {
-        let indices = GridView.computeVisibleSpaceIndices(
+        let indices = GridLayout.visibleSpaceIndices(
             maxSpaces: 4, showMode: .all, activeIndices: Set([1, 2, 3, 4, 5, 6])
         )
         XCTAssertEqual(indices, [1, 2, 3, 4])
     }
 
     func testVisibleIndicesMaxSpacesClampedTo16() {
-        let indices = GridView.computeVisibleSpaceIndices(
+        let indices = GridLayout.visibleSpaceIndices(
             maxSpaces: 20, showMode: .all, activeIndices: Set()
         )
         XCTAssertEqual(indices.count, 16)
     }
 
     func testVisibleIndicesActiveNoOverlap() {
-        let indices = GridView.computeVisibleSpaceIndices(
+        let indices = GridLayout.visibleSpaceIndices(
             maxSpaces: 4, showMode: .active, activeIndices: Set([5, 6])
         )
         XCTAssertTrue(indices.isEmpty)
     }
 
-    // MARK: - GridView.computeIdealSize
+    // MARK: - GridLayout.idealSize
 
     func testIdealSizeSingleCell() {
-        let size = GridView.computeIdealSize(
-            cellCount: 1, cols: 8,
-            cellWidth: 800, cellHeight: 500,
-            gap: 60, padding: 120
-        )
-        // 1 col, 1 row
-        // w = 1 * (800 + 60) - 60 + 120*2 = 860 - 60 + 240 = 1040
-        // h = 1 * (500 + 60) - 60 + 120*2 = 560 - 60 + 240 = 740
+        let size = GridLayout.idealSize(visibleIndices: 1, cols: 8, uiScale: 19.0 / 7.0)
         XCTAssertEqual(size.width, 1040, accuracy: 0.1)
         XCTAssertEqual(size.height, 740, accuracy: 0.1)
     }
 
     func testIdealSizeMultipleRows() {
-        let size = GridView.computeIdealSize(
-            cellCount: 16, cols: 8,
-            cellWidth: 800, cellHeight: 500,
-            gap: 60, padding: 120
-        )
-        // 8 cols, 2 rows
-        // w = 8 * 860 - 60 + 240 = 6880 - 60 + 240 = 7060
-        // h = 2 * 560 - 60 + 240 = 1120 - 60 + 240 = 1300
+        let size = GridLayout.idealSize(visibleIndices: 16, cols: 8, uiScale: 19.0 / 7.0)
         XCTAssertEqual(size.width, 7060, accuracy: 0.1)
         XCTAssertEqual(size.height, 1300, accuracy: 0.1)
     }
 
     func testIdealSizeZeroCells() {
-        let size = GridView.computeIdealSize(
-            cellCount: 0, cols: 8,
-            cellWidth: 800, cellHeight: 500,
-            gap: 60, padding: 120
-        )
-        // 0 cols, 0 rows
-        // w = 0 * 860 - 60 + 240 = 180
-        // h = 0 * 560 - 60 + 240 = 180
+        let size = GridLayout.idealSize(visibleIndices: 0, cols: 8, uiScale: 19.0 / 7.0)
         XCTAssertEqual(size.width, 180, accuracy: 0.1)
         XCTAssertEqual(size.height, 180, accuracy: 0.1)
     }
 
     func testIdealSizePartialRow() {
-        let size = GridView.computeIdealSize(
-            cellCount: 3, cols: 8,
-            cellWidth: 800, cellHeight: 500,
-            gap: 60, padding: 120
-        )
-        // 3 cols, 1 row (partial)
-        // w = 3 * 860 - 60 + 240 = 2580 - 60 + 240 = 2760
-        // h = 1 * 560 - 60 + 240 = 740
+        let size = GridLayout.idealSize(visibleIndices: 3, cols: 8, uiScale: 19.0 / 7.0)
         XCTAssertEqual(size.width, 2760, accuracy: 0.1)
         XCTAssertEqual(size.height, 740, accuracy: 0.1)
     }
@@ -224,52 +418,72 @@ final class CellViewGridViewTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeWindow(id: Int, app: String, space: Int = 1, subLayer: String = "below") -> YabaiWindow {
-        YabaiWindow(id: id, app: app, space: space,
-                    frame: .init(x: 0, y: 0, w: 100, h: 100),
-                    isHidden: false, isMinimized: false, subLayer: subLayer)
+    private func makeWindow(
+        id: Int,
+        app: String,
+        space: Int = 1,
+        subLayer: String = "below",
+        isStandard: Bool = true,
+        frame: CGRect = CGRect(x: 0, y: 0, width: 100, height: 100)
+    ) -> YabaiWindow {
+        var window = YabaiWindow(
+            id: id,
+            app: app,
+            space: space,
+            frame: .init(x: frame.minX, y: frame.minY, w: frame.width, h: frame.height),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: subLayer
+        )
+        window.role = isStandard ? "AXWindow" : "AXUnknown"
+        window.subrole = isStandard ? "AXStandardWindow" : "AXUnknown"
+        window.isRootWindow = true
+        window.hasAXReference = true
+        window.isVisible = true
+        window.isFloating = false
+        return window
     }
 
     // MARK: - Scale mapping
 
     func testEffectiveScaleMinimum() {
-        let s = GridView.effectiveScale(for: 0.0)
+        let s = GridLayout.effectiveScale(for: 0.0)
         XCTAssertEqual(s, 0.5, accuracy: 0.001)
     }
 
     func testEffectiveScaleMidpoint() {
-        let s = GridView.effectiveScale(for: 0.5)
+        let s = GridLayout.effectiveScale(for: 0.5)
         XCTAssertEqual(s, 2.25, accuracy: 0.001)
     }
 
     func testEffectiveScaleMaximum() {
-        let s = GridView.effectiveScale(for: 1.0)
+        let s = GridLayout.effectiveScale(for: 1.0)
         XCTAssertEqual(s, 4.0, accuracy: 0.001)
     }
 
     func testEffectiveScaleMonotonic() {
-        var prev = GridView.effectiveScale(for: 0.0)
+        var prev = GridLayout.effectiveScale(for: 0.0)
         for i in stride(from: 0.1, through: 1.0, by: 0.1) {
-            let cur = GridView.effectiveScale(for: i)
+            let cur = GridLayout.effectiveScale(for: i)
             XCTAssertGreaterThan(cur, prev, "scale must increase at \(i)")
             prev = cur
         }
     }
 
     func testEffectiveIconScaleMinimum() {
-        let s = GridView.effectiveIconScale(for: 0.0)
+        let s = GridLayout.effectiveIconScale(for: 0.0)
         XCTAssertEqual(s, 0.2, accuracy: 0.001)
     }
 
     func testEffectiveIconScaleMaximum() {
-        let s = GridView.effectiveIconScale(for: 1.0)
+        let s = GridLayout.effectiveIconScale(for: 1.0)
         XCTAssertEqual(s, 1.0, accuracy: 0.001)
     }
 
     func testEffectiveIconScaleMonotonic() {
-        var prev = GridView.effectiveIconScale(for: 0.0)
+        var prev = GridLayout.effectiveIconScale(for: 0.0)
         for i in stride(from: 0.1, through: 1.0, by: 0.1) {
-            let cur = GridView.effectiveIconScale(for: i)
+            let cur = GridLayout.effectiveIconScale(for: i)
             XCTAssertGreaterThan(cur, prev, "icon scale must increase at \(i)")
             prev = cur
         }
@@ -277,9 +491,42 @@ final class CellViewGridViewTests: XCTestCase {
 
     func testCellWidthRange() {
         let base: CGFloat = 80
-        let minW = base * GridView.effectiveScale(for: 0.0)
-        let maxW = base * GridView.effectiveScale(for: 1.0)
+        let minW = base * GridLayout.effectiveScale(for: 0.0)
+        let maxW = base * GridLayout.effectiveScale(for: 1.0)
         XCTAssertEqual(minW, 40, accuracy: 0.001)
         XCTAssertEqual(maxW, 320, accuracy: 0.001)
+    }
+}
+    // MARK: - GridLayout.hitTest
+
+    func testHitTestReturnsIndexForPointInsideFrame() {
+        let frames = [CGRect(x: 0, y: 0, width: 80, height: 50),
+                      CGRect(x: 86, y: 0, width: 80, height: 50)]
+        XCTAssertEqual(GridLayout.hitTest(point: CGPoint(x: 10, y: 10), in: frames), 0)
+        XCTAssertEqual(GridLayout.hitTest(point: CGPoint(x: 90, y: 10), in: frames), 1)
+    }
+
+    func testHitTestReturnsNilForPointOutsideAllFrames() {
+        let frames = [CGRect(x: 0, y: 0, width: 80, height: 50)]
+        XCTAssertNil(GridLayout.hitTest(point: CGPoint(x: 200, y: 200), in: frames))
+    }
+
+    func testHitTestReturnsFirstMatchForOverlappingFrames() {
+        let frames = [CGRect(x: 0, y: 0, width: 100, height: 100),
+                      CGRect(x: 50, y: 50, width: 100, height: 100)]
+        XCTAssertEqual(GridLayout.hitTest(point: CGPoint(x: 75, y: 75), in: frames), 0)
+    }
+
+
+private func makeSpaces(_ indices: ClosedRange<Int>) -> [YabaiSpace] {
+    indices.map {
+        YabaiSpace(
+            id: $0,
+            index: $0,
+            display: 1,
+            hasFocus: $0 == indices.lowerBound,
+            isVisible: $0 == indices.lowerBound,
+            label: nil
+        )
     }
 }

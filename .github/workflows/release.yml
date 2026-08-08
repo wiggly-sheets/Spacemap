@@ -28,9 +28,9 @@ jobs:
         with:
           swift-version: "5.9"
 
-      - name: Install create-dmg
+      - name: Install build tools
         run: |
-          brew install create-dmg
+          brew install create-dmg scdoc
 
       - name: Read version
         id: version
@@ -121,7 +121,7 @@ jobs:
             mkdir -p "$mnt"
             hdiutil attach "$dmg" -nobrowse -quiet -mountpoint "$mnt"
             local archs
-            archs=$(lipo -archs "$mnt/Spacemap.app/Contents/MacOS/spacemap" 2>/dev/null || true)
+            archs=$(lipo -archs "$mnt/Spacemap.app/Contents/MacOS/Spacemap" 2>/dev/null || true)
             hdiutil detach "$mnt" -quiet 2>/dev/null || true
             rmdir "$mnt" 2>/dev/null || true
             if [ -z "$archs" ]; then

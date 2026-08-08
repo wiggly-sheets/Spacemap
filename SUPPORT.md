@@ -6,8 +6,8 @@ For help using Spacemap, start with the project documentation:
 
 - [README.md](./README.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
-- [AGENTS.md](./AGENTS.md)
-- [TASKS.md](./TASKS.md)
+- [AGENTS.md](./DesignDocs/AGENTS.md)
+- [TASKS.md](./DesignDocs/TASKS.md)
 
 If you are reporting a bug, check whether it is already listed in the task tracker or mentioned in the changelog before opening a new issue.
 

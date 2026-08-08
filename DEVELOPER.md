@@ -20,7 +20,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `GridView.swift` | SwiftUI grid container, cell layout, theme application |
 | `CellView.swift` | Per-cell rendering (rects/icons/thumbnails), space names display |
 | `YabaiClient.swift` | yabai CLI wrapper, signal management, space/window queries |
-| `ConfigReader.swift` | Config parsing with inline comments, SPACE_NAMES support |
+| `Config.swift` | Config parsing with inline comments, SPACE_NAMES support |
 | `HotkeyMonitor.swift` | Global CGEventTap for hotkey capture |
 | `WindowManagerProtocol.swift` | Shared manager interface, manager types, and yabai adapter |
 | `AeroSpaceClient.swift` | AeroSpace workspace/window queries, commands, and event subscription |
@@ -34,14 +34,14 @@ Technical deep-dive, debugging, and configuration details for contributors.
 ## Configuration System
 
 ### Config File Location
-`~/.config/spacemap/spacemap.jsonc` — read on every HUD open. The former `~/.config/spacemap/config` path migrates automatically. Invalid fields self-heal individually after backing up to `spacemap.jsonc.bak`.
+`~/.config/spacemap/config.toml` — read on every HUD open. Invalid fields self-heal individually after backing up to `config.toml.bak`.
 
 ### Config Keys
 | Key | Type | Default | Range | Description |
 |-----|------|--------|--------|-------------|
 | `GRID_COLS` | Int | 8 | 1–20 | Grid columns |
 | `GRID_ROWS` | Int | 2 | 1–10 | Grid rows |
-| `CELL_STYLE` | String | `rects` | `rects\|icons\|thumbnails` | Window display style. `thumbnails` requires macOS 14+ and Screen Recording permission |
+| `CELL_STYLE` | String | `rects` | `rects\|hybrid\|icons\|thumbnails\|simple` | Window display style. `hybrid` adds centered app icons to rectangles; `thumbnails` requires macOS 14+ and Screen Recording permission |
 | `HOTKEY` | String | `ctrl+space` | modifiers+key | Toggle hotkey (requires restart) |
 | `PINNED_HOTKEY` | String | `none` | modifiers+key or `none` | Optional persistent-HUD toggle |
 | `UI_SCALE` | Double | 0.5 | 0.0–1.0 | HUD scale (effective: 0.5×–4.0×) |
@@ -152,7 +152,7 @@ space_change:
 ### CGEventTap Details
 - Uses `.headInsertEventTap` (not tailAppend) to capture before system shortcuts
 - Requires Accessibility permissions (prompted on launch)
-- Polls every 2s until permission granted
+- Continuously checks permission and event-tap health every second, automatically removing stale taps and restoring hotkeys after permission is re-granted
 
 ### Key Code Reference
 | Key | Code | Key | Code |
@@ -214,7 +214,7 @@ Hosted at `https://wiggly-sheets.github.io/Spacemap/appcast.xml` via GitHub Page
 | `notify` | Checks periodically, shows dialog with release notes |
 | `off` | Disables update checking entirely |
 
-First-launch prompt asks the user to choose. Setting is stored in `~/.config/spacemap/spacemap.jsonc` as `updateMode`.
+First-launch prompt asks the user to choose. Setting is stored in `~/.config/spacemap/config.toml` as `updateMode`.
 
 ### Info.plist Keys
 | Key | Value |

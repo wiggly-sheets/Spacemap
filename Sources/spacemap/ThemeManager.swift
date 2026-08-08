@@ -1,11 +1,10 @@
 import Foundation
 
 class ThemeManager {
-    static let shared = ThemeManager()
 
     private var themes: [String: AppTheme] = [:]
 
-    private init() {
+    init() {
         loadAll()
     }
 
