@@ -19,6 +19,8 @@ final class HUDDisplay {
     private var displayHostingViews: [Int: NSHostingView<AnyView>] = [:]
     private var currentConfig: GridConfig = .default
     private var hoveredCell: Int? = nil
+    private var displayNumber: Int?
+    private var renderedState: GridState?
     private var yabaiService: YabaiService
 
     var unifiedPanel: NSPanel? { panel }
@@ -29,6 +31,13 @@ final class HUDDisplay {
 
     func updateConfig(_ config: GridConfig) {
         currentConfig = config
+        panel?.hasShadow = config.hudShadow
+        displayPanels.values.forEach { $0.hasShadow = config.hudShadow }
+    }
+
+    func updateDisplayNumber(_ number: Int?) {
+        displayNumber = number
+        if let renderedState { updateState(renderedState) }
     }
 
     func updateHoveredCell(_ cell: Int?) {
@@ -46,6 +55,7 @@ final class HUDDisplay {
 
     func updateState(_ state: GridState) {
         currentConfig = state.config
+        renderedState = state
         let gridView = makeGridView(state: state, hoveredCell: hoveredCell)
         if let hostingView {
             hostingView.rootView = AnyView(gridView)
@@ -66,6 +76,7 @@ final class HUDDisplay {
 
     func render(state: GridState) {
         currentConfig = state.config
+        renderedState = state
         switch state.config.multiMonitorHUDMode {
         case .unified:
             renderUnifiedState(state)
@@ -155,7 +166,7 @@ final class HUDDisplay {
 
         let backingScale = NSScreen.screens.map(\.backingScaleFactor).max() ?? 2
         let thumbnailPixelSize = GridLayout.thumbnailPixelSize(for: currentConfig.uiScale, backingScale: backingScale)
-        let requests = ThumbnailCache.captureRequests(
+        let requests = ThumbnailRequestBuilder.captureRequests(
             for: state,
             spaceIndices: visibleSpaceIndices,
             thumbnailPixelSize: thumbnailPixelSize
@@ -310,26 +321,19 @@ final class HUDDisplay {
         hoveredCell: Int?,
         spaceIndices: [Int]? = nil
     ) -> GridView {
-        GridView(state: state, hoveredCell: hoveredCell, onSelect: { [weak self] index in
+        GridView(state: state, hoveredCell: hoveredCell, displayNumber: displayNumber, onSelect: { [weak self] index in
             self?.yabaiService.focusSpaceAsync(index)
             self?.delegate?.hide()
         }, uiScale: currentConfig.uiScale, theme: currentConfig.theme, spaceIndices: spaceIndices)
     }
 
     private func cellFrames(for cells: [Int], in panel: NSPanel) -> [(spaceIndex: Int, frame: CGRect)] {
-        guard !cells.isEmpty else { return [] }
-        let cols = max(1, min(currentConfig.cols, cells.count))
-        let gridLocalFrames = GridLayout.cellFrames(count: cells.count, cols: cols, uiScale: currentConfig.uiScale)
-        let origin = panel.frame.origin
-        let quartzMaxY = quartzMainScreenFrame.maxY
-        let panelMaxY = origin.y + panel.frame.height
-
-        return cells.enumerated().map { offset, spaceIndex in
-            var gridLocal = gridLocalFrames[offset]
-            gridLocal.origin.x += origin.x
-            gridLocal.origin.y = quartzMaxY - panelMaxY + gridLocal.origin.y + gridLocal.height
-            return (spaceIndex, gridLocal)
-        }
+        HUDGeometry.cellFrames(
+            for: cells,
+            panelFrame: panel.frame,
+            config: currentConfig,
+            quartzMaxY: quartzMainScreenFrame.maxY
+        )
     }
 
     private func screen(forDisplay displayIndex: Int, in state: GridState) -> NSScreen? {
@@ -389,18 +393,15 @@ final class HUDDisplay {
         p.backgroundColor = .clear
         p.level = .floating
         p.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        p.hasShadow = true
+        p.hasShadow = currentConfig.hudShadow
         return p
     }
 
     private var quartzMainScreenFrame: CGRect {
-        let mainDisplayID = CGMainDisplayID()
-        return NSScreen.screens.first { screen in
-            (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == mainDisplayID
-        }?.frame ?? NSScreen.screens.first?.frame ?? .zero
+        HUDGeometry.mainScreenFrame()
     }
 
     func quartzPoint(fromAppKit point: CGPoint) -> CGPoint {
-        CGPoint(x: point.x, y: quartzMainScreenFrame.maxY - point.y)
+        HUDGeometry.quartzPoint(fromAppKit: point, quartzMaxY: quartzMainScreenFrame.maxY)
     }
 }

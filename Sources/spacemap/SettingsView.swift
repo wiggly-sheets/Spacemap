@@ -38,6 +38,7 @@ struct SettingsView: View {
     @State private var maxSpaces: Int = 16
     @State private var gridLayoutIndex: Int = 0
     @State private var backgroundAlpha: Double = 0.3
+    @State private var hudShadow: Bool = true
     @State private var mode: ThemeMode = .auto
     @State private var iconScale: Double = 1.0
     @State private var showSpaceNumbers: Bool = true
@@ -49,6 +50,7 @@ struct SettingsView: View {
     @State private var menuBarNearbyCount: Int = 3
     @State private var useVimKeys: Bool = false
     @State private var useArrowKeys: Bool = false
+    @State private var jumpToSpaceEnabled: Bool = false
     @State private var hudPositionKind: HUDPositionKind = .center
     @State private var spaceNameInputs: [Int: String] = [:]
     @State private var showExtraWindows: Bool = false
@@ -147,6 +149,7 @@ init() {
         _displayNavigationWrap = State(initialValue: config.displayNavigationWrap)
         _maxSpaces = State(initialValue: config.maxSpaces)
         _backgroundAlpha = State(initialValue: nearest(to: config.backgroundAlpha, from: backgroundTransparencySteps))
+        _hudShadow = State(initialValue: config.hudShadow)
         _mode = State(initialValue: config.mode)
         _iconScale = State(initialValue: nearest(to: config.iconScale, from: iconScaleSteps))
         _showSpaceNumbers = State(initialValue: config.showSpaceNumbers)
@@ -158,6 +161,7 @@ init() {
         _menuBarNearbyCount = State(initialValue: config.menuBarNearbyCount)
         _useVimKeys = State(initialValue: config.useVimKeys)
         _useArrowKeys = State(initialValue: config.useArrowKeys)
+        _jumpToSpaceEnabled = State(initialValue: config.jumpToSpaceEnabled)
         // Initialize HUD position state: kind from config.hudPosition, custom position from config.customHUDX/Y
         _hudPositionKind = State(initialValue: HUDPositionKind(from: config.hudPosition))
         _lastCustomHUDX = State(initialValue: config.customHUDX)
@@ -202,6 +206,7 @@ init() {
             displayNavigationWrap: displayNavigationWrap,
             maxSpaces: maxSpaces,
             backgroundAlpha: backgroundAlpha,
+            hudShadow: hudShadow,
             mode: mode,
             iconScale: iconScale,
             showSpaceNumbers: showSpaceNumbers,
@@ -214,6 +219,7 @@ init() {
             spaceNames: spaceNameInputs,
             useVimKeys: useVimKeys,
             useArrowKeys: useArrowKeys,
+            jumpToSpaceEnabled: jumpToSpaceEnabled,
             hudPosition: hudPosition,
             customHUDX: lastCustomHUDX,
             customHUDY: lastCustomHUDY,
@@ -264,6 +270,7 @@ init() {
                     theme: $theme,
                     mode: $mode,
                     backgroundAlpha: $backgroundAlpha,
+                    hudShadow: $hudShadow,
                     iconScale: $iconScale,
                     uiScale: $uiScale,
                     onSave: saveConfig
@@ -277,6 +284,7 @@ init() {
                     autoHideTimeout: $autoHideTimeout,
                     useArrowKeys: $useArrowKeys,
                     useVimKeys: $useVimKeys,
+                    jumpToSpaceEnabled: $jumpToSpaceEnabled,
                     displayNavigationWrap: $displayNavigationWrap,
                     focusSpaceOnWindowDrop: $focusSpaceOnWindowDrop,
                     focusSpaceOnWindowDropModifier: $focusSpaceOnWindowDropModifier,

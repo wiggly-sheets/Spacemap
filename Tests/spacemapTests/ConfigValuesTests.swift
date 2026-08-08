@@ -15,6 +15,7 @@ final class ConfigValuesTests: XCTestCase {
         values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
         values.maxSpaces = 12
         values.backgroundAlpha = 0.5
+        values.hudShadow = false
         values.iconScale = 0.8
         values.uiScale = 0.75
         values.autoHideTimeout = 10
@@ -27,6 +28,7 @@ final class ConfigValuesTests: XCTestCase {
         values.spaceNames = [1: "Term", 2: "Code"]
         values.useVimKeys = true
         values.useArrowKeys = true
+        values.jumpToSpaceEnabled = true
         values.hudPosition = .custom(x: 0.25, y: 0.75)
         values.customHUDX = 0.25
         values.customHUDY = 0.75
@@ -56,6 +58,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.pinnedHotkey.key, .none)
         XCTAssertEqual(config.maxSpaces, 12)
         XCTAssertEqual(config.backgroundAlpha, 0.5, accuracy: 0.001)
+        XCTAssertFalse(config.hudShadow)
         XCTAssertEqual(config.iconScale, 0.8, accuracy: 0.001)
         XCTAssertEqual(config.uiScale, 0.75, accuracy: 0.001)
         XCTAssertEqual(config.autoHideTimeout, 10)
@@ -68,6 +71,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.spaceNames, [1: "Term", 2: "Code"])
         XCTAssertTrue(config.useVimKeys)
         XCTAssertTrue(config.useArrowKeys)
+        XCTAssertTrue(config.jumpToSpaceEnabled)
         XCTAssertEqual(config.hudPosition, .custom(x: 0.25, y: 0.75))
         XCTAssertEqual(config.customHUDX, 0.25, accuracy: 0.001)
         XCTAssertEqual(config.customHUDY, 0.75, accuracy: 0.001)
@@ -150,6 +154,7 @@ final class ConfigValuesTests: XCTestCase {
         values.displayNavigationWrap = .within
         values.maxSpaces = 8
         values.backgroundAlpha = 0.7
+        values.hudShadow = true
         values.iconScale = 0.6
         values.showSpaceNumbers = true
         values.showSpaceNames = false
@@ -160,6 +165,7 @@ final class ConfigValuesTests: XCTestCase {
         values.menuBarNearbyCount = 7
         values.useVimKeys = true
         values.useArrowKeys = true
+        values.jumpToSpaceEnabled = false
         values.hudPosition = .top
         values.showExtraWindows = true
         values.focusSpaceOnWindowDrop = .always
@@ -182,6 +188,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.displayNavigationWrap, .within)
         XCTAssertEqual(config.maxSpaces, 8)
         XCTAssertEqual(config.backgroundAlpha, 0.7, accuracy: 0.001)
+        XCTAssertTrue(config.hudShadow)
         XCTAssertEqual(config.iconScale, 0.6, accuracy: 0.001)
         XCTAssertTrue(config.showSpaceNumbers)
         XCTAssertFalse(config.showSpaceNames)
@@ -192,6 +199,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.menuBarNearbyCount, 7)
         XCTAssertTrue(config.useVimKeys)
         XCTAssertTrue(config.useArrowKeys)
+        XCTAssertFalse(config.jumpToSpaceEnabled)
         XCTAssertEqual(config.hudPosition, .top)
         XCTAssertTrue(config.showExtraWindows)
         XCTAssertEqual(config.focusSpaceOnWindowDrop, .always)

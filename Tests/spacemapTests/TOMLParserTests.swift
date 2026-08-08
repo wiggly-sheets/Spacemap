@@ -29,6 +29,7 @@ final class TOMLParserTests: XCTestCase {
         theme = "dracula"
         mode = "dark"
         backgroundAlpha = 0.5
+        hudShadow = false
         iconScale = 0.8
         uiScale = 0.75
 
@@ -37,6 +38,7 @@ final class TOMLParserTests: XCTestCase {
         displayNavigationWrap = "between"
         useVimKeys = true
         useArrowKeys = true
+        jumpToSpaceEnabled = true
         customHUDX = 0.25
         customHUDY = 0.75
         focusSpaceOnWindowDrop = "modifier"
@@ -86,12 +88,14 @@ final class TOMLParserTests: XCTestCase {
         XCTAssertEqual(values?.theme, "dracula")
         XCTAssertEqual(values?.mode, .dark)
         XCTAssertEqual(values?.backgroundAlpha, 0.5)
+        XCTAssertEqual(values?.hudShadow, false)
         XCTAssertEqual(values?.iconScale, 0.8)
         XCTAssertEqual(values?.uiScale, 0.75)
         XCTAssertEqual(values?.autoHideTimeout, 10)
         XCTAssertEqual(values?.displayNavigationWrap, .between)
         XCTAssertEqual(values?.useVimKeys, true)
         XCTAssertEqual(values?.useArrowKeys, true)
+        XCTAssertEqual(values?.jumpToSpaceEnabled, true)
         XCTAssertEqual(values?.customHUDX, 0.25)
         XCTAssertEqual(values?.customHUDY, 0.75)
         XCTAssertEqual(values?.focusSpaceOnWindowDrop, .modifier)

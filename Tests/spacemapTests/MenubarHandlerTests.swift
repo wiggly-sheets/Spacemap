@@ -54,19 +54,19 @@ final class MenubarHandlerTests: XCTestCase {
         var config = GridConfig.default
         config.hideMenuBarIcon = false
         config.menuBarDisplayMode = .dots
-        XCTAssertTrue(makeHotkeyHandler().workspacePreviewsEnabled(for: config))
+        XCTAssertTrue(config.needsWorkspacePreviews)
     }
 
     func testWorkspacePreviewsDisabledWhenMenuBarHidden() {
         var config = GridConfig.default
         config.hideMenuBarIcon = true
-        XCTAssertFalse(makeHotkeyHandler().workspacePreviewsEnabled(for: config))
+        XCTAssertFalse(config.needsWorkspacePreviews)
     }
 
     func testWorkspacePreviewsDisabledWhenIconMode() {
         var config = GridConfig.default
         config.menuBarDisplayMode = .icon
-        XCTAssertFalse(makeHotkeyHandler().workspacePreviewsEnabled(for: config))
+        XCTAssertFalse(config.needsWorkspacePreviews)
     }
 
     // MARK: - windowGeometryPreviewsEnabled
@@ -75,20 +75,20 @@ final class MenubarHandlerTests: XCTestCase {
         var config = GridConfig.default
         config.hideMenuBarIcon = false
         config.menuBarDisplayMode = .dots
-        XCTAssertFalse(makeHotkeyHandler().windowGeometryPreviewsEnabled(for: config))
+        XCTAssertFalse(config.needsWindowGeometryPreviews)
     }
 
     func testWindowGeometryPreviewsEnabledWhenNearbyMode() {
         var config = GridConfig.default
         config.hideMenuBarIcon = false
         config.menuBarDisplayMode = .nearby
-        XCTAssertTrue(makeHotkeyHandler().windowGeometryPreviewsEnabled(for: config))
+        XCTAssertTrue(config.needsWindowGeometryPreviews)
     }
 
     func testWindowGeometryPreviewsDisabledWhenMenuBarHidden() {
         var config = GridConfig.default
         config.hideMenuBarIcon = true
-        XCTAssertFalse(makeHotkeyHandler().windowGeometryPreviewsEnabled(for: config))
+        XCTAssertFalse(config.needsWindowGeometryPreviews)
     }
 
     // MARK: - Helpers

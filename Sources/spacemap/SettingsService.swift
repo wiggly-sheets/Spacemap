@@ -4,6 +4,7 @@ import AppKit
 final class SettingsService: SettingsHandling {
     let yabaiService: YabaiService
     let checkForUpdates: () -> Void
+    private var settingsWindowController: SettingsWindowController?
 
     init(
         yabaiService: YabaiService,
@@ -14,14 +15,26 @@ final class SettingsService: SettingsHandling {
     }
 
     func showSettingsWindow() {
+        NSApp.setActivationPolicy(.regular)
+        if let controller = settingsWindowController {
+            controller.showWindow(nil)
+            controller.window?.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
         let controller = SettingsWindowController(yabaiService: yabaiService)
+        settingsWindowController = controller
         controller.showWindow()
+        controller.window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
         if let window = controller.window {
             NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
                 object: window,
                 queue: .main
             ) { _ in
+                self.settingsWindowController = nil
                 NSApp.setActivationPolicy(.prohibited)
             }
         }

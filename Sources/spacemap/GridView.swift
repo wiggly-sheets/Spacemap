@@ -6,6 +6,7 @@ struct GridView: View {
     let onSelect: (Int) -> Void
     let uiScale: Double
     let theme: String
+    let displayNumber: Int?
     
     private var isDarkMode: Bool {
         switch state.config.mode {
@@ -14,6 +15,8 @@ struct GridView: View {
         case .auto:  return NSApp.effectiveAppearance.name == .darkAqua
         }
     }
+
+    private var textColor: Color { isDarkMode ? .white : .black }
     
     // ponytail: precomputed once per GridView init, not per body/idealSize call
     private let _visibleSpaceIndices: [Int]
@@ -46,6 +49,14 @@ struct GridView: View {
         )
         .overlay(alignment: .topLeading) {
             displayBoundaryOverlay
+        }
+        .overlay {
+            if let displayNumber {
+                Text("\(displayNumber)")
+                    .font(.system(size: 96, weight: .bold))
+                    .foregroundStyle(textColor.opacity(0.8))
+                    .allowsHitTesting(false)
+            }
         }
     }
     
@@ -161,6 +172,7 @@ struct GridView: View {
     init(
         state: GridState,
         hoveredCell: Int?,
+        displayNumber: Int? = nil,
         onSelect: @escaping (Int) -> Void,
         uiScale: Double = 1.0,
         theme: String = "default",
@@ -168,6 +180,7 @@ struct GridView: View {
     ) {
         self.state = state
         self.hoveredCell = hoveredCell
+        self.displayNumber = displayNumber
         self.onSelect = onSelect
         self.uiScale = uiScale
         self.theme = theme

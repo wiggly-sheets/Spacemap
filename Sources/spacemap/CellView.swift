@@ -131,7 +131,7 @@ var body: some View {
                 Text(name)
                     .font(.system(size: 14 * uiScale, weight: .medium))
                     .foregroundColor(textColor)
-                    .position(GridLayout.spaceNamePosition(in: GridLayout.cellSize(for: Double(uiScale))))
+                    .position(GridLayout.spaceNamePosition(in: GridLayout.cellSize(forEffectiveScale: uiScale)))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -141,7 +141,7 @@ var body: some View {
             RoundedRectangle(cornerRadius: 4)
                 .strokeBorder(borderColor, lineWidth: borderWidth)
         )
-        .frame(width: GridLayout.cellSize(for: Double(uiScale)).width, height: GridLayout.cellSize(for: Double(uiScale)).height)
+        .frame(width: GridLayout.cellSize(forEffectiveScale: uiScale).width, height: GridLayout.cellSize(forEffectiveScale: uiScale).height)
         .onTapGesture { onSelect(spaceIndex) }
     }
     
@@ -181,7 +181,7 @@ var body: some View {
     
     @ViewBuilder
     private func windowRect(_ window: YabaiWindow) -> some View {
-        let cs = GridLayout.cellSize(for: Double(uiScale))
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
         if let frame = GridLayout.scaledWindowFrame(
             windowFrame: window.cgFrame,
             displayBounds: displayBounds,
@@ -196,7 +196,7 @@ var body: some View {
 
     @ViewBuilder
     private func hybridWindowIcon(_ window: YabaiWindow) -> some View {
-        let cs = GridLayout.cellSize(for: Double(uiScale))
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
         if let frame = GridLayout.scaledWindowFrame(
             windowFrame: window.cgFrame,
             displayBounds: displayBounds,
@@ -213,7 +213,7 @@ var body: some View {
     
     @ViewBuilder
     private func iconGrid() -> some View {
-        let cs = GridLayout.cellSize(for: Double(uiScale))
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
         let layouts = GridLayout.windowIconLayouts(
             windows: filteredWindows,
             displayBounds: displayBounds,
@@ -246,7 +246,7 @@ var body: some View {
         let baseIconSize = 12 * uiScale * ic * 2
         let spacing = 2 * uiScale * ic * 2
         let padding = 3 * uiScale * ic * 2
-        let cs = GridLayout.cellSize(for: Double(uiScale))
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
         let availableWidth = cs.width - padding * 2
         let neededWidth = CGFloat(icons.count) * baseIconSize + CGFloat(max(0, icons.count - 1)) * spacing
         let fitScale: CGFloat = neededWidth > availableWidth ? availableWidth / neededWidth : 1.0
@@ -298,7 +298,7 @@ var body: some View {
                let nsImage = thumbnailStore.image(forSpace: spaceIndex) else {
             return AnyView(Color.clear)
         }
-        let cs = GridLayout.cellSize(for: Double(uiScale))
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
         return AnyView(Image(nsImage: nsImage)
             .resizable()
             .aspectRatio(contentMode: .fill)

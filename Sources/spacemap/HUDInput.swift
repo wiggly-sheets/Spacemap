@@ -4,6 +4,7 @@ import CoreGraphics
 /// Actions that can result from HUD input handling.
 enum InputAction {
     case navigate(direction: SpaceNavigationDirection)
+    case enterSpaceNumber(Int)
     case showSettings
     case none
 }
@@ -34,6 +35,7 @@ final class HUDInput {
     private var isVisible = false
     private var useArrowKeys = false
     private var useVimKeys = false
+    private var jumpToSpaceEnabled = false
     private var dragHandlerCellFrames: [(spaceIndex: Int, frame: CGRect)] = []
 
     // MARK: - Navigation & timer state
@@ -51,6 +53,9 @@ final class HUDInput {
     private var pollTimer: Timer?
     var onRefresh: (() -> Void)?
     var onAutoHide: (() -> Void)?
+    var onNumberEntry: ((Int?) -> Void)?
+    private var pendingNumber = ""
+    private var numberEntryTimer: Timer?
 
     init(panel: NSPanel?) {
         self.panel = panel
@@ -64,9 +69,10 @@ final class HUDInput {
         isVisible = visible
     }
 
-    func updateConfig(useArrowKeys: Bool, useVimKeys: Bool) {
+    func updateConfig(useArrowKeys: Bool, useVimKeys: Bool, jumpToSpaceEnabled: Bool = false) {
         self.useArrowKeys = useArrowKeys
         self.useVimKeys = useVimKeys
+        self.jumpToSpaceEnabled = jumpToSpaceEnabled
     }
 
     func updateCellFrames(_ frames: [(spaceIndex: Int, frame: CGRect)]) {
@@ -89,6 +95,7 @@ final class HUDInput {
         autoHideTimer = nil
         pollTimer?.invalidate()
         pollTimer = nil
+        clearNumberEntry()
     }
 
     func startPanelDragMonitor() {
@@ -215,14 +222,43 @@ final class HUDInput {
             target = nil
         }
         guard let target else { return }
-        NSLog("spacemap/HUD: navigate \(direction) from yabai=\(currentIdx) → target yabai=\(target)")
-        yabaiService?.focusSpaceAsync(target)
-        lastFocusedSpaceIndex = target
-        if let optimistic = hudStateSync?.updateFocusedIndex(target) {
+        focus(space: target)
+    }
+
+    private func focus(space index: Int) {
+        yabaiService?.focusSpaceAsync(index)
+        lastFocusedSpaceIndex = index
+        if let optimistic = hudStateSync?.updateFocusedIndex(index) {
             currentState = optimistic
             hudDisplay?.updateState(optimistic)
         }
         resetAutoHideTimer()
+    }
+
+    private func handleNumberEntry(_ number: Int) {
+        pendingNumber.append("\(number)")
+        onNumberEntry?(Int(pendingNumber))
+        numberEntryTimer?.invalidate()
+        numberEntryTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            self?.processPendingNumber()
+        }
+    }
+
+    private func processPendingNumber() {
+        let enteredNumber = pendingNumber
+        clearNumberEntry()
+        guard let target = Int(enteredNumber),
+              let state = currentState,
+              state.spaces.contains(where: { $0.index == target }) else { return }
+        NSLog("spacemap/HUD: jump to space \(target)")
+        focus(space: target)
+    }
+
+    private func clearNumberEntry() {
+        numberEntryTimer?.invalidate()
+        numberEntryTimer = nil
+        pendingNumber = ""
+        onNumberEntry?(nil)
     }
 
     // MARK: - Keyboard event tap
@@ -303,6 +339,9 @@ final class HUDInput {
         if Self.isSettingsShortcut(keyCode: keyCode, flags: flags) {
             return .showSettings
         }
+        if jumpToSpaceEnabled, let number = Self.numberFromKeyCode(keyCode: keyCode, flags: flags) {
+            return .enterSpaceNumber(number)
+        }
         if let direction = Self.navigationDirection(
             keyCode: keyCode,
             flags: flags,
@@ -325,6 +364,10 @@ final class HUDInput {
         case .showSettings:
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.showSettings()
+            }
+        case .enterSpaceNumber(let number):
+            DispatchQueue.main.async { [weak self] in
+                self?.handleNumberEntry(number)
             }
         case .none:
             break
@@ -363,5 +406,34 @@ final class HUDInput {
             }
         }
         return nil
+    }
+
+    static func numberFromKeyCode(keyCode: CGKeyCode, flags: CGEventFlags) -> Int? {
+        guard !flags.contains(.maskControl),
+              !flags.contains(.maskCommand),
+              !flags.contains(.maskAlternate) else { return nil }
+        switch keyCode {
+        case 18: return 1
+        case 19: return 2
+        case 20: return 3
+        case 21: return 4
+        case 23: return 5
+        case 22: return 6
+        case 26: return 7
+        case 28: return 8
+        case 25: return 9
+        case 29: return 0
+        case 82: return 0
+        case 83: return 1
+        case 84: return 2
+        case 85: return 3
+        case 86: return 4
+        case 87: return 5
+        case 88: return 6
+        case 89: return 7
+        case 91: return 8
+        case 92: return 9
+        default: return nil
+        }
     }
 }

@@ -12,7 +12,7 @@ final class ThumbnailCacheService {
         spaceIndices: Set<Int>,
         thumbnailPixelSize: CGSize
     ) -> [ThumbnailCache.CaptureRequest] {
-        ThumbnailCache.captureRequests(
+        ThumbnailRequestBuilder.captureRequests(
             for: state,
             spaceIndices: spaceIndices,
             thumbnailPixelSize: thumbnailPixelSize

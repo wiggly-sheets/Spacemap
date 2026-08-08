@@ -25,6 +25,12 @@ public enum GridLayout {
                height: baseCellHeight * scale(for: uiScale))
     }
 
+    /// CellView receives the already-resolved scale from GridView.
+    static func cellSize(forEffectiveScale effectiveScale: CGFloat) -> CGSize {
+        CGSize(width: baseCellWidth * effectiveScale,
+               height: baseCellHeight * effectiveScale)
+    }
+
     static func gap(for uiScale: Double) -> CGFloat {
         baseGap * scale(for: uiScale)
     }
