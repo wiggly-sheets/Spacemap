@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- Restored full Settings window sizing instead of reopening at collapsed content height.
+- Restored Settings form layout and full window sizing instead of collapsed, unformatted content.
 
 ## [1.0.35] - 2026-08-08
 
