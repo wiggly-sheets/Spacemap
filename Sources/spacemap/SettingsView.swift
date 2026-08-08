@@ -239,7 +239,8 @@ init() {
 
             Divider()
 
-            switch selectedSection {
+            Form {
+                switch selectedSection {
             case .grid:
                 SettingsGrid(
                     maxSpaces: $maxSpaces,
@@ -307,7 +308,21 @@ init() {
                     refreshDiagnostics: refreshDiagnostics,
                     saveConfig: saveConfig
                 )
+                }
             }
+            .id(selectedSection)
+            .scrollContentBackground(.hidden)
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(nsColor: .windowBackgroundColor),
+                        Color(nsColor: .controlBackgroundColor).opacity(0.4)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onReceive(NotificationCenter.default.publisher(for: .settingsChanged)) { _ in
             let config = Config.load()
