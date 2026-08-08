@@ -54,6 +54,7 @@ final class HUDInput {
     var onRefresh: (() -> Void)?
     var onAutoHide: (() -> Void)?
     var onNumberEntry: ((Int?) -> Void)?
+    var onPanelDragEnded: (() -> Void)?
     private var pendingNumber = ""
     private var numberEntryTimer: Timer?
 
@@ -130,8 +131,7 @@ final class HUDInput {
                 }
             case .leftMouseUp:
                 if self.panelDragDidMove {
-                    // savePanelPosition() has been moved to HUDDisplay
-                    // HUDWindowController should call HUDDisplay.savePanelPosition() when needed
+                    self.onPanelDragEnded?()
                 }
                 self.panelDragStart = nil
                 self.panelDragOrigin = nil
@@ -359,7 +359,7 @@ final class HUDInput {
         switch action {
         case .navigate(let direction):
             DispatchQueue.main.async { [weak self] in
-                self?.navigate(direction: direction)
+                self?.delegate?.navigate(direction: direction)
             }
         case .showSettings:
             DispatchQueue.main.async { [weak self] in

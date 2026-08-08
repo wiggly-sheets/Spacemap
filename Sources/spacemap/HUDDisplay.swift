@@ -114,29 +114,6 @@ final class HUDDisplay {
     }
 
     func updateCellFrames(state: GridState) {
-        var frames: [(spaceIndex: Int, frame: CGRect)] = []
-        switch currentConfig.multiMonitorHUDMode {
-        case .unified:
-            let cells = GridLayout.visibleSpaceIndices(
-                maxSpaces: currentConfig.maxSpaces,
-                showMode: currentConfig.showMode,
-                activeIndices: Set(state.spaces.map(\.index))
-            )
-            if let panel {
-                frames.append(contentsOf: cellFrames(for: cells, in: panel))
-            } else {
-                for panel in displayPanels.values {
-                    frames.append(contentsOf: cellFrames(for: cells, in: panel))
-                }
-            }
-        case .separate:
-            for (displayIndex, panel) in displayPanels {
-                frames.append(contentsOf: cellFrames(
-                    for: state.spaces(forDisplay: displayIndex).map(\.index),
-                    in: panel
-                ))
-            }
-        }
         delegate?.updateCellFrames(state: state)
     }
 
