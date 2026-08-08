@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated user, support, contributor, and developer documentation to describe both yabai and AeroSpace support.
 
 
+## [1.0.36] - 2026-08-08
+
+### Fixed
+- Restored Settings form layout and full window sizing instead of collapsed, unformatted content.
+
 ## [1.0.35] - 2026-08-08
 
 ### Fixed
