@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.0.35] - 2026-08-08
+
 ### Fixed
 - Prevented HUD cells from applying UI scale twice; restored centered sizing and HUD keyboard navigation wiring.
 - Preserve one shared HUD controller across lifecycle, hotkey, menu bar, and deep-link paths.
