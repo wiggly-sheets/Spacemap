@@ -7,7 +7,6 @@ class HUDWindowController {
     private var currentState: GridState? = nil
     private var lastFocusedSpaceIndex: Int? = nil
     private var focusedWindowIDAtOpen: Int? = nil
-    private var previousDragState: DragState = .idle
     var isVisible = false
     var isPinned = false
     var isToggling = false
@@ -38,45 +37,33 @@ class HUDWindowController {
         hudInput.onRefresh = { [weak self] in self?.refresh() }
         hudInput.onAutoHide = { [weak self] in self?.hide() }
         hudInput.onNumberEntry = { [weak self] number in self?.hudDisplay.updateDisplayNumber(number) }
-    }
-
-    private func checkDragState() {
-        let state = dragHandler.dragState
-        switch (previousDragState, state) {
-        case (.idle, .dragging(_, _, let lastHoveredCell, _)):
-            if let cell = lastHoveredCell {
-                hoveredCell = cell
-                hudDisplay.updateHoveredCell(cell)
-                if let currentState { hudDisplay.refreshAndRender(state: currentState, force: false) }
-                resetAutoHideTimer()
-            }
-        case (.dragging(_, _, let prevHoveredCell, _), .dragging(_, _, let currentHoveredCell, _)):
-            if currentHoveredCell != prevHoveredCell {
-                hoveredCell = currentHoveredCell
-                hudDisplay.updateHoveredCell(currentHoveredCell)
-                if let currentState { hudDisplay.refreshAndRender(state: currentState, force: false) }
-                resetAutoHideTimer()
-            }
-        case (.dragging(_, let draggedWindowID, let lastHoveredCell, _), .idle):
-            if let windowID = draggedWindowID, let cell = lastHoveredCell {
-                hoveredCell = nil
-                resetAutoHideTimer()
-                let modifiers = CGEventFlags(rawValue: UInt64(NSEvent.modifierFlags.rawValue))
-                let fd = config.focusSpaceOnWindowDrop.shouldFocus(eventFlags: modifiers, requiredModifier: config.focusSpaceOnWindowDropModifier)
-                services.yabaiService.moveWindowCreatingSpacesIfNeeded(windowID, toSpace: cell, focusDestination: fd) { [weak self] result in
-                    guard let self else { return }
-                    if case .failure(let error) = result { NSLog("spacemap/HUD: window drop failed: \(error.localizedDescription)") }
-                    self.refresh()
-                    self.resetAutoHideTimer()
-                }
-            } else if lastHoveredCell != nil {
-                hoveredCell = nil
-                if let currentState { hudDisplay.refreshAndRender(state: currentState, force: false) }
-            }
-        default:
-            break
+        hudInput.onPanelDragEnded = { [weak self] in self?.hudDisplay.savePanelPosition() }
+        dragHandler.onHoverCell = { [weak self] cell in
+            guard let self, self.isVisible, let state = self.currentState else { return }
+            self.hoveredCell = cell
+            self.hudDisplay.updateHoveredCell(cell)
+            self.hudDisplay.refreshAndRender(state: state, force: false)
+            self.resetAutoHideTimer()
         }
-        previousDragState = state
+        dragHandler.onDropInCell = { [weak self] windowID, spaceIndex, modifiers in
+            guard let self else { return }
+            self.hoveredCell = nil
+            self.hudDisplay.updateHoveredCell(nil)
+            let focusDestination = self.config.focusSpaceOnWindowDrop.shouldFocus(
+                eventFlags: modifiers,
+                requiredModifier: self.config.focusSpaceOnWindowDropModifier
+            )
+            self.services.yabaiService.moveWindowCreatingSpacesIfNeeded(
+                windowID,
+                toSpace: spaceIndex,
+                focusDestination: focusDestination
+            ) { [weak self] result in
+                guard let self else { return }
+                if case .failure(let error) = result { NSLog("spacemap/HUD: window drop failed: \(error.localizedDescription)") }
+                self.refresh()
+                self.resetAutoHideTimer()
+            }
+        }
     }
 
     func toggle() {
@@ -133,9 +120,6 @@ class HUDWindowController {
         guard isVisible, let state = hudStateSync.currentState else { return }
         currentState = state
         hudInput.currentState = state
-        checkDragState()
-        let cellFrames = hudDisplay.computeCellFrames(state: state)
-        dragHandler.updateInput(WindowDragInput(cellFrames: cellFrames, cachedWindows: state.windows, focusedWindowIDAtOpen: focusedWindowIDAtOpen))
         hudDisplay.refreshAndRender(state: state, force: force)
         lastFocusedSpaceIndex = state.focusedIndex
         hudInput.lastFocusedSpaceIndex = state.focusedIndex
@@ -203,5 +187,12 @@ extension HUDWindowController: HUDInputDelegate {
 extension HUDWindowController: HUDDisplayDelegate {
     func render(state: GridState) {}
     func updateCellFrames(state: GridState) {
+        let frames = hudDisplay.computeCellFrames(state: state)
+        hudInput.updateCellFrames(frames)
+        dragHandler.updateInput(WindowDragInput(
+            cellFrames: frames,
+            cachedWindows: state.windows,
+            focusedWindowIDAtOpen: focusedWindowIDAtOpen
+        ))
     }
 }

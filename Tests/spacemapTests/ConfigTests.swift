@@ -348,4 +348,27 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(loaded.cols, GridConfig.default.cols)
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), plain)
     }
+
+    func testJumpToSpaceEnabledDefaultsToFalse() {
+        let configTrue = """
+        [behavior]
+        jumpToSpaceEnabled = true
+        """
+        let cTrue = Config.parseConfig(configTrue)
+        XCTAssertTrue(cTrue.jumpToSpaceEnabled)
+
+        let configMissing = "[behavior]\nautoHideTimeout = 5"
+        let cMissing = Config.parseConfig(configMissing)
+        XCTAssertFalse(cMissing.jumpToSpaceEnabled)
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-config-jump-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        Config.saveConfig(cTrue, to: path)
+        let reloaded = Config.load(from: path)
+        XCTAssertTrue(reloaded.jumpToSpaceEnabled)
+    }
 }

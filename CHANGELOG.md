@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Prevented HUD cells from applying UI scale twice; restored centered sizing and HUD keyboard navigation wiring.
 - Preserve one shared HUD controller across lifecycle, hotkey, menu bar, and deep-link paths.
 - Keep Settings windows alive and activate the app when opening them.
+- Restored HUD window-drag hover/drop handling and custom panel-position persistence.
 
 ### Changed
 - Decomposed TOML parsing, thumbnail request/compositing, and HUD coordinate transforms behind focused modules.
@@ -22,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added ConfigValuesProtocol, TOMLParserProtocol, and ConfigLoaderProtocol protocol interfaces for all config modules.
 - Added protocol-based unit tests (ConfigFacadeTests) verifying Config facade delegation to ConfigLoader/TOMLParser.
 - Added ConfigValues init(from: GridConfig) and ConfigLoader.save(_ config: GridConfig, to path:) for GridConfig ↔ ConfigValues conversion.
+
+## [1.0.34] - 2026-08-07
+
+### Added
+- Added space jumps using number keys.
+
+## [1.0.33] - 2026-08-05
+
+### Changed
+- Icon strips now order app icons by on-screen window position (left-to-right, then top-to-bottom) instead of yabai's raw window order.
+
+## [1.0.32] - 2026-08-01
 
 ### Added
 - Added optional number-key space jumps, including multi-digit space numbers and HUD feedback.
