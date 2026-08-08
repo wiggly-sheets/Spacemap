@@ -3,15 +3,9 @@ import Foundation
 import ServiceManagement
 import Sparkle
 
-/// Central dependency injection container for the Spacemap application.
-///
-/// Composed of three domain‑specific services:
-///   - SpacemapCoreServices   (fundamental dependencies & factories)
-///   - SpacemapSystemServices (system‑focused services: alerts, CLI tools)
+/// Composition root for shared application modules.
 final class SpacemapServices {
-    // Sub‑services
     private let core: SpacemapCoreServices
-    private let system: SpacemapSystemServices
     // Public services
     var yabaiService: YabaiService { core.yabaiService }
     var appConfig: AppConfig { core.appConfig }
@@ -36,7 +30,7 @@ final class SpacemapServices {
         onSetLoginAtLogin: { [weak self] in self?.setLoginAtLogin(enabled: $0) }
     )
     lazy var settingsService: SettingsService = SettingsService(yabaiService: yabaiService, checkForUpdates: { [weak self] in self?.checkForUpdates() })
-    lazy var cliToolsService: CLIToolsService = CLIToolsService(
+    lazy var cliToolsService = CLIToolsService(
         onUpdateSparkleConfig: { [weak self] updateMode in self?.updateSparkleConfig(updateMode: updateMode) },
         sparkleController: core.sparkleController
     )
@@ -81,8 +75,6 @@ final class SpacemapServices {
             hotkeyMonitorFactory: hotkeyMonitorFactory,
             alertsService: alertsService
         )
-        self.system = SpacemapSystemServices(core: core)
-        // Create HUD with self for callback closures
         self.hud = HUDWindowController(services: self)
     }
     // Convenience
@@ -135,6 +127,8 @@ final class SpacemapServices {
     func toggleLoginAtLogin() { cliToolsService.toggleLoginAtLogin() }
     // MARK: - Deep Link Handlers
     func handleDeepLink(_ action: DeepLinkAction) { deepLinkService.handleDeepLink(action) }
+    func openDeepLinks(_ urls: [URL]) { deepLinkService.open(urls: urls) }
+    func setDeepLinksReady() { deepLinkService.setReady(true) }
     func handlePendingDeepLinks() { deepLinkService.handlePendingDeepLinks() }
     // MARK: - Sparkle Handlers
     func configureSparkleUpdater(updateMode: UpdateMode) {
@@ -142,10 +136,10 @@ final class SpacemapServices {
     }
     func updateSparkleConfig(updateMode: UpdateMode) { configureSparkleUpdater(updateMode: updateMode) }
     // MARK: - Alert Handlers
-    func showYabaiAlert() { system.alertsService.showYabaiAlert() }
-    func isMRUSpacesEnabled() -> Bool { system.alertsService.isMRUSpacesEnabled() }
-    func showMRUAlert() { system.alertsService.showMRUAlert() }
-    func showSeparateSpacesAlert() { system.alertsService.showSeparateSpacesAlert() }
+    func showYabaiAlert() { core.alertsService.showYabaiAlert() }
+    func isMRUSpacesEnabled() -> Bool { core.alertsService.isMRUSpacesEnabled() }
+    func showMRUAlert() { core.alertsService.showMRUAlert() }
+    func showSeparateSpacesAlert() { core.alertsService.showSeparateSpacesAlert() }
     // MARK: - Socket Listener Factory
     func makeSocketListener(
         socketPath: String,

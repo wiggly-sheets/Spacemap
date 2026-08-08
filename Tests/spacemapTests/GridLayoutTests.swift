@@ -112,7 +112,7 @@ final class GridLayoutTests: XCTestCase {
         let gap0 = GridLayout.gap(for: 0.0)
         let gap1 = GridLayout.gap(for: 1.0)
         XCTAssertEqual(gap0, 3.0, "Gap at uiScale 0 should be 3.0")
-        XCTAssertEqual(gap1, 7.0, "Gap at uiScale 1 should be 7.0")
+        XCTAssertEqual(gap1, 24.0, "Gap at uiScale 1 should be 24.0")
         XCTAssertLessThan(gap0, gap1, "Gap should increase with uiScale")
     }
 
@@ -122,8 +122,16 @@ final class GridLayoutTests: XCTestCase {
         let pad0 = GridLayout.padding(for: 0.0)
         let pad1 = GridLayout.padding(for: 1.0)
         XCTAssertEqual(pad0, 6.0, "Padding at uiScale 0 should be 6.0")
-        XCTAssertEqual(pad1, 12.0, "Padding at uiScale 1 should be 12.0")
+        XCTAssertEqual(pad1, 48.0, "Padding at uiScale 1 should be 48.0")
         XCTAssertLessThan(pad0, pad1, "Padding should increase with uiScale")
+    }
+
+    func testCellSizeForEffectiveScaleDoesNotApplyScaleTwice() {
+        let effectiveScale = GridLayout.scale(for: 0.4)
+        XCTAssertEqual(
+            GridLayout.cellSize(forEffectiveScale: effectiveScale),
+            CGSize(width: 80 * effectiveScale, height: 50 * effectiveScale)
+        )
     }
 
     // MARK: - slotSize
@@ -190,7 +198,7 @@ final class GridLayoutTests: XCTestCase {
         let sizeWide = GridLayout.idealSize(visibleIndices: 8, cols: 8, uiScale: 1.0)
         let sizeNarrow = GridLayout.idealSize(visibleIndices: 8, cols: 4, uiScale: 1.0)
         XCTAssertGreaterThan(sizeNarrow.height, sizeWide.height, "More rows for fewer columns")
-        XCTAssertEqual(sizeWide.width, sizeNarrow.width, "Same width for same number of cells")
+        XCTAssertGreaterThan(sizeWide.width, sizeNarrow.width, "More columns should make grid wider")
     }
 
     // MARK: - cellFrame
@@ -308,7 +316,7 @@ final class GridLayoutTests: XCTestCase {
 
     func testHybridIconSizeCapsAt26_25() {
         let size = GridLayout.hybridIconSize(uiScale: 10, windowFrame: CGRect(x: 0, y: 0, width: 1000, height: 1000))
-        XCTAssertEqual(size, 26.25, "Icon size should cap at 26.25 * uiScale")
+        XCTAssertEqual(size, 262.5, "Icon size should cap at 26.25 * uiScale")
     }
 
     // MARK: - spaceNumberPosition

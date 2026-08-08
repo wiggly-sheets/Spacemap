@@ -18,6 +18,7 @@ struct ConfigValues: ConfigValuesProtocol {
     var displayNavigationWrap: DisplayNavigationWrap?
     var maxSpaces: Int?
     var backgroundAlpha: Double?
+    var hudShadow: Bool?
     var mode: ThemeMode?
     var iconScale: Double?
     var showSpaceNumbers: Bool?
@@ -30,6 +31,7 @@ struct ConfigValues: ConfigValuesProtocol {
     var spaceNames: [Int: String]?
     var useVimKeys: Bool?
     var useArrowKeys: Bool?
+    var jumpToSpaceEnabled: Bool?
     var hudPosition: HUDPosition?
     var customHUDX: Double?
     var customHUDY: Double?
@@ -58,6 +60,7 @@ struct ConfigValues: ConfigValuesProtocol {
         self.displayNavigationWrap = config.displayNavigationWrap
         self.maxSpaces = config.maxSpaces
         self.backgroundAlpha = config.backgroundAlpha
+        self.hudShadow = config.hudShadow
         self.mode = config.mode
         self.iconScale = config.iconScale
         self.showSpaceNumbers = config.showSpaceNumbers
@@ -70,6 +73,7 @@ struct ConfigValues: ConfigValuesProtocol {
         self.spaceNames = config.spaceNames
         self.useVimKeys = config.useVimKeys
         self.useArrowKeys = config.useArrowKeys
+        self.jumpToSpaceEnabled = config.jumpToSpaceEnabled
         self.hudPosition = config.hudPosition
         self.customHUDX = config.customHUDX
         self.customHUDY = config.customHUDY
@@ -146,6 +150,7 @@ struct ConfigValues: ConfigValuesProtocol {
             displayNavigationWrap: resolvedNavigationWrap,
             maxSpaces: valid(maxSpaces, defaults.maxSpaces) { (1...16).contains($0) },
             backgroundAlpha: valid(backgroundAlpha, defaults.backgroundAlpha) { (0...1).contains($0) },
+            hudShadow: orDefault(hudShadow, defaults.hudShadow),
             mode: resolvedThemeMode,
             iconScale: valid(iconScale, defaults.iconScale) { (0...1).contains($0) },
             showSpaceNumbers: orDefault(showSpaceNumbers, defaults.showSpaceNumbers),
@@ -158,6 +163,7 @@ struct ConfigValues: ConfigValuesProtocol {
             spaceNames: spaceNames ?? defaults.spaceNames,
             useVimKeys: orDefault(useVimKeys, defaults.useVimKeys),
             useArrowKeys: orDefault(useArrowKeys, defaults.useArrowKeys),
+            jumpToSpaceEnabled: orDefault(jumpToSpaceEnabled, defaults.jumpToSpaceEnabled),
             hudPosition: resolvedHudPosition,
             customHUDX: valid(customHUDX, defaults.customHUDX) { (0...1).contains($0) },
             customHUDY: valid(customHUDY, defaults.customHUDY) { (0...1).contains($0) },

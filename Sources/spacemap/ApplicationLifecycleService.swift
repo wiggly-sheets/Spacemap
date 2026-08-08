@@ -15,10 +15,7 @@ final class ApplicationLifecycleService {
 
     private var socketListener: SocketListener?
     private var settingsObserver: NSObjectProtocol?
-    private var settingsWindowObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
-    private var isReadyForDeepLinks = false
-    private var pendingDeepLinks: [DeepLinkAction] = []
 
     // MARK: - Private State for Hotkey Monitors
 
@@ -71,8 +68,7 @@ final class ApplicationLifecycleService {
         services.ensureCommandLineTools(allowAuthorizationPrompt: true)
 
         services.setupMenubar()
-        isReadyForDeepLinks = true
-        services.handlePendingDeepLinks()
+        services.setDeepLinksReady()
 
         // Trigger Sparkle initialization early so updater starts on launch
         _ = services.sparkleController
@@ -93,8 +89,8 @@ final class ApplicationLifecycleService {
             self.services.yabaiService.registerSignals(
                 socketPath: SpacemapCommand.socketPath,
                 showHUDOnSpaceChange: config.showHUDOnSpaceChange,
-                refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
-                refreshWindowGeometry: self.windowGeometryPreviewsEnabled(for: config)
+                refreshWorkspacePreviews: config.needsWorkspacePreviews,
+                refreshWindowGeometry: config.needsWindowGeometryPreviews
             )
 
             // Observe settings changes to update hotkey
@@ -125,9 +121,6 @@ final class ApplicationLifecycleService {
         if let observer = settingsObserver {
             NotificationCenter.default.removeObserver(observer)
         }
-        if let observer = settingsWindowObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
     }
 
     // MARK: - Private Helpers
@@ -145,7 +138,7 @@ final class ApplicationLifecycleService {
                 self?.services.refreshMenubarPreview()
             },
             onToggle: { [weak self] in self?.hud.toggle() },
-            onSettings: { [weak self] in self?.showSettingsWindow() }
+            onSettings: { [weak self] in self?.services.showSettingsWindow() }
         )
     }
 
@@ -160,10 +153,8 @@ final class ApplicationLifecycleService {
             let config = self.services.currentConfig
             let shouldUpdateYabaiSignals =
                 self.currentConfig?.showHUDOnSpaceChange != config.showHUDOnSpaceChange ||
-                self.currentConfig.map { self.workspacePreviewsEnabled(for: $0) } !=
-                    self.workspacePreviewsEnabled(for: config) ||
-                self.currentConfig.map { self.windowGeometryPreviewsEnabled(for: $0) } !=
-                    self.windowGeometryPreviewsEnabled(for: config)
+                self.currentConfig.map(\.needsWorkspacePreviews) != config.needsWorkspacePreviews ||
+                self.currentConfig.map(\.needsWindowGeometryPreviews) != config.needsWindowGeometryPreviews
             self.currentConfig = config
             self.hud.reloadConfig()
             self.services.restartHotkey(config: config)
@@ -173,25 +164,9 @@ final class ApplicationLifecycleService {
                 self.services.yabaiService.registerSignals(
                     socketPath: SpacemapCommand.socketPath,
                     showHUDOnSpaceChange: config.showHUDOnSpaceChange,
-                    refreshWorkspacePreviews: self.workspacePreviewsEnabled(for: config),
-                    refreshWindowGeometry: self.windowGeometryPreviewsEnabled(for: config)
+                    refreshWorkspacePreviews: config.needsWorkspacePreviews,
+                    refreshWindowGeometry: config.needsWindowGeometryPreviews
                 )
-            }
-        }
-    }
-
-    private func showSettingsWindow() {
-        NSApp.setActivationPolicy(.regular)
-        let settingsWindowController = SettingsWindowController(yabaiService: services.yabaiService)
-        settingsWindowController.showWindow()
-        if let window = settingsWindowController.window {
-            settingsWindowObserver = NotificationCenter.default.addObserver(
-                forName: NSWindow.willCloseNotification,
-                object: window,
-                queue: .main
-            ) { [weak self] _ in
-                self?.settingsWindowObserver = nil
-                NSApp.setActivationPolicy(.prohibited)
             }
         }
     }
@@ -406,13 +381,4 @@ final class ApplicationLifecycleService {
         pinnedHotkeyMonitor = pinnedMonitor
     }
 
-    // MARK: - Private Helpers (continued)
-
-    private func workspacePreviewsEnabled(for config: GridConfig) -> Bool {
-        !config.hideMenuBarIcon && config.menuBarDisplayMode != .icon
-    }
-
-    private func windowGeometryPreviewsEnabled(for config: GridConfig) -> Bool {
-        workspacePreviewsEnabled(for: config) && config.menuBarDisplayMode != .dots
-    }
 }

@@ -8,7 +8,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     // MARK: - Dependencies
 
     private let services: SpacemapServices
-    private lazy var hud: HUDWindowController = { HUDWindowController(services: services) }()
     private var lifecycleService: ApplicationLifecycleService
 
     // MARK: - UI State
@@ -20,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     init(services: SpacemapServices = SpacemapServices()) {
         self.services = services
-        self.lifecycleService = ApplicationLifecycleService(services: services, hud: HUDWindowController(services: services))
+        self.lifecycleService = ApplicationLifecycleService(services: services, hud: services.hud)
         super.init()
     }
 
@@ -42,13 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls {
-            guard let action = DeepLinkAction(url: url) else {
-                NSLog("Spacemap: ignored unsupported deep link \(url.absoluteString)")
-                continue
-            }
-            services.handleDeepLink(action)
-        }
+        services.openDeepLinks(urls)
     }
 
     @objc func checkForUpdates() {

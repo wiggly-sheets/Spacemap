@@ -13,6 +13,7 @@ struct SettingsBehavior: View {
     @Binding var autoHideTimeout: Int
     @Binding var useArrowKeys: Bool
     @Binding var useVimKeys: Bool
+    @Binding var jumpToSpaceEnabled: Bool
     @Binding var displayNavigationWrap: DisplayNavigationWrap
     @Binding var focusSpaceOnWindowDrop: WindowDropFocusMode
     @Binding var focusSpaceOnWindowDropModifier: WindowDropFocusModifier
@@ -67,6 +68,8 @@ struct SettingsBehavior: View {
                 .onChange(of: useArrowKeys) { _ in onSave() }
             Toggle("Navigate with Vim Keys (hjkl)", isOn: $useVimKeys)
                 .onChange(of: useVimKeys) { _ in onSave() }
+            Toggle("Jump to Space with Number Keys", isOn: $jumpToSpaceEnabled)
+                .onChange(of: jumpToSpaceEnabled) { _ in onSave() }
 
             if useArrowKeys || useVimKeys {
                 Picker("Display Navigation", selection: $displayNavigationWrap) {

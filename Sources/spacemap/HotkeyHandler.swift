@@ -42,11 +42,4 @@ class HotkeyHandler {
         pinnedHotkey = monitor
     }
 
-    func workspacePreviewsEnabled(for config: GridConfig) -> Bool {
-        !config.hideMenuBarIcon && config.menuBarDisplayMode != .icon
-    }
-
-    func windowGeometryPreviewsEnabled(for config: GridConfig) -> Bool {
-        workspacePreviewsEnabled(for: config) && config.menuBarDisplayMode != .dots
-    }
 }

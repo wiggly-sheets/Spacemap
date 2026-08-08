@@ -18,6 +18,7 @@ protocol ConfigValuesProtocol {
     var displayNavigationWrap: DisplayNavigationWrap? { get set }
     var maxSpaces: Int? { get set }
     var backgroundAlpha: Double? { get set }
+    var hudShadow: Bool? { get set }
     var mode: ThemeMode? { get set }
     var iconScale: Double? { get set }
     var showSpaceNumbers: Bool? { get set }
@@ -30,6 +31,7 @@ protocol ConfigValuesProtocol {
     var spaceNames: [Int: String]? { get set }
     var useVimKeys: Bool? { get set }
     var useArrowKeys: Bool? { get set }
+    var jumpToSpaceEnabled: Bool? { get set }
     var hudPosition: HUDPosition? { get set }
     var customHUDX: Double? { get set }
     var customHUDY: Double? { get set }

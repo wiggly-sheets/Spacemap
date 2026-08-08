@@ -123,11 +123,4 @@ final class MenubarManager {
         return item
     }
 
-    private func workspacePreviewsEnabled(for config: GridConfig) -> Bool {
-        !config.hideMenuBarIcon && config.menuBarDisplayMode != .icon
-    }
-
-    private func windowGeometryPreviewsEnabled(for config: GridConfig) -> Bool {
-        workspacePreviewsEnabled(for: config) && config.menuBarDisplayMode != .dots
-    }
 }

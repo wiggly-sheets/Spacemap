@@ -25,6 +25,13 @@ final class MockHUDInputDelegate: HUDInputDelegate {
 }
 
 final class HUDInputTests: XCTestCase {
+
+    func testNumberFromKeyCodeAcceptsMainKeyboardAndKeypad() {
+        XCTAssertEqual(HUDInput.numberFromKeyCode(keyCode: 18, flags: []), 1)
+        XCTAssertEqual(HUDInput.numberFromKeyCode(keyCode: 29, flags: []), 0)
+        XCTAssertEqual(HUDInput.numberFromKeyCode(keyCode: 92, flags: []), 9)
+        XCTAssertNil(HUDInput.numberFromKeyCode(keyCode: 18, flags: .maskCommand))
+    }
     
     // MARK: - Helpers
     

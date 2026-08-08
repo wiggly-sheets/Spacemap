@@ -6,7 +6,7 @@ import AppKit
 @available(macOS 14.0, *)
 final class ThumbnailCacheTests: XCTestCase {
     func testCaptureRequestsCoverAllSpacesAndTheirDisplays() {
-        let requests = ThumbnailCache.captureRequests(for: makeState())
+        let requests = ThumbnailRequestBuilder.captureRequests(for: makeState())
 
         XCTAssertEqual(requests.map(\.spaceIndex), [1, 2, 3])
         XCTAssertEqual(requests.map(\.displayFrame.width), [1000, 1200, 1000])
@@ -22,7 +22,7 @@ final class ThumbnailCacheTests: XCTestCase {
     }
 
     func testCaptureRequestsExcludeSpacesWithoutDisplayBounds() {
-        let requests = ThumbnailCache.captureRequests(
+        let requests = ThumbnailRequestBuilder.captureRequests(
             for: makeState(includeSecondDisplay: false)
         )
 
@@ -30,7 +30,7 @@ final class ThumbnailCacheTests: XCTestCase {
     }
 
     func testCaptureRequestsOnlyIncludeVisibleSpaces() {
-        let requests = ThumbnailCache.captureRequests(
+        let requests = ThumbnailRequestBuilder.captureRequests(
             for: makeState(),
             spaceIndices: [2, 3]
         )
@@ -54,7 +54,7 @@ final class ThumbnailCacheTests: XCTestCase {
         )
         let windowImage = try XCTUnwrap(solidImage(width: 30, height: 40))
         let composite = try XCTUnwrap(
-            ThumbnailCache.composite(request: request, windowImages: [11: windowImage])
+            ThumbnailCompositor.composite(request: request, windowImages: [11: windowImage])
         )
         let bitmap = NSBitmapImageRep(cgImage: composite)
 
@@ -65,7 +65,7 @@ final class ThumbnailCacheTests: XCTestCase {
     }
 
     func testAspectFillSizePreservesDisplayAspectRatio() {
-        let size = ThumbnailCache.aspectFillSize(
+        let size = ThumbnailCompositor.aspectFillSize(
             source: CGSize(width: 2560, height: 1440),
             target: CGSize(width: 320, height: 200)
         )
@@ -76,7 +76,7 @@ final class ThumbnailCacheTests: XCTestCase {
     }
 
     func testCaptureRequestsIncludeHelperWindowsOnlyWhenConfigured() {
-        let requests = ThumbnailCache.captureRequests(
+        let requests = ThumbnailRequestBuilder.captureRequests(
             for: makeState(showExtraWindows: true)
         )
 
@@ -87,7 +87,7 @@ final class ThumbnailCacheTests: XCTestCase {
         let display = CGRect(x: 0, y: 0, width: 1000, height: 800)
         let raycastFrame = CGRect(x: 300, y: 200, width: 400, height: 300)
 
-        XCTAssertTrue(ThumbnailCache.shouldIncludeUnmanagedWindow(
+        XCTAssertTrue(ThumbnailRequestBuilder.shouldIncludeUnmanagedWindow(
             windowID: 50,
             isOnScreen: true,
             windowLayer: 3,
@@ -98,7 +98,7 @@ final class ThumbnailCacheTests: XCTestCase {
             knownYabaiWindowIDs: [11],
             currentPID: 999
         ))
-        XCTAssertFalse(ThumbnailCache.shouldIncludeUnmanagedWindow(
+        XCTAssertFalse(ThumbnailRequestBuilder.shouldIncludeUnmanagedWindow(
             windowID: 50,
             isOnScreen: true,
             windowLayer: 3,
@@ -109,7 +109,7 @@ final class ThumbnailCacheTests: XCTestCase {
             knownYabaiWindowIDs: [],
             currentPID: 999
         ))
-        XCTAssertFalse(ThumbnailCache.shouldIncludeUnmanagedWindow(
+        XCTAssertFalse(ThumbnailRequestBuilder.shouldIncludeUnmanagedWindow(
             windowID: 50,
             isOnScreen: true,
             windowLayer: 0,
@@ -120,7 +120,7 @@ final class ThumbnailCacheTests: XCTestCase {
             knownYabaiWindowIDs: [],
             currentPID: 999
         ))
-        XCTAssertFalse(ThumbnailCache.shouldIncludeUnmanagedWindow(
+        XCTAssertFalse(ThumbnailRequestBuilder.shouldIncludeUnmanagedWindow(
             windowID: 11,
             isOnScreen: true,
             windowLayer: 0,

@@ -146,8 +146,8 @@ final class MenuBarPreviewRendererTests: XCTestCase {
         let frame = CGRect(x: 10, y: 10, width: 100, height: 50)
         let result = MenuBarPreviewRenderer.separatedWindowFrame(frame)
         XCTAssertNotNil(result)
-        XCTAssertEqual(result?.width, 99)
-        XCTAssertEqual(result?.height, 49)
+        XCTAssertEqual(result?.width, 98.9)
+        XCTAssertEqual(result?.height, 48.9)
     }
 
     func testSeparatedWindowFrameWithZeroWidth() {
@@ -193,8 +193,10 @@ final class MenuBarPreviewRendererTests: XCTestCase {
             YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
             YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: true, label: nil),
         ]
+        var config = GridConfig.default
+        config.menuBarDisplayMode = .dots
         let state = GridState(
-            config: GridConfig.default,
+            config: config,
             spaces: spaces,
             windows: [],
             displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),

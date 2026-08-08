@@ -30,9 +30,14 @@ class HUDWindowController {
     private func setupDelegates() {
         hudInput.delegate = self
         hudDisplay.delegate = self
-        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys)
+        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
         hudInput.yabaiService = services.yabaiService
         hudInput.config = config
+        hudInput.hudStateSync = hudStateSync
+        hudInput.hudDisplay = hudDisplay
+        hudInput.onRefresh = { [weak self] in self?.refresh() }
+        hudInput.onAutoHide = { [weak self] in self?.hide() }
+        hudInput.onNumberEntry = { [weak self] number in self?.hudDisplay.updateDisplayNumber(number) }
     }
 
     private func checkDragState() {
@@ -99,6 +104,7 @@ class HUDWindowController {
         guard !isVisible else { return }
         hudDisplay.hide(); reloadConfig()
         isVisible = true
+        hudInput.updateVisibility(true)
         if let state = hudStateSync.currentState {
             hudDisplay.updateState(state)
             hudInput.currentState = state
@@ -150,6 +156,7 @@ class HUDWindowController {
     func hide() {
         guard isVisible else { return }
         isVisible = false
+        hudInput.updateVisibility(false)
         isPinned = false; dragHandler.stop()
         hudInput.stop()
         hudDisplay.hide()
@@ -178,6 +185,8 @@ class HUDWindowController {
     func reloadConfig() {
         _config = nil
         hudInput.config = config
+        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
+        hudDisplay.updateConfig(config)
         hudStateSync.reloadConfig()
     }
     private func resetAutoHideTimer() {

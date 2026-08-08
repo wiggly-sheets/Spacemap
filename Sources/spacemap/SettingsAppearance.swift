@@ -6,6 +6,7 @@ struct SettingsAppearanceView: View {
     @Binding var theme: String
     @Binding var mode: ThemeMode
     @Binding var backgroundAlpha: Double
+    @Binding var hudShadow: Bool
     @Binding var iconScale: Double
     @Binding var uiScale: Double
 
@@ -46,6 +47,9 @@ struct SettingsAppearanceView: View {
                 CustomStepper(steps: backgroundTransparencySteps, value: $backgroundAlpha)
                     .onChange(of: backgroundAlpha) { _ in onSave() }
             }
+
+            Toggle("Draw HUD Shadow", isOn: $hudShadow)
+                .onChange(of: hudShadow) { _ in onSave() }
 
             VStack(alignment: .leading) {
                 Text("Icon Scale")

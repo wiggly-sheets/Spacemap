@@ -3,9 +3,7 @@ import Foundation
 import ServiceManagement
 import Sparkle
 
-/// Core dependency injection container containing the fundamental, stateless services
-/// that are shared across the application. UI‑specific and system‑specific services
-/// are composed in `SpacemapUIServices` and `SpacemapSystemServices`.
+/// Core dependencies shared across application modules.
 final class SpacemapCoreServices {
 
     // MARK: - Fundamental services

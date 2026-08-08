@@ -100,6 +100,8 @@ final class ConfigLoaderTests: XCTestCase {
         values.cols = 10
         values.rows = 5
         values.theme = "nord"
+        values.hudShadow = false
+        values.jumpToSpaceEnabled = true
 
         ConfigLoader.save(values, to: path)
 
@@ -108,6 +110,8 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertTrue(content.contains("cols = 10"))
         XCTAssertTrue(content.contains("rows = 5"))
         XCTAssertTrue(content.contains("nord"))
+        XCTAssertTrue(content.contains("hudShadow = false"))
+        XCTAssertTrue(content.contains("jumpToSpaceEnabled = true"))
     }
 
     func testSaveCreatesBackupBeforeOverwrite() throws {
@@ -143,6 +147,8 @@ final class ConfigLoaderTests: XCTestCase {
         values.theme = "dracula"
         values.showMode = .active
         values.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: .maskCommand)
+        values.hudShadow = false
+        values.jumpToSpaceEnabled = true
 
         ConfigLoader.save(values, to: path)
 
@@ -156,6 +162,8 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(config.showMode, .active)
         XCTAssertEqual(config.hotkey.keyCode, 49)
         XCTAssertTrue(config.hotkey.modifiers.contains(.maskCommand))
+        XCTAssertFalse(config.hudShadow)
+        XCTAssertTrue(config.jumpToSpaceEnabled)
     }
 
     // MARK: - Create Default Config File
