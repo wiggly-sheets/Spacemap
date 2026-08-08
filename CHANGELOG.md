@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Made the HUD's typed space number use the active theme's text color.
 
 ## [1.0.37] - 2026-08-08
 

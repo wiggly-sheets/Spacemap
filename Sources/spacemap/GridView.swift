@@ -16,7 +16,9 @@ struct GridView: View {
         }
     }
 
-    private var textColor: Color { isDarkMode ? .white : .black }
+    private var displayNumberColor: Color {
+        Color(hex: AppTheme.named(theme).text).opacity(0.9)
+    }
     
     // ponytail: precomputed once per GridView init, not per body/idealSize call
     private let _visibleSpaceIndices: [Int]
@@ -54,7 +56,7 @@ struct GridView: View {
             if let displayNumber {
                 Text("\(displayNumber)")
                     .font(.system(size: 96, weight: .bold))
-                    .foregroundStyle(textColor.opacity(0.8))
+                    .foregroundStyle(displayNumberColor)
                     .allowsHitTesting(false)
             }
         }
