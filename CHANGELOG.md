@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Redesigned the README with a visual project overview, install guide, feature tour, configuration reference, and troubleshooting flow.
+
 
 ## [1.0.36] - 2026-08-08
 

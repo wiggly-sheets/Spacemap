@@ -1,321 +1,376 @@
-# Spacemap
-
 <div align="center">
 
-<img width="256" height="256" alt="icon_128x128@2x" src="https://github.com/user-attachments/assets/461e8c96-ce0c-4198-927a-66c32d991abb" />
+  <img src="Assets/AppIcon/LegacyAppIcon.png" width="128" alt="Spacemap app icon" />
 
-![Release](https://github.com/wiggly-sheets/Spacemap/actions/workflows/release.yml/badge.svg)
-![Platform](https://img.shields.io/badge/platform-macOS%2013+-lightgrey)
-![Swift](https://img.shields.io/badge/swift-5.9-orange)
+  <h1>Spacemap</h1>
 
-**A native macOS utility that visualizes your yabai workspaces as a 2D grid overlay.**
+  <p><b>See your spaces. Move through them.</b></p>
 
-Press `Ctrl+Space` to toggle a floating HUD showing all your desktops as a grid with window positions highlighted inside each cell.
+  <p>
+    A native macOS workspace map for yabai.<br/>
+    Open a floating grid, see what lives where, and go straight there.
+  </p>
+
+  <p>
+    <a href="https://github.com/wiggly-sheets/Spacemap/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wiggly-sheets/Spacemap/ci.yml?branch=main&label=build" alt="Build status" /></a>
+    <a href="https://github.com/wiggly-sheets/Spacemap/releases/latest"><img src="https://img.shields.io/github/v/release/wiggly-sheets/Spacemap?label=latest&color=red" alt="Latest release" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/wiggly-sheets/Spacemap?color=blue" alt="MIT License" /></a>
+    <a href="https://github.com/wiggly-sheets/Spacemap"><img src="https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey" alt="macOS 13 or later" /></a>
+    <a href="https://swift.org"><img src="https://img.shields.io/badge/swift-5.9-orange" alt="Swift 5.9" /></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/wiggly-sheets/Spacemap/releases/latest"><b>Download</b></a>
+    &nbsp;·&nbsp;
+    <a href="#installation">Install guide</a>
+    &nbsp;·&nbsp;
+    <a href="#using-spacemap">Use it</a>
+    &nbsp;·&nbsp;
+    <a href="#configuration">Configure it</a>
+    &nbsp;·&nbsp;
+    <a href="#build-from-source">Build from source</a>
+  </p>
+
+  <img width="900" alt="Spacemap HUD showing a grid of macOS spaces" src="https://github.com/user-attachments/assets/1b28a8ca-b6a8-4b69-869e-cf405a643cea" />
 
 </div>
 
 ---
 
-## About
+yabai makes moving around a workspace grid fast. Spacemap makes it legible: press one shortcut to see every space, its windows, and the space you are on—then jump, navigate, or drag a window exactly where it belongs.
 
-Spacemap gives you a visual reference for your yabai workspace layout. With [yabai](https://github.com/koekeishiya/yabai) and [skhd](https://github.com/koekeishiya/skhd) / [skhd.zig](https://github.com/jackielii/skhd.zig), you can arrange your desktop switching on a grid—but you have no visual confirmation of where things are until you're already there.
+> [!NOTE]
+> Spacemap runs as a normal macOS app alongside yabai. It does not require disabling SIP or modifying macOS.
 
-Spacemap solves this. It renders your spaces as a 2D grid, updating in real-time as you switch between them.
-
-> No SIP disabling required. This is a standard macOS app that runs alongside yabai without any kernel modifications.
-
-<img width="1610" height="984" alt="56203" src="https://github.com/user-attachments/assets/1b28a8ca-b6a8-4b69-869e-cf405a643cea" />
+---
 
 ## Features
 
-- **2D Grid Visualization** — See all your spaces laid out in rows and columns
-- **Live Updates** — Active cell updates instantly via yabai's `space_changed` signal
-- **Five Cell Styles** — Rectangles, Hybrid rectangles with app icons, geometry-aware app icons, live thumbnails, or simple cells
-- **Keyboard Navigation** — Arrow keys and Vim keys (hjkl) to navigate the grid
-- **Drag & Drop** — Drag windows directly onto cells to move them to that space
-- **Customizable** — Themes, grid size, transparency, hotkeys, and more
-- **Auto-Updates** — Built-in Sparkle updates with configurable behavior
+### A live map of your workspaces
 
-## Quick Start
+- **2D grid HUD** — see spaces as a configurable rows-by-columns map
+- **Live focus updates** — active space changes immediately through yabai signals
+- **Multi-monitor aware** — use one unified grid or a separate HUD per display
+- **Space names** — label spaces like _Code_, _Web_, or _Music_ instead of memorising numbers
+- **Five cell styles** — Rectangles, Hybrid, Icons, Thumbnails, or Simple
 
-### 1. Install prerequisites
+### Navigate without guessing
 
-```bash
-brew install asmvik/formulae/yabai
-```
+- Click a cell to focus its space
+- Use arrow keys or Vim keys (`hjkl`) with grid-aware wrapping
+- Press Return to focus the selected space; Escape closes the HUD
+- Optional number-key jumps support multi-digit space numbers
+- Pin a HUD so it stays open while you work
 
-### 2. Install Spacemap
-Install spacemap via Homebrew:
+### Move windows visually
 
-```bash
-brew tap wiggly-sheets/spacemap https://github.com/wiggly-sheets/homebrew-spacemap.git
-brew install --cask spacemap
-```
+Drag a real window over any HUD cell and drop it there. Spacemap highlights the target, moves the window through yabai, and can focus the destination space when you choose.
 
-Or in one step:
+### Make it yours
+
+- Built-in and file-based themes
+- HUD transparency, size, position, shadow, app-icon size, and labels
+- Custom normal and pinned hotkeys, including media keys and F13–F20
+- Optional menu-bar workspace dots or miniature window-layout previews
+- ScreenCaptureKit thumbnails on macOS 14+
+- Sparkle updates: automatic, notify-only, or off
+
+---
+
+## Download
+
+<div align="center">
+
+<a href="https://github.com/wiggly-sheets/Spacemap/releases/latest"><img src="https://img.shields.io/badge/download-Spacemap-2EA043?style=flat&logo=apple&logoColor=white" alt="Download Spacemap" /></a>
+
+</div>
+
+---
+
+## Installation
+
+Install with Homebrew, or download a signed and notarized DMG from the [latest release](https://github.com/wiggly-sheets/Spacemap/releases/latest).
+
+### Install with Homebrew
 
 ```bash
 brew install wiggly-sheets/spacemap/spacemap
 ```
 
-Upgrade with Homebrew using:
+Update later with:
+
 ```bash
 brew update && brew upgrade wiggly-sheets/spacemap/spacemap
 ```
 
+### Install manually
 
-Or download a DMG from the [releases page](https://github.com/wiggly-sheets/spacemap/releases).
+1. Download the `.dmg` from the [latest release](https://github.com/wiggly-sheets/Spacemap/releases/latest).
+2. Open it and drag **Spacemap** into **Applications**.
+3. Open Spacemap once.
+4. In **System Settings → Privacy & Security → Accessibility**, enable Spacemap.
+5. Start yabai, then press <kbd>Ctrl</kbd> + <kbd>Space</kbd>.
 
-> **macOS quarantine:** If the app won't open after download, run:
+> [!TIP]
+> Every release includes `checksums.txt`. To verify a downloaded DMG:
+>
 > ```bash
-> xattr -d com.apple.quarantine /Applications/spacemap.app
+> cd ~/Downloads
+> shasum -a 256 Spacemap*.dmg
 > ```
+>
+> Compare its hash with the matching line in `checksums.txt` on the release page.
 
-### 3. Grant Accessibility permission
-
-Launch Spacemap once (`open /Applications/spacemap.app`), then enable it in **System Settings → Privacy & Security → Accessibility**.
-
-### 4. Open Spacemap
-
-Press `Ctrl+Space` to open Spacemap.
-
----
-
-## Usage
-
-| Action | Result |
-|--------|--------|
-| `Ctrl+Space` | Toggle HUD |
-| Arrow keys / hjkl | Navigate spaces in grid |
-| `Escape` | Close HUD |
-| `Return` | Jump to selected space |
-| Click on cell | Switch to that space |
-| `⌘+,` while HUD is up or menu bar is open| Open Settings |
-| `⌘+R` while menu bar is open | Restart Spacemap |
-
-### Deep links
-
-| URL | Result |
-|-----|--------|
-| `spacemap://toggle-hud` | Toggle HUD |
-| `spacemap://pin-hud` | Show and pin HUD |
-| `spacemap://settings` | Open Settings |
-| `spacemap://menu` | Open the menu-bar menu |
-| `spacemap://config` | Open the config file |
-| `spacemap://themes` | Open the themes folder |
-
----
-
-## Settings
-
-Open Settings from the menu bar or press `⌘+,` while the HUD is visible. The sidebar is always shown, highlights the active category, and opens each category in its own detail view:
-
-| Category | Controls |
-|----------|----------|
-| **Grid** | Space limit and layout, display modes, cell style, space numbers, icon strip, and extra windows |
-| **Space Names** | Space-name visibility and per-space names |
-| **Appearance** | Theme, light/dark mode, transparency, icon scale, and UI scale |
-| **Behavior** | Normal and pinned HUD hotkeys, HUD position, auto-hide, keyboard navigation, window-drop focus, menu bar visibility, and updates |
-| **Debug/Advanced** | Socket health interval |
-
-Changes save automatically. The hotkey recorder supports regular keys, F13–F20, and media keys; use its clear button to disable the binding.
-
----
-
-## Configuration
-
-Config file: `~/.config/spacemap/config.toml`
-
-Most changes take effect on next HUD open. Hotkey changes are applied immediately when saved in Settings.
-Spacemap accepts TOML only. Missing or invalid fields are repaired individually, with the original saved as `config.toml.bak`.
-
-TOML tables mirror the Settings categories: `[grid]`, `[spaceNames]`, `[appearance]`, `[behavior]`, and `[advanced]`. Hotkeys and HUD position use nested tables under `[behavior]`. The option tables below use TOML’s camel-case field names.
-
-### Display
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `cellStyle` | `rects` | `rects`, `hybrid`, `icons`, `thumbnails`, or `simple` |
-| `theme` | `default` | Theme name from `~/.config/spacemap/themes/` |
-| `uiScale` | `0.5` | HUD size (0.5×–4.0×) |
-| `backgroundAlpha` | `0.3` | HUD transparency (0–1) |
-| `mode` | `auto` | `dark`, `light`, or `auto` |
-| `iconScale` | `0.5` | App icon size (0.2×–1.0×) |
-| `showIconStrip` | `true` | Show icons at cell bottom |
-| `showSpaceNumbers` | `true` | Show space numbers |
-| `showSpaceNames` | `true` | Show custom names in cells |
-| `hideMenuBarIcon` | `false` | Run headless |
-
-### Grid
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `cols` | `8` | Number of columns |
-| `rows` | `2` | Number of rows |
-| `multiMonitorHUDMode` | `unified` | `unified` combines spaces in one grid; `separate` shows one grid per display |
-| `unifiedHUDVisibility` | `active` | In `unified` mode: `active` shows the grid on the focused-space display; `all` shows it on every display |
-| `separateHUDVisibility` | `all` | In `separate` mode: `all` shows every HUD; `active` shows only the focused-space display |
-| `displayNavigationWrap` | `within` | With arrow/Vim navigation: `within` stays on one display; `between` wraps across displays |
-| `maxSpaces` | `16` | Maximum spaces to display |
-
-### Navigation
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `useArrowKeys` | `false` | Enable arrow key navigation |
-| `useVimKeys` | `false` | Enable hjkl navigation |
-| `displayNavigationWrap` | `within` | Wrap keyboard navigation within or between displays |
-
-### Behavior
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `autoHideTimeout` | `5` | Seconds before auto-hide (0=never) |
-| `pinnedHotkey` | `none` | Optional shortcut that toggles a HUD with no auto-hide timer |
-| `focusSpaceOnWindowDrop` | `false` | Focus the destination after dropping a window |
-| `updateMode` | `notify` | `auto`, `notify`, or `off` |
-
-### Hotkey
-
-```toml
-[behavior.hotkey]
-keyKind = "keyCode"
-keyCode = 49
-modifiers = ["ctrl"]
-
-[behavior.pinnedHotkey]
-keyKind = "none"
-modifiers = []
-```
-
-The Settings hotkey recorders are recommended for editing these values. The pinned shortcut must differ from the normal shortcut. Using the normal shortcut while pinned hides the HUD and returns it to normal timed behavior on its next use.
-
-### Space Names
-
-```toml
-[spaceNames.names]
-"1" = "Desktop"
-"2" = "Dev"
-"3" = "Media"
-"4" = "Music"
-```
+> [!WARNING]
+> If macOS quarantines a manually downloaded build, first prefer downloading the signed release again. As a last resort:
+>
+> ```bash
+> xattr -d com.apple.quarantine /Applications/Spacemap.app
+> ```
 
 ---
 
 ## Requirements
 
-- macOS 13+ (macOS 14+ for thumbnails)
+- macOS 13 or later; macOS 14+ for thumbnail cells
 - [yabai](https://github.com/koekeishiya/yabai) running
-- Accessibility permission
-- Screen Recording permission (thumbnails cell style only)
-- **Automatically rearrange spaces based on most recent use** disabled in System Settings → Desktop & Dock → Mission Control (log out and back in after changing it)
-- For multi-monitor HUD modes: **Displays have separate Spaces** enabled in System Settings → Desktop & Dock → Mission Control (log out and back in after changing it)
+- Accessibility permission for Spacemap
+- Screen Recording permission only when using thumbnail cells
+- **Automatically rearrange Spaces based on most recent use** disabled in **System Settings → Desktop & Dock → Mission Control**
+- **Displays have separate Spaces** enabled for independent multi-monitor HUDs
+
+Install yabai with Homebrew if needed:
+
+```bash
+brew install asmvik/formulae/yabai
+```
+
+You can use [skhd](https://github.com/koekeishiya/skhd) or [skhd.zig](https://github.com/jackielii/skhd.zig) for additional grid-navigation bindings. Spacemap works independently of either.
 
 ---
 
-## Building
+## Using Spacemap
+
+### Everyday controls
+
+| Action | Result |
+|---|---|
+| <kbd>Ctrl</kbd> + <kbd>Space</kbd> | Toggle HUD |
+| Arrow keys / <kbd>h</kbd><kbd>j</kbd><kbd>k</kbd><kbd>l</kbd> | Navigate selected cells when enabled |
+| <kbd>Return</kbd> | Focus selected space |
+| <kbd>Escape</kbd> | Close HUD |
+| Click a cell | Focus that space |
+| Drag window onto a cell | Move it to that space |
+| <kbd>⌘</kbd> + <kbd>,</kbd> | Open Settings while HUD or menu is open |
+| <kbd>⌘</kbd> + <kbd>R</kbd> | Restart from menu bar |
+
+### Settings
+
+Open Settings from the menu bar or the HUD shortcut. Changes save immediately.
+
+| Section | What it controls |
+|---|---|
+| **Grid** | Space limit/layout, display behavior, cell style, labels, icon strip |
+| **Space Names** | Name visibility and per-space names |
+| **Appearance** | Theme, background, opacity, scale, icon size, HUD shadow |
+| **Behavior** | Hotkeys, HUD position, auto-hide, key navigation, drag-drop focus, menu bar, updates |
+| **Debug/Advanced** | Signal socket health, diagnostics, extra window records |
+
+### Deep links
+
+Use these from shortcuts, scripts, Raycast, or other automation:
+
+| URL | Result |
+|---|---|
+| `spacemap://toggle-hud` | Toggle HUD |
+| `spacemap://pin-hud` | Show and pin HUD |
+| `spacemap://settings` | Open Settings |
+| `spacemap://menu` | Open menu-bar menu |
+| `spacemap://config` | Open config file |
+| `spacemap://themes` | Open themes folder |
+
+### Command line
+
+Launching the app from Applications installs `spacemap` and its manual page when permission allows. You can also run `make install-cli` from a checkout.
 
 ```bash
-make run              # build, install, and launch
-make test             # run unit tests
-make dmg              # build DMG package
+spacemap --version       # print version
+spacemap --trigger       # toggle HUD
+spacemap --space next    # focus next space, then show HUD
+spacemap --space 4       # focus space 4, then show HUD
+spacemap --space web     # focus yabai space label "web"
+spacemap --settings      # open Settings
+spacemap --config        # open config file
 ```
 
-Xcode project:
+`--space` accepts `1`–`16`, `prev`, `next`, `first`, `last`, `recent`, `mouse`, or a yabai space label.
+
+```bash
+# Example skhd bindings
+ctrl - right : spacemap --space next
+ctrl - left  : spacemap --space prev
+```
+
+Read the installed manual with `man spacemap`.
+
+---
+
+## Configuration
+
+Spacemap stores configuration in:
+
+```text
+~/.config/spacemap/config.toml
+```
+
+Settings is best for day-to-day changes. The TOML file is useful for dotfiles and automation. Missing or invalid fields repair individually; the prior file is saved as `config.toml.bak`.
+
+```toml
+[grid]
+cols = 8
+rows = 2
+maxSpaces = 16
+cellStyle = "rects"              # rects, hybrid, icons, thumbnails, simple
+multiMonitorHUDMode = "unified"  # unified or separate
+showSpaceNumbers = true
+showIconStrip = true
+
+[appearance]
+theme = "default"
+uiScale = 0.5
+backgroundAlpha = 0.3
+hudShadow = true
+
+[behavior]
+autoHideTimeout = 5
+useArrowKeys = false
+useVimKeys = false
+jumpToSpaceEnabled = false
+
+[behavior.hotkey]
+keyKind = "keyCode"
+keyCode = 49
+modifiers = ["ctrl"]
+```
+
+<details>
+<summary><b>Configuration reference</b></summary>
+
+<br/>
+
+| Table | Useful keys |
+|---|---|
+| `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap` |
+| `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys |
+| `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `hudShadow`, `uiScale`, `iconScale`, `showSpaceNumbers`, `showIconStrip`, `showMultiAppIcons`, `hideMenuBarIcon` |
+| `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `updateMode` |
+| `[advanced]` | `socketHealthInterval`, `showExtraWindows` |
+
+Space names example:
+
+```toml
+[spaceNames.names]
+"1" = "Desktop"
+"2" = "Code"
+"3" = "Web"
+"4" = "Music"
+```
+
+</details>
+
+---
+
+## Updating
+
+Spacemap uses Sparkle for in-app update checks. Choose **Auto**, **Notify**, or **Off** under **Settings → Behavior → Automatic Updates**.
+
+Homebrew users can update with:
+
+```bash
+brew update && brew upgrade wiggly-sheets/spacemap/spacemap
+```
+
+Manual installs can download the newest DMG from [Releases](https://github.com/wiggly-sheets/Spacemap/releases/latest), drag it over the old copy in Applications, and choose **Replace**. Your configuration stays in `~/.config/spacemap/`.
+
+---
+
+## Build from source
+
+### Prerequisites
+
+- macOS 13+
+- Xcode 15+ or Command Line Tools
+- yabai and Accessibility permission for live testing
+
+### Build, run, test
+
+```bash
+git clone https://github.com/wiggly-sheets/Spacemap.git
+cd Spacemap
+
+make run       # build, install, launch
+make test      # unit tests
+make app       # assemble Spacemap.app
+make dmg       # universal DMG
+```
+
+For an Xcode project:
+
 ```bash
 python3 scripts/generate-xcodeproj.py
 open spacemap.xcodeproj
 ```
 
-Architecture-specific builds:
-```bash
-make app-arm64        # Apple Silicon
-make app-x86_64       # Intel
-make app-universal    # Both
-```
-
----
-
-## CLI
+Architecture-specific bundles:
 
 ```bash
-spacemap --version    # print version
-spacemap --trigger    # toggle HUD
-spacemap --space next # focus the next yabai space and show the HUD
-spacemap --space 4    # focus space 4 and show the HUD
-spacemap --space web  # focus a yabai space label and show the HUD
-spacemap --settings   # open settings
-spacemap --config     # edit config file
+make app-arm64
+make app-x86_64
+make app-universal
 ```
 
-`--space` accepts indices 1–16, `prev`, `next`, `first`, `last`, `recent`,
-`mouse`, or a yabai space label. This is useful in skhd bindings when the HUD
-should appear only for explicit navigation:
-
-```bash
-ctrl - right : spacemap --space next
-ctrl - left  : spacemap --space prev
-```
-
-Install the CLI:
-```bash
-make install-cli
-```
-
-This also installs the generated `spacemap(1)` manual. Its scdoc source is
-`docs/spacemap.1.scd`; rebuild it with `make man` and read it with `man spacemap`.
-
-When the app is launched from `/Applications`, it also installs the `spacemap`
-command and `spacemap(1)` manual links automatically. If macOS protects
-`/usr/local`, Spacemap asks for administrator approval to create them; it never
-replaces unrelated items at either destination.
-
----
-
-## Developer Notes
-
-**Accessibility permission** is granted to the `.app` bundle, not the binary. Running the binary directly won't work.
-
-**Permission is revoked on reinstall** because the binary hash changes. Use the dev workflow:
-
-```bash
-make dev1   # uninstall, then remove from System Settings → Accessibility
-make dev2   # reinstall and re-grant permission
-```
+> [!TIP]
+> Accessibility permission belongs to the `.app` bundle, not a raw executable. Reinstalling changes the app hash. For a clean local permission cycle, use `make dev1`, remove Spacemap from Accessibility settings, then run `make dev2` and grant access again.
 
 ---
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| HUD doesn't appear | Check Accessibility permission |
-| Config not applying | Close and reopen HUD |
-| yabai not found | Ensure yabai is installed at `/opt/homebrew/bin/yabai` |
-| Space names not showing | Format: `SPACE_NAMES=1:Name,2:Name` (no spaces around `:`) |
-| App won't launch | Check Console.app for logs; run `make dev1` then `make dev2` |
-
-To view logs: Open **Console.app**, filter by "spacemap".
-
----
-
-## Documentation
-
-| File | Purpose |
-|------|---------|
-| [AGENTS.md](./DesignDocs/AGENTS.md) | Architecture and development workflow |
-| [DEVELOPER.md](./DEVELOPER.md) | Technical deep-dive |
-| [REFERENCE.md](./REFERENCE.md) | Config keys and API reference |
-| [TASKS.md](./DesignDocs/TASKS.md) | Roadmap and known issues |
-| [SUPPORT.md](./SUPPORT.md) | Getting help and reporting issues |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | Contributing guidelines |
+| Problem | Try this |
+|---|---|
+| HUD does not appear | Confirm Spacemap has Accessibility permission, then reopen it |
+| No spaces or windows | Confirm `yabai` is running and executable at `/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai` |
+| Thumbnails are blank | Grant Screen Recording permission, then reopen the HUD |
+| Layout moves unexpectedly | Disable macOS **Automatically rearrange Spaces based on most recent use**, then log out and back in |
+| Multi-monitor HUD is wrong | Enable **Displays have separate Spaces**, then log out and back in |
+| Config change seems ignored | Close/reopen HUD; hotkey changes apply immediately from Settings |
+| App will not launch | Check Console.app for “spacemap”; reinstall with `make dev1` then `make dev2` in a checkout |
 
 ---
 
-## Inspired By
+## Documentation and contributing
 
-- [WindowMaker](https://www.windowmaker.org/)
+| Document | Purpose |
+|---|---|
+| [Support](SUPPORT.md) | Get help or report a problem |
+| [Security policy](SECURITY.md) | Report a vulnerability responsibly |
+| [Contributing](CONTRIBUTING.md) | Contribute code or documentation |
+| [Developer guide](DEVELOPER.md) | Technical implementation notes |
+| [Reference](REFERENCE.md) | Detailed config and command reference |
+| [Roadmap](DesignDocs/TASKS.md) | Planned work and known issues |
+| [Changelog](CHANGELOG.md) | Release history |
+
+---
+
+## Inspired by
+
 - [yabai](https://github.com/koekeishiya/yabai)
+- [WindowMaker](https://www.windowmaker.org/)
 - [YabaiGridSpaces](https://codeberg.org/mikkelricky/hammerspoon/src/branch/main/Spoons/YabaiGridSpaces.spoon)
-- [skhd](https://github.com/koekeishiya/skhd) / [skhd.zig](https://github.com/jackielii/skhd.zig)
-- [aerospace](https://github.com/nikitabobko/AeroSpace)
+- [skhd](https://github.com/koekeishiya/skhd) and [skhd.zig](https://github.com/jackielii/skhd.zig)
+
+---
+
+## License
+
+Spacemap is released under the [MIT License](LICENSE). You are free to use, read, modify, and distribute it.
