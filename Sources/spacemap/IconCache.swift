@@ -6,7 +6,23 @@ final class IconCache {
     private var cache: [String: NSImage] = [:]
     private var bundlePathByName: [String: String] = [:]
 
-    private init() {
+    private let workspace: WorkspaceProtocol
+
+    init(workspace: WorkspaceProtocol = NSWorkspace.shared) {
+        self.workspace = workspace
+        rebuildLookup()
+        workspace.notificationCenter.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil, queue: nil
+        ) { [weak self] _ in self?.rebuildLookup() }
+        workspace.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil, queue: nil
+        ) { [weak self] _ in self?.rebuildLookup() }
+    }
+
+    init() {
+        self.workspace = NSWorkspace.shared
         rebuildLookup()
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didLaunchApplicationNotification,
@@ -21,7 +37,7 @@ final class IconCache {
     func icon(for appName: String) -> NSImage? {
         if let cached = cache[appName] { return cached }
         guard let path = bundlePathByName[appName] else { return nil }
-        let icon = NSWorkspace.shared.icon(forFile: path)
+        let icon = workspace.icon(forFile: path)
         cache[appName] = icon
         return icon
     }
@@ -38,7 +54,7 @@ final class IconCache {
 
     private func rebuildLookup() {
         var lookup: [String: String] = [:]
-        for app in NSWorkspace.shared.runningApplications {
+        for app in workspace.runningApplications {
             guard let name = app.localizedName, let url = app.bundleURL else { continue }
             lookup[name] = url.path
         }

@@ -20,7 +20,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `GridView.swift` | SwiftUI grid container, cell layout, theme application |
 | `CellView.swift` | Per-cell rendering (rects/icons/thumbnails), space names display |
 | `YabaiClient.swift` | yabai CLI wrapper, signal management, space/window queries |
-| `ConfigReader.swift` | Config parsing with inline comments, SPACE_NAMES support |
+| `Config.swift` | Config parsing with inline comments, SPACE_NAMES support |
 | `HotkeyMonitor.swift` | Global CGEventTap for hotkey capture |
 | `SocketListener.swift` | Unix domain socket server for yabai signals |
 | `WindowDragHandler.swift` | Drag-and-drop detection via CGEventTap |

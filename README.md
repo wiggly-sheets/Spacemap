@@ -303,10 +303,10 @@ To view logs: Open **Console.app**, filter by "spacemap".
 
 | File | Purpose |
 |------|---------|
-| [AGENTS.md](./AGENTS.md) | Architecture and development workflow |
+| [AGENTS.md](./DesignDocs/AGENTS.md) | Architecture and development workflow |
 | [DEVELOPER.md](./DEVELOPER.md) | Technical deep-dive |
 | [REFERENCE.md](./REFERENCE.md) | Config keys and API reference |
-| [TASKS.md](./TASKS.md) | Roadmap and known issues |
+| [TASKS.md](./DesignDocs/TASKS.md) | Roadmap and known issues |
 | [SUPPORT.md](./SUPPORT.md) | Getting help and reporting issues |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | Contributing guidelines |
 

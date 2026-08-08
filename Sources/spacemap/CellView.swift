@@ -26,8 +26,6 @@ struct CellView: View {
     let onSelect: (Int) -> Void
     
     // These values will be passed from GridView
-    private static let baseCellWidth: CGFloat = 80
-    private static let baseCellHeight: CGFloat = 50
     private let uiScale: CGFloat
     private let resolvedTheme: AppTheme
     private let mode: ThemeMode
@@ -50,10 +48,6 @@ struct CellView: View {
         windows.filter { $0.shouldDisplay(showExtraWindows: showExtraWindows) }
     }
 
-    private var cellSize: CGSize {
-        CGSize(width: Self.baseCellWidth * uiScale, height: Self.baseCellHeight * uiScale)
-    }
-    
 init(spaceIndex: Int,
             spaceLabel: String? = nil,
             spaceName: String? = nil,
@@ -129,7 +123,7 @@ var body: some View {
                 Text("\(spaceIndex)")
                     .font(.system(size: 12 * uiScale, weight: .bold))
                     .foregroundColor(textColor.opacity(0.7))
-                    .position(Self.spaceNumberPosition(for: uiScale))
+                    .position(GridLayout.spaceNumberPosition(for: uiScale))
             }
 
             // Show space name (if exists) in center
@@ -137,7 +131,7 @@ var body: some View {
                 Text(name)
                     .font(.system(size: 14 * uiScale, weight: .medium))
                     .foregroundColor(textColor)
-                    .position(Self.spaceNamePosition(in: cellSize))
+                    .position(GridLayout.spaceNamePosition(in: GridLayout.cellSize(forEffectiveScale: uiScale)))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
             }
@@ -147,7 +141,7 @@ var body: some View {
             RoundedRectangle(cornerRadius: 4)
                 .strokeBorder(borderColor, lineWidth: borderWidth)
         )
-        .frame(width: cellSize.width, height: cellSize.height)
+        .frame(width: GridLayout.cellSize(forEffectiveScale: uiScale).width, height: GridLayout.cellSize(forEffectiveScale: uiScale).height)
         .onTapGesture { onSelect(spaceIndex) }
     }
     
@@ -187,10 +181,11 @@ var body: some View {
     
     @ViewBuilder
     private func windowRect(_ window: YabaiWindow) -> some View {
-        if let frame = Self.scaledWindowFrame(
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
+        if let frame = GridLayout.scaledWindowFrame(
             windowFrame: window.cgFrame,
             displayBounds: displayBounds,
-            cellSize: cellSize
+            cellSize: cs
         ) {
             RoundedRectangle(cornerRadius: 1)
                 .fill(appColor(window.app).opacity(0.6))
@@ -201,12 +196,13 @@ var body: some View {
 
     @ViewBuilder
     private func hybridWindowIcon(_ window: YabaiWindow) -> some View {
-        if let frame = Self.scaledWindowFrame(
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
+        if let frame = GridLayout.scaledWindowFrame(
             windowFrame: window.cgFrame,
             displayBounds: displayBounds,
-            cellSize: cellSize
+            cellSize: cs
         ), let icon = appIcon(for: window.app) {
-            let iconSize = Self.hybridIconSize(uiScale: uiScale, windowFrame: frame)
+            let iconSize = GridLayout.hybridIconSize(uiScale: uiScale, windowFrame: frame)
             Image(nsImage: icon)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -217,10 +213,11 @@ var body: some View {
     
     @ViewBuilder
     private func iconGrid() -> some View {
-        let layouts = Self.windowIconLayouts(
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
+        let layouts = GridLayout.windowIconLayouts(
             windows: filteredWindows,
             displayBounds: displayBounds,
-            cellSize: cellSize
+            cellSize: cs
         )
 
         ForEach(layouts) { layout in
@@ -229,7 +226,7 @@ var body: some View {
     }
 
     @ViewBuilder
-    private func windowIcon(_ layout: WindowIconLayout) -> some View {
+    private func windowIcon(_ layout: GridLayout.WindowIconLayout) -> some View {
         if let icon = appIcon(for: layout.app) {
             Image(nsImage: icon)
                 .resizable()
@@ -249,7 +246,8 @@ var body: some View {
         let baseIconSize = 12 * uiScale * ic * 2
         let spacing = 2 * uiScale * ic * 2
         let padding = 3 * uiScale * ic * 2
-        let availableWidth = cellSize.width - padding * 2
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
+        let availableWidth = cs.width - padding * 2
         let neededWidth = CGFloat(icons.count) * baseIconSize + CGFloat(max(0, icons.count - 1)) * spacing
         let fitScale: CGFloat = neededWidth > availableWidth ? availableWidth / neededWidth : 1.0
         let finalIconSize = baseIconSize * fitScale
@@ -297,13 +295,14 @@ var body: some View {
     
     private func thumbnailImage(_ spaceIndex: Int) -> some View {
         guard #available(macOS 14.0, *),
-              let nsImage = thumbnailStore.image(forSpace: spaceIndex) else {
+               let nsImage = thumbnailStore.image(forSpace: spaceIndex) else {
             return AnyView(Color.clear)
         }
+        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
         return AnyView(Image(nsImage: nsImage)
             .resizable()
             .aspectRatio(contentMode: .fill)
-            .frame(width: cellSize.width, height: cellSize.height)
+            .frame(width: cs.width, height: cs.height)
             .clipped())
     }
     
@@ -311,123 +310,10 @@ var body: some View {
         Self.appColor(name, theme: resolvedTheme, windowCount: windows.count)
     }
 
-    static func spaceNumberPosition(for uiScale: CGFloat) -> CGPoint {
-        CGPoint(x: 8 * uiScale, y: 10 * uiScale)
-    }
-
-    static func spaceNamePosition(in cellSize: CGSize) -> CGPoint {
-        CGPoint(x: cellSize.width / 2, y: cellSize.height / 2)
-    }
-
-    static func scaledWindowFrame(
-        windowFrame: CGRect,
-        displayBounds: CGRect,
-        cellSize: CGSize
-    ) -> CGRect? {
-        guard displayBounds.width > 0,
-              displayBounds.height > 0,
-              cellSize.width > 0,
-              cellSize.height > 0 else { return nil }
-
-        let scaleX = cellSize.width / displayBounds.width
-        let scaleY = cellSize.height / displayBounds.height
-        return CGRect(
-            x: (windowFrame.minX - displayBounds.minX) * scaleX,
-            y: (windowFrame.minY - displayBounds.minY) * scaleY,
-            width: max(windowFrame.width * scaleX, 2),
-            height: max(windowFrame.height * scaleY, 2)
-        )
-    }
-
-    static func hybridIconSize(uiScale: CGFloat, windowFrame: CGRect) -> CGFloat {
-        guard uiScale > 0, windowFrame.width > 0, windowFrame.height > 0 else { return 0 }
-        return min(26.25 * uiScale, min(windowFrame.width, windowFrame.height) * 0.75)
-    }
-
-    struct WindowIconLayout: Identifiable, Equatable {
-        let windowID: Int
-        let app: String
-        let frame: CGRect
-
-        var id: Int { windowID }
-    }
-
-    static func windowIconLayouts(
-        windows: [YabaiWindow],
-        displayBounds: CGRect,
-        cellSize: CGSize
-    ) -> [WindowIconLayout] {
-        guard !windows.isEmpty,
-              displayBounds.width > 0,
-              displayBounds.height > 0,
-              cellSize.width > 0,
-              cellSize.height > 0 else { return [] }
-
-        if windows.count == 1, let window = windows.first {
-            return [
-                WindowIconLayout(
-                    windowID: window.id,
-                    app: window.app,
-                    frame: CGRect(origin: .zero, size: cellSize)
-                )
-            ]
-        }
-
-        if windows.count == 2 {
-            let horizontal = abs(windows[0].cgFrame.midX - windows[1].cgFrame.midX)
-            let vertical = abs(windows[0].cgFrame.midY - windows[1].cgFrame.midY)
-            let sorted: [YabaiWindow]
-            let frames: [CGRect]
-
-            if horizontal >= vertical {
-                sorted = windows.sorted {
-                    if $0.cgFrame.midX == $1.cgFrame.midX {
-                        return $0.id < $1.id
-                    }
-                    return $0.cgFrame.midX < $1.cgFrame.midX
-                }
-                frames = [
-                    CGRect(x: 0, y: 0, width: cellSize.width / 2, height: cellSize.height),
-                    CGRect(x: cellSize.width / 2, y: 0, width: cellSize.width / 2, height: cellSize.height),
-                ]
-            } else {
-                sorted = windows.sorted {
-                    if $0.cgFrame.midY == $1.cgFrame.midY {
-                        return $0.id < $1.id
-                    }
-                    return $0.cgFrame.midY < $1.cgFrame.midY
-                }
-                frames = [
-                    CGRect(x: 0, y: 0, width: cellSize.width, height: cellSize.height / 2),
-                    CGRect(x: 0, y: cellSize.height / 2, width: cellSize.width, height: cellSize.height / 2),
-                ]
-            }
-
-            return zip(sorted, frames).map { window, frame in
-                WindowIconLayout(windowID: window.id, app: window.app, frame: frame)
-            }
-        }
-
-        let scaleX = cellSize.width / displayBounds.width
-        let scaleY = cellSize.height / displayBounds.height
-        let cellBounds = CGRect(origin: .zero, size: cellSize)
-
-        return windows.compactMap { window in
-            let frame = CGRect(
-                x: (window.cgFrame.minX - displayBounds.minX) * scaleX,
-                y: (window.cgFrame.minY - displayBounds.minY) * scaleY,
-                width: window.cgFrame.width * scaleX,
-                height: window.cgFrame.height * scaleY
-            ).intersection(cellBounds)
-            guard !frame.isNull, frame.width > 0, frame.height > 0 else { return nil }
-            return WindowIconLayout(windowID: window.id, app: window.app, frame: frame)
-        }
-    }
-
     static func appColor(_ name: String, theme: AppTheme, windowCount: Int) -> Color {
         let t = theme
         let rects = [t.rect1, t.rect2, t.rect3]
-        let base = rects[abs(name.hashValue) % 3]
+        let base = rects[(name.hashValue % 3 + 3) % 3]
         if windowCount <= 3 {
             return Color(hex: base)
         }
@@ -446,9 +332,9 @@ var body: some View {
             h /= 6
             if h < 0 { h += 1 }
         }
-        let hash = abs(name.hashValue)
-        let sat = 0.35 + Double(hash % 35) / 100.0
-        let lit = 0.50 + Double((hash / 35) % 35) / 100.0
+        let hash = name.hashValue % 35
+        let sat = 0.35 + Double(hash >= 0 ? hash : hash + 35) / 100.0
+        let lit = 0.50 + Double(((hash / 35) % 35 + 35) % 35) / 100.0
         let c = (1 - abs(2 * lit - 1)) * sat
         let x = c * (1 - abs((h * 6).truncatingRemainder(dividingBy: 2) - 1))
         let m = lit - c / 2

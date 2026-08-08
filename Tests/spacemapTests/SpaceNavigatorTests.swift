@@ -5,7 +5,7 @@ import CoreGraphics
 final class SpaceNavigatorTests: XCTestCase {
     func testHUDKeyboardRoutingRecognizesNavigationKeys() {
         XCTAssertEqual(
-            HUDWindowController.navigationDirection(
+            HUDInput.navigationDirection(
                 keyCode: 4,
                 flags: [],
                 useArrowKeys: false,
@@ -14,7 +14,7 @@ final class SpaceNavigatorTests: XCTestCase {
             .left
         )
         XCTAssertEqual(
-            HUDWindowController.navigationDirection(
+            HUDInput.navigationDirection(
                 keyCode: 126,
                 flags: [],
                 useArrowKeys: true,
@@ -23,7 +23,7 @@ final class SpaceNavigatorTests: XCTestCase {
             .up
         )
         XCTAssertNil(
-            HUDWindowController.navigationDirection(
+            HUDInput.navigationDirection(
                 keyCode: 4,
                 flags: [.maskCommand],
                 useArrowKeys: true,
@@ -34,13 +34,13 @@ final class SpaceNavigatorTests: XCTestCase {
 
     func testHUDKeyboardRoutingRecognizesSettingsShortcut() {
         XCTAssertTrue(
-            HUDWindowController.isSettingsShortcut(
+            HUDInput.isSettingsShortcut(
                 keyCode: 43,
                 flags: [.maskCommand]
             )
         )
         XCTAssertFalse(
-            HUDWindowController.isSettingsShortcut(
+            HUDInput.isSettingsShortcut(
                 keyCode: 43,
                 flags: []
             )

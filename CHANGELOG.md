@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Prevented HUD cells from applying UI scale twice; restored centered sizing and HUD keyboard navigation wiring.
+- Preserve one shared HUD controller across lifecycle, hotkey, menu bar, and deep-link paths.
+- Keep Settings windows alive and activate the app when opening them.
+- Restored HUD window-drag hover/drop handling and custom panel-position persistence.
+
+### Changed
+- Decomposed TOML parsing, thumbnail request/compositing, and HUD coordinate transforms behind focused modules.
+- Removed unused composition modules, centralized menu-bar preview signal policy, and consolidated command-line tool operations.
+- Split model declarations into configuration, theme, and yabai domain files.
+- Refactored Config.swift from 685-line monolith to 36-line thin facade delegating to ConfigLoader/TOMLParser. Removed duplicated TOML lexer/serialization code and the duplicated hotkey() nested function.
+- Added ConfigValuesProtocol, TOMLParserProtocol, and ConfigLoaderProtocol protocol interfaces for all config modules.
+- Added protocol-based unit tests (ConfigFacadeTests) verifying Config facade delegation to ConfigLoader/TOMLParser.
+- Added ConfigValues init(from: GridConfig) and ConfigLoader.save(_ config: GridConfig, to path:) for GridConfig ↔ ConfigValues conversion.
+
+## [1.0.34] - 2026-08-07
+
+### Added
+- Added space jumps using number keys.
 
 ## [1.0.33] - 2026-08-05
 
@@ -18,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.32] - 2026-08-01
 
 ### Added
+- Added optional number-key space jumps, including multi-digit space numbers and HUD feedback.
+- Added Appearance setting to draw HUD panel shadow; default enabled.
 - Added live yabai process and socket diagnostics to Advanced settings.
 - Added a `spacemap(1)` manual page generated with scdoc and linked automatically alongside the CLI.
 
@@ -233,7 +254,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make release RELEASE=x.y.z` target for one-command releases
 - `scripts/generate-changelog.sh` auto-moves `[Unreleased]` to versioned entry on release
 - CHANGELOG gate in `make release` ensures entries exist before tagging
-- Release checklist in AGENTS.md
+- Release checklist in DesignDocs/AGENTS.md
 - `VERSION` file as fallback for version derivation
 
 ### Changed

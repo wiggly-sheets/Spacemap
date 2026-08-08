@@ -144,7 +144,7 @@ enum MenuBarPreviewRenderer {
         }
 
         for window in windows {
-            guard let scaled = CellView.scaledWindowFrame(
+            guard let scaled = GridLayout.scaledWindowFrame(
                 windowFrame: window.cgFrame,
                 displayBounds: displayBounds,
                 cellSize: content.size

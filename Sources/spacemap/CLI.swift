@@ -14,7 +14,13 @@ enum CLIParseResult: Equatable {
     case none
 }
 
-enum CLI {
+final class CLI {
+    private let yabaiService: YabaiService
+
+    init(yabaiService: YabaiService) {
+        self.yabaiService = yabaiService
+    }
+
     static let help = """
     Usage: spacemap [OPTIONS]
 
@@ -48,8 +54,8 @@ enum CLI {
         return .none
     }
 
-    static func runIfRequested(arguments: [String]) -> Int32? {
-        switch parse(arguments: arguments) {
+    func runIfRequested(arguments: [String]) -> Int32? {
+        switch CLI.parse(arguments: arguments) {
         case .none:
             return nil
         case .error(let message):
@@ -60,13 +66,13 @@ enum CLI {
             print("Spacemap \(version)")
             return 0
         case .command(.help):
-            print(help)
+            print(CLI.help)
             return 0
         case .command(.config):
-            _ = ConfigReader.load()
+            _ = Config.load()
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-            process.arguments = [ConfigReader.configPath]
+            process.arguments = [Config.configPath]
             do {
                 try process.run()
                 process.waitUntilExit()
@@ -76,16 +82,12 @@ enum CLI {
                 return 1
             }
         case .command(.trigger):
-            SocketListener.sendCommand(to: socketPath, command: 4)
+            do { try SpacemapCommand.toggle.send() } catch { fputs("spacemap: \(error)\n", stderr); return 1 }
             return 0
         case .command(.focusSpace(let target)):
-            guard YabaiClient.focusSpace(target) else { return 1 }
-            SocketListener.sendCommand(to: socketPath, command: 2)
+            guard yabaiService.focusSpace(target) else { return 1 }
+            do { try SpacemapCommand.show.send() } catch { fputs("spacemap: \(error)\n", stderr); return 1 }
             return 0
         }
-    }
-
-    private static var socketPath: String {
-        "/tmp/spacemap_\(NSUserName()).socket"
     }
 }
