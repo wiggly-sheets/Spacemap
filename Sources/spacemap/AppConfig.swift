@@ -1,8 +1,5 @@
 import Foundation
 
-/// Manages loading, saving, and the silent-mode flag for the
-/// Spacemap configuration. Replaces the `Config` enum static
-/// globals with an injectable, testable service.
 final class AppConfig {
 
     var silentMode: Bool = false

@@ -19,7 +19,6 @@ SOURCES_DIR = os.path.join(PROJECT_DIR, "Sources", "spacemap")
 XCODEPROJ_DIR = os.path.join(PROJECT_DIR, "spacemap.xcodeproj")
 PBXPROJ_PATH = os.path.join(XCODEPROJ_DIR, "project.pbxproj")
 
-# Gather source files
 SOURCE_FILES = sorted([
     f for f in os.listdir(SOURCES_DIR)
     if f.endswith(".swift") and not f.startswith(".")
@@ -33,20 +32,17 @@ def uuid5(name):
     return f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
 
 
-# Pre-generate deterministic UUIDs for every entity
 def uid(tag, *args):
     key = ".".join(str(a) for a in args)
     return uuid5(f"{tag}.{key}")
 
 
-# Groups
 ROOT_GROUP = uid("group", "root")
 SOURCE_GROUP = uid("group", "Sources")
 SPACEMAP_GROUP = uid("group", "spacemap")
 RESOURCES_GROUP = uid("group", "Resources")
 PRODUCTS_GROUP = uid("group", "Products")
 
-# File references
 FILE_REFS = {}
 for f in SOURCE_FILES:
     FILE_REFS[f] = uid("fileref", f)
@@ -55,7 +51,6 @@ APPICON_REF = uid("fileref", "AppIcon.icns")
 SPACEMAP_ICON_REF = uid("fileref", "spacemap.icns")
 ADAPTIVE_ICON_REF = uid("fileref", "Assets.car")
 
-# Build file refs
 BUILD_FILES = {}
 for f in SOURCE_FILES:
     BUILD_FILES[f] = uid("buildfile", f)
@@ -63,13 +58,11 @@ APPICON_BUILD = uid("buildfile", "AppIcon.icns")
 SPACEMAP_ICON_BUILD = uid("buildfile", "spacemap.icns")
 ADAPTIVE_ICON_BUILD = uid("buildfile", "Assets.car")
 
-# Targets
 TARGET_DEFAULT = uid("target", "spacemap")
 TARGET_ARM64 = uid("target", "spacemap-arm64")
 TARGET_X86 = uid("target", "spacemap-x86_64")
 TARGET_UNIVERSAL = uid("target", "spacemap-universal")
 
-# Build configurations
 CONFIG_LIST_TARGET = uid("configlist", "target")
 CONFIG_LIST_PROJECT = uid("configlist", "project")
 
@@ -77,10 +70,8 @@ CONFIGS = {}
 for arch in ["default", "arm64", "x86_64", "universal", "debug", "release"]:
     CONFIGS[arch] = uid("config", arch)
 
-# Native target refs for the build phase
 NATIVE_TARGETS = [TARGET_DEFAULT, TARGET_ARM64, TARGET_X86, TARGET_UNIVERSAL]
 
-# Product references
 PRODUCT_DEFAULT = uid("product", "spacemap")
 PRODUCT_ARM64 = uid("product", "spacemap-arm64")
 PRODUCT_X86 = uid("product", "spacemap-x86_64")
@@ -95,7 +86,7 @@ def arch_setting(target_id):
         return "x86_64"
     elif target_id == TARGET_UNIVERSAL:
         return "arm64 x86_64"
-    return ""  # default: standard archs
+    return ""
 
 
 def target_product_name(target_id):
@@ -157,7 +148,6 @@ def generate_build_config(target_id, name, is_debug):
     if arch:
         build_settings["ARCHS"] = arch
 
-    # Swift source files
     swift_files = [f for f in SOURCE_FILES if f.endswith(".swift")]
 
     lines = []
@@ -182,7 +172,6 @@ def generate_build_config(target_id, name, is_debug):
 def generate():
     os.makedirs(XCODEPROJ_DIR, exist_ok=True)
 
-    # Generate all config IDs we'll need
     all_target_configs = []
     for tid in NATIVE_TARGETS:
         all_target_configs.append(uid("config", f"{tid}.Debug"))
@@ -198,7 +187,6 @@ def generate():
     lines.append("\tobjects = {")
     lines.append("")
 
-    # PBXBuildFile
     lines.append("/* Begin PBXBuildFile section */")
     for f in SOURCE_FILES:
         lines.append(f"\t\t{BUILD_FILES[f]} /* {f} in Sources */ = {{isa = PBXBuildFile; fileRef = {FILE_REFS[f]} /* {f} */; }};")
@@ -208,7 +196,6 @@ def generate():
     lines.append("/* End PBXBuildFile section */")
     lines.append("")
 
-    # PBXFileReference
     lines.append("/* Begin PBXFileReference section */")
     for f in SOURCE_FILES:
         lines.append(f"\t\t{FILE_REFS[f]} /* {f} */ = {{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = {f}; sourceTree = \"<group>\"; }};")
@@ -223,7 +210,6 @@ def generate():
     lines.append("/* End PBXFileReference section */")
     lines.append("")
 
-    # PBXFrameworksBuildPhase
     lines.append("/* Begin PBXFrameworksBuildPhase section */")
     for tid in NATIVE_TARGETS:
         fphase = uid("phase", f"frameworks.{tid}")
@@ -237,9 +223,7 @@ def generate():
     lines.append("/* End PBXFrameworksBuildPhase section */")
     lines.append("")
 
-    # PBXGroup
     lines.append("/* Begin PBXGroup section */")
-    # Root group
     lines.append(f"\t\t{ROOT_GROUP} = {{")
     lines.append(f"\t\t\tisa = PBXGroup;")
     lines.append(f"\t\t\tchildren = (")
@@ -250,7 +234,6 @@ def generate():
     lines.append(f"\t\t\tsourceTree = \"<group>\";")
     lines.append(f"\t\t}};")
 
-    # Sources group
     lines.append(f"\t\t{SOURCE_GROUP} /* Sources */ = {{")
     lines.append(f"\t\t\tisa = PBXGroup;")
     lines.append(f"\t\t\tchildren = (")
@@ -260,7 +243,6 @@ def generate():
     lines.append(f"\t\t\tsourceTree = \"<group>\";")
     lines.append(f"\t\t}};")
 
-    # Spacemap group
     lines.append(f"\t\t{SPACEMAP_GROUP} /* spacemap */ = {{")
     lines.append(f"\t\t\tisa = PBXGroup;")
     lines.append(f"\t\t\tchildren = (")
@@ -274,7 +256,6 @@ def generate():
     lines.append(f"\t\t\tsourceTree = \"<group>\";")
     lines.append(f"\t\t}};")
 
-    # Products group
     lines.append(f"\t\t{PRODUCTS_GROUP} /* Products */ = {{")
     lines.append(f"\t\t\tisa = PBXGroup;")
     lines.append(f"\t\t\tchildren = (")
@@ -287,7 +268,6 @@ def generate():
     lines.append("/* End PBXGroup section */")
     lines.append("")
 
-    # PBXNativeTarget
     lines.append("/* Begin PBXNativeTarget section */")
     for tid in NATIVE_TARGETS:
         pname = target_product_name(tid)
@@ -317,7 +297,6 @@ def generate():
     lines.append("/* End PBXNativeTarget section */")
     lines.append("")
 
-    # PBXProject
     lines.append("/* Begin PBXProject section */")
     proj_obj = uid("project", "obj")
     lines.append(f"\t\t{proj_obj} /* Project object */ = {{")
@@ -344,7 +323,6 @@ def generate():
     lines.append("/* End PBXProject section */")
     lines.append("")
 
-    # PBXResourcesBuildPhase
     lines.append("/* Begin PBXResourcesBuildPhase section */")
     for tid in NATIVE_TARGETS:
         rphase = uid("phase", f"resources.{tid}")
@@ -361,7 +339,6 @@ def generate():
     lines.append("/* End PBXResourcesBuildPhase section */")
     lines.append("")
 
-    # PBXSourcesBuildPhase
     lines.append("/* Begin PBXSourcesBuildPhase section */")
     for tid in NATIVE_TARGETS:
         sphase = uid("phase", f"sources.{tid}")
@@ -377,10 +354,8 @@ def generate():
     lines.append("/* End PBXSourcesBuildPhase section */")
     lines.append("")
 
-    # XCBuildConfiguration
     lines.append("/* Begin XCBuildConfiguration section */")
 
-    # Project-level configs
     for name in ["Debug", "Release"]:
         is_debug = name == "Debug"
         cid = uid("config", f"project.{name}")
@@ -397,7 +372,6 @@ def generate():
         lines.append(f"\t\t\tname = {name};")
         lines.append(f"\t\t}};")
 
-    # Target-level configs
     for tid in NATIVE_TARGETS:
         for name in ["Debug", "Release"]:
             is_debug = name == "Debug"
@@ -440,10 +414,8 @@ def generate():
     lines.append("/* End XCBuildConfiguration section */")
     lines.append("")
 
-    # XCConfigurationList
     lines.append("/* Begin XCConfigurationList section */")
 
-    # Project config list
     debug_proj = uid("config", "project.Debug")
     release_proj = uid("config", "project.Release")
     lines.append(f"\t\t{CONFIG_LIST_PROJECT} /* Build configuration list for PBXProject \"spacemap\" */ = {{")
@@ -456,7 +428,6 @@ def generate():
     lines.append(f"\t\t\tdefaultConfigurationName = Release;")
     lines.append(f"\t\t}};")
 
-    # Target config lists
     for tid in NATIVE_TARGETS:
         pname = target_product_name(tid)
         clist = uid("configlist", f"target.{tid}")

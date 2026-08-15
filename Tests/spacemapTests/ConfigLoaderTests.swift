@@ -3,7 +3,6 @@ import XCTest
 
 final class ConfigLoaderTests: XCTestCase {
 
-    // MARK: - Load
 
     func testLoadCreatesDefaultWhenFileMissing() throws {
         let directory = FileManager.default.temporaryDirectory
@@ -87,7 +86,6 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), invalid)
     }
 
-    // MARK: - Save
 
     func testSaveWritesConfigToFile() throws {
         let directory = FileManager.default.temporaryDirectory
@@ -166,7 +164,6 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertTrue(config.jumpToSpaceEnabled)
     }
 
-    // MARK: - Create Default Config File
 
     func testCreateDefaultConfigFile() throws {
         let directory = FileManager.default.temporaryDirectory

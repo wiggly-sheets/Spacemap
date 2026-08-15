@@ -9,10 +9,6 @@ enum CLISymlinkInstallationResult: Equatable {
 }
 
 enum CLISymlinkInstaller {
-    /// Creates a CLI symlink without replacing an unrelated file or symlink.
-    ///
-    /// The caller can use `.authorizationRequired` to offer an explicit
-    /// administrator-authorized fallback when `/usr/local` is root-owned.
     static func install(
         symlinkPath: String,
         targetPath: String,
@@ -31,9 +27,7 @@ enum CLISymlinkInstaller {
             return destination == targetPath ? .installed : .conflictingItem
         }
 
-        // `fileExists` follows symlinks, so it catches ordinary files and
-        // directories after the symbolic-link check above (including broken
-        // symlinks, which `destinationOfSymbolicLink` already handles).
+        // `fileExists` catches non-symlink items after the link check above.
         if fileManager.fileExists(atPath: symlinkPath) {
             return .conflictingItem
         }

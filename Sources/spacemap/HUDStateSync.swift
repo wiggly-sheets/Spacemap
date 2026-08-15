@@ -1,6 +1,5 @@
 import Foundation
 
-/// Clean interface wrapping GridStateCoordinator, hiding internal phase/generation/pendingFocus details.
 protocol HUDStateSync {
     var currentState: GridState? { get }
     var focusedIndex: Int? { get }

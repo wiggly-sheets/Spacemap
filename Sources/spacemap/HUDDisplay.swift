@@ -1,7 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// Delegate for HUDDisplay to report visual state changes.
 protocol HUDDisplayDelegate: AnyObject {
     func render(state: GridState)
     func updateCellFrames(state: GridState)
@@ -9,7 +8,6 @@ protocol HUDDisplayDelegate: AnyObject {
     func hide()
 }
 
-/// Owns NSPanel lifecycle, unified vs separate display modes, cell frame computation, thumbnail preloading.
 final class HUDDisplay {
     weak var delegate: HUDDisplayDelegate?
 
@@ -171,7 +169,6 @@ final class HUDDisplay {
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
-    // MARK: - Prewarm & refresh-render
 
     func prewarm(state: GridState) {
         preloadIcons(for: state)
@@ -185,7 +182,6 @@ final class HUDDisplay {
         updateCellFrames(state: state)
     }
 
-    // MARK: - Private rendering
 
     private func renderUnifiedState(_ state: GridState) {
         let gridView = makeGridView(state: state, hoveredCell: hoveredCell)

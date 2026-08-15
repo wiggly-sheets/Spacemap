@@ -1,6 +1,5 @@
 import AppKit
 
-/// Handles hotkey-related operations.
 final class HotkeyService: HotkeyHandling {
     private let hotkeyHandler: HotkeyHandler
 

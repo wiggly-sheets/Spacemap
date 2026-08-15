@@ -1,7 +1,5 @@
 import AppKit
 
-/// Wraps `ThumbnailCache` to remove the static shared singleton.
-/// All window thumbnail capture goes through this service.
 @available(macOS 14.0, *)
 final class ThumbnailCacheService {
 

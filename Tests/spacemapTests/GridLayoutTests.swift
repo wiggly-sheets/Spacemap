@@ -57,7 +57,6 @@ final class GridLayoutTests: XCTestCase {
 
         XCTAssertEqual(frames.count, 4, "Should calculate frames for all cells")
 
-        // Verify first cell position
         let firstFrame = frames[0]
         XCTAssertGreaterThan(firstFrame.origin.x, 0, "First cell x should be positive")
         XCTAssertGreaterThan(firstFrame.origin.y, 0, "First cell y should be positive")
@@ -68,11 +67,9 @@ final class GridLayoutTests: XCTestCase {
     func testCellFramesOrder() throws {
         let frames = GridLayout.cellFrames(count: 4, cols: 2, uiScale: 1.0)
 
-        // First two cells should be on first row
         XCTAssertLessThan(frames[0].minY, frames[2].minY, "First row should be above second row")
         XCTAssertLessThan(frames[1].minY, frames[3].minY, "First row should be above second row")
 
-        // First cell in row should be left of second
         XCTAssertLessThan(frames[0].minX, frames[1].minX, "First col should be left of second")
         XCTAssertLessThan(frames[2].minX, frames[3].minX, "First col should be left of second")
     }
@@ -80,12 +77,10 @@ final class GridLayoutTests: XCTestCase {
     func testHitTest() throws {
         let frames = GridLayout.cellFrames(count: 4, cols: 2, uiScale: 1.0)
 
-        // Point in first cell
         let pointInFirst = CGPoint(x: frames[0].midX, y: frames[0].midY)
         let hit = GridLayout.hitTest(point: pointInFirst, in: frames)
         XCTAssertEqual(hit, 0, "Should hit first cell")
 
-        // Point outside all cells
         let pointOutside = CGPoint(x: -100, y: -100)
         let noHit = GridLayout.hitTest(point: pointOutside, in: frames)
         XCTAssertNil(noHit, "Should not hit any cell")
@@ -98,7 +93,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertEqual(scale1, 0.5, "Scale at 0 should be 0.5")
         XCTAssertEqual(scale2, 4.0, "Scale at 1 should be 4.0")
 
-        // Cell size should increase with scale
         let cellSize1 = GridLayout.cellSize(for: 0.0)
         let cellSize2 = GridLayout.cellSize(for: 1.0)
 
@@ -106,7 +100,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertLessThan(cellSize1.height, cellSize2.height, "Cell height should increase with scale")
     }
 
-    // MARK: - gap
 
     func testGapScalesWithUI() {
         let gap0 = GridLayout.gap(for: 0.0)
@@ -116,7 +109,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertLessThan(gap0, gap1, "Gap should increase with uiScale")
     }
 
-    // MARK: - padding
 
     func testPaddingScalesWithUI() {
         let pad0 = GridLayout.padding(for: 0.0)
@@ -134,7 +126,6 @@ final class GridLayoutTests: XCTestCase {
         )
     }
 
-    // MARK: - slotSize
 
     func testSlotSizeCombinesCellAndGap() {
         let slot0 = GridLayout.slotSize(for: 0.0)
@@ -146,7 +137,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertLessThan(slot0.width, slot1.width, "Slot width should increase with uiScale")
     }
 
-    // MARK: - effectiveScale
 
     func testEffectiveScaleMatchesScale() {
         XCTAssertEqual(GridLayout.effectiveScale(for: 0.0), GridLayout.scale(for: 0.0))
@@ -154,7 +144,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertEqual(GridLayout.effectiveScale(for: 0.5), GridLayout.scale(for: 0.5))
     }
 
-    // MARK: - effectiveIconScale
 
     func testEffectiveIconScaleRange() {
         let minScale = GridLayout.effectiveIconScale(for: 0.0)
@@ -173,7 +162,6 @@ final class GridLayoutTests: XCTestCase {
         }
     }
 
-    // MARK: - idealSize
 
     func testIdealSizeZeroCells() {
         let size = GridLayout.idealSize(visibleIndices: 0, cols: 8, uiScale: 1.0)
@@ -201,7 +189,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertGreaterThan(sizeWide.width, sizeNarrow.width, "More columns should make grid wider")
     }
 
-    // MARK: - cellFrame
 
     func testCellFrameOriginIncreasesWithRow() {
         let frame0 = GridLayout.cellFrame(offset: 0, cols: 2, uiScale: 1.0)
@@ -222,7 +209,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertEqual(frame0.height, frame1.height, "All cells should have the same height")
     }
 
-    // MARK: - cellFrames
 
     func testCellFramesCountMatches() {
         let frames = GridLayout.cellFrames(count: 6, cols: 3, uiScale: 1.0)
@@ -237,7 +223,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertLessThan(frames[2].minX, frames[3].minX, "Col 0 left of col 1")
     }
 
-    // MARK: - visibleSpaceIndices edge cases
 
     func testVisibleSpaceIndicesMaxSpacesClampedTo16() {
         let indices = GridLayout.visibleSpaceIndices(maxSpaces: 32, showMode: .all, activeIndices: [])
@@ -254,7 +239,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertEqual(indices, [1], "maxSpaces 1 should return only space 1")
     }
 
-    // MARK: - scaledWindowFrame edge cases
 
     func testScaledWindowFrameZeroDisplayBoundsReturnsNil() {
         let result = GridLayout.scaledWindowFrame(
@@ -302,7 +286,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertEqual(result?.height, 2, "Very small window should be clamped to minimum 2")
     }
 
-    // MARK: - hybridIconSize edge cases
 
     func testHybridIconSizeZeroUIScale() {
         let size = GridLayout.hybridIconSize(uiScale: 0, windowFrame: CGRect(x: 0, y: 0, width: 100, height: 100))
@@ -319,7 +302,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertEqual(size, 262.5, "Icon size should cap at 26.25 * uiScale")
     }
 
-    // MARK: - spaceNumberPosition
 
     func testSpaceNumberPositionScalesWithHUD() {
         XCTAssertEqual(GridLayout.spaceNumberPosition(for: 0.5), CGPoint(x: 4, y: 5))
@@ -327,7 +309,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertEqual(GridLayout.spaceNumberPosition(for: 4), CGPoint(x: 32, y: 40))
     }
 
-    // MARK: - spaceNamePosition
 
     func testSpaceNamePositionStaysCenteredAcrossCellSizes() {
         XCTAssertEqual(
@@ -340,7 +321,6 @@ final class GridLayoutTests: XCTestCase {
         )
     }
 
-    // MARK: - thumbnailPixelSize
 
     func testThumbnailPixelSizeScalesWithUIScale() {
         let size0 = GridLayout.thumbnailPixelSize(for: 0.0, backingScale: 1.0)
@@ -356,7 +336,6 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertEqual(size2x.height, size1x.height * 2, "Thumbnail size should double with 2x backing")
     }
 
-    // MARK: - windowIconLayouts edge cases
 
     func testWindowIconLayoutsEmptyWindows() {
         let layouts = GridLayout.windowIconLayouts(

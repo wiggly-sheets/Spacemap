@@ -55,7 +55,6 @@ enum ConfigLoader: ConfigLoaderProtocol {
         }
     }
 
-    // MARK: - TOML Serialization
 
     static func tomlConfigString(from values: ConfigValues, includeHeaderComments: Bool) -> String {
         let defaults = GridConfig.default
@@ -140,7 +139,6 @@ enum ConfigLoader: ConfigLoaderProtocol {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    // MARK: - Backup
 
     private static func backupConfig(at path: String) {
         guard FileManager.default.fileExists(atPath: path) else { return }
@@ -149,7 +147,6 @@ enum ConfigLoader: ConfigLoaderProtocol {
         try? FileManager.default.copyItem(atPath: path, toPath: backupPath)
     }
 
-    // MARK: - TOML Helpers
 
     private static func appendHotkey(_ hotkey: HotkeyConfig, section: String, to lines: inout [String]) {
         lines += ["", "[\(section)]"]

@@ -8,7 +8,7 @@ public enum Hotkey {
         "space": 49, "tab": 48, "return": 36,
         "escape": 53, "delete": 51,
         "pgdn": 121, "pgup": 116,
-        "home": 115, "end": 119,
+        "home": 115, "end": 119, "help": 114, "forward-delete": 117,
         "left": 123, "right": 124, "down": 125, "up": 126,
         "f1": 122, "f2": 120, "f3": 99,  "f4": 118,
         "f5": 96,  "f6": 97,  "f7": 98,  "f8": 100,
@@ -25,6 +25,21 @@ public enum Hotkey {
         25: "9", 26: "7", 27: "-", 28: "8", 29: "0", 31: "o",
         32: "u", 34: "i", 35: "p", 37: "l", 38: "j", 40: "k", 45: "n", 46: "m"
     ]
+
+    private static let punctuation: [CGKeyCode: String] = [
+        24: "=", 27: "-", 30: "]", 33: "[", 39: "'", 41: ";",
+        42: "backslash", 43: ",", 44: "/", 47: ".", 50: "`",
+        65: "keypad-decimal", 67: "keypad-multiply", 69: "keypad-plus",
+        71: "keypad-clear", 75: "keypad-divide", 76: "keypad-enter",
+        78: "keypad-minus", 81: "keypad-equals", 82: "keypad-0",
+        83: "keypad-1", 84: "keypad-2", 85: "keypad-3", 86: "keypad-4",
+        87: "keypad-5", 88: "keypad-6", 89: "keypad-7", 91: "keypad-8",
+        92: "keypad-9"
+    ]
+
+    static var supportedKeyNames: [String] {
+        Array(named.keys) + Array(alphanum.values) + Array(punctuation.values)
+    }
 
     static func hotkeyToString(_ hotkey: HotkeyConfig) -> String {
         switch hotkey.key {
@@ -55,7 +70,7 @@ public enum Hotkey {
             case "cmd": result.insert(.maskCommand)
             case "alt": result.insert(.maskAlternate)
             case "shift": result.insert(.maskShift)
-            case "fn": result.insert(.maskSecondaryFn)
+            case "fn": break
             case "hyper":
                 result.insert(.maskCommand)
                 result.insert(.maskControl)
@@ -71,11 +86,10 @@ public enum Hotkey {
     static func hotkeyToString(mediaKey: MediaKey, modifiers: CGEventFlags) -> String {
         let prefix = hotkeyModifierString(modifiers)
         let keyString = mediaKey.rawValue
-        return prefix.isEmpty ? keyString : "\(prefix)+\(keyString)"
+        return prefix == "none" ? keyString : "\(prefix)+\(keyString)"
     }
 
         static func hotkeyModifierString(_ modifiers: CGEventFlags) -> String {
-        // Hyper combination: cmd+ctrl+shift+option displays as "hyper"
         if modifiers.contains(.maskCommand) &&
            modifiers.contains(.maskControl) &&
            modifiers.contains(.maskAlternate) &&
@@ -113,11 +127,13 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
         case 36: return "return"
         case 53: return "escape"
         case 51: return "delete"
-        case 76: return "delete"
+        case 76: return "keypad-enter"
         case 121: return "pgdn"
         case 116: return "pgup"
         case 115: return "home"
         case 119: return "end"
+        case 114: return "help"
+        case 117: return "forward-delete"
         case 123: return "left"
         case 124: return "right"
         case 125: return "down"
@@ -143,7 +159,7 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
         case 80:  return "f19"
         case 90:  return "f20"
         default:
-            return alphanum[keyCode] ?? "unknown"
+            return alphanum[keyCode] ?? punctuation[keyCode] ?? "unknown"
         }
     }
 
@@ -172,7 +188,7 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
             case "cmd":   modifiers.insert(.maskCommand)
             case "alt":   modifiers.insert(.maskAlternate)
             case "shift": modifiers.insert(.maskShift)
-            case "fn": modifiers.insert(.maskSecondaryFn)
+            case "fn": break
             case "hyper":
                 modifiers.insert(.maskCommand)
                 modifiers.insert(.maskControl)
@@ -206,7 +222,8 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
             "u": 32, "i": 34, "p": 35, "l": 37, "j": 38, "k": 40,
             "n": 45, "m": 46,
         ]
-        return alphanumReverse[token]
+        if let keyCode = alphanumReverse[token] { return keyCode }
+        return punctuation.first { $0.value == token }?.key
     }
 
     static func mediaKeyFor(_ token: String) -> MediaKey? {
@@ -223,19 +240,44 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
         }
     }
 
+    static func mediaKeyForSystemKeyCode(_ code: Int) -> MediaKey? {
+        switch code {
+        case 16: return .playPause
+        case 17: return .nextTrack
+        case 18: return .previousTrack
+        case 0: return .volumeUp
+        case 1: return .volumeDown
+        case 7: return .mute
+        case 2: return .brightnessUp
+        case 3: return .brightnessDown
+        default: return nil
+        }
+    }
+
+    static func parseHotkeyFromMediaKeyEvent(_ event: NSEvent) -> HotkeyConfig? {
+        guard event.type == .systemDefined, event.subtype.rawValue == 8 else { return nil }
+        let code = Int((event.data1 & 0xFFFF0000) >> 16)
+        let state = ((event.data1 & 0x0000FFFF) >> 8) & 0x0F
+        guard state == 0xA || state == 0xB, let mediaKey = mediaKeyForSystemKeyCode(code) else {
+            return nil
+        }
+
+        var modifiers: CGEventFlags = []
+        if event.modifierFlags.contains(.control) { modifiers.insert(.maskControl) }
+        if event.modifierFlags.contains(.command) { modifiers.insert(.maskCommand) }
+        if event.modifierFlags.contains(.option) { modifiers.insert(.maskAlternate) }
+        if event.modifierFlags.contains(.shift) { modifiers.insert(.maskShift) }
+        return HotkeyConfig(key: .mediaKey(mediaKey), modifiers: modifiers)
+    }
+
     static func parseHotkeyFromEvent(_ event: NSEvent) -> HotkeyConfig {
         var modifiers: CGEventFlags = []
         if event.modifierFlags.contains(.control) { modifiers.insert(.maskControl) }
         if event.modifierFlags.contains(.command) { modifiers.insert(.maskCommand) }
         if event.modifierFlags.contains(.option) { modifiers.insert(.maskAlternate) }
         if event.modifierFlags.contains(.shift) { modifiers.insert(.maskShift) }
-        if event.modifierFlags.contains(.function) { modifiers.insert(.maskSecondaryFn) }
 
-        let keyCode = event.keyCode
-        if keyCode > 0 {
-            return HotkeyConfig(key: .keyCode(keyCode), modifiers: modifiers)
-        }
-        return HotkeyConfig(key: .none, modifiers: [])
+        return HotkeyConfig(key: .keyCode(event.keyCode), modifiers: modifiers)
     }
 
 }

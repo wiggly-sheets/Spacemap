@@ -2,20 +2,15 @@ import AppKit
 import ServiceManagement
 import Sparkle
 
-/// The application delegate is now thin, delegating most of its responsibilities to the ApplicationLifecycleService.
 final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
-    // MARK: - Dependencies
 
     private let services: SpacemapServices
     private var lifecycleService: ApplicationLifecycleService
 
-    // MARK: - UI State
 
-    /// The settings window controller, if the settings window is currently shown.
     private var settingsWindowController: SettingsWindowController?
 
-    // MARK: - Initialization
 
     init(services: SpacemapServices = SpacemapServices()) {
         self.services = services
@@ -23,7 +18,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         super.init()
     }
 
-    // MARK: - Application Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         lifecycleService.applicationDidFinishLaunching(notification)
@@ -33,7 +27,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         lifecycleService.applicationWillTerminate(notification)
     }
 
-    // MARK: - Delegated Methods (minimal)
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettingsWindow()
@@ -48,7 +41,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         services.checkForUpdates()
     }
 
-    // MARK: - Private Helpers
 
     private func showSettingsWindow() {
         NSApp.setActivationPolicy(.regular)
@@ -56,7 +48,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         settingsWindowController = controller
         controller.showWindow()
         if let window = controller.window {
-            // Observe window close to reset activation policy and nil out the controller
             let observer = NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
                 object: window,
@@ -65,8 +56,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 self?.settingsWindowController = nil
                 NSApp.setActivationPolicy(.prohibited)
             }
-            // We don't store the observer because it's tied to the window controller's lifetime.
-            // When the window controller is deallocated, the observer will be removed automatically.
         }
     }
 }

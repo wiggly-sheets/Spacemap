@@ -3,7 +3,6 @@ import XCTest
 
 final class MenubarHandlerTests: XCTestCase {
 
-    // MARK: - hotkeyMenuString
 
     func testHotkeyMenuStringNone() {
         let config = HotkeyConfig(key: .none, modifiers: [])
@@ -48,7 +47,6 @@ final class MenubarHandlerTests: XCTestCase {
         XCTAssertEqual(makeHandler().hotkeyMenuString(config), "⌃+⌘+⌥+⇧+Return")
     }
 
-    // MARK: - workspacePreviewsEnabled
 
     func testWorkspacePreviewsEnabledWhenMenuBarVisibleAndNotIconMode() {
         var config = GridConfig.default
@@ -82,7 +80,6 @@ final class MenubarHandlerTests: XCTestCase {
         XCTAssertTrue(state.windows.isEmpty)
     }
 
-    // MARK: - windowGeometryPreviewsEnabled
 
     func testWindowGeometryPreviewsEnabledWhenDotsMode() {
         var config = GridConfig.default
@@ -104,7 +101,6 @@ final class MenubarHandlerTests: XCTestCase {
         XCTAssertFalse(config.needsWindowGeometryPreviews)
     }
 
-    // MARK: - Helpers
 
     private func makeHandler() -> MenubarHandler {
         MenubarHandler(

@@ -3,10 +3,8 @@ import Foundation
 import ServiceManagement
 import Sparkle
 
-/// Composition root for shared application modules.
 final class SpacemapServices {
     private let core: SpacemapCoreServices
-    // Public services
     var yabaiService: YabaiService { core.yabaiService }
     var appConfig: AppConfig { core.appConfig }
     var themeService: ThemeService { core.themeService }
@@ -17,7 +15,6 @@ final class SpacemapServices {
     var process: ProcessProtocol { core.process }
     var workspace: WorkspaceProtocol { core.workspace }
     var alertsService: AlertsService { core.alertsService }
-    // Lazy services to break circular dependencies
     lazy var menubarService: MenubarHandler = MenubarHandler(
         yabaiService: yabaiService,
         onToggleHUD: { [weak self] in self?.hud?.toggle() },
@@ -35,7 +32,6 @@ final class SpacemapServices {
         sparkleController: core.sparkleController
     )
     lazy var deepLinkService: DeepLinkService = {
-        // swiftlint:disable:next force_unwrap
         DeepLinkService(
             hud: hud!,
             themeService: themeService,
@@ -44,7 +40,6 @@ final class SpacemapServices {
         )
     }()
     lazy var hotkeyService: HotkeyService = HotkeyService(hud: hud!, hotkeyMonitorFactory: core.hotkeyMonitorFactory)
-    // HUD (set during initialization)
     var hud: HUDWindowController!
     init(
         yabaiService: YabaiService? = nil,
@@ -60,7 +55,6 @@ final class SpacemapServices {
         hotkeyMonitorFactory: HotkeyMonitorFactory? = nil,
         alertsService: AlertsService? = nil
     ) {
-        // Initialize stored properties that don't depend on self
         self.core = SpacemapCoreServices(
             yabaiService: yabaiService,
             appConfig: appConfig,
@@ -77,24 +71,20 @@ final class SpacemapServices {
         )
         self.hud = HUDWindowController(services: self)
     }
-    // Convenience
     var currentConfig: GridConfig {
         get { core.appConfig.load() }
         set { core.appConfig.save(newValue) }
     }
     var configPath: String { core.appConfig.configPath }
-    // MARK: - Menu Bar Handlers
     func setupMenubar() { menubarService.setupMenubar() }
     func showMenubarMenu() { menubarService.showMenubarMenu() }
     func applyMenubarVisibility(config: GridConfig) { menubarService.applyMenubarVisibility(config: config) }
     func refreshMenubarPreview(config: GridConfig? = nil) { menubarService.refreshMenubarPreview(config: config) }
     func applyMenubarIcon(to item: NSStatusItem) { menubarService.applyMenubarIcon(to: item) }
     func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String { menubarService.hotkeyMenuString(hotkey) }
-    // MARK: - Hotkey Handlers
     func startHotkey(config: GridConfig) { hotkeyService.startHotkey(config: config) }
     func startPinnedHotkey(config: GridConfig) { hotkeyService.startPinnedHotkey(config: config) }
     func restartHotkey(config: GridConfig) { hotkeyService.restartHotkey(config: config) }
-    // MARK: - CLI Tools Handlers
     func checkApplicationLocation() { cliToolsService.checkApplicationLocation() }
     func showMoveToApplicationsDialog() { cliToolsService.showMoveToApplicationsDialog() }
     func moveToApplications() { cliToolsService.moveToApplications() }
@@ -117,30 +107,24 @@ final class SpacemapServices {
     func showCLIInstallAlert(style: NSAlert.Style, message: String, information: String) {
         cliToolsService.showCLIInstallAlert(style: style, message: message, information: information)
     }
-    // MARK: - Settings Handlers
     func showSettingsWindow() { settingsService.showSettingsWindow() }
     func showAboutWindow() { settingsService.showAboutWindow() }
-    // MARK: - Private helpers
     func installCommandLineTools() { cliToolsService.installCommandLineTools() }
     func checkForUpdates() { cliToolsService.checkForUpdates() }
     func restartApp() { cliToolsService.restartApp() }
     func toggleLoginAtLogin() { cliToolsService.toggleLoginAtLogin() }
-    // MARK: - Deep Link Handlers
     func handleDeepLink(_ action: DeepLinkAction) { deepLinkService.handleDeepLink(action) }
     func openDeepLinks(_ urls: [URL]) { deepLinkService.open(urls: urls) }
     func setDeepLinksReady() { deepLinkService.setReady(true) }
     func handlePendingDeepLinks() { deepLinkService.handlePendingDeepLinks() }
-    // MARK: - Sparkle Handlers
     func configureSparkleUpdater(updateMode: UpdateMode) {
         SparkleConfig.configureSparkleUpdater(controller: core.sparkleController, updateMode: updateMode)
     }
     func updateSparkleConfig(updateMode: UpdateMode) { configureSparkleUpdater(updateMode: updateMode) }
-    // MARK: - Alert Handlers
     func showYabaiAlert() { core.alertsService.showYabaiAlert() }
     func isMRUSpacesEnabled() -> Bool { core.alertsService.isMRUSpacesEnabled() }
     func showMRUAlert() { core.alertsService.showMRUAlert() }
     func showSeparateSpacesAlert() { core.alertsService.showSeparateSpacesAlert() }
-    // MARK: - Socket Listener Factory
     func makeSocketListener(
         socketPath: String,
         healthInterval: Int,
@@ -158,7 +142,6 @@ final class SpacemapServices {
             onSettings: onSettings
         )
     }
-    // MARK: - Hotkey Monitor Factory
     func makeHotkeyMonitor(config: HotkeyConfig, onTrigger: @escaping () -> Void) -> HotkeyMonitor {
         core.hotkeyMonitorFactory.makeHotkeyMonitor(config: config, onTrigger: onTrigger)
     }

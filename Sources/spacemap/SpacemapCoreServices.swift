@@ -3,10 +3,8 @@ import Foundation
 import ServiceManagement
 import Sparkle
 
-/// Core dependencies shared across application modules.
 final class SpacemapCoreServices {
 
-    // MARK: - Fundamental services
 
     let yabaiService: YabaiService
     let appConfig: AppConfig
@@ -18,13 +16,11 @@ final class SpacemapCoreServices {
     let process: ProcessProtocol
     let workspace: WorkspaceProtocol
 
-    // MARK: - Factories (stateless)
 
     let socketListenerFactory: SocketListenerFactory
     let hotkeyMonitorFactory: HotkeyMonitorFactory
     let alertsService: AlertsService
 
-    // MARK: - Initialization
 
     init(
         yabaiService: YabaiService? = nil,
@@ -40,7 +36,6 @@ final class SpacemapCoreServices {
         hotkeyMonitorFactory: HotkeyMonitorFactory? = nil,
         alertsService: AlertsService? = nil
     ) {
-        // STEP 1: Initialize all `let` properties that do NOT depend on `self`
         self.yabaiService = yabaiService ?? YabaiClientImpl()
         self.appConfig = appConfig ?? AppConfig()
         self.themeService = themeService ?? ThemeService()
@@ -63,15 +58,12 @@ final class SpacemapCoreServices {
         self.alertsService = alertsService ?? AlertsServiceImpl()
     }
 
-    // MARK: - Convenience
 
-    /// The shared `GridConfig` loaded from disk.
     var currentConfig: GridConfig {
         get { appConfig.load() }
         set { appConfig.save(newValue) }
     }
 
-    /// The path to the config file on disk.
     var configPath: String {
         appConfig.configPath
     }

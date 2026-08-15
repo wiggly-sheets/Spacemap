@@ -18,9 +18,7 @@ class YabaiClientImpl: YabaiService {
     }
 
     private let yabaiQueue = DispatchQueue(label: "com.spacemap.yabai", qos: .userInitiated)
-    // Keep interactive focus changes out of the state-query queue. A grid
-    // refresh can wait for multiple yabai queries, but keyboard navigation
-    // should never wait behind it.
+    // Keep interactive focus changes ahead of state refreshes.
     private let focusQueue = DispatchQueue(label: "com.spacemap.yabai.focus", qos: .userInteractive)
 
     private let yabaiPath: String = {
@@ -28,7 +26,7 @@ class YabaiClientImpl: YabaiService {
         let intel = "/usr/local/bin/yabai"
         if FileManager.default.isExecutableFile(atPath: arm) { return arm }
         if FileManager.default.isExecutableFile(atPath: intel) { return intel }
-        return arm   // fallback to ARM path, even if it doesn't exist
+        return arm
     }()
 
     private var _yabaiRunningCache: (result: Bool, checkedAt: TimeInterval)?
@@ -41,7 +39,6 @@ class YabaiClientImpl: YabaiService {
         yabaiProcessCheck = { [unowned self] in self.defaultYabaiProcessCheck() }
     }
 
-    // MARK: - Queue dispatch
 
     func runOnYabaiQueue(_ block: @escaping () -> Void) {
         yabaiQueue.async(execute: block)
@@ -51,7 +48,6 @@ class YabaiClientImpl: YabaiService {
         yabaiQueue.async(execute: workItem)
     }
 
-    // MARK: - Yabai running check
 
     private func defaultYabaiProcessCheck() -> Bool {
         let output = (try? shell("/usr/bin/pgrep", "yabai")) ?? ""
@@ -83,7 +79,6 @@ class YabaiClientImpl: YabaiService {
         resetYabaiRunningCache()
     }
 
-    // MARK: - Queries
 
     func querySpaces() throws -> [YabaiSpace] {
         guard isYabaiRunning() else { return [] }
@@ -136,7 +131,6 @@ class YabaiClientImpl: YabaiService {
         }
     }
 
-    // MARK: - Signals
 
     func registerSignals(
         socketPath: String,
@@ -206,7 +200,6 @@ class YabaiClientImpl: YabaiService {
         }
     }
 
-    // MARK: - Focus
 
     func focusSpace(_ index: Int) {
         guard FileManager.default.isExecutableFile(atPath: yabaiPath), isYabaiRunning() else { return }
@@ -232,13 +225,11 @@ class YabaiClientImpl: YabaiService {
         }
     }
 
-    // MARK: - Spacemap
 
     func showSpacemap() {
         do { try SpacemapCommand.show.send() } catch { fputs("spacemap: \(error)\n", stderr) }
     }
 
-    // MARK: - Window movement
 
     func moveWindowCreatingSpacesIfNeeded(
         _ windowID: Int,
@@ -281,11 +272,9 @@ class YabaiClientImpl: YabaiService {
         }
     }
 
-    // MARK: - Grid state
 
     func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
-        // Bypass isYabaiRunning() cache — stale cache returns empty grid silently
-        // Fresh process check instead
+        // Avoid the stale availability cache when constructing the grid.
         guard (try? shell("/usr/bin/pgrep", "yabai")).flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }) ?? false else {
             let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
             return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
@@ -318,7 +307,6 @@ class YabaiClientImpl: YabaiService {
         return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus, displays: displays)
     }
 
-    // MARK: - Shell
 
     private func shell(_ args: String...) throws -> String {
         let process = Process()

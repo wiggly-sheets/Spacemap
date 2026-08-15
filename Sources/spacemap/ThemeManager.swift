@@ -8,7 +8,6 @@ class ThemeManager {
         loadAll()
     }
 
-    // MARK: - Public
 
     func reload() {
         loadAll()
@@ -30,7 +29,6 @@ class ThemeManager {
         return dir
     }
 
-    // MARK: - Private
 
     private func loadAll() {
         themes.removeAll()
@@ -44,7 +42,6 @@ class ThemeManager {
                 themes[name.lowercased()] = theme
             }
         }
-        // Always have hardcoded fallbacks for built-in names
         for (name, theme) in Self.builtinThemes() {
             if themes[name] == nil {
                 themes[name] = theme
@@ -89,7 +86,6 @@ class ThemeManager {
     private func seedDefaultsIfNeeded() {
         let dir = Self.themesDir()
         let fm = FileManager.default
-        // Check if any .smthemes files exist
         if let existing = try? fm.contentsOfDirectory(atPath: dir.path),
            existing.contains(where: { $0.hasSuffix(".smthemes") }) {
             return

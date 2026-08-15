@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Sidebar navigation for SettingsView.
-/// It mirrors the original List implementation but is extracted to its own component.
 struct SettingsSidebar: View {
     @Binding var selectedSection: SettingsView.SidebarSection
 

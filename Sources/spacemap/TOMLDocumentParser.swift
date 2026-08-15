@@ -1,9 +1,7 @@
 import Foundation
 
-/// Parses supported TOML syntax into a table object. No configuration policy here.
 enum TOMLDocumentParser {
     static func parse(_ text: String) -> [String: Any]? {
-        // Check if the input is empty or contains only whitespace
         if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return nil
         }

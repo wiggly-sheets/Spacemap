@@ -4,7 +4,6 @@ import AppKit
 enum YabaiClient {
     private static let shared = YabaiClientImpl()
 
-    // MARK: - Queue dispatch
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func runOnYabaiQueue(_ block: @escaping () -> Void) {
@@ -16,7 +15,6 @@ enum YabaiClient {
         shared.runOnYabaiQueue(workItem)
     }
 
-    // MARK: - Yabai running check
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static var yabaiProcessCheck: () -> Bool {
@@ -39,7 +37,6 @@ enum YabaiClient {
         shared.resetYabaiProcessCheck()
     }
 
-    // MARK: - Queries
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func querySpaces() throws -> [YabaiSpace] {
@@ -66,7 +63,6 @@ enum YabaiClient {
         shared.queryFocusedSpaceIndex()
     }
 
-    // MARK: - Signals
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func registerSignals(
@@ -88,7 +84,6 @@ enum YabaiClient {
         shared.removeSignals()
     }
 
-    // MARK: - Focus
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func focusSpace(_ index: Int) {
@@ -106,14 +101,12 @@ enum YabaiClient {
         shared.focusSpaceAsync(index)
     }
 
-    // MARK: - Spacemap
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func showSpacemap() {
         shared.showSpacemap()
     }
 
-    // MARK: - Window movement
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func moveWindowCreatingSpacesIfNeeded(
@@ -130,14 +123,12 @@ enum YabaiClient {
         )
     }
 
-    // MARK: - Grid state
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
         shared.buildGridState(config: config, focusedIndex: focusedIndex)
     }
 
-    // MARK: - Signal actions
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
@@ -149,7 +140,6 @@ enum YabaiClient {
         shared.refreshSignalAction(socketPath: socketPath)
     }
 
-    // MARK: - Refresh events
 
     @available(*, deprecated, message: "Use YabaiClientImpl or YabaiService protocol directly")
     static var windowGeometryRefreshEvents: [String] {

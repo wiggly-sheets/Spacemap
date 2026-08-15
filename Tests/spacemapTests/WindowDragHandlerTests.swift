@@ -20,7 +20,6 @@ final class WindowDragHandlerTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - handleMouseDown
 
     func testHandleMouseDownSetsDragStartPoint() {
         handler.handleMouseDown(at: CGPoint(x: 100, y: 200))
@@ -33,7 +32,6 @@ final class WindowDragHandlerTests: XCTestCase {
         XCTAssertNotNil(handler.frontmostAppAtMouseDown)
     }
 
-    // MARK: - handleDrag
 
     func testHandleDragDoesNotStartDragForSmallMovement() {
         handler.dragStartPoint = CGPoint(x: 100, y: 100)
@@ -87,7 +85,6 @@ final class WindowDragHandlerTests: XCTestCase {
         waitForExpectations(timeout: 0.5)
     }
 
-    // MARK: - handleMouseUp
 
     func testHandleMouseUpTriggersOnDropInCell() {
         let expectation = self.expectation(description: "onDropInCell callback")
@@ -142,7 +139,6 @@ final class WindowDragHandlerTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
     }
 
-    // MARK: - cellSpaceIndex
 
     func testCellSpaceIndexForPointInsideFrame() {
         handler.cellFrames = [
@@ -165,7 +161,6 @@ final class WindowDragHandlerTests: XCTestCase {
         XCTAssertNil(handler.cellSpaceIndex(forCG: CGPoint(x: 50, y: 50)))
     }
 
-    // MARK: - findDraggedWindowID
 
     func testFindDraggedWindowIDReturnsFocusedWindowIDAtOpenWhenNoFrontmostApp() {
         handler.frontmostAppAtMouseDown = nil
@@ -242,7 +237,6 @@ final class WindowDragHandlerTests: XCTestCase {
         XCTAssertEqual(result, 10)
     }
 
-    // MARK: - reset
 
     func testResetClearsAllDragState() {
         handler.dragStartPoint = CGPoint(x: 100, y: 200)
@@ -260,7 +254,6 @@ final class WindowDragHandlerTests: XCTestCase {
         XCTAssertNil(handler.frontmostAppAtMouseDown)
     }
 
-    // MARK: - dragState
 
     func testDragStateReturnsIdleWhenNoDragInProgress() {
         XCTAssertEqual(handler.dragState, .idle)
@@ -283,7 +276,6 @@ final class WindowDragHandlerTests: XCTestCase {
         }
     }
 
-    // MARK: - updateInput
 
     func testUpdateInputStoresCellFramesCachedWindowsAndFocusedWindowIDAtOpen() {
         let cellFrames = [

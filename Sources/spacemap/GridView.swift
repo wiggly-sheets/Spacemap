@@ -20,7 +20,6 @@ struct GridView: View {
         Color(hex: AppTheme.named(theme).text).opacity(0.9)
     }
     
-    // ponytail: precomputed once per GridView init, not per body/idealSize call
     private let _visibleSpaceIndices: [Int]
 
     private struct DisplayBoundary: Identifiable {
@@ -32,7 +31,6 @@ struct GridView: View {
     
     var body: some View {
         let cells = visibleSpaceIndices
-        // Chunk into rows of config.cols width
         let rows = stride(from: 0, to: cells.count, by: state.config.cols).map {
             Array(cells[$0..<min($0 + state.config.cols, cells.count)])
         }

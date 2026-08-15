@@ -3,7 +3,6 @@ import XCTest
 
 final class ConfigFacadeTests: XCTestCase {
 
-    // MARK: - ConfigValuesProtocol Conformance
 
     func testConfigValuesConformsToProtocol() {
         let values = ConfigValues()
@@ -16,12 +15,10 @@ final class ConfigFacadeTests: XCTestCase {
         assertConformsToConfigValuesProtocol(values)
         XCTAssertEqual(values.cols, config.cols)
         XCTAssertEqual(values.rows, config.rows)
-        // HotkeyConfig does not conform to Equatable; compare individual fields
         XCTAssertEqual(values.hotkey?.key, config.hotkey.key)
         XCTAssertEqual(values.pinnedHotkey?.key, config.pinnedHotkey.key)
     }
 
-    // MARK: - TOMLParserProtocol Conformance
 
     func testTOMLParserConformsToProtocol() {
         let parser: TOMLParserProtocol.Type = TOMLParser.self
@@ -29,7 +26,6 @@ final class ConfigFacadeTests: XCTestCase {
         XCTAssertEqual(values.cols, 5)
     }
 
-    // MARK: - ConfigLoaderProtocol Conformance
 
     func testConfigLoaderConformsToProtocol() {
         let loader: ConfigLoaderProtocol.Type = ConfigLoader.self
@@ -46,7 +42,6 @@ final class ConfigFacadeTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: path))
     }
 
-    // MARK: - Config Facade Delegation Tests
 
     func testLoadDelegatesToConfigLoader() throws {
         let directory = FileManager.default.temporaryDirectory
@@ -178,15 +173,12 @@ final class ConfigFacadeTests: XCTestCase {
         Config.silentMode = true
         defer { Config.silentMode = false }
 
-        // Should not crash or produce output when silentMode is true
         let result = Config.load(from: path)
         XCTAssertEqual(result.cols, GridConfig.default.cols)
     }
 
-    // MARK: - Helpers
 
     private func assertConformsToConfigValuesProtocol(_ values: ConfigValuesProtocol) {
-        // Verify all protocol properties are accessible
         _ = values.cols
         _ = values.rows
         _ = values.cellStyle
@@ -224,7 +216,6 @@ final class ConfigFacadeTests: XCTestCase {
         _ = values.showHUDOnSpaceChange
         _ = values.updateMode
 
-        // Verify toGridConfig works
         let (config, _) = values.toGridConfig()
         XCTAssertNotNil(config)
     }

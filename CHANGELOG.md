@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+## [1.0.39] - 2026-08-15
+
+### Fixed
+- Let Settings record and match media-key hotkeys.
+- Prevent duplicate normal and pinned HUD hotkey bindings.
+
+
 ## [1.0.38] - 2026-08-08
 
 ### Fixed

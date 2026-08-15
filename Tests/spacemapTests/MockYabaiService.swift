@@ -4,7 +4,6 @@ import CoreGraphics
 
 final class MockYabaiService: YabaiService {
 
-    // MARK: - Configurable return values
 
     var querySpacesResult: [YabaiSpace] = []
     var querySpacesError: Error?
@@ -20,7 +19,6 @@ final class MockYabaiService: YabaiService {
     var focusSpaceResult: Bool = true
     var isYabaiRunningResult: Bool = false
 
-    // MARK: - Call tracking
 
     private(set) var querySpacesCallCount = 0
     private(set) var queryDisplaysCallCount = 0
@@ -40,7 +38,6 @@ final class MockYabaiService: YabaiService {
     private(set) var resetYabaiProcessCheckCallCount = 0
     private(set) var runOnYabaiQueueCallCount = 0
 
-    // MARK: - Argument tracking
 
     private(set) var lastFocusSpaceIndex: Int?
     private(set) var lastFocusSpaceTarget: SpaceFocusTarget?
@@ -54,7 +51,6 @@ final class MockYabaiService: YabaiService {
     private(set) var lastBuildGridStateConfig: GridConfig?
     private(set) var lastBuildGridStateFocusedIndex: Int?
 
-    // MARK: - YabaiService
 
     var yabaiProcessCheck: () -> Bool = { false }
 

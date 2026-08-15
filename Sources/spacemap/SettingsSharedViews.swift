@@ -72,6 +72,16 @@ struct HotkeyRecorder: View {
                                     lineWidth: 1)
                 )
                 .onTapGesture { startRecording() }
+
+            if Self.canClear(hotkey), !isRecording {
+                Button(action: clear) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear \(label)")
+                .accessibilityLabel("Clear \(label)")
+            }
         }
     }
 
@@ -89,12 +99,17 @@ struct HotkeyRecorder: View {
             return nil
         }
 
-        monitors = [keyDownMonitor, flagsChangedMonitor]
+        let mediaKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .systemDefined) { event in
+            handleMediaKey(event)
+            return nil
+        }
+
+        monitors = [keyDownMonitor, flagsChangedMonitor, mediaKeyMonitor].compactMap { $0 }
     }
 
     private func handleKeyDown(_ event: NSEvent) {
         let hotkeyConfig = Hotkey.parseHotkeyFromEvent(event)
-        hotkey = HotkeyRecorder.hotkeyStringFrom(hotkeyConfig, event: event)
+        hotkey = HotkeyRecorder.hotkeyStringFrom(hotkeyConfig)
         stopRecording()
     }
 
@@ -106,48 +121,28 @@ struct HotkeyRecorder: View {
         }
     }
 
+    private func handleMediaKey(_ event: NSEvent) {
+        guard let hotkeyConfig = Hotkey.parseHotkeyFromMediaKeyEvent(event) else { return }
+        hotkey = HotkeyRecorder.hotkeyStringFrom(hotkeyConfig)
+        stopRecording()
+    }
+
     private func stopRecording() {
         isRecording = false
         monitors.forEach { NSEvent.removeMonitor($0) }
         monitors.removeAll()
     }
 
-    static func hotkeyStringFrom(_ hotkey: HotkeyConfig, event: NSEvent) -> String {
-        if hotkey.isDisabled { return "none" }
+    private func clear() {
+        stopRecording()
+        hotkey = "none"
+    }
 
-        var components: [String] = []
+    static func hotkeyStringFrom(_ hotkey: HotkeyConfig) -> String {
+        Hotkey.hotkeyToString(hotkey)
+    }
 
-        if hotkey.modifiers.contains(.maskCommand) { components.append("⌘") }
-        if hotkey.modifiers.contains(.maskControl) { components.append("⌃") }
-        if hotkey.modifiers.contains(.maskAlternate) { components.append("⌥") }
-        if hotkey.modifiers.contains(.maskShift) { components.append("⇧") }
-        if hotkey.modifiers.contains(.maskSecondaryFn) { components.append("fn") }
-
-        if let keyCode = hotkey.keyCode {
-            let keyString: String
-            switch keyCode {
-            case 36: keyString = "return"
-            case 48: keyString = "tab"
-            case 49: keyString = "space"
-            case 51: keyString = "delete"
-            case 53: keyString = "escape"
-            case 123: keyString = "left"
-            case 124: keyString = "right"
-            case 125: keyString = "down"
-            case 126: keyString = "up"
-            case 125...126: keyString = "arrow"
-            default:
-                if let char = event.charactersIgnoringModifiers, !char.isEmpty {
-                    keyString = String(char.lowercased())
-                } else {
-                    keyString = "key\(keyCode)"
-                }
-            }
-            components.append(keyString)
-        } else if let mediaKey = hotkey.mediaKey {
-            components.append(mediaKey.rawValue)
-        }
-
-        return components.joined(separator: "+")
+    static func canClear(_ hotkey: String) -> Bool {
+        hotkey.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "none"
     }
 }

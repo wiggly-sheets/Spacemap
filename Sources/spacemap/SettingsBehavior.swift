@@ -5,7 +5,6 @@ import AppKit
 import Sparkle
 
 struct SettingsBehavior: View {
-    // MARK: - Binding Properties
 
     @Binding var hotkeyString: String
     @Binding var pinnedHotkeyString: String
@@ -23,24 +22,31 @@ struct SettingsBehavior: View {
     @Binding var menuBarNearbyCount: Int
     @Binding var updateMode: UpdateMode
 
-    // MARK: - Internal State
 
     @State private var previousUpdateMode: UpdateMode = .notify
 
-    // MARK: - Callbacks
 
     let onSave: () -> Void
     let checkForUpdates: () -> Void
 
-    // MARK: - Body
 
     var body: some View {
         Section(header: SettingsSectionHeader(title: "Behavior")) {
             HotkeyRecorder(label: "Hotkey", hotkey: $hotkeyString)
-                .onChange(of: hotkeyString) { _ in onSave() }
+                .onChange(of: hotkeyString) { value in
+                    if Self.matches(value, pinnedHotkeyString) {
+                        pinnedHotkeyString = "none"
+                    }
+                    onSave()
+                }
             HotkeyRecorder(label: "Pinned HUD Hotkey", hotkey: $pinnedHotkeyString)
-                .onChange(of: pinnedHotkeyString) { _ in onSave() }
-            SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. Use a different shortcut from the normal hotkey.")
+                .onChange(of: pinnedHotkeyString) { value in
+                    if Self.matches(value, hotkeyString) {
+                        hotkeyString = "none"
+                    }
+                    onSave()
+                }
+            SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it.")
 
             Picker("HUD Position", selection: $hudPositionKind) {
                 Text("Center").tag(HUDPositionKind.center)
@@ -162,7 +168,6 @@ struct SettingsBehavior: View {
         }
     }
 
-    // MARK: - Helper Views
 
     private func settingsSectionHeader(_ title: String) -> some View {
         Text(title)
@@ -170,5 +175,13 @@ struct SettingsBehavior: View {
             .textCase(nil)
             .foregroundStyle(.primary)
             .padding(.bottom, 4)
+    }
+
+    static func matches(_ lhs: String, _ rhs: String) -> Bool {
+        guard let left = Hotkey.parseHotkey(lhs),
+              let right = Hotkey.parseHotkey(rhs),
+              !left.isDisabled,
+              !right.isDisabled else { return false }
+        return left.key == right.key && left.modifiers == right.modifiers
     }
 }

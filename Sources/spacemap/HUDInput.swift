@@ -1,7 +1,6 @@
 import AppKit
 import CoreGraphics
 
-/// Actions that can result from HUD input handling.
 enum InputAction {
     case navigate(direction: SpaceNavigationDirection)
     case enterSpaceNumber(Int)
@@ -9,18 +8,14 @@ enum InputAction {
     case none
 }
 
-/// Delegate for HUDInput to report navigation and settings requests.
 protocol HUDInputDelegate: AnyObject {
     func navigate(direction: SpaceNavigationDirection)
     func showSettings()
 }
 
-/// Owns CGEventTap for keyboard input and panel drag monitor.
-/// Parses key events into InputAction enum, reports to delegate.
 final class HUDInput {
     weak var delegate: HUDInputDelegate?
 
-    /// Optional coordinate converter for transforming points from AppKit to Quartz coordinates
     var quartzPointConverter: ((CGPoint) -> CGPoint)?
 
     private var keyboardEventTap: CFMachPort?
@@ -38,7 +33,6 @@ final class HUDInput {
     private var jumpToSpaceEnabled = false
     private var dragHandlerCellFrames: [(spaceIndex: Int, frame: CGRect)] = []
 
-    // MARK: - Navigation & timer state
 
     var isPinned = false
     var autoHideTimeout: TimeInterval = 0
@@ -158,7 +152,6 @@ final class HUDInput {
 
     var panelDragActive: Bool { isPanelDragging }
 
-    // MARK: - Auto-hide timer
 
     func resetAutoHideTimer() {
         guard !panelDragActive else { return }
@@ -170,7 +163,6 @@ final class HUDInput {
         }
     }
 
-    // MARK: - Poll timer
 
     func startPollTimer() {
         pollTimer?.invalidate()
@@ -195,7 +187,6 @@ final class HUDInput {
         }
     }
 
-    // MARK: - Navigation
 
     func navigate(direction: SpaceNavigationDirection) {
         guard let currentIdx = lastFocusedSpaceIndex, let state = currentState else { return }
@@ -263,7 +254,6 @@ final class HUDInput {
         onNumberEntry?(nil)
     }
 
-    // MARK: - Keyboard event tap
 
     private func startSettingsKeyMonitor() {
         guard keyboardEventTap == nil, AXIsProcessTrusted() else { return }
@@ -345,7 +335,6 @@ final class HUDInput {
         keyboardEventTap = nil
     }
 
-    /// Parses a key event into an InputAction. Does not call delegate methods directly.
     func handleHUDKeyDown(_ event: CGEvent) -> InputAction {
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
         let flags = event.flags
@@ -366,8 +355,6 @@ final class HUDInput {
         return .none
     }
 
-    /// Dispatches an InputAction. Navigation is handled internally;
-    /// settings requests are forwarded to the delegate.
     private func dispatchAction(_ action: InputAction) {
         switch action {
         case .navigate(let direction):

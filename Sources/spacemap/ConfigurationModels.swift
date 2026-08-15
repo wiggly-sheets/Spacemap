@@ -18,9 +18,6 @@ enum MultiMonitorHUDMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Returns the appropriate HUD display mode for the given display index.
-    /// For unified mode, always returns .unified.
-    /// For separate mode, returns .separate if the display has spaces, otherwise .hidden.
     func hudMode(for displayIndex: Int, in state: GridState) -> HUDDisplayMode {
         switch self {
         case .unified:
@@ -94,7 +91,7 @@ enum WindowDropFocusModifier: String, CaseIterable, Identifiable {
 
 enum HUDPosition: Equatable, Hashable {
     case center, top, bottom
-    case custom(x: Double, y: Double) // percentage of screen (0.0–1.0)
+    case custom(x: Double, y: Double)
 
     static let allPresets: [HUDPosition] = [.center, .top, .bottom]
 
@@ -109,7 +106,6 @@ enum HUDPosition: Equatable, Hashable {
 
     
 
-    /// Returns the panel origin point for the given panel size and screen.
     func point(for panelSize: CGSize, screen: CGRect) -> CGPoint {
         let x: CGFloat
         let y: CGFloat
@@ -147,7 +143,6 @@ struct HotkeyConfig {
     var key: HotkeyKey
     var modifiers: CGEventFlags
 
-    // Default: Ctrl+Page Down
     static let `default` = HotkeyConfig(key: .keyCode(121), modifiers: .maskControl)
 
     var keyCode: CGKeyCode? {
@@ -190,38 +185,38 @@ struct GridConfig {
     var hotkey: HotkeyConfig
     var pinnedHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
     var socketHealthInterval: Int
-    var uiScale: Double // 0.0 to 1.0, maps to effective scale
-    var autoHideTimeout: Int // seconds
-    var theme: String // "default", "tokyonight", etc.
-    var showMode: ShowMode // "all" or "active"
-    var multiMonitorHUDMode: MultiMonitorHUDMode // one combined grid or a panel per display
-    var unifiedHUDVisibility: SeparateHUDVisibility // all displays or only the display with the focused space
-    var separateHUDVisibility: SeparateHUDVisibility // all displays or only the display with the focused space
-    var displayNavigationWrap: DisplayNavigationWrap // stay within the focused display or wrap across displays
-    var maxSpaces: Int // 1-16, default 16
-    var backgroundAlpha: Double // 0.0 to 1.0, 0=transparent 1=opaque
-    var hudShadow: Bool = true // draw a shadow behind the HUD panel
-    var mode: ThemeMode // light, dark, or auto (follow system)
-    var iconScale: Double // 0.0 to 1.0, maps to effective icon multiplier
-    var showSpaceNumbers: Bool // show space index numbers in cells
-    var showSpaceNames: Bool // show configured space name text in cells
-    var showIconStrip: Bool // show icon strip at the bottom of each cell
-    var showMultiAppIcons: Bool // show one icon per window (true) or one per unique app (false)
-    var hideMenuBarIcon: Bool // hide the menu bar icon (settings accessible via re-launch or Cmd+, in HUD)
+    var uiScale: Double
+    var autoHideTimeout: Int
+    var theme: String
+    var showMode: ShowMode
+    var multiMonitorHUDMode: MultiMonitorHUDMode
+    var unifiedHUDVisibility: SeparateHUDVisibility
+    var separateHUDVisibility: SeparateHUDVisibility
+    var displayNavigationWrap: DisplayNavigationWrap
+    var maxSpaces: Int
+    var backgroundAlpha: Double
+    var hudShadow: Bool = true
+    var mode: ThemeMode
+    var iconScale: Double
+    var showSpaceNumbers: Bool
+    var showSpaceNames: Bool
+    var showIconStrip: Bool
+    var showMultiAppIcons: Bool
+    var hideMenuBarIcon: Bool
     var menuBarDisplayMode: MenuBarDisplayMode = .icon
     var menuBarNearbyCount: Int = 3
-    var spaceNames: [Int: String] // space id to name mapping
-    var useVimKeys: Bool // navigate spaces with hjkl when HUD is visible
-    var useArrowKeys: Bool // navigate spaces with arrow keys when HUD is visible
-    var jumpToSpaceEnabled: Bool = false // jump to a space by typing its number
-    var hudPosition: HUDPosition // where to show the HUD on screen
-    var customHUDX: Double = 0.5 // last custom HUD X position (0-1)
-    var customHUDY: Double = 0.5 // last custom HUD Y position (0-1)
-    var showExtraWindows: Bool // show nonstandard utility/background window records
+    var spaceNames: [Int: String]
+    var useVimKeys: Bool
+    var useArrowKeys: Bool
+    var jumpToSpaceEnabled: Bool = false
+    var hudPosition: HUDPosition
+    var customHUDX: Double = 0.5
+    var customHUDY: Double = 0.5
+    var showExtraWindows: Bool
     var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
     var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
-    var showHUDOnSpaceChange: Bool = false // show the HUD after any yabai space change
-    var updateMode: UpdateMode // auto | notify | off
+    var showHUDOnSpaceChange: Bool = false
+    var updateMode: UpdateMode
 
     static let `default` = GridConfig(
         cols: 8, rows: 2, cellStyle: .rects, hotkey: .default,

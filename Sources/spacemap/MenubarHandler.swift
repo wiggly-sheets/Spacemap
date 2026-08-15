@@ -154,8 +154,7 @@ class MenubarHandler {
             DispatchQueue.global(qos: .utility).async {
                 let state: GridState
                 if config.menuBarDisplayMode == .dots {
-                    // Dots need only workspace identity and focus. Avoid querying every
-                    // window on each signal, which can queue previews behind yabai work.
+                    // Dots need no window query, keeping signal updates responsive.
                     state = Self.dotPreviewState(
                         config: config,
                         spaces: (try? self.yabaiService.querySpaces()) ?? []

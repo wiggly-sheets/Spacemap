@@ -8,7 +8,6 @@ final class MenubarManager {
 
     init(services: SpacemapServices, currentConfig: GridConfig? = nil) {
         self.services = services
-        // currentConfig can be used if needed; currently not stored but passed to methods
     }
 
     func setupMenubar() {

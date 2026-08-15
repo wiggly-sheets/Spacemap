@@ -1,15 +1,15 @@
 import Foundation
 
 struct AppTheme: Equatable {
-    let background: UInt32      // HUD grid background
-    let focused: UInt32         // Focused space border/highlight
-    let text: UInt32            // Text color
-    let dropTarget: UInt32      // Drop target highlight
-    let cellBg: UInt32          // Unfocused cell fill
-    let cellBgFocused: UInt32   // Focused cell fill
-    let rect1: UInt32           // Window rect color 1
-    let rect2: UInt32           // Window rect color 2
-    let rect3: UInt32           // Window rect color 3
+    let background: UInt32
+    let focused: UInt32
+    let text: UInt32
+    let dropTarget: UInt32
+    let cellBg: UInt32
+    let cellBgFocused: UInt32
+    let rect1: UInt32
+    let rect2: UInt32
+    let rect3: UInt32
 
     static let `default` = AppTheme(
         background: 0xf2f2f7, focused: 0x007aff, text: 0x333333,
@@ -73,10 +73,7 @@ struct AppTheme: Equatable {
     )
 
     static func named(_ name: String) -> AppTheme {
-        // This is a temporary workaround until we can inject the ThemeService properly
-        // In the ideal implementation, this would use an injected ThemeService
         let themeService = ThemeService()
         return themeService.named(name)
     }
 }
-

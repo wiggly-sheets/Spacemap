@@ -93,5 +93,4 @@ final class AlertsServiceImpl: AlertsService {
     }
 }
 
-// Backward-compatible typealias for existing code that references `Alerts`
 typealias Alerts = AlertsServiceImpl

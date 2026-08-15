@@ -1,6 +1,5 @@
 import AppKit
 
-/// Caches app icons by name to avoid repeated NSWorkspace.icon(forFile:) calls.
 final class IconCache {
     static let shared = IconCache()
     private var cache: [String: NSImage] = [:]
@@ -42,8 +41,6 @@ final class IconCache {
         return icon
     }
 
-    /// Prime the cache before the HUD is rendered so the first frame contains
-    /// app icons instead of resolving them lazily in SwiftUI's body.
     func preload(appNames: some Sequence<String>) {
         for appName in Set(appNames) {
             _ = icon(for: appName)

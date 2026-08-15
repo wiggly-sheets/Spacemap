@@ -1,20 +1,13 @@
 import SwiftUI
 
-/// Pure geometry module for the spacemap grid.
-///
-/// All values are grid-local: origin at the top-left corner of the grid content
-/// area, y increases downward.  HUDWindowController applies the panel origin and
-/// the quartz Y-flip when translating these frames to screen coordinates.
 public enum GridLayout {
 
-    // MARK: - Base metrics
 
     static let baseCellWidth: CGFloat = 80
     static let baseCellHeight: CGFloat = 50
     static let baseGap: CGFloat = 6
     static let basePadding: CGFloat = 12
 
-    // MARK: - Scale
 
     static func scale(for uiScale: Double) -> CGFloat {
         0.5 + CGFloat(uiScale) * 3.5
@@ -25,7 +18,6 @@ public enum GridLayout {
                height: baseCellHeight * scale(for: uiScale))
     }
 
-    /// CellView receives the already-resolved scale from GridView.
     static func cellSize(forEffectiveScale effectiveScale: CGFloat) -> CGSize {
         CGSize(width: baseCellWidth * effectiveScale,
                height: baseCellHeight * effectiveScale)
@@ -48,7 +40,6 @@ public enum GridLayout {
     static func effectiveScale(for uiScale: Double) -> CGFloat { scale(for: uiScale) }
     static func effectiveIconScale(for iconScale: Double) -> CGFloat { 0.2 + CGFloat(iconScale) * 0.8 }
 
-    // MARK: - Ideal size
 
     static func idealSize(visibleIndices: Int, cols: Int, uiScale: Double) -> CGSize {
         let cellW = baseCellWidth * scale(for: uiScale)
@@ -62,7 +53,6 @@ public enum GridLayout {
         return CGSize(width: w, height: h)
     }
 
-    // MARK: - Visible space indices
 
     static func visibleSpaceIndices(maxSpaces: Int, showMode: ShowMode, activeIndices: Set<Int>) -> [Int] {
         let maxN = min(maxSpaces, 16)
@@ -73,7 +63,6 @@ public enum GridLayout {
         return all
     }
 
-    // MARK: - Grid-local cell frames (y-down, origin at top-left of grid content)
 
     static func cellFrame(offset: Int, cols: Int, uiScale: Double) -> CGRect {
         let s = scale(for: uiScale)
@@ -94,12 +83,10 @@ public enum GridLayout {
         (0..<count).map { cellFrame(offset: $0, cols: cols, uiScale: uiScale) }
     }
 
-    /// Returns the index of the cell containing `point`, or `nil`.
     static func hitTest(point: CGPoint, in frames: [CGRect]) -> Int? {
         frames.firstIndex { $0.contains(point) }
     }
 
-    // MARK: - Window→cell transforms
 
     static func scaledWindowFrame(
         windowFrame: CGRect,
@@ -131,7 +118,6 @@ public enum GridLayout {
         CGPoint(x: cellSize.width / 2, y: cellSize.height / 2)
     }
 
-    // MARK: - Window icon layouts
 
     struct WindowIconLayout: Identifiable, Equatable {
         let windowID: Int
@@ -201,7 +187,6 @@ public enum GridLayout {
         }
     }
 
-    // MARK: - Thumbnail pixel size
 
     static func thumbnailPixelSize(for uiScale: Double, backingScale: CGFloat) -> CGSize {
         let s = scale(for: uiScale)

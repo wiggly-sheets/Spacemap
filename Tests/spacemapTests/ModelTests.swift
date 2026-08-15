@@ -31,7 +31,6 @@ final class ModelTests: XCTestCase {
     }
 
 
-    // MARK: - YabaiSpace decoding
 
     func testDecodeYabaiSpace() throws {
         let json = """
@@ -64,7 +63,6 @@ final class ModelTests: XCTestCase {
         XCTAssertFalse(display.hasFocus)
     }
 
-    // MARK: - YabaiWindow decoding
 
     func testDecodeYabaiWindow() throws {
         let json = """
@@ -196,7 +194,6 @@ final class ModelTests: XCTestCase {
         XCTAssertFalse(window.shouldDisplay(showExtraWindows: false))
     }
 
-    // MARK: - GridState
 
     func testGridStateWindowGrouping() {
         let windows = [
@@ -249,7 +246,6 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(state.displayBounds(forSpace: 2), CGRect(x: 1440, y: 0, width: 1920, height: 1080))
     }
 
-    // MARK: - HotkeyConfig
 
     func testHotkeyConfigDefault() {
         let hk = HotkeyConfig.default
@@ -257,7 +253,6 @@ final class ModelTests: XCTestCase {
         XCTAssertTrue(hk.modifiers.contains(.maskControl))
     }
 
-    // MARK: - GridConfig
 
     func testGridConfigDefault() {
         let c = GridConfig.default
@@ -276,7 +271,6 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(c.hudPosition, .center)
     }
 
-    // MARK: - HUDPosition
 
     func testHUDPositionCenterLabel() {
         XCTAssertEqual(HUDPosition.center.label, "Center")
@@ -326,7 +320,6 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(point.y, 880)
     }
 
-    // MARK: - AppTheme
 
     func testAppThemeDefaultValues() {
         let t = AppTheme.default
@@ -347,7 +340,6 @@ final class ModelTests: XCTestCase {
         }
     }
 
-    // MARK: - GridState display methods
 
     func testDisplayIndexForMissingSpaceReturnsNil() {
         let state = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: nil)
@@ -437,7 +429,6 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(state.windows(forSpace: 3).count, 0)
     }
 
-    // MARK: - GridState initWithDisplays
 
     func testGridStateWithDisplays() {
         let spaces = [
@@ -458,7 +449,6 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(state.displays.first?.index, 1)
     }
 
-    // MARK: - YabaiWindow cgFrame
 
     func testYabaiWindowCGFrame() {
         let window = YabaiWindow(
@@ -473,7 +463,6 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(window.cgFrame, CGRect(x: 100, y: 200, width: 300, height: 400))
     }
 
-    // MARK: - YabaiWindow shouldDisplay edge cases
 
     func testShouldDisplayHiddenWindow() {
         let window = YabaiWindow(
@@ -570,7 +559,6 @@ final class ModelTests: XCTestCase {
         XCTAssertFalse(window.shouldDisplay(showExtraWindows: true), "Empty app name should still be filtered")
     }
 
-    // MARK: - YabaiWindow equality
 
     func testYabaiWindowEquality() {
         let w1 = YabaiWindow(id: 1, app: "A", space: 1, frame: .init(x: 0, y: 0, w: 100, h: 100), isHidden: false, isMinimized: false, subLayer: "normal")
