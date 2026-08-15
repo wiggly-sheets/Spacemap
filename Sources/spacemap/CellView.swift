@@ -1,22 +1,12 @@
 import SwiftUI
 import AppKit
 
-/// CellView displays a single space/cell in the grid.
-///
-/// Supported cell styles:
-/// - .rects:      Colored rectangles representing window positions/sizes
-/// - .hybrid:     Rectangles with a small centered app icon
-/// - .icons:      Window icons arranged from yabai's window geometry
-/// - .thumbnails: Live window content thumbnails (requires screen recording permission)
-/// - .simple:     Empty cells with no window content
-///
-/// Icon strip at the bottom is controlled separately by `showIconStrip`.
 struct CellView: View {
     @ObservedObject private var thumbnailStore = ThumbnailStore.shared
 
     let spaceIndex: Int
     let spaceLabel: String?
-    let spaceName: String? // config-based name
+    let spaceName: String?
     let isFocused: Bool
     let isDropTarget: Bool
     let isActive: Bool
@@ -25,7 +15,6 @@ struct CellView: View {
     let cellStyle: CellStyle
     let onSelect: (Int) -> Void
     
-    // These values will be passed from GridView
     private let uiScale: CGFloat
     private let resolvedTheme: AppTheme
     private let mode: ThemeMode
@@ -118,7 +107,6 @@ var body: some View {
                 iconStrip()
             }
 
-            // Show space number at top-left when showNames is enabled
             if showSpaceNumbers {
                 Text("\(spaceIndex)")
                     .font(.system(size: 12 * uiScale, weight: .bold))
@@ -126,7 +114,6 @@ var body: some View {
                     .position(GridLayout.spaceNumberPosition(for: uiScale))
             }
 
-            // Show space name (if exists) in center
             if showSpaceNames, let name = spaceName, !name.isEmpty {
                 Text(name)
                     .font(.system(size: 14 * uiScale, weight: .medium))
@@ -317,7 +304,6 @@ var body: some View {
         if windowCount <= 3 {
             return Color(hex: base)
         }
-        // HSL variation: keep hue from base, vary sat/lightness for overflow windows
         let r = Double((base >> 16) & 0xFF) / 255.0
         let g = Double((base >> 8) & 0xFF) / 255.0
         let b = Double(base & 0xFF) / 255.0

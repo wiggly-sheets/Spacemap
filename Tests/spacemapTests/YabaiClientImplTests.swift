@@ -15,14 +15,12 @@ final class YabaiClientImplTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - Helpers
 
     private var isYabaiAvailable: Bool {
         FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/yabai") ||
             FileManager.default.isExecutableFile(atPath: "/usr/local/bin/yabai")
     }
 
-    // MARK: - isYabaiRunning
 
     func testIsYabaiRunningReturnsTrueWhenRunning() {
         client.yabaiProcessCheck = { true }
@@ -34,7 +32,6 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertFalse(client.isYabaiRunning())
     }
 
-    // MARK: - isYabaiRunning caching
 
     func testIsYabaiRunningCachesResultWithinTTL() {
         var checkCount = 0
@@ -49,7 +46,6 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertEqual(checkCount, 1)
     }
 
-    // MARK: - isYabaiRunning forceRefresh
 
     func testIsYabaiRunningForceRefreshBypassesCache() {
         var checkCount = 0
@@ -64,7 +60,6 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertEqual(checkCount, 2)
     }
 
-    // MARK: - resetYabaiRunningCache
 
     func testResetYabaiRunningCacheClearsCache() {
         client.yabaiProcessCheck = { true }
@@ -73,15 +68,12 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertTrue(client.isYabaiRunning())
 
         client.yabaiProcessCheck = { false }
-        // Still cached as true
         XCTAssertTrue(client.isYabaiRunning())
 
         client.resetYabaiRunningCache()
-        // Cache cleared, returns new result
         XCTAssertFalse(client.isYabaiRunning())
     }
 
-    // MARK: - querySpaces
 
     func testQuerySpacesReturnsSpacesWhenYabaiRunning() throws {
         guard isYabaiAvailable else {
@@ -98,7 +90,6 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertEqual(spaces?.count, 0)
     }
 
-    // MARK: - queryWindows
 
     func testQueryWindowsReturnsWindowsWhenYabaiRunning() throws {
         guard isYabaiAvailable else {
@@ -115,7 +106,6 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertEqual(windows?.count, 0)
     }
 
-    // MARK: - queryFocusedSpaceIndex
 
     func testQueryFocusedSpaceIndexReturnsFocusedIndex() throws {
         guard isYabaiAvailable else {
@@ -132,7 +122,6 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertNil(index)
     }
 
-    // MARK: - focusSpace
 
     func testFocusSpaceCallsYabaiCommand() throws {
         guard isYabaiAvailable else {
@@ -142,7 +131,6 @@ final class YabaiClientImplTests: XCTestCase {
         client.focusSpace(1)
     }
 
-    // MARK: - focusSpaceAsync
 
     func testFocusSpaceAsyncDispatchesToYabaiQueue() throws {
         guard isYabaiAvailable else {
@@ -161,7 +149,6 @@ final class YabaiClientImplTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
     }
 
-    // MARK: - buildGridState
 
     func testBuildGridStateReturnsGridStateWhenYabaiRunning() throws {
         guard isYabaiAvailable else {
@@ -185,7 +172,6 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertNil(state.focusedIndex)
     }
 
-    // MARK: - registerSignals
 
     func testRegisterSignalsRegistersSignals() throws {
         guard isYabaiAvailable else {
@@ -195,7 +181,6 @@ final class YabaiClientImplTests: XCTestCase {
         client.registerSignals(socketPath: "/tmp/spacemap_test.socket")
     }
 
-    // MARK: - removeSignals
 
     func testRemoveSignalsRemovesSignals() throws {
         guard isYabaiAvailable else {
@@ -205,7 +190,6 @@ final class YabaiClientImplTests: XCTestCase {
         client.removeSignals()
     }
 
-    // MARK: - moveWindowCreatingSpacesIfNeeded
 
     func testMoveWindowCreatingSpacesIfNeededCallsCompletion() throws {
         guard isYabaiAvailable else {

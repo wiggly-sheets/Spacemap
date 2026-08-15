@@ -219,11 +219,8 @@ final class HotkeyMonitor {
         guard wantsMonitoring, case .mediaKey = targetKey else { return }
         mediaKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.systemDefined]) { [weak self] event in
             guard let self else { return }
-            guard event.type == .systemDefined, event.subtype.rawValue == 8 else { return }
-            let keyCode = Int((event.data1 & 0xFFFF0000) >> 16)
-            let keyState = ((event.data1 & 0x0000FFFF) >> 8) & 0x0F
-            guard keyState == 0xA || keyState == 0xB else { return }
-            if self.matchesMediaKey(code: keyCode) {
+            guard let hotkey = Hotkey.parseHotkeyFromMediaKeyEvent(event) else { return }
+            if hotkey.key == self.targetKey, hotkey.modifiers == self.targetModifiers {
                 DispatchQueue.main.async { self.onTrigger() }
             }
         }
@@ -253,20 +250,5 @@ final class HotkeyMonitor {
             NSEvent.removeMonitor(monitor)
         }
         mediaKeyMonitor = nil
-    }
-
-    private func matchesMediaKey(code: Int) -> Bool {
-        guard case .mediaKey(let target) = targetKey else { return false }
-        switch (target, code) {
-        case (.playPause, 16): return true
-        case (.nextTrack, 17): return true
-        case (.previousTrack, 18): return true
-        case (.volumeUp, 0): return true
-        case (.volumeDown, 1): return true
-        case (.mute, 7): return true
-        case (.brightnessUp, 2): return true
-        case (.brightnessDown, 3): return true
-        default: return false
-        }
     }
 }

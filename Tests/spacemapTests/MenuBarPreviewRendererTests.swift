@@ -3,7 +3,6 @@ import XCTest
 
 final class MenuBarPreviewRendererTests: XCTestCase {
 
-    // MARK: - spaceIndices
 
     func testSpaceIndicesIconModeReturnsEmpty() {
         let spaces = [
@@ -140,7 +139,6 @@ final class MenuBarPreviewRendererTests: XCTestCase {
         XCTAssertEqual(indices, [1, 2])
     }
 
-    // MARK: - separatedWindowFrame
 
     func testSeparatedWindowFrameWithValidFrame() {
         let frame = CGRect(x: 10, y: 10, width: 100, height: 50)
@@ -168,7 +166,6 @@ final class MenuBarPreviewRendererTests: XCTestCase {
         XCTAssertNil(result)
     }
 
-    // MARK: - image
 
     func testImageReturnsNilForIconMode() {
         let spaces = [
@@ -181,10 +178,7 @@ final class MenuBarPreviewRendererTests: XCTestCase {
             displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
             focusedIndex: 1
         )
-        // Icon mode returns nil since it doesn't render a preview image
         let config = GridConfig.default
-        // Note: icon mode doesn't produce an image, but we can test that the method
-        // doesn't crash with various configurations
         _ = config.menuBarDisplayMode
     }
 
@@ -202,8 +196,6 @@ final class MenuBarPreviewRendererTests: XCTestCase {
             displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
             focusedIndex: 1
         )
-        // Dots mode should produce an image
-        // Note: this actually creates an NSImage which requires AppKit
         let image = MenuBarPreviewRenderer.image(for: state)
         XCTAssertNotNil(image)
     }

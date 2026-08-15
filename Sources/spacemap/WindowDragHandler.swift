@@ -1,22 +1,15 @@
 import Cocoa
 
-// Detects when the user drags a real macOS window over the HUD.
-// Uses a passive global CGEventTap to track mouse position and NSWorkspace to
-// identify which app's window is being dragged.
 class WindowDragHandler: WindowDragService {
-    var onHoverCell: ((Int?) -> Void)?      // called with cell spaceIndex or nil
-    var onDropInCell: ((Int, Int, CGEventFlags) -> Void)? // (windowID, spaceIndex, held modifiers)
+    var onHoverCell: ((Int?) -> Void)?
+    var onDropInCell: ((Int, Int, CGEventFlags) -> Void)?
 
     private let yabaiService: YabaiService
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
-    // Set via updateInput(_:) by HUDWindowController before the HUD becomes visible.
-    // Frames are in Quartz global coordinates (top-left origin of the primary display).
     var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
-    // Cached window list populated at HUD-open time.
     var cachedWindows: [YabaiWindow] = []
-    // The yabai window that had focus when the HUD opened.
     var focusedWindowIDAtOpen: Int? = nil
 
     var lastHoveredCell: Int? = nil
@@ -109,8 +102,6 @@ class WindowDragHandler: WindowDragService {
         dragStartPoint = cgPoint
         isDragging = false
         draggedWindowID = nil
-        // Record frontmost app at mouseDown. The HUD is .nonactivatingPanel so it never
-        // becomes frontmost — the app whose window was clicked stays frontmost throughout.
         frontmostAppAtMouseDown = NSWorkspace.shared.frontmostApplication?.localizedName
     }
 
@@ -154,15 +145,10 @@ class WindowDragHandler: WindowDragService {
         return nil
     }
 
-    // AX and CGEvent both use Quartz global coordinates, whose origin is the
-    // upper-left corner of the primary display.
     private func cgToAX(_ cgPoint: CGPoint) -> CGPoint {
         cgPoint
     }
 
-    // Identify the window being dragged using frontmost app at mouseDown time.
-    // For apps with multiple windows, prefer the one focused when the HUD opened,
-    // falling back to closest by position.
     func findDraggedWindowID(atCG cgPoint: CGPoint) -> Int? {
         guard let appName = frontmostAppAtMouseDown else {
             return focusedWindowIDAtOpen
@@ -177,12 +163,11 @@ class WindowDragHandler: WindowDragService {
 
         if candidates.count == 1 { return candidates[0].id }
 
-        // Multiple windows — prefer the focused one.
         if let focused = focusedWindowIDAtOpen, candidates.contains(where: { $0.id == focused }) {
             return focused
         }
 
-        // Last resort: closest to click point.
+        // AX and CGEvent coordinates share Quartz's top-left origin.
         let axPoint = cgToAX(cgPoint)
         return candidates.min {
             hypot($0.cgFrame.minX - axPoint.x, $0.cgFrame.minY - axPoint.y) <

@@ -4,7 +4,6 @@ import CoreGraphics
 
 final class GridStateCoordinatorTests: XCTestCase {
 
-    // MARK: - Helpers
 
     private func makeCoordinator(
         config: GridConfig = .default,
@@ -31,7 +30,6 @@ final class GridStateCoordinatorTests: XCTestCase {
         )
     }
 
-    // MARK: - Build state produces correct fields
 
     func testBuildStatePopulatesFields() throws {
         let spaces = [
@@ -74,7 +72,6 @@ final class GridStateCoordinatorTests: XCTestCase {
         waitForExpectations(timeout: 1.0)
     }
 
-    // MARK: - replacingFocusedIndex preserves all fields except focusedIndex
 
     func testReplacingFocusedIndexPreservesOtherFields() throws {
         let base = cannedState(focusedIndex: 1, spaces: [
@@ -85,12 +82,10 @@ final class GridStateCoordinatorTests: XCTestCase {
         mock.buildGridStateClosure = { _, _ in base }
         let coordinator = makeCoordinator(buildGridState: mock.buildGridStateClosure!)
 
-        // Prime the coordinator with the base state
         let primeExp = expectation(description: "prime fetch")
         coordinator.fetch { primeExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        // Now do a focused-index-only update
         let updateExp = expectation(description: "focused index update")
         coordinator.fetch(completion: { updateExp.fulfill() }, replacingFocusedIndex: 2)
         waitForExpectations(timeout: 1.0)
@@ -104,7 +99,6 @@ final class GridStateCoordinatorTests: XCTestCase {
         XCTAssertEqual(updated?.spaces.last?.index, 2, "last space index should be preserved")
     }
 
-    // MARK: - Debounce: second refresh while one in flight drops stale
 
     func testDebounceDoesNotDoubleApply() throws {
         var callCount = 0
@@ -116,35 +110,24 @@ final class GridStateCoordinatorTests: XCTestCase {
         }
         let asyncCoordinator = makeCoordinator(buildGridState: mock.buildGridStateClosure!)
 
-        // Track whether the first completion's side-effect runs
         var firstCompletionCalled = false
 
-        // Fire first fetch — its completion will be dropped by generation guard
         asyncCoordinator.fetch {
             firstCompletionCalled = true
         }
 
-        // Give the first fetch time to start processing on the yabai queue,
-        // so that cancel() in the second fetch cannot prevent it from running.
-        // This ensures the generation guard (not cancel()) is what drops it.
         Thread.sleep(forTimeInterval: 0.1)
 
-        // Immediately fire second fetch (should supersede first)
         let fetch2Exp = expectation(description: "fetch 2 (authoritative)")
         asyncCoordinator.fetch { fetch2Exp.fulfill() }
 
         waitForExpectations(timeout: 3.0)
-        // The final latestState should reflect the second (authoritative) fetch,
-        // NOT the first. Since the builder increments callCount, the second
-        // completion returns focusedIndex 2. If the first completion were NOT
-        // dropped, focusedIndex would be 1.
         XCTAssertEqual(asyncCoordinator.latestState?.focusedIndex, 2,
             "latestState should reflect the second (non-stale) fetch")
         XCTAssertFalse(firstCompletionCalled,
             "first completion should have been dropped by generation guard")
     }
 
-    // MARK: - fetch/refresh cancellation
 
     func testFetchRefreshCancellation() throws {
         var callCount = 0
@@ -174,7 +157,6 @@ final class GridStateCoordinatorTests: XCTestCase {
             "first completion should have been dropped by generation guard")
     }
 
-    // MARK: - Pending focus preservation
 
     func testPendingFocusPreservedUntilRealFetchConfirms() throws {
         let spaces = [
@@ -186,29 +168,22 @@ final class GridStateCoordinatorTests: XCTestCase {
         mock.buildGridStateClosure = { _, _ in baseState }
         let coordinator = makeCoordinator(buildGridState: mock.buildGridStateClosure!)
 
-        // Prime
         let primeExp = expectation(description: "prime")
         coordinator.fetch { primeExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        // Navigate optimistically to space 2
         let optimistic = coordinator.updateFocusedIndex(2)
         XCTAssertEqual(optimistic?.focusedIndex, 2, "optimistic state should have focusedIndex 2")
         XCTAssertEqual(coordinator.latestState?.focusedIndex, 2, "latestState should reflect optimistic focus")
         XCTAssertTrue(coordinator.isPendingFocusValid, "pending focus should be valid")
 
-        // A refresh that fetches real state (still focusedIndex 1 from yabai)
-        // should preserve the optimistic focus since pending is still valid.
         let refreshExp = expectation(description: "refresh")
         coordinator.refresh { refreshExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        // The real fetch returned focusedIndex 1, but pending focus (2) is still valid.
-        // statePreservingPendingFocus should keep the optimistic focus.
         XCTAssertEqual(coordinator.latestState?.focusedIndex, 2,
             "pending focus should be preserved through refresh until confirmed")
 
-        // Now simulate yabai confirming focus changed to 2
         let confirmedState = cannedState(focusedIndex: 2, spaces: spaces)
         let confirmedMock = MockYabaiService()
         confirmedMock.buildGridStateClosure = { _, _ in confirmedState }
@@ -217,21 +192,17 @@ final class GridStateCoordinatorTests: XCTestCase {
         confirmedCoordinator.fetch { confirmedPrimeExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        // Navigate optimistically to 2 (same as yabai)
         _ = confirmedCoordinator.updateFocusedIndex(2)
 
-        // Refresh — yabai now confirms focusedIndex 2
         let confirmedRefreshExp = expectation(description: "confirmed refresh")
         confirmedCoordinator.refresh { confirmedRefreshExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        // Since state.focusedIndex == pending, pending focus should be cleared
         XCTAssertEqual(confirmedCoordinator.pendingFocusedSpaceIndex, nil,
             "pending focus should be cleared when yabai confirms")
         XCTAssertEqual(confirmedCoordinator.latestState?.focusedIndex, 2)
     }
 
-    // MARK: - Transitions: idle → fetching → ready
 
     func testPhaseTransitions() throws {
         let coordinator = makeCoordinator(buildGridState: { _, _ in self.cannedState() })
@@ -241,7 +212,6 @@ final class GridStateCoordinatorTests: XCTestCase {
         let exp = expectation(description: "fetch")
         coordinator.fetch { exp.fulfill() }
 
-        // Phase should be fetching immediately
         XCTAssertEqual(coordinator.phase, .fetching, "phase should be fetching after fetch()")
 
         waitForExpectations(timeout: 1.0)
@@ -249,7 +219,6 @@ final class GridStateCoordinatorTests: XCTestCase {
         XCTAssertNotNil(coordinator.latestState, "latestState should be non-nil after fetch")
     }
 
-    // MARK: - state(withFocusedIndex:) derivation
 
     func testStateWithFocusedIndexDerivesCorrectly() throws {
         let base = cannedState(focusedIndex: 1, spaces: [
@@ -257,21 +226,17 @@ final class GridStateCoordinatorTests: XCTestCase {
         ])
         let coordinator = makeCoordinator(buildGridState: { _, _ in base })
 
-        // Prime
         let primeExp = expectation(description: "prime")
         coordinator.fetch { primeExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        // Derive with different focusedIndex without mutating latestState
         let derived = coordinator.state(withFocusedIndex: 2)
         XCTAssertEqual(derived?.focusedIndex, 2, "derived state should have focusedIndex 2")
         XCTAssertEqual(derived?.spaces.count, 1, "derived state should preserve spaces")
 
-        // latestState itself should be unchanged
         XCTAssertEqual(coordinator.latestState?.focusedIndex, 1, "latestState should not be mutated")
     }
 
-    // MARK: - cancelPendingFetch keeps last state
 
     func testCancelPendingFetchKeepsLastState() throws {
         let coordinator = makeCoordinator(buildGridState: { _, _ in self.cannedState(focusedIndex: 1) })

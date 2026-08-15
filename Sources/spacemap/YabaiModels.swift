@@ -7,7 +7,7 @@ struct YabaiSpace: Decodable {
     let display: Int
     let hasFocus: Bool
     let isVisible: Bool?
-    let label: String? // space name from yabai
+    let label: String?
 
     enum CodingKeys: String, CodingKey {
         case id, index, display
@@ -84,12 +84,11 @@ struct YabaiWindow: Decodable, Equatable {
             return false
         }
 
-        // A standard root app window is user-facing regardless of whether
-        // yabai tiles or floats it, and regardless of active-space AX access.
         let isStandardUserWindow =
             role == "AXWindow" &&
             subrole == "AXStandardWindow" &&
             isRootWindow != false
+        // Standard root windows remain visible regardless of yabai tiling state.
         if isStandardUserWindow { return true }
 
         return showExtraWindows
@@ -108,7 +107,6 @@ struct GridState: Equatable {
     let windows: [YabaiWindow]
     let displayBounds: CGRect
     let focusedIndex: Int?
-    // ponytail: pre-grouped windows by space for O(1) per-cell lookup
     private let windowsBySpace: [Int: [YabaiWindow]]
 
     init(
@@ -157,4 +155,3 @@ struct GridState: Equatable {
         lhs.focusedIndex == rhs.focusedIndex
     }
 }
-

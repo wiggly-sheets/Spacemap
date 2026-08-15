@@ -2,51 +2,40 @@ import AppKit
 import ServiceManagement
 import Sparkle
 
-/// Handles the application lifecycle events (launch, terminate) by coordinating
-/// various services and performing necessary setup/teardown.
 final class ApplicationLifecycleService {
 
-    // MARK: - Dependencies
 
     let services: SpacemapServices
     let hud: HUDWindowController
 
-    // MARK: - Private State
 
     private var socketListener: SocketListener?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
 
-    // MARK: - Private State for Hotkey Monitors
 
     private var hotkeyMonitor: HotkeyMonitor?
     private var pinnedHotkeyMonitor: HotkeyMonitor?
 
-    // MARK: - Initialization
 
     init(services: SpacemapServices, hud: HUDWindowController) {
         self.services = services
         self.hud = hud
     }
 
-    // MARK: - Application Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = ProcessInfo.processInfo.arguments
 
-        // Keep the CLI and manual available when permissions allow.
-        // Exit-only CLI commands must never trigger an administrator prompt.
+        // Exit-only CLI paths must not prompt before AppKit starts.
         services.ensureCommandLineTools(allowAuthorizationPrompt: false)
 
-        // Exit-only CLI commands are handled before AppKit starts.
         NSApp.setActivationPolicy(.prohibited)
 
-        // Check yabai before doing anything else
         if !services.yabaiService.isYabaiRunning(forceRefresh: true) {
             services.showYabaiAlert()
         }
 
-        // Check the Mission Control settings that keep space locations stable.
         let needsSeparateSpacesWarning = NSScreen.screens.count > 1 && !NSScreen.screensHaveSeparateSpaces
         DispatchQueue.global(qos: .utility).async {
             let mruSpacesEnabled = self.isMRUSpacesEnabled()
@@ -60,20 +49,15 @@ final class ApplicationLifecycleService {
             }
         }
 
-        // Check if app is in /Applications folder, if not, prompt to move
         checkApplicationLocation()
 
-        // Ensure the CLI and manual are installed, offering an explicit authorization flow
-        // on macOS setups where /usr/local is root-owned.
         services.ensureCommandLineTools(allowAuthorizationPrompt: true)
 
         services.setupMenubar()
         services.setDeepLinksReady()
 
-        // Trigger Sparkle initialization early so updater starts on launch
         _ = services.sparkleController
 
-        // Delay slightly so TCC/LaunchServices finishes registering the app
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self = self else { return }
             Config.silentMode = true
@@ -93,7 +77,6 @@ final class ApplicationLifecycleService {
                 refreshWindowGeometry: config.needsWindowGeometryPreviews
             )
 
-            // Observe settings changes to update hotkey
             self.setupSettingsObserver()
 
             self.services.configureSparkleUpdater(updateMode: config.updateMode)
@@ -101,11 +84,9 @@ final class ApplicationLifecycleService {
 
         #if !DEBUG
         if args.contains("--show-menu") {
-            // Show menu and continue running
             self.services.showMenubarMenu()
         }
         if args.contains("--settings") {
-            // Show settings window and continue running
             self.services.showSettingsWindow()
         }
         #endif
@@ -123,7 +104,6 @@ final class ApplicationLifecycleService {
         }
     }
 
-    // MARK: - Private Helpers
 
     private func setupSocketListener(config: GridConfig) {
         socketListener = services.makeSocketListener(
@@ -235,7 +215,6 @@ final class ApplicationLifecycleService {
         let applicationsPath = "/Applications"
         let isInApplications = appPath.hasPrefix(applicationsPath)
 
-        // Also check if we need to show the first-launch prompt for Launch at Login
         let defaults = UserDefaults.standard
         let hasAskedLaunchAtLogin = defaults.bool(forKey: "HasAskedLaunchAtLogin")
 
@@ -248,7 +227,6 @@ final class ApplicationLifecycleService {
             defaults.set(true, forKey: "HasAskedLaunchAtLogin")
         }
 
-        // Ask about update preferences if not asked before
         let hasAskedUpdate = defaults.bool(forKey: "HasAskedUpdatePreference")
         if !hasAskedUpdate {
             showFirstLaunchUpdatePreferencePrompt()
@@ -342,9 +320,7 @@ final class ApplicationLifecycleService {
     }
 
     private func restartHotkey(config: GridConfig) {
-        // Stop any existing monitors
         stopHotkeyMonitors()
-        // Start new ones based on the config
         startHotkeyMonitors(for: config)
     }
 

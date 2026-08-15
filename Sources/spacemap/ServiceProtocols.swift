@@ -1,7 +1,6 @@
 import AppKit
 import Foundation
 
-/// Protocol for `FileManager` to enable mocking in tests.
 protocol FileManagerProtocol {
     func fileExists(atPath path: String) -> Bool
     func fileExists(atPath path: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool
@@ -18,7 +17,6 @@ protocol FileManagerProtocol {
 
 extension FileManager: FileManagerProtocol { }
 
-/// Protocol for `Process` to enable mocking in tests.
 protocol ProcessProtocol {
     var executableURL: URL? { get set }
     var arguments: [String]? { get set }
@@ -31,7 +29,6 @@ protocol ProcessProtocol {
 
 extension Process: ProcessProtocol { }
 
-/// Protocol for `NSWorkspace` to enable mocking in tests.
 protocol WorkspaceProtocol {
     var frontmostApplication: NSRunningApplication? { get }
     var runningApplications: [NSRunningApplication] { get }
@@ -42,7 +39,6 @@ protocol WorkspaceProtocol {
 
 extension NSWorkspace: WorkspaceProtocol { }
 
-/// Protocol for Menubar handling to enable mocking in tests.
 protocol MenubarHandling {
     func setupMenubar()
     func showMenubarMenu()
@@ -52,13 +48,11 @@ protocol MenubarHandling {
     func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String
 }
 
-/// Protocol for Settings handling to enable mocking in tests.
 protocol SettingsHandling {
     func showSettingsWindow()
     func showAboutWindow()
 }
 
-/// Protocol for CLI Tools handling to enable mocking in tests.
 protocol CLIToolsHandling {
     func checkApplicationLocation()
     func showMoveToApplicationsDialog()
@@ -72,13 +66,11 @@ protocol CLIToolsHandling {
     func showCLIInstallAlert(style: NSAlert.Style, message: String, information: String)
 }
 
-/// Protocol for Deep Link handling to enable mocking in tests.
 protocol DeepLinkHandling {
     func handleDeepLink(_ action: DeepLinkAction)
     func handlePendingDeepLinks()
 }
 
-/// Protocol for Hotkey handling to enable mocking in tests.
 protocol HotkeyHandling {
     func startHotkey(config: GridConfig)
     func startPinnedHotkey(config: GridConfig)

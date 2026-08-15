@@ -1,6 +1,5 @@
 import AppKit
 
-/// Handles deep link operations.
 final class DeepLinkService: DeepLinkHandling {
     private let hud: HUDWindowController
     private let themeService: ThemeService

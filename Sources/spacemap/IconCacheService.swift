@@ -1,7 +1,5 @@
 import AppKit
 
-/// Wraps `IconCache` to remove the static shared singleton.
-/// All app-icon caching goes through this service.
 final class IconCacheService {
 
     private let iconCache: IconCache

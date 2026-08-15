@@ -1,6 +1,5 @@
 import Foundation
 
-/// The four directions supported by HUD keyboard navigation.
 enum SpaceNavigationDirection {
     case left
     case right
@@ -8,15 +7,7 @@ enum SpaceNavigationDirection {
     case down
 }
 
-/// Calculates keyboard navigation targets for the HUD's visible space grid.
-///
-/// Rows and columns wrap independently. This means a short final row still
-/// participates correctly: horizontal navigation stays in that row, while
-/// vertical navigation only cycles through cells that actually exist in the
-/// current column.
 enum SpaceNavigator {
-    /// Returns the spaces yabai can actually focus. The HUD may display empty
-    /// placeholder cells in `showMode == .all`, but navigation must skip them.
     static func navigableSpaceIndices(activeSpaceIndices: [Int], maxSpaces: Int) -> [Int] {
         let limit = min(max(maxSpaces, 0), 16)
         return Array(Set(activeSpaceIndices))
@@ -32,8 +23,6 @@ enum SpaceNavigator {
     ) -> Int? {
         guard !visibleSpaceIndices.isEmpty else { return nil }
 
-        // Config validation normally guarantees this, but treating invalid
-        // values as a one-column grid prevents navigation from crashing.
         let columnCount = max(columns, 1)
         guard let currentPosition = visibleSpaceIndices.firstIndex(of: currentSpaceIndex) else {
             return visibleSpaceIndices.first
@@ -76,9 +65,6 @@ enum SpaceNavigator {
         }
     }
 
-    /// Navigates within the current display until movement reaches a grid-wrap
-    /// edge. At that edge, enter the next or previous populated display rather
-    /// than cycling back through the current display's spaces.
     static func destinationAcrossDisplays(
         from currentSpaceIndex: Int,
         displaySpaceIndices: [[Int]],

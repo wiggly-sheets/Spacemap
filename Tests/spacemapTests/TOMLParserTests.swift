@@ -181,7 +181,6 @@ final class TOMLParserTests: XCTestCase {
         """)
 
         XCTAssertEqual(values?.cols, 8)
-        // unknownKey is not a known field, so it's silently ignored
     }
 
     func testParseInvalidTOMLThrowsError() {

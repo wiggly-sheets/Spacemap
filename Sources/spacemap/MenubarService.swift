@@ -1,7 +1,6 @@
 import AppKit
 import Foundation
 
-/// Service that delegates to MenubarHandler for menu bar operations.
 final class MenubarService {
     private let menubarHandler: MenubarHandler
 

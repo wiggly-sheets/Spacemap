@@ -3,7 +3,6 @@ import XCTest
 
 final class ThemeTests: XCTestCase {
 
-    // MARK: - parseThemeContent
 
     func testParseValidTheme() throws {
         let content = """
@@ -120,7 +119,6 @@ final class ThemeTests: XCTestCase {
         XCTAssertNil(ThemeManager.parseThemeContent(content))
     }
 
-    // MARK: - hex formatting
 
     func testHexPadding() {
         XCTAssertEqual(ThemeManager.hex(0), "000000")
@@ -130,7 +128,6 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(ThemeManager.hex(0xffffff), "ffffff")
     }
 
-    // MARK: - Named theme lookup
 
     func testNamedDefault() {
         let theme = AppTheme.named("nonexistent")

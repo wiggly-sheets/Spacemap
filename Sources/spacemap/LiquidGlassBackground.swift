@@ -1,9 +1,6 @@
 import SwiftUI
 import AppKit
 
-/// Native macOS Liquid Glass background using .glassEffect() from Tahoe.
-/// Provides frosted glass that dynamically tracks system appearance.
-/// Tinted grey — darker for dark mode, lighter for light mode.
 struct LiquidGlassBackground: View {
     let cornerRadius: CGFloat
     let alpha: Double

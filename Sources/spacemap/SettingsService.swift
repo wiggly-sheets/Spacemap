@@ -1,6 +1,5 @@
 import AppKit
 
-/// Handles settings-related operations.
 final class SettingsService: SettingsHandling {
     let yabaiService: YabaiService
     let checkForUpdates: () -> Void

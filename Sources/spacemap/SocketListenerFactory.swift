@@ -1,8 +1,6 @@
 import Foundation
 import ServiceManagement
 
-/// Factory for creating `SocketListener` instances.
-/// Abstracts the socket listener creation so it can be mocked in tests.
 final class SocketListenerFactory {
     func makeSocketListener(
         socketPath: String,

@@ -87,7 +87,6 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(separated, CGRect(x: 0.55, y: 0.55, width: 13.9, height: 5.9))
     }
 
-    // MARK: - CellView label positioning
 
     func testSpaceNumberPositionScalesWithHUD() {
         XCTAssertEqual(GridLayout.spaceNumberPosition(for: 0.5), CGPoint(x: 4, y: 5))
@@ -207,7 +206,6 @@ final class CellViewGridViewTests: XCTestCase {
         ])
     }
 
-    // MARK: - CellView.uniqueIconWindows
 
     func testUniqueIconWindowsDeduplicatesByApp() {
         let windows = [
@@ -275,13 +273,10 @@ final class CellViewGridViewTests: XCTestCase {
         )
     }
 
-    // MARK: - CellView.appColor
 
     func testAppColorFewWindowsReturnsBaseRectColor() {
         let theme = AppTheme(background: 0, focused: 0, text: 0, dropTarget: 0, cellBg: 0, cellBgFocused: 0,
                              rect1: 0xff0000, rect2: 0x00ff00, rect3: 0x0000ff)
-        // With windowCount <= 3, appColor returns Color(hex: base)
-        // The exact base depends on name.hashValue % 3, but we can verify it's deterministic
         let c1 = CellView.appColor("Firefox", theme: theme, windowCount: 2)
         let c2 = CellView.appColor("Firefox", theme: theme, windowCount: 2)
         XCTAssertEqual(String(describing: c1), String(describing: c2))
@@ -290,7 +285,6 @@ final class CellViewGridViewTests: XCTestCase {
     func testAppColorManyWindowsHSLVariation() {
         let theme = AppTheme(background: 0, focused: 0, text: 0, dropTarget: 0, cellBg: 0, cellBgFocused: 0,
                              rect1: 0xff0000, rect2: 0x00ff00, rect3: 0x0000ff)
-        // With windowCount > 3, HSL variation kicks in
         let c1 = CellView.appColor("Firefox", theme: theme, windowCount: 5)
         let c2 = CellView.appColor("Firefox", theme: theme, windowCount: 5)
         XCTAssertEqual(String(describing: c1), String(describing: c2))
@@ -299,7 +293,6 @@ final class CellViewGridViewTests: XCTestCase {
     func testAppColorReturnsValidThemeColor() {
         let theme = AppTheme(background: 0, focused: 0, text: 0, dropTarget: 0, cellBg: 0, cellBgFocused: 0,
                              rect1: 0xff0000, rect2: 0x00ff00, rect3: 0x0000ff)
-        // For windowCount <= 3, appColor must return one of the three theme rect colors
         let names = ["Firefox", "Safari", "Terminal", "VSCode", "Slack", "Notes"]
         let validColors: Set<String> = ["#FF0000FF", "#00FF00FF", "#0000FFFF"]
         for name in names {
@@ -309,7 +302,6 @@ final class CellViewGridViewTests: XCTestCase {
         }
     }
 
-    // MARK: - GridLayout.visibleSpaceIndices
 
     func testVisibleIndicesShowAll() {
         let indices = GridLayout.visibleSpaceIndices(
@@ -346,7 +338,6 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertTrue(indices.isEmpty)
     }
 
-    // MARK: - GridLayout.idealSize
 
     func testIdealSizeSingleCell() {
         let size = GridLayout.idealSize(visibleIndices: 1, cols: 8, uiScale: 19.0 / 7.0)
@@ -372,7 +363,6 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(size.height, 740, accuracy: 0.1)
     }
 
-    // MARK: - Row chunking
 
     func testRowChunking() {
         let cells = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -416,7 +406,6 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertTrue(rows.isEmpty)
     }
 
-    // MARK: - Helpers
 
     private func makeWindow(
         id: Int,
@@ -444,7 +433,6 @@ final class CellViewGridViewTests: XCTestCase {
         return window
     }
 
-    // MARK: - Scale mapping
 
     func testEffectiveScaleMinimum() {
         let s = GridLayout.effectiveScale(for: 0.0)
@@ -497,7 +485,6 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(maxW, 320, accuracy: 0.001)
     }
 }
-    // MARK: - GridLayout.hitTest
 
     func testHitTestReturnsIndexForPointInsideFrame() {
         let frames = [CGRect(x: 0, y: 0, width: 80, height: 50),

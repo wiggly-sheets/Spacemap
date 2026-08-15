@@ -1,6 +1,5 @@
 import AppKit
 
-/// Pure coordinate transforms shared by HUD rendering and input hit testing.
 enum HUDGeometry {
     static func cellFrames(
         for cells: [Int],

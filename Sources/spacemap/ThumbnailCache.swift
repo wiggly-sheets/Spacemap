@@ -23,9 +23,6 @@ final class ThumbnailStore: ObservableObject {
     }
 }
 
-/// Captures individual yabai windows and composites them into per-space images.
-/// Window-only capture prevents Spacemap's own HUD from entering thumbnails and
-/// avoids ScreenCaptureKit display-filter leakage between spaces.
 @available(macOS 14.0, *)
 final class ThumbnailCache {
     struct CaptureWindow: Equatable {
@@ -74,8 +71,6 @@ final class ThumbnailCache {
     private var lastCompletedAt: TimeInterval = 0
     private let queue = DispatchQueue(label: "com.spacemap.thumbnailcache")
 
-    /// Capture every requested space and publish one atomic cache update.
-    /// A newer refresh supersedes older work; identical bursts are coalesced.
     func refreshSpaces(_ requests: [CaptureRequest], force: Bool = false) {
         let jobToStart: RefreshJob? = queue.sync {
             let now = ProcessInfo.processInfo.systemUptime

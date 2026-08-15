@@ -8,7 +8,6 @@ extension Notification.Name {
     static let settingsChanged = Notification.Name("settingsChanged")
 }
 
-// Types CellStyle, ShowMode, ThemeMode, HotkeyConfig, GridConfig defined in Models.swift
 
 struct SettingsView: View {
     enum SidebarSection: String, CaseIterable, Identifiable {
@@ -57,7 +56,6 @@ struct SettingsView: View {
     @State private var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
     @State private var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
     @State private var showHUDOnSpaceChange: Bool = false
-    // Store last known custom HUD position to preserve it when switching between presets and custom
     @State private var lastCustomHUDX: Double = 0.5
     @State private var lastCustomHUDY: Double = 0.5
 
@@ -162,7 +160,6 @@ init() {
         _useVimKeys = State(initialValue: config.useVimKeys)
         _useArrowKeys = State(initialValue: config.useArrowKeys)
         _jumpToSpaceEnabled = State(initialValue: config.jumpToSpaceEnabled)
-        // Initialize HUD position state: kind from config.hudPosition, custom position from config.customHUDX/Y
         _hudPositionKind = State(initialValue: HUDPositionKind(from: config.hudPosition))
         _lastCustomHUDX = State(initialValue: config.customHUDX)
         _lastCustomHUDY = State(initialValue: config.customHUDY)

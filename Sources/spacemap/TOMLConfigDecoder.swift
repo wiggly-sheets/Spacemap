@@ -1,7 +1,6 @@
 import Foundation
 import CoreGraphics
 
-/// Normalizes TOML tables and decodes validated Spacemap configuration values.
 enum TOMLConfigDecoder {
     static func normalize(_ object: [String: Any]) -> [String: Any] {
         var result = object
@@ -49,7 +48,6 @@ enum TOMLConfigDecoder {
         return result
     }
 
-    // MARK: - Decoding
 
     static func decode(_ object: [String: Any]) -> ConfigValues {
         var values = ConfigValues()
@@ -80,7 +78,6 @@ enum TOMLConfigDecoder {
             return nil
         }
 
-        // Grid section
         values.cols = positiveInt("cols")
         values.rows = positiveInt("rows")
         if let name: String = value("cellStyle") {
@@ -103,7 +100,6 @@ enum TOMLConfigDecoder {
         values.showIconStrip = value("showIconStrip")
         values.showMultiAppIcons = value("showMultiAppIcons")
 
-        // Space names
         if let rawSpaceNames = object["spaceNames"] as? [String: Any] {
             var spaceNames: [Int: String] = [:]
             for (key, rawName) in rawSpaceNames {
@@ -116,7 +112,6 @@ enum TOMLConfigDecoder {
             values.showSpaceNames = showSpaceNames
         }
 
-        // Appearance section
         values.theme = value("theme")
         if let name: String = value("mode") {
             values.mode = themeMode(from: name)
@@ -126,7 +121,6 @@ enum TOMLConfigDecoder {
         values.iconScale = rangedDouble("iconScale")
         values.uiScale = rangedDouble("uiScale")
 
-        // Behavior section
         values.autoHideTimeout = nonNegativeInt("autoHideTimeout")
         if let name: String = value("displayNavigationWrap") {
             values.displayNavigationWrap = displayNavigationWrap(from: name)
@@ -152,7 +146,6 @@ enum TOMLConfigDecoder {
             values.updateMode = updateMode(from: name)
         }
 
-        // Hotkey — delegates to Hotkey module
         if let table = object["hotkey"] as? [String: Any] {
             values.hotkey = parseHotkeyTable(table)
         }
@@ -160,7 +153,6 @@ enum TOMLConfigDecoder {
             values.pinnedHotkey = parseHotkeyTable(table)
         }
 
-        // HUD Position
         if let table = object["hudPosition"] as? [String: Any],
            let kind = table["kind"] as? String {
             switch kind.lowercased() {
@@ -178,14 +170,12 @@ enum TOMLConfigDecoder {
             }
         }
 
-        // Advanced section
         values.socketHealthInterval = positiveInt("socketHealthInterval")
         values.showExtraWindows = value("showExtraWindows")
 
         return values
     }
 
-    // MARK: - Hotkey Parsing (delegates to Hotkey module)
 
     private static func parseHotkeyTable(_ table: [String: Any]) -> HotkeyConfig? {
         guard let kind = table["keyKind"] as? String,

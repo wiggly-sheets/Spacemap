@@ -2,7 +2,6 @@ import AppKit
 import ServiceManagement
 import Sparkle
 
-/// Owns command-line installation, first-launch prompts, login, and updates.
 final class CLIToolsService: CLIToolsHandling {
     private let cliSymlinkPath = "/usr/local/bin/spacemap"
     private let cliExecutablePath = "/Applications/Spacemap.app/Contents/MacOS/Spacemap"
