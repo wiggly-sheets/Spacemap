@@ -7,7 +7,7 @@
   <p><b>See your spaces. Move through them.</b></p>
 
   <p>
-    A native macOS workspace map for yabai.<br/>
+    A native macOS workspace map for <a href="https://github.com/koekeishiya/yabai">yabai</a>.<br/>
     Open a floating grid, see what lives where, and go straight there.
   </p>
 
@@ -37,10 +37,10 @@
 
 ---
 
-yabai makes moving around a workspace grid fast. Spacemap makes it legible: press one shortcut to see every space, its windows, and the space you are on—then jump, navigate, or drag a window exactly where it belongs.
+[yabai](https://github.com/koekeishiya/yabai) makes moving around a workspace grid fast. Spacemap makes it legible: press one shortcut to see every space, its windows, and the space you are on—then jump, navigate, or drag a window exactly where it belongs.
 
 > [!NOTE]
-> Spacemap runs as a normal macOS app alongside yabai. It does not require disabling SIP or modifying macOS.
+> Spacemap runs as a normal macOS app alongside [yabai](https://github.com/koekeishiya/yabai). It does not require disabling SIP or modifying macOS.
 
 ---
 
@@ -49,7 +49,7 @@ yabai makes moving around a workspace grid fast. Spacemap makes it legible: pres
 ### A live map of your workspaces
 
 - **2D grid HUD** — see spaces as a configurable rows-by-columns map
-- **Live focus updates** — active space changes immediately through yabai signals
+- **Live focus updates** — active space changes immediately through [yabai](https://github.com/koekeishiya/yabai) signals
 - **Multi-monitor aware** — use one unified grid or a separate HUD per display
 - **Space names** — label spaces like _Code_, _Web_, or _Music_ instead of memorising numbers
 - **Five cell styles** — Rectangles, Hybrid, Icons, Thumbnails, or Simple
@@ -64,7 +64,7 @@ yabai makes moving around a workspace grid fast. Spacemap makes it legible: pres
 
 ### Move windows visually
 
-Drag a real window over any HUD cell and drop it there. Spacemap highlights the target, moves the window through yabai, and can focus the destination space when you choose.
+Drag a real window over any HUD cell and drop it there. Spacemap highlights the target, moves the window through [yabai](https://github.com/koekeishiya/yabai), and can focus the destination space when you choose.
 
 ### Make it yours
 
@@ -109,7 +109,7 @@ brew update && brew upgrade wiggly-sheets/spacemap/spacemap
 2. Open it and drag **Spacemap** into **Applications**.
 3. Open Spacemap once.
 4. In **System Settings → Privacy & Security → Accessibility**, enable Spacemap.
-5. Start yabai, then press <kbd>Ctrl</kbd> + <kbd>Space</kbd>.
+5. Start [yabai](https://github.com/koekeishiya/yabai), then press <kbd>Ctrl</kbd> + <kbd>Space</kbd>.
 
 > [!TIP]
 > Every release includes `checksums.txt`. To verify a downloaded DMG:
@@ -139,7 +139,7 @@ brew update && brew upgrade wiggly-sheets/spacemap/spacemap
 - **Automatically rearrange Spaces based on most recent use** disabled in **System Settings → Desktop & Dock → Mission Control**
 - **Displays have separate Spaces** enabled for independent multi-monitor HUDs
 
-Install yabai with Homebrew if needed:
+Install [yabai](https://github.com/koekeishiya/yabai) with Homebrew if needed:
 
 ```bash
 brew install asmvik/formulae/yabai
@@ -203,7 +203,7 @@ spacemap --settings      # open Settings
 spacemap --config        # open config file
 ```
 
-`--space` accepts `1`–`16`, `prev`, `next`, `first`, `last`, `recent`, `mouse`, or a yabai space label.
+`--space` accepts `1`–`16`, `prev`, `next`, `first`, `last`, `recent`, `mouse`, or a [yabai](https://github.com/koekeishiya/yabai) space label.
 
 ```bash
 # Example skhd bindings
@@ -300,7 +300,7 @@ Manual installs can download the newest DMG from [Releases](https://github.com/w
 
 - macOS 13+
 - Xcode 15+ or Command Line Tools
-- yabai and Accessibility permission for live testing
+- [yabai](https://github.com/koekeishiya/yabai) and Accessibility permission for live testing
 
 ### Build, run, test
 
