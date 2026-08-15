@@ -365,6 +365,7 @@ make app-universal
 ## Inspired by
 
 - [yabai](https://github.com/koekeishiya/yabai)
+- [XFCE Workspace Switcher](https://docs.xfce.org/xfce/xfce4-panel/pager)
 - [WindowMaker](https://www.windowmaker.org/)
 - [YabaiGridSpaces](https://codeberg.org/mikkelricky/hammerspoon/src/branch/main/Spoons/YabaiGridSpaces.spoon)
 - [skhd](https://github.com/koekeishiya/skhd) and [skhd.zig](https://github.com/jackielii/skhd.zig)
