@@ -26,6 +26,9 @@ final class CLIToolsService: CLIToolsHandling {
 
         let defaults = UserDefaults.standard
         let hasAskedLaunchAtLogin = defaults.bool(forKey: "HasAskedLaunchAtLogin")
+        let hasAskedUpdate = defaults.bool(forKey: "HasAskedUpdatePreference")
+
+        guard !isInApplications || !hasAskedLaunchAtLogin || !hasAskedUpdate else { return }
 
         if !isInApplications {
             showMoveToApplicationsDialog()
@@ -36,7 +39,6 @@ final class CLIToolsService: CLIToolsHandling {
             defaults.set(true, forKey: "HasAskedLaunchAtLogin")
         }
 
-        let hasAskedUpdate = defaults.bool(forKey: "HasAskedUpdatePreference")
         if !hasAskedUpdate {
             showFirstLaunchUpdatePreferencePrompt()
             defaults.set(true, forKey: "HasAskedUpdatePreference")
@@ -51,7 +53,7 @@ final class CLIToolsService: CLIToolsHandling {
         alert.addButton(withTitle: NSLocalizedString("Move to Applications", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
 
-        let response = alert.runModal()
+        let response = presentAlert(alert)
         if response == .alertFirstButtonReturn {
             moveToApplications()
         }
@@ -71,13 +73,13 @@ final class CLIToolsService: CLIToolsHandling {
             alert.alertStyle = .informational
             alert.messageText = NSLocalizedString("Moved to Applications", comment: "")
             alert.informativeText = NSLocalizedString("Spacemap has been copied to the Applications folder. Please quit and relaunch from there.", comment: "")
-            alert.runModal()
+            presentAlert(alert)
         } catch {
             let alert = NSAlert()
             alert.alertStyle = .critical
             alert.messageText = NSLocalizedString("Failed to move", comment: "")
             alert.informativeText = String(format: NSLocalizedString("Could not move Spacemap to Applications: %@", comment: ""), error.localizedDescription)
-            alert.runModal()
+            presentAlert(alert)
         }
     }
 
@@ -89,7 +91,7 @@ final class CLIToolsService: CLIToolsHandling {
         alert.addButton(withTitle: NSLocalizedString("Yes", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("No", comment: ""))
 
-        let response = alert.runModal()
+        let response = presentAlert(alert)
         if response == .alertFirstButtonReturn {
             setLoginAtLogin(enabled: true)
         }
@@ -104,7 +106,7 @@ final class CLIToolsService: CLIToolsHandling {
         alert.addButton(withTitle: NSLocalizedString("Notify (Check & Prompt)", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Off", comment: ""))
 
-        let response = alert.runModal()
+        let response = presentAlert(alert)
         let updateMode: UpdateMode
         switch response {
         case .alertFirstButtonReturn:
@@ -211,7 +213,7 @@ final class CLIToolsService: CLIToolsHandling {
         alert.addButton(withTitle: NSLocalizedString("Install", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Not Now", comment: ""))
 
-        if alert.runModal() == .alertFirstButtonReturn {
+        if presentAlert(alert) == .alertFirstButtonReturn {
             installCLISymlinkWithAuthorization()
         }
     }
@@ -243,7 +245,22 @@ final class CLIToolsService: CLIToolsHandling {
         alert.alertStyle = style
         alert.messageText = message
         alert.informativeText = information
-        alert.runModal()
+        presentAlert(alert)
+    }
+
+    @discardableResult
+    private func presentAlert(_ alert: NSAlert) -> NSApplication.ModalResponse {
+        let previousActivationPolicy = NSApp.activationPolicy()
+        if previousActivationPolicy != .regular {
+            NSApp.setActivationPolicy(.regular)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        defer {
+            if previousActivationPolicy != .regular {
+                NSApp.setActivationPolicy(previousActivationPolicy)
+            }
+        }
+        return alert.runModal()
     }
 
     func installCommandLineTools() {

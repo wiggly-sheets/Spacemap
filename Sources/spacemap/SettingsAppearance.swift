@@ -26,10 +26,10 @@ struct SettingsAppearanceView: View {
             HStack {
                 Button("Open Config File") {
                     let url = URL(fileURLWithPath: AppConfig().configPath)
-                    NSWorkspace.shared.open(url)
+                    _ = NSWorkspace.shared.open(url)
                 }
                 Button("Open Themes Folder") {
-                    NSWorkspace.shared.open(ThemeManager.themesDir())
+                    _ = NSWorkspace.shared.open(ThemeManager.themesDir())
                 }
             }
 
@@ -77,9 +77,21 @@ struct SettingsAppearanceView: View {
             .padding(.bottom, 4)
     }
 
-    private let backgroundTransparencySteps: [Double] = [0.00, 0.05, 0.12, 0.22, 0.35, 0.50, 0.65, 0.80, 0.92, 1.00]
-    private let uiScaleSteps: [Double] = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    private let iconScaleSteps: [Double] = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    private var backgroundTransparencySteps: [Double] {
+        Self.steps([0.00, 0.05, 0.12, 0.22, 0.35, 0.50, 0.65, 0.80, 0.92, 1.00], including: backgroundAlpha)
+    }
+
+    private var uiScaleSteps: [Double] {
+        Self.steps([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], including: uiScale)
+    }
+
+    private var iconScaleSteps: [Double] {
+        Self.steps([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], including: iconScale)
+    }
+
+    static func steps(_ defaults: [Double], including currentValue: Double) -> [Double] {
+        Array(Set(defaults + [currentValue])).sorted()
+    }
 
     private struct CustomStepper: View {
         let steps: [Double]

@@ -103,10 +103,13 @@ enum TOMLConfigDecoder {
         if let rawSpaceNames = object["spaceNames"] as? [String: Any] {
             var spaceNames: [Int: String] = [:]
             for (key, rawName) in rawSpaceNames {
-                guard let index = Int(key), let name = rawName as? String else { continue }
+                guard let index = Int(key), index > 0, let name = rawName as? String else {
+                    values.hasInvalidSpaceNames = true
+                    continue
+                }
                 spaceNames[index] = name
             }
-            values.spaceNames = spaceNames.isEmpty ? nil : spaceNames
+            values.spaceNames = spaceNames
         }
         if let showSpaceNames: Bool = value("showSpaceNames") {
             values.showSpaceNames = showSpaceNames
@@ -180,6 +183,11 @@ enum TOMLConfigDecoder {
     private static func parseHotkeyTable(_ table: [String: Any]) -> HotkeyConfig? {
         guard let kind = table["keyKind"] as? String,
               let modifierNames = table["modifiers"] as? [String] else {
+            return nil
+        }
+
+        let supportedModifiers = Set(["ctrl", "cmd", "alt", "shift", "fn", "hyper"])
+        guard modifierNames.allSatisfy({ supportedModifiers.contains($0.lowercased()) }) else {
             return nil
         }
 

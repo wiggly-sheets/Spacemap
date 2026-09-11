@@ -10,7 +10,13 @@ struct SettingsAdvanced: View {
     let refreshDiagnostics: () -> Void
     let saveConfig: () -> Void
 
-    private let socketHealthOptions = [15, 30, 45, 60]
+    var socketHealthOptions: [Int] {
+        Self.socketHealthOptions(including: socketHealthInterval)
+    }
+
+    static func socketHealthOptions(including currentValue: Int) -> [Int] {
+        Array(Set([15, 30, 45, 60, currentValue])).sorted()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

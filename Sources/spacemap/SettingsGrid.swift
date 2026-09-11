@@ -21,14 +21,7 @@ struct SettingsGrid: View {
     }
 
     private var gridLayouts: [(cols: Int, rows: Int, label: String)] {
-        var layouts: [(Int, Int, String)] = []
-        for c in 1...maxSpaces {
-            if maxSpaces % c == 0 {
-                let r = maxSpaces / c
-                layouts.append((c, r, "\(c)×\(r)"))
-            }
-        }
-        return layouts
+        Self.layoutOptions(maxSpaces: maxSpaces, currentCols: cols, currentRows: rows)
     }
 
     var body: some View {
@@ -131,13 +124,35 @@ struct SettingsGrid: View {
     }
 
     private func findBestGridLayoutIndex() -> Int {
-        let layouts = gridLayouts
-        guard !layouts.isEmpty else { return 0 }
-        for (idx, layout) in layouts.enumerated() {
-            if layout.cols == cols && layout.rows == rows {
-                return idx
-            }
+        Self.layoutIndex(
+            maxSpaces: maxSpaces,
+            currentCols: cols,
+            currentRows: rows
+        )
+    }
+
+    static func layoutOptions(
+        maxSpaces: Int,
+        currentCols: Int,
+        currentRows: Int
+    ) -> [(cols: Int, rows: Int, label: String)] {
+        guard maxSpaces > 0 else { return [] }
+        var layouts = (1...maxSpaces).compactMap { columns -> (Int, Int, String)? in
+            guard maxSpaces.isMultiple(of: columns) else { return nil }
+            let rows = maxSpaces / columns
+            return (columns, rows, "\(columns)×\(rows)")
         }
-        return layouts.firstIndex(where: { $0.cols * $0.rows == maxSpaces }) ?? 0
+        if !layouts.contains(where: { $0.0 == currentCols && $0.1 == currentRows }) {
+            layouts.append((currentCols, currentRows, "\(currentCols)×\(currentRows) (Custom)"))
+        }
+        return layouts
+    }
+
+    static func layoutIndex(maxSpaces: Int, currentCols: Int, currentRows: Int) -> Int {
+        layoutOptions(
+            maxSpaces: maxSpaces,
+            currentCols: currentCols,
+            currentRows: currentRows
+        ).firstIndex(where: { $0.cols == currentCols && $0.rows == currentRows }) ?? 0
     }
 }
