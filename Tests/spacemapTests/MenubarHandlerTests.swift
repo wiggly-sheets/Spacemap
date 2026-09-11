@@ -47,6 +47,14 @@ final class MenubarHandlerTests: XCTestCase {
         XCTAssertEqual(makeHandler().hotkeyMenuString(config), "⌃+⌘+⌥+⇧+Return")
     }
 
+    func testToggleHUDMenuTitleReflectsCurrentHotkey() {
+        let handler = makeHandler()
+        var config = GridConfig.default
+        config.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: [.maskCommand, .maskShift])
+
+        XCTAssertEqual(handler.toggleHUDMenuTitle(config: config), "Show/Hide Map (⌘+⇧+Space)")
+    }
+
 
     func testWorkspacePreviewsEnabledWhenMenuBarVisibleAndNotIconMode() {
         var config = GridConfig.default

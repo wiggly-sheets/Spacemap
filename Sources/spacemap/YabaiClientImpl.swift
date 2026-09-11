@@ -4,6 +4,7 @@ import AppKit
 class YabaiClientImpl: YabaiService {
     private enum YabaiError: LocalizedError {
         case commandFailed(arguments: [String], status: Int32, message: String)
+        case commandTimedOut(arguments: [String], timeout: TimeInterval)
         case spaceCreationMadeNoProgress(target: Int)
 
         var errorDescription: String? {
@@ -11,11 +12,63 @@ class YabaiClientImpl: YabaiService {
             case .commandFailed(let arguments, let status, let message):
                 let detail = message.isEmpty ? "no error output" : message
                 return "yabai \(arguments.joined(separator: " ")) failed with status \(status): \(detail)"
+            case .commandTimedOut(let arguments, let timeout):
+                return "yabai \(arguments.joined(separator: " ")) timed out after \(timeout) seconds"
             case .spaceCreationMadeNoProgress(let target):
                 return "yabai did not create the space needed for target index \(target)"
             }
         }
     }
+
+    private final class PipeReader {
+        private let handle: FileHandle
+        private let completion: DispatchGroup
+        private let lock = NSLock()
+        private var data = Data()
+        private var isFinished = false
+
+        init(handle: FileHandle, completion: DispatchGroup) {
+            self.handle = handle
+            self.completion = completion
+        }
+
+        func start() {
+            completion.enter()
+            handle.readabilityHandler = { [weak self] handle in
+                guard let self else { return }
+                let chunk = handle.availableData
+                if chunk.isEmpty {
+                    finish()
+                    return
+                }
+                lock.lock()
+                if !isFinished { data.append(chunk) }
+                lock.unlock()
+            }
+        }
+
+        func finish() {
+            lock.lock()
+            guard !isFinished else {
+                lock.unlock()
+                return
+            }
+            isFinished = true
+            lock.unlock()
+            handle.readabilityHandler = nil
+            handle.closeFile()
+            completion.leave()
+        }
+
+        func collectedData() -> Data {
+            lock.lock()
+            defer { lock.unlock() }
+            return data
+        }
+    }
+
+    private static let commandTimeout: TimeInterval = 10
+    private static let pipeDrainTimeout: TimeInterval = 2
 
     private let yabaiQueue = DispatchQueue(label: "com.spacemap.yabai", qos: .userInitiated)
     // Keep interactive focus changes ahead of state refreshes.
@@ -150,9 +203,7 @@ class YabaiClientImpl: YabaiService {
                        "event=space_changed",
                        "action=\(action)")
         guard refreshWorkspacePreviews else { return }
-        let events = refreshWindowGeometry
-            ? windowGeometryRefreshEvents
-            : workspaceTopologyRefreshEvents
+        let events = previewRefreshEvents(refreshWindowGeometry: refreshWindowGeometry)
         for event in events {
             _ = try? shell(yabaiPath, "-m", "signal", "--add",
                            "label=spacemap_\(event)",
@@ -181,6 +232,10 @@ class YabaiClientImpl: YabaiService {
 
     var workspacePreviewRefreshEvents: [String] {
         windowGeometryRefreshEvents + workspaceTopologyRefreshEvents
+    }
+
+    func previewRefreshEvents(refreshWindowGeometry: Bool) -> [String] {
+        refreshWindowGeometry ? workspacePreviewRefreshEvents : workspaceTopologyRefreshEvents
     }
 
     func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
@@ -309,22 +364,61 @@ class YabaiClientImpl: YabaiService {
 
 
     private func shell(_ args: String...) throws -> String {
+        try Self.runProcess(
+            executable: args[0],
+            arguments: Array(args.dropFirst()),
+            timeout: Self.commandTimeout
+        )
+    }
+
+    static func runProcess(
+        executable: String,
+        arguments: [String],
+        timeout: TimeInterval
+    ) throws -> String {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: args[0])
-        process.arguments = Array(args.dropFirst())
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
         let outputPipe = Pipe()
         let errorPipe = Pipe()
         process.standardOutput = outputPipe
         process.standardError = errorPipe
+        let termination = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in termination.signal() }
         try process.run()
-        process.waitUntilExit()
-        let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        outputPipe.fileHandleForWriting.closeFile()
+        errorPipe.fileHandleForWriting.closeFile()
+
+        let readers = DispatchGroup()
+        let standardOutput = PipeReader(handle: outputPipe.fileHandleForReading, completion: readers)
+        let standardError = PipeReader(handle: errorPipe.fileHandleForReading, completion: readers)
+        standardOutput.start()
+        standardError.start()
+
+        if termination.wait(timeout: .now() + timeout) == .timedOut {
+            process.terminate()
+            if termination.wait(timeout: .now() + 1) == .timedOut {
+                kill(process.processIdentifier, SIGKILL)
+                _ = termination.wait(timeout: .now() + 1)
+            }
+            standardOutput.finish()
+            standardError.finish()
+            readers.wait()
+            throw YabaiError.commandTimedOut(arguments: arguments, timeout: timeout)
+        }
+
+        if readers.wait(timeout: .now() + pipeDrainTimeout) == .timedOut {
+            standardOutput.finish()
+            standardError.finish()
+            readers.wait()
+        }
+        let outputData = standardOutput.collectedData()
+        let errorData = standardError.collectedData()
         guard process.terminationStatus == 0 else {
             let message = String(data: errorData, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             throw YabaiError.commandFailed(
-                arguments: Array(args.dropFirst()),
+                arguments: arguments,
                 status: process.terminationStatus,
                 message: message
             )

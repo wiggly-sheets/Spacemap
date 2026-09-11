@@ -17,8 +17,14 @@ final class YabaiClientImplTests: XCTestCase {
 
 
     private var isYabaiAvailable: Bool {
-        FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/yabai") ||
-            FileManager.default.isExecutableFile(atPath: "/usr/local/bin/yabai")
+        let executable = ["/opt/homebrew/bin/yabai", "/usr/local/bin/yabai"]
+            .first(where: FileManager.default.isExecutableFile(atPath:))
+        guard let executable else { return false }
+        return (try? YabaiClientImpl.runProcess(
+            executable: executable,
+            arguments: ["-m", "query", "--spaces"],
+            timeout: 1
+        )) != nil
     }
 
 
@@ -179,6 +185,43 @@ final class YabaiClientImplTests: XCTestCase {
         }
         client.yabaiProcessCheck = { true }
         client.registerSignals(socketPath: "/tmp/spacemap_test.socket")
+    }
+
+    func testFullPreviewsRefreshForWindowGeometryAndWorkspaceTopology() {
+        XCTAssertEqual(
+            client.previewRefreshEvents(refreshWindowGeometry: true),
+            client.windowGeometryRefreshEvents + client.workspaceTopologyRefreshEvents
+        )
+    }
+
+    func testDotPreviewsOnlyRefreshForWorkspaceTopology() {
+        XCTAssertEqual(
+            client.previewRefreshEvents(refreshWindowGeometry: false),
+            client.workspaceTopologyRefreshEvents
+        )
+    }
+
+    func testRunProcessDrainsLargeOutputBeforeWaitingForExit() throws {
+        let output = try YabaiClientImpl.runProcess(
+            executable: "/bin/sh",
+            arguments: ["-c", "/usr/bin/yes x | /usr/bin/head -c 1048576"],
+            timeout: 5
+        )
+
+        XCTAssertEqual(output.utf8.count, 1_048_576)
+    }
+
+    func testRunProcessTerminatesCommandsThatExceedTimeout() {
+        let started = Date()
+
+        XCTAssertThrowsError(try YabaiClientImpl.runProcess(
+            executable: "/bin/sleep",
+            arguments: ["5"],
+            timeout: 0.05
+        )) { error in
+            XCTAssertTrue(error.localizedDescription.contains("timed out"))
+        }
+        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
     }
 
 

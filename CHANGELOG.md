@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Keep separate-display HUD cells aligned with their display-specific click and drag targets.
+- Keep pinned HUD input state and focused-window drag fallback synchronized across refreshes.
+- Keep window-drag event taps responsive and recover after macOS disables them.
+- Resolve HUD themes once per render and keep application colors stable across launches.
+- Release HUD and global-hotkey capture immediately when Accessibility is revoked, and let unrelated keys pass through pinned HUDs.
+- Keep one owned pair of hotkey monitors, apply changed bindings without retaining old shortcuts, and trigger media shortcuts only on key-down.
+- Apply update-mode and socket-health changes without requiring an app restart.
+- Present and activate the real first-launch choices for login and update preferences.
+- Preserve prior Sparkle appcast entries while replacing a duplicate current version.
+- Preserve custom Settings values, coordinate hotkey recordings, restore window placement, and repair invalid configuration values.
+- Reuse the owned About window instead of messaging an undefined app-delegate selector.
+- Keep socket clients and yabai commands from blocking app input, shutdown, or state refreshes.
+- Refresh full menu-bar previews for workspace topology changes and keep menu titles synchronized with hotkey changes.
+- Package every localization with valid Unicode text, and reject release tags that disagree with the app version.
+- Compare complete grid state instead of treating states with the same focused space as equal.
+
+### Removed
+- Removed unused icon and thumbnail cache facade modules.
+- Removed unused duplicate Settings and configuration owner types.
+- Removed unused duplicate menu-bar owner types.
 
 ## [1.0.39] - 2026-08-15
 

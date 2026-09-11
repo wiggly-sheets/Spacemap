@@ -1,86 +1,86 @@
 /* SettingsView - Grid Section */
-"Grid" = "\uadf8\ub9bc";
-"Max Spaces" = "\ucd5c\ub300 \uc2a4\ud398\uc774\uc2a4 \uc218";
-"Grid Layout" = "\uadf8\ub9bc \ub808\uc774\uc544\uc6c3";
-"Show Mode" = "\ud45c\uc2dc \ubaa8\ub4dc";
-"All Spaces" = "\ubaa8\ubd84 \uc2a4\ud398\uc774\uc2a4";
-"Active Spaces" = "\ud65c\uc131 \uc2a4\ud398\uc774\uc2a4";
-"Cell Style" = "\uc140 \uc2a4\ud0c0\uc77c";
-"Rectangles" = "\uc5f4\ubc15\ud615";
+"Grid" = "\UADF8\UB9BC";
+"Max Spaces" = "\UCD5C\UB300 \UC2A4\UD398\UC774\UC2A4 \UC218";
+"Grid Layout" = "\UADF8\UB9BC \UB808\UC774\UC544\UC6C3";
+"Show Mode" = "\UD45C\UC2DC \UBAA8\UB4DC";
+"All Spaces" = "\UBAA8\UBD84 \UC2A4\UD398\UC774\UC2A4";
+"Active Spaces" = "\UD65C\UC131 \UC2A4\UD398\UC774\UC2A4";
+"Cell Style" = "\UC140 \UC2A4\UD0C0\UC77C";
+"Rectangles" = "\UC5F4\UBC15\UD615";
 "Hybrid" = "하이브리드";
-"Icons" = "\uc544\uc774\ucf58";
-"Thumbnails" = "\ubb3c\uac74\uc774\ubbf8\uc9c0";
-"Simple" = "\uac04\ub2e8";
-"Show Space Numbers" = "\uc2a4\ud398\uc774\uc2a4 \ubc88\ud638 \ud45c\uc2dc";
-"Show Icon Strip" = "\uc544\uc774\ucf58 \ubc14\ub978\ud0a4 \ud45c\uc2dc";
-"Show Each Window Icon" = "\uac01 \uc6f8\ub514\uc5b4 \uc544\uc774\ucf58 \ud45c\uc2dc";
+"Icons" = "\UC544\UC774\UCF58";
+"Thumbnails" = "\UBB3C\UAC74\UC774\UBBF8\UC9C0";
+"Simple" = "\UAC04\UB2E8";
+"Show Space Numbers" = "\UC2A4\UD398\UC774\UC2A4 \UBC88\UD638 \UD45C\UC2DC";
+"Show Icon Strip" = "\UC544\UC774\UCF58 \UBC14\UB978\UD0A4 \UD45C\UC2DC";
+"Show Each Window Icon" = "\UAC01 \UC6F8\UB514\UC5B4 \UC544\UC774\UCF58 \UD45C\UC2DC";
 
 /* SettingsView - Appearance Section */
-"Appearance" = "\ub300\uc0c1";
-"Theme" = "\ud150";
-"Open Config File" = "\ud658\uacbd \ud30c\uc77c \uc5f4\uae30";
-"Open Themes Folder" = "\ud150 \ud3f4\ub354 \uc5f4\uae30";
-"Background Color" = "\ubc30\uacbd \uc0c9";
-"Light" = "\ub77c\uc774\ud2b8";
-"Dark" = "\ub2e4\ud06c";
-"Auto" = "\uc790\ub3d9";
-"Background Transparency" = "\ubc30\uacbd \ud22c\uba85\uc131";
-"Icon Scale" = "\uc544\uc774\ucf58 \ud06c\uae30";
-"UI Scale" = "\ud45c\uba74 \ud06c\uae30";
+"Appearance" = "\UB300\UC0C1";
+"Theme" = "\UD150";
+"Open Config File" = "\UD658\UACBD \UD30C\UC77C \UC5F4\UAE30";
+"Open Themes Folder" = "\UD150 \UD3F4\UB354 \UC5F4\UAE30";
+"Background Color" = "\UBC30\UACBD \UC0C9";
+"Light" = "\UB77C\UC774\UD2B8";
+"Dark" = "\UB2E4\UD06C";
+"Auto" = "\UC790\UB3D9";
+"Background Transparency" = "\UBC30\UACBD \UD22C\UBA85\UC131";
+"Icon Scale" = "\UC544\UC774\UCF58 \UD06C\UAE30";
+"UI Scale" = "\UD45C\UBA74 \UD06C\UAE30";
 
 /* SettingsView - Behavior Section */
-"Behavior" = "\ud65c\ub3d9";
-"Hotkey" = "\ud639\ud0a4";
-"Socket Health Interval (s)" = "\uc1a1\ud06c \uac75\uac15 \uac04\uacfc (s)";
-"Auto-hide Timeout (s): %d (0 = disabled)" = "\uc790\ub3d9 \uc228\uae30 (s): %d (0 = \ubb34\uc2dc)";
-"Hide Menu Bar Icon" = "\uba54\ub274 \ubc14\ub978\uc5b4 \uc544\uc774\ucf58 \uc228\uae30";
-"Access settings by relaunching the app or pressing \u2318, while the HUD is open." = "HUD\uac00 \uc5f4\ub824 \uc788\ub294 \ub54c \uc571\uc744 \uc7ac\uc2dc\uc791 \ud604\uc2b5 \ub610\ub294 \u2318 \ub204\ub974\uc5b4 \uc124\uc815\uc5d0 \uc561\uc2a4\uc138\uc2a4\ud569\ub2c8\ub2e4.";
-"Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)" = "\ud654\uc0b4 \ud0a4\ub85c \uc774\ub3d9 (\u2190\u2191\u2193\u2192)";
-"Navigate with Vim Keys (hjkl)" = "Vim \ud0a4\ub85c \uc774\ub3d9 (hjkl)";
+"Behavior" = "\UD65C\UB3D9";
+"Hotkey" = "\UD639\UD0A4";
+"Socket Health Interval (s)" = "\UC1A1\UD06C \UAC75\UAC15 \UAC04\UACFC (s)";
+"Auto-hide Timeout (s): %d (0 = disabled)" = "\UC790\UB3D9 \UC228\UAE30 (s): %d (0 = \UBB34\UC2DC)";
+"Hide Menu Bar Icon" = "\UBA54\UB274 \UBC14\UB978\UC5B4 \UC544\UC774\UCF58 \UC228\UAE30";
+"Access settings by relaunching the app or pressing \U2318, while the HUD is open." = "HUD\UAC00 \UC5F4\UB824 \UC788\UB294 \UB54C \UC571\UC744 \UC7AC\UC2DC\UC791 \UD604\UC2B5 \UB610\UB294 \U2318 \UB204\UB974\UC5B4 \UC124\UC815\UC5D0 \UC561\UC2A4\UC138\UC2A4\UD569\UB2C8\UB2E4.";
+"Navigate with Arrow Keys (\U2190\U2191\U2193\U2192)" = "\UD654\UC0B4 \UD0A4\UB85C \UC774\UB3D9 (\U2190\U2191\U2193\U2192)";
+"Navigate with Vim Keys (hjkl)" = "Vim \UD0A4\UB85C \UC774\UB3D9 (hjkl)";
 
 /* SettingsView - Space Names Section */
-"Space Names" = "\uc2a4\ud398\uc774\uc2a4 \uc774\ub984";
-"Show Space Names" = "\uc2a4\ud398\uc774\uc2a4 \uc774\ub984 \ud45c\uc2dc";
-"(Each input below corresponds to each space number, up to Max Spaces)" = "(\uc548\uc73c\ub85c \ubcf4\uc774\ub294 \uc22b\uc790 \ub9cc\ud07c \uc2a4\ud398\uc774\uc2a4 \ubc88\ud638\uc5d0 \ub300\uc751\ud569\ub2c8\ub2e4. \ucd5c\ub300 \uc218)";
-"Space %d:" = "\uc2a4\ud398\uc774\uc2a4 %d:";
+"Space Names" = "\UC2A4\UD398\UC774\UC2A4 \UC774\UB984";
+"Show Space Names" = "\UC2A4\UD398\UC774\UC2A4 \UC774\UB984 \UD45C\UC2DC";
+"(Each input below corresponds to each space number, up to Max Spaces)" = "(\UC548\UC73C\UB85C \UBCF4\UC774\UB294 \UC22B\UC790 \UB9CC\UD07C \UC2A4\UD398\UC774\UC2A4 \UBC88\UD638\UC5D0 \UB300\UC751\UD569\UB2C8\UB2E4. \UCD5C\UB300 \UC218)";
+"Space %d:" = "\UC2A4\UD398\UC774\UC2A4 %d:";
 
 /* HotkeyRecorder */
-"Recording..." = "\ub77c\uc774\ube0c \uc2dc\uac04...";
-"Click to record" = "\ud074\ub9ad\ud558\uc5ec \ub77c\uc774\ube0c";
+"Recording..." = "\UB77C\UC774\UBE0C \UC2DC\UAC04...";
+"Click to record" = "\UD074\UB9AD\UD558\UC5EC \UB77C\UC774\UBE0C";
 
 /* App Menu Items */
-"Show/Hide Map (%@)" = "\uc9c0\ub3c4 \ud45c\uc2dc/\uc228\uae30 (%@)";
-"Settings..." = "\uc124\uc815...";
-"Open Accessibility Permissions (for hotkey)" = "\uc811\uc18c\uc131 \uc804\uc6d0 \ud655\uc778 (\ud639\ud0a4 \uc6a9)";
-"Open Screen Recording Permissions (for thumbnails)" = "\ud648 \ub77c\uc774\ube0c \uc804\uc6d0 \ud655\uc778 (\ubb3c\uac74\uc774\ubbf8\uc9c0 \uc6a9)";
-"Launch at Login" = "\ub85c\uadf8\uc778 \uc2dc \uc2dc\uc791";
-"Restart Spacemap" = "Spacemap \uc7ac\uc2dc\uc791";
-"Quit Spacemap" = "Spacemap \uc885\ub8cc";
+"Show/Hide Map (%@)" = "\UC9C0\UB3C4 \UD45C\UC2DC/\UC228\UAE30 (%@)";
+"Settings..." = "\UC124\UC815...";
+"Open Accessibility Permissions (for hotkeys)" = "\UC811\UC18C\UC131 \UC804\UC6D0 \UD655\UC778 (\UD639\UD0A4 \UC6A9)";
+"Open Screen Recording Permissions (for thumbnails)" = "\UD648 \UB77C\UC774\UBE0C \UC804\UC6D0 \UD655\UC778 (\UBB3C\UAC74\UC774\UBBF8\UC9C0 \UC6A9)";
+"Launch at Login" = "\UB85C\UADF8\UC778 \UC2DC \UC2DC\UC791";
+"Restart Spacemap" = "Spacemap \UC7AC\UC2DC\UC791";
+"Quit Spacemap" = "Spacemap \UC885\UB8CC";
 
 /* App Alerts - Move to Applications */
-"Move Spacemap to Applications?" = "Spacemap\uc744 \ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c\ud558\uc2dc\uaca0\uc2b5\uace0?";
-"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "\ucd5c\uc0c1\uc758 \ud37c\ud3ec\uba87\uc2a4\ub97c \uc704\ud574 \ud504\ub85c\uadf8\ub7a8 \ud3f4\ub354\uc5d0\uc11c \uc2dc\uc791\ud574\uc57c \ud569\ub2c8\ub2e4. \uc624\ub298 \ub300\uad6c\ud558\uc2dc\uaca0\uc2b5\uace0?";
-"Move to Applications" = "\ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c";
-"Cancel" = "\ucde8\uc18c";
-"Moved to Applications" = "\ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c\ub418\uc5c8\uc2b5\ub2c8\ub2e4";
-"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap\uc774 \ud504\ub85c\uadf8\ub7a8 \ud3f4\ub354\uc5d0 \ubcf5\uc0ac\ub418\uc5c8\uc2b5\ub2c8\ub2e4. \uc885\ub8cc\ud558\uace0 \uacfc \uc5ec\uadfc\uc5d0\uc11c \uc7ac\uc2dc\uc791\ud574 \uc8fc\uc138\uc694.";
-"Failed to move" = "\ub300\uad6c \uc2e4\ud328";
-"Could not move Spacemap to Applications: %@" = "Spacemap\uc744 \ud504\ub85c\uadf8\ub7a8\uc73c\ub85c \ub300\uad6c\ud560 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4: %@";
+"Move Spacemap to Applications?" = "Spacemap\UC744 \UD504\UB85C\UADF8\UB7A8\UC73C\UB85C \UB300\UAD6C\UD558\UC2DC\UACA0\UC2B5\UACE0?";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "\UCD5C\UC0C1\UC758 \UD37C\UD3EC\UBA87\UC2A4\UB97C \UC704\UD574 \UD504\UB85C\UADF8\UB7A8 \UD3F4\UB354\UC5D0\UC11C \UC2DC\UC791\UD574\UC57C \UD569\UB2C8\UB2E4. \UC624\UB298 \UB300\UAD6C\UD558\UC2DC\UACA0\UC2B5\UACE0?";
+"Move to Applications" = "\UD504\UB85C\UADF8\UB7A8\UC73C\UB85C \UB300\UAD6C";
+"Cancel" = "\UCDE8\UC18C";
+"Moved to Applications" = "\UD504\UB85C\UADF8\UB7A8\UC73C\UB85C \UB300\UAD6C\UB418\UC5C8\UC2B5\UB2C8\UB2E4";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap\UC774 \UD504\UB85C\UADF8\UB7A8 \UD3F4\UB354\UC5D0 \UBCF5\UC0AC\UB418\UC5C8\UC2B5\UB2C8\UB2E4. \UC885\UB8CC\UD558\UACE0 \UACFC \UC5EC\UADFC\UC5D0\UC11C \UC7AC\UC2DC\UC791\UD574 \UC8FC\UC138\UC694.";
+"Failed to move" = "\UB300\UAD6C \UC2E4\UD328";
+"Could not move Spacemap to Applications: %@" = "Spacemap\UC744 \UD504\UB85C\UADF8\UB7A8\UC73C\UB85C \UB300\UAD6C\UD560 \UC218 \UC5C6\UC2B5\UB2C8\UB2E4: %@";
 
 /* App Alerts - Launch at Login */
-"Launch at Login?" = "\ub85c\uadf8\uc778 \uc2dc \uc2dc\uc791\ud558\uc2dc\uaca0\uc2b5\uace0?";
-"Would you like Spacemap to start automatically when you log in?" = "\ub85c\uadf8\uc778 \uc2dc Spacemap\uac00 \uc790\ub3d9\uc73c\ub85c \uc2dc\uc791\ub418\uace0 \uc2f6\uc73c\uc2e4\uace0 \ud558\uc2dc\uaca0\uc2b5\uace0?";
-"Yes" = "\ub300";
-"No" = "\uc54a";
+"Launch at Login?" = "\UB85C\UADF8\UC778 \UC2DC \UC2DC\UC791\UD558\UC2DC\UACA0\UC2B5\UACE0?";
+"Would you like Spacemap to start automatically when you log in?" = "\UB85C\UADF8\UC778 \UC2DC Spacemap\UAC00 \UC790\UB3D9\UC73C\UB85C \UC2DC\UC791\UB418\UACE0 \UC2F6\UC73C\UC2E4\UACE0 \UD558\UC2DC\UACA0\UC2B5\UACE0?";
+"Yes" = "\UB300";
+"No" = "\UC54A";
 
 /* App Alerts - yabai not running */
-"yabai is not running" = "yabai\uac00 \uc2dc\uc791\ub418\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4";
-"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap\uc740 \uc2dc\uc791\ub418\ub294 yabai\uac00 \ud544\uc694\ud569\ub2c8\ub2e4. yabai\ub97c \uc2dc\uc791\ud558\uace0 Spacemap\uc744 \uc7ac\uc2dc\uc791\ud574 \uc8fc\uc138\uc694.";
-"Quit" = "\uc885\ub8cc";
-"Open yabai" = "yabai \uc5f4\uae30";
+"yabai is not running" = "yabai\UAC00 \UC2DC\UC791\UB418\UC9C0 \UC54A\UC2B5\UB2C8\UB2E4";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap\UC740 \UC2DC\UC791\UB418\UB294 yabai\UAC00 \UD544\UC694\UD569\UB2C8\UB2E4. yabai\UB97C \UC2DC\UC791\UD558\UACE0 Spacemap\UC744 \UC7AC\UC2DC\UC791\UD574 \UC8FC\UC138\UC694.";
+"Quit" = "\UC885\UB8CC";
+"Open yabai" = "yabai \UC5F4\UAE30";
 
 /* App Alerts - MRU Spaces */
-"Spaces Auto-Rearrange Enabled" = "\uc2a4\ud398\uc774\uc2a4 \uc790\ub3d9 \uc7ac\ud0a4\uc6b4 \ud65c\uc131\ud654";
-"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "\uc548\uc815\uc801 \uadf8\ub9bc \ub808\uc774\uc544\uc6c3\uc744 \uc704\ud574 \uc774\uac83\uc744 \ubb34\uc2dc\ud574\uc57c \ud569\ub2c8\ub2e4. \uc2a4\ud398\uc774\uc2a4\uac00 \uace0\uc815 \uc21c\uc11c\ub85c \uc720\uc9c0\ud558\uc9c0 \uc54a\uc73c\uba74 \uadf8\ub9bc\uc774 \uc2e4\uc2a4\uc801\uc774 \ub418\uc2b5\ub2c8\ub2e4.";
-"Leave as Is" = "\uc608\uc0c1 \ub108\ub77c";
-"Fix It" = "\uc216\ucd94\uae30";
+"Spaces Auto-Rearrange Enabled" = "\UC2A4\UD398\UC774\UC2A4 \UC790\UB3D9 \UC7AC\UD0A4\UC6B4 \UD65C\UC131\UD654";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "\UC548\UC815\UC801 \UADF8\UB9BC \UB808\UC774\UC544\UC6C3\UC744 \UC704\UD574 \UC774\UAC83\UC744 \UBB34\UC2DC\UD574\UC57C \UD569\UB2C8\UB2E4. \UC2A4\UD398\UC774\UC2A4\UAC00 \UACE0\UC815 \UC21C\UC11C\UB85C \UC720\UC9C0\UD558\UC9C0 \UC54A\UC73C\UBA74 \UADF8\UB9BC\UC774 \UC2E4\UC2A4\UC801\UC774 \UB418\UC2B5\UB2C8\UB2E4.";
+"Leave as Is" = "\UC608\UC0C1 \UB108\UB77C";
+"Fix It" = "\UC216\UCD94\UAE30";
