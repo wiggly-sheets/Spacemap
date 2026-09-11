@@ -145,6 +145,11 @@ final class ConfigValuesTests: XCTestCase {
         values.cols = 10
         values.rows = 5
         values.cellStyle = .thumbnails
+        values.hotkey = .default
+        values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.socketHealthInterval = 37
+        values.uiScale = 0.37
+        values.autoHideTimeout = 7
         values.theme = "nord"
         values.mode = .light
         values.showMode = .all
@@ -167,6 +172,8 @@ final class ConfigValuesTests: XCTestCase {
         values.useArrowKeys = true
         values.jumpToSpaceEnabled = false
         values.hudPosition = .top
+        values.customHUDX = 0.42
+        values.customHUDY = 0.58
         values.showExtraWindows = true
         values.focusSpaceOnWindowDrop = .always
         values.focusSpaceOnWindowDropModifier = .shift
@@ -179,6 +186,9 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.cols, 10)
         XCTAssertEqual(config.rows, 5)
         XCTAssertEqual(config.cellStyle, .thumbnails)
+        XCTAssertEqual(config.socketHealthInterval, 37)
+        XCTAssertEqual(config.uiScale, 0.37, accuracy: 0.001)
+        XCTAssertEqual(config.autoHideTimeout, 7)
         XCTAssertEqual(config.theme, "nord")
         XCTAssertEqual(config.mode, .light)
         XCTAssertEqual(config.showMode, .all)
@@ -201,6 +211,8 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertTrue(config.useArrowKeys)
         XCTAssertFalse(config.jumpToSpaceEnabled)
         XCTAssertEqual(config.hudPosition, .top)
+        XCTAssertEqual(config.customHUDX, 0.42, accuracy: 0.001)
+        XCTAssertEqual(config.customHUDY, 0.58, accuracy: 0.001)
         XCTAssertTrue(config.showExtraWindows)
         XCTAssertEqual(config.focusSpaceOnWindowDrop, .always)
         XCTAssertEqual(config.focusSpaceOnWindowDropModifier, .shift)

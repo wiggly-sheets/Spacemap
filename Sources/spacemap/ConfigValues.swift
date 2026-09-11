@@ -40,6 +40,7 @@ struct ConfigValues: ConfigValuesProtocol {
     var focusSpaceOnWindowDropModifier: WindowDropFocusModifier?
     var showHUDOnSpaceChange: Bool?
     var updateMode: UpdateMode?
+    var hasInvalidSpaceNames = false
 
     init() {}
 
@@ -86,7 +87,7 @@ struct ConfigValues: ConfigValuesProtocol {
 
     func toGridConfig() -> (config: GridConfig, needsRepair: Bool) {
         let defaults = GridConfig.default
-        var needsRepair = false
+        var needsRepair = hasInvalidSpaceNames
 
         func orDefault<T>(_ value: T?, _ default: T) -> T {
             if value == nil { needsRepair = true }
@@ -95,34 +96,26 @@ struct ConfigValues: ConfigValuesProtocol {
 
         func valid<T>(_ value: T?, _ default: T, where predicate: (T) -> Bool) -> T {
             guard let value, predicate(value) else {
-                if value != nil { needsRepair = true }
-                return `default`
-            }
-            return value
-        }
-
-        func double(_ value: Double?, _ default: Double) -> Double {
-            guard let value else {
                 needsRepair = true
                 return `default`
             }
             return value
         }
 
-        let resolvedCellStyle = cellStyle ?? defaults.cellStyle
-        let resolvedShowMode = showMode ?? defaults.showMode
-        let resolvedMultiMonitorMode = multiMonitorHUDMode ?? defaults.multiMonitorHUDMode
-        let resolvedUnifiedVisibility = unifiedHUDVisibility ?? defaults.unifiedHUDVisibility
-        let resolvedSeparateVisibility = separateHUDVisibility ?? defaults.separateHUDVisibility
-        let resolvedNavigationWrap = displayNavigationWrap ?? defaults.displayNavigationWrap
-        let resolvedThemeMode = mode ?? defaults.mode
-        let resolvedUpdateMode = updateMode ?? defaults.updateMode
-        let resolvedMenuBarDisplayMode = menuBarDisplayMode ?? defaults.menuBarDisplayMode
-        let resolvedWindowDropFocusMode = focusSpaceOnWindowDrop ?? defaults.focusSpaceOnWindowDrop
-        let resolvedWindowDropModifier = focusSpaceOnWindowDropModifier ?? defaults.focusSpaceOnWindowDropModifier
+        let resolvedCellStyle = orDefault(cellStyle, defaults.cellStyle)
+        let resolvedShowMode = orDefault(showMode, defaults.showMode)
+        let resolvedMultiMonitorMode = orDefault(multiMonitorHUDMode, defaults.multiMonitorHUDMode)
+        let resolvedUnifiedVisibility = orDefault(unifiedHUDVisibility, defaults.unifiedHUDVisibility)
+        let resolvedSeparateVisibility = orDefault(separateHUDVisibility, defaults.separateHUDVisibility)
+        let resolvedNavigationWrap = orDefault(displayNavigationWrap, defaults.displayNavigationWrap)
+        let resolvedThemeMode = orDefault(mode, defaults.mode)
+        let resolvedUpdateMode = orDefault(updateMode, defaults.updateMode)
+        let resolvedMenuBarDisplayMode = orDefault(menuBarDisplayMode, defaults.menuBarDisplayMode)
+        let resolvedWindowDropFocusMode = orDefault(focusSpaceOnWindowDrop, defaults.focusSpaceOnWindowDrop)
+        let resolvedWindowDropModifier = orDefault(focusSpaceOnWindowDropModifier, defaults.focusSpaceOnWindowDropModifier)
 
-        let resolvedHotkey = hotkey ?? defaults.hotkey
-        let resolvedPinnedHotkey = pinnedHotkey ?? defaults.pinnedHotkey
+        let resolvedHotkey = orDefault(hotkey, defaults.hotkey)
+        let resolvedPinnedHotkey = orDefault(pinnedHotkey, defaults.pinnedHotkey)
 
         let resolvedHudPosition: HUDPosition
         switch hudPosition {

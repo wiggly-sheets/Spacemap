@@ -69,6 +69,89 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(config.theme, "nord")
     }
 
+    func testLoadRewritesDecoderRejectedNumericEnumAndHotkeyValues() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-loader-rejected-values-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let valid = ConfigLoader.tomlConfigString(
+            from: ConfigValues(from: .default),
+            includeHeaderComments: true
+        )
+        let invalid = valid
+            .replacingOccurrences(of: "rows = 2", with: "rows = -1")
+            .replacingOccurrences(of: "cellStyle = \"rects\"", with: "cellStyle = \"broken\"")
+            .replacingOccurrences(of: "keyKind = \"keyCode\"", with: "keyKind = \"broken\"")
+        try invalid.write(toFile: path, atomically: true, encoding: .utf8)
+
+        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let repaired = try String(contentsOfFile: path, encoding: .utf8)
+
+        XCTAssertTrue(needsRepair)
+        XCTAssertEqual(values.gridConfig.rows, GridConfig.default.rows)
+        XCTAssertEqual(values.gridConfig.cellStyle, GridConfig.default.cellStyle)
+        XCTAssertEqual(values.gridConfig.hotkey.key, GridConfig.default.hotkey.key)
+        XCTAssertTrue(repaired.contains("rows = \(GridConfig.default.rows)"))
+        XCTAssertTrue(repaired.contains("cellStyle = \"rects\""))
+        XCTAssertTrue(repaired.contains("keyKind = \"keyCode\""))
+        XCTAssertFalse(repaired.contains("broken"))
+        XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), invalid)
+    }
+
+    func testLoadRepairsAllInvalidSpaceNameEntries() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-loader-invalid-space-names-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let valid = ConfigLoader.tomlConfigString(
+            from: ConfigValues(from: .default),
+            includeHeaderComments: true
+        )
+        let invalid = valid.replacingOccurrences(
+            of: "[spaceNames.names]\n",
+            with: "[spaceNames.names]\n\"not-a-space\" = \"Name\"\n\"1\" = 42\n"
+        )
+        try invalid.write(toFile: path, atomically: true, encoding: .utf8)
+
+        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let repaired = try String(contentsOfFile: path, encoding: .utf8)
+
+        XCTAssertTrue(needsRepair)
+        XCTAssertEqual(values.gridConfig.spaceNames, [:])
+        XCTAssertFalse(repaired.contains("not-a-space"))
+        XCTAssertFalse(repaired.contains("\"1\" = 42"))
+    }
+
+    func testLoadPreservesValidSpaceNamesWhileRemovingInvalidEntries() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-loader-mixed-space-names-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let valid = ConfigLoader.tomlConfigString(
+            from: ConfigValues(from: .default),
+            includeHeaderComments: true
+        )
+        let mixed = valid.replacingOccurrences(
+            of: "[spaceNames.names]\n",
+            with: "[spaceNames.names]\n\"1\" = \"Work\"\n\"bad\" = \"Broken\"\n"
+        )
+        try mixed.write(toFile: path, atomically: true, encoding: .utf8)
+
+        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let repaired = try String(contentsOfFile: path, encoding: .utf8)
+
+        XCTAssertTrue(needsRepair)
+        XCTAssertEqual(values.gridConfig.spaceNames, [1: "Work"])
+        XCTAssertTrue(repaired.contains("\"1\" = \"Work\""))
+        XCTAssertFalse(repaired.contains("\"bad\""))
+    }
+
     func testLoadBacksUpInvalidFile() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("spacemap-loader-backup-\(UUID().uuidString)")
@@ -150,9 +233,10 @@ final class ConfigLoaderTests: XCTestCase {
 
         ConfigLoader.save(values, to: path)
 
-        let (loadedValues, _) = ConfigLoader.load(from: path, silentMode: true)
+        let (loadedValues, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         let (config, _) = loadedValues.toGridConfig()
 
+        XCTAssertFalse(needsRepair)
         XCTAssertEqual(config.cols, 7)
         XCTAssertEqual(config.rows, 4)
         XCTAssertEqual(config.cellStyle, .hybrid)

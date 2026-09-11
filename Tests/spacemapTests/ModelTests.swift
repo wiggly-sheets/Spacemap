@@ -215,6 +215,60 @@ final class ModelTests: XCTestCase {
         XCTAssertNotEqual(a, c)
     }
 
+    func testGridStateEqualityIncludesRenderedContentAndConfiguration() {
+        let space = YabaiSpace(
+            id: 1,
+            index: 1,
+            display: 1,
+            hasFocus: true,
+            isVisible: true,
+            label: nil
+        )
+        let window = YabaiWindow(
+            id: 1,
+            app: "Finder",
+            space: 1,
+            frame: .init(x: 0, y: 0, w: 100, h: 100),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
+        let base = GridState(
+            config: .default,
+            spaces: [],
+            windows: [],
+            displayBounds: .zero,
+            focusedIndex: 1
+        )
+        let changedSpaces = GridState(
+            config: .default,
+            spaces: [space],
+            windows: [],
+            displayBounds: .zero,
+            focusedIndex: 1
+        )
+        let changedWindows = GridState(
+            config: .default,
+            spaces: [],
+            windows: [window],
+            displayBounds: .zero,
+            focusedIndex: 1
+        )
+        var changedConfig = GridConfig.default
+        changedConfig.uiScale = 0.75
+        let changedConfiguration = GridState(
+            config: changedConfig,
+            spaces: [],
+            windows: [],
+            displayBounds: .zero,
+            focusedIndex: 1
+        )
+
+        XCTAssertNotEqual(base, changedSpaces)
+        XCTAssertNotEqual(base, changedWindows)
+        XCTAssertNotEqual(base, changedConfiguration)
+    }
+
     func testGridStateWindowsEmpty() {
         let state = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: nil)
         XCTAssertTrue(state.windows(forSpace: 1).isEmpty)

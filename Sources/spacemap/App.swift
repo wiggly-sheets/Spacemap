@@ -9,9 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var lifecycleService: ApplicationLifecycleService
 
 
-    private var settingsWindowController: SettingsWindowController?
-
-
     init(services: SpacemapServices = SpacemapServices()) {
         self.services = services
         self.lifecycleService = ApplicationLifecycleService(services: services, hud: services.hud)
@@ -29,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showSettingsWindow()
+        services.showSettingsWindow()
         return false
     }
 
@@ -41,23 +38,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         services.checkForUpdates()
     }
 
-
-    private func showSettingsWindow() {
-        NSApp.setActivationPolicy(.regular)
-        let controller = SettingsWindowController(yabaiService: services.yabaiService)
-        settingsWindowController = controller
-        controller.showWindow()
-        if let window = controller.window {
-            let observer = NotificationCenter.default.addObserver(
-                forName: NSWindow.willCloseNotification,
-                object: window,
-                queue: .main
-            ) { [weak self] _ in
-                self?.settingsWindowController = nil
-                NSApp.setActivationPolicy(.prohibited)
-            }
-        }
-    }
 }
 
 @main

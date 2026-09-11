@@ -1,6 +1,49 @@
 import AppKit
-import ServiceManagement
 import Sparkle
+
+struct RuntimeConfigChanges: Equatable {
+    let hotkeys: Bool
+    let socketListener: Bool
+    let updater: Bool
+    let yabaiSignals: Bool
+
+    init(previous: GridConfig?, current: GridConfig) {
+        func sameHotkey(_ previous: HotkeyConfig?, _ current: HotkeyConfig) -> Bool {
+            previous?.key == current.key && previous?.modifiers == current.modifiers
+        }
+
+        hotkeys = !sameHotkey(previous?.hotkey, current.hotkey) ||
+            !sameHotkey(previous?.pinnedHotkey, current.pinnedHotkey)
+        socketListener = previous?.socketHealthInterval != current.socketHealthInterval
+        updater = previous?.updateMode != current.updateMode
+        yabaiSignals =
+            previous?.showHUDOnSpaceChange != current.showHUDOnSpaceChange ||
+            previous.map(\.needsWorkspacePreviews) != current.needsWorkspacePreviews ||
+            previous.map(\.needsWindowGeometryPreviews) != current.needsWindowGeometryPreviews
+    }
+}
+
+final class YabaiSignalRegistrationCoordinator {
+    private let lock = NSLock()
+    private var generation = 0
+
+    func nextGeneration() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        generation += 1
+        return generation
+    }
+
+    func isCurrent(_ candidate: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return candidate == generation
+    }
+
+    func invalidate() {
+        _ = nextGeneration()
+    }
+}
 
 final class ApplicationLifecycleService {
 
@@ -12,10 +55,7 @@ final class ApplicationLifecycleService {
     private var socketListener: SocketListener?
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
-
-
-    private var hotkeyMonitor: HotkeyMonitor?
-    private var pinnedHotkeyMonitor: HotkeyMonitor?
+    private let signalRegistrationCoordinator = YabaiSignalRegistrationCoordinator()
 
 
     init(services: SpacemapServices, hud: HUDWindowController) {
@@ -49,7 +89,7 @@ final class ApplicationLifecycleService {
             }
         }
 
-        checkApplicationLocation()
+        services.checkApplicationLocation()
 
         services.ensureCommandLineTools(allowAuthorizationPrompt: true)
 
@@ -65,17 +105,12 @@ final class ApplicationLifecycleService {
             self.currentConfig = config
             self.hud.reloadConfig()
             self.hud.prewarmState()
-            self.restartHotkey(config: config)
+            self.services.restartHotkeys(config: config)
             self.services.applyMenubarVisibility(config: config)
             self.services.refreshMenubarPreview(config: config)
             self.hud.onShowSettings = { [weak self] in self?.services.showSettingsWindow() }
             self.setupSocketListener(config: config)
-            self.services.yabaiService.registerSignals(
-                socketPath: SpacemapCommand.socketPath,
-                showHUDOnSpaceChange: config.showHUDOnSpaceChange,
-                refreshWorkspacePreviews: config.needsWorkspacePreviews,
-                refreshWindowGeometry: config.needsWindowGeometryPreviews
-            )
+            self.scheduleYabaiSignalRegistration(config: config)
 
             self.setupSettingsObserver()
 
@@ -93,12 +128,10 @@ final class ApplicationLifecycleService {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        signalRegistrationCoordinator.invalidate()
         services.yabaiService.removeSignals()
         socketListener?.stop()
-        hotkeyMonitor?.stop()
-        hotkeyMonitor = nil
-        pinnedHotkeyMonitor?.stop()
-        pinnedHotkeyMonitor = nil
+        services.stopHotkeys()
         if let observer = settingsObserver {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -106,6 +139,7 @@ final class ApplicationLifecycleService {
 
 
     private func setupSocketListener(config: GridConfig) {
+        socketListener?.stop()
         socketListener = services.makeSocketListener(
             socketPath: SpacemapCommand.socketPath,
             healthInterval: config.socketHealthInterval,
@@ -131,23 +165,37 @@ final class ApplicationLifecycleService {
             guard let self = self else { return }
             Config.silentMode = true
             let config = self.services.currentConfig
-            let shouldUpdateYabaiSignals =
-                self.currentConfig?.showHUDOnSpaceChange != config.showHUDOnSpaceChange ||
-                self.currentConfig.map(\.needsWorkspacePreviews) != config.needsWorkspacePreviews ||
-                self.currentConfig.map(\.needsWindowGeometryPreviews) != config.needsWindowGeometryPreviews
+            let changes = RuntimeConfigChanges(previous: self.currentConfig, current: config)
             self.currentConfig = config
             self.hud.reloadConfig()
-            self.services.restartHotkey(config: config)
+            if changes.hotkeys {
+                self.services.restartHotkeys(config: config)
+            }
+            if changes.socketListener {
+                self.setupSocketListener(config: config)
+            }
+            if changes.updater {
+                self.services.configureSparkleUpdater(updateMode: config.updateMode)
+            }
             self.services.applyMenubarVisibility(config: config)
             self.services.refreshMenubarPreview(config: config)
-            if shouldUpdateYabaiSignals {
-                self.services.yabaiService.registerSignals(
-                    socketPath: SpacemapCommand.socketPath,
-                    showHUDOnSpaceChange: config.showHUDOnSpaceChange,
-                    refreshWorkspacePreviews: config.needsWorkspacePreviews,
-                    refreshWindowGeometry: config.needsWindowGeometryPreviews
-                )
+            if changes.yabaiSignals {
+                self.scheduleYabaiSignalRegistration(config: config)
             }
+        }
+    }
+
+    func scheduleYabaiSignalRegistration(config: GridConfig) {
+        let generation = signalRegistrationCoordinator.nextGeneration()
+        services.yabaiService.runOnYabaiQueue { [weak self] in
+            guard let self,
+                  self.signalRegistrationCoordinator.isCurrent(generation) else { return }
+            self.services.yabaiService.registerSignals(
+                socketPath: SpacemapCommand.socketPath,
+                showHUDOnSpaceChange: config.showHUDOnSpaceChange,
+                refreshWorkspacePreviews: config.needsWorkspacePreviews,
+                refreshWindowGeometry: config.needsWindowGeometryPreviews
+            )
         }
     }
 
@@ -170,6 +218,7 @@ final class ApplicationLifecycleService {
     }
 
     private func showMRUAlert() {
+        let previousActivationPolicy = NSApp.activationPolicy()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
@@ -191,10 +240,11 @@ final class ApplicationLifecycleService {
             dock.arguments = ["Dock"]
             try? dock.run()
         }
-        NSApp.setActivationPolicy(.prohibited)
+        restoreActivationPolicy(previousActivationPolicy)
     }
 
     private func showSeparateSpacesAlert() {
+        let previousActivationPolicy = NSApp.activationPolicy()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
@@ -205,156 +255,26 @@ final class ApplicationLifecycleService {
         alert.addButton(withTitle: NSLocalizedString("Open System Settings", comment: ""))
 
         if alert.runModal() == .alertSecondButtonReturn {
-            NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
+            _ = NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
         }
-        NSApp.setActivationPolicy(.prohibited)
+        restoreActivationPolicy(previousActivationPolicy)
     }
 
-    private func checkApplicationLocation() {
-        let appPath = Bundle.main.bundleURL.path
-        let applicationsPath = "/Applications"
-        let isInApplications = appPath.hasPrefix(applicationsPath)
-
-        let defaults = UserDefaults.standard
-        let hasAskedLaunchAtLogin = defaults.bool(forKey: "HasAskedLaunchAtLogin")
-
-        if !isInApplications {
-            showMoveToApplicationsDialog()
-        }
-
-        if !hasAskedLaunchAtLogin {
-            showFirstLaunchLaunchAtLoginPrompt()
-            defaults.set(true, forKey: "HasAskedLaunchAtLogin")
-        }
-
-        let hasAskedUpdate = defaults.bool(forKey: "HasAskedUpdatePreference")
-        if !hasAskedUpdate {
-            showFirstLaunchUpdatePreferencePrompt()
-            defaults.set(true, forKey: "HasAskedUpdatePreference")
+    private func restoreActivationPolicy(_ previousActivationPolicy: NSApplication.ActivationPolicy) {
+        let hasVisibleKeyWindow = NSApp.windows.contains { $0.isVisible && $0.canBecomeKey }
+        if Self.shouldRestoreActivationPolicy(
+            previous: previousActivationPolicy,
+            hasVisibleKeyWindow: hasVisibleKeyWindow
+        ) {
+            NSApp.setActivationPolicy(previousActivationPolicy)
         }
     }
 
-    private func showMoveToApplicationsDialog() {
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = NSLocalizedString("Move Spacemap to Applications?", comment: "")
-        alert.informativeText = NSLocalizedString("Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?", comment: "")
-        alert.addButton(withTitle: NSLocalizedString("Move to Applications", comment: ""))
-        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
-
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            moveToApplications()
-        }
-    }
-
-    private func moveToApplications() {
-        let source = Bundle.main.bundleURL
-        let destination = URL(fileURLWithPath: "/Applications").appendingPathComponent(source.lastPathComponent)
-
-        do {
-            if FileManager.default.fileExists(atPath: destination.path) {
-                try FileManager.default.removeItem(at: destination)
-            }
-            try FileManager.default.copyItem(at: source, to: destination)
-
-            let alert = NSAlert()
-            alert.alertStyle = .informational
-            alert.messageText = NSLocalizedString("Moved to Applications", comment: "")
-            alert.informativeText = NSLocalizedString("Spacemap has been copied to the Applications folder. Please quit and relaunch from there.", comment: "")
-            alert.runModal()
-        } catch {
-            let alert = NSAlert()
-            alert.alertStyle = .critical
-            alert.messageText = NSLocalizedString("Failed to move", comment: "")
-            alert.informativeText = String(format: NSLocalizedString("Could not move Spacemap to Applications: %@", comment: ""), error.localizedDescription)
-            alert.runModal()
-        }
-    }
-
-    private func showFirstLaunchLaunchAtLoginPrompt() {
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = NSLocalizedString("Launch at Login?", comment: "")
-        alert.informativeText = NSLocalizedString("Would you like Spacemap to start automatically when you log in?", comment: "")
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            setLoginAtLogin(enabled: true)
-        }
-    }
-
-    private func showFirstLaunchUpdatePreferencePrompt() {
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = NSLocalizedString("Automatic Updates?", comment: "")
-        alert.informativeText = NSLocalizedString("How would you like Spacemap to check for updates?", comment: "")
-        let response = alert.runModal()
-        let updateMode: UpdateMode
-        switch response {
-        case .alertFirstButtonReturn:
-            updateMode = .auto
-        case .alertSecondButtonReturn:
-            updateMode = .notify
-        default:
-            updateMode = .off
-        }
-
-        var config = services.currentConfig
-        config.updateMode = updateMode
-        services.appConfig.save(config)
-        services.configureSparkleUpdater(updateMode: updateMode)
-    }
-
-    private func setLoginAtLogin(enabled: Bool) {
-        let service = SMAppService.mainApp
-        do {
-            if enabled {
-                try service.register()
-            } else {
-                try service.unregister()
-            }
-        } catch {
-            let actionString = enabled ? "enable" : "disable"
-            print("Failed to \(actionString) launch at login: \(error)")
-        }
-    }
-
-    private func restartHotkey(config: GridConfig) {
-        stopHotkeyMonitors()
-        startHotkeyMonitors(for: config)
-    }
-
-    private func stopHotkeyMonitors() {
-        hotkeyMonitor?.stop()
-        hotkeyMonitor = nil
-        pinnedHotkeyMonitor?.stop()
-        pinnedHotkeyMonitor = nil
-    }
-
-    private func startHotkeyMonitors(for config: GridConfig) {
-        guard !config.hotkey.isDisabled else {
-            print("Spacemap: hotkey disabled")
-            return
-        }
-        let monitor = HotkeyMonitor(config: config.hotkey) { [weak self] in
-            self?.hud.toggle()
-        }
-        monitor.start()
-        hotkeyMonitor = monitor
-
-        guard !config.pinnedHotkey.isDisabled else {
-            print("Spacemap: pinned HUD hotkey disabled")
-            return
-        }
-        guard Hotkey.hotkeyToString(config.pinnedHotkey) != Hotkey.hotkeyToString(config.hotkey) else {
-            NSLog("Spacemap: pinned HUD hotkey matches the normal hotkey; pinned binding ignored")
-            return
-        }
-        let pinnedMonitor = HotkeyMonitor(config: config.pinnedHotkey) { [weak self] in
-            self?.hud.togglePinned()
-        }
-        pinnedMonitor.start()
-        pinnedHotkeyMonitor = pinnedMonitor
+    static func shouldRestoreActivationPolicy(
+        previous: NSApplication.ActivationPolicy,
+        hasVisibleKeyWindow: Bool
+    ) -> Bool {
+        previous != .regular && !hasVisibleKeyWindow
     }
 
 }

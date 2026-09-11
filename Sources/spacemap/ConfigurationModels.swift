@@ -7,12 +7,12 @@ enum HUDDisplayMode {
     case hidden
 }
 
-enum CellStyle: Int, CaseIterable, Identifiable {
+enum CellStyle: Int, CaseIterable, Identifiable, Equatable {
     case rects, hybrid, icons, thumbnails, simple
     var id: Int { rawValue }
 }
-enum ShowMode: String, CaseIterable, Identifiable { case all, active; var id: String { rawValue } }
-enum MultiMonitorHUDMode: String, CaseIterable, Identifiable {
+enum ShowMode: String, CaseIterable, Identifiable, Equatable { case all, active; var id: String { rawValue } }
+enum MultiMonitorHUDMode: String, CaseIterable, Identifiable, Equatable {
     case unified
     case separate
 
@@ -28,21 +28,21 @@ enum MultiMonitorHUDMode: String, CaseIterable, Identifiable {
         }
     }
 }
-enum SeparateHUDVisibility: String, CaseIterable, Identifiable {
+enum SeparateHUDVisibility: String, CaseIterable, Identifiable, Equatable {
     case all
     case active
 
     var id: String { rawValue }
 }
-enum DisplayNavigationWrap: String, CaseIterable, Identifiable {
+enum DisplayNavigationWrap: String, CaseIterable, Identifiable, Equatable {
     case within
     case between
 
     var id: String { rawValue }
 }
-enum ThemeMode: String, CaseIterable, Identifiable { case light, dark, auto; var id: String { rawValue } }
-enum UpdateMode: String, CaseIterable, Identifiable { case auto, notify, off; var id: String { rawValue } }
-enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
+enum ThemeMode: String, CaseIterable, Identifiable, Equatable { case light, dark, auto; var id: String { rawValue } }
+enum UpdateMode: String, CaseIterable, Identifiable, Equatable { case auto, notify, off; var id: String { rawValue } }
+enum MenuBarDisplayMode: String, CaseIterable, Identifiable, Equatable {
     case icon
     case dots
     case current
@@ -51,7 +51,7 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 }
-enum WindowDropFocusMode: String, CaseIterable, Identifiable {
+enum WindowDropFocusMode: String, CaseIterable, Identifiable, Equatable {
     case never
     case always
     case modifier
@@ -69,7 +69,7 @@ enum WindowDropFocusMode: String, CaseIterable, Identifiable {
         }
     }
 }
-enum WindowDropFocusModifier: String, CaseIterable, Identifiable {
+enum WindowDropFocusModifier: String, CaseIterable, Identifiable, Equatable {
     case command
     case function = "fn"
     case option
@@ -139,7 +139,7 @@ enum HUDPositionKind: String, CaseIterable {
     }
 }
 
-struct HotkeyConfig {
+struct HotkeyConfig: Equatable {
     var key: HotkeyKey
     var modifiers: CGEventFlags
 
@@ -167,7 +167,7 @@ enum HotkeyKey: Equatable {
     case mediaKey(MediaKey)
 }
 
-enum MediaKey: String, Codable, CaseIterable {
+enum MediaKey: String, Codable, CaseIterable, Equatable {
     case playPause = "play-pause"
     case nextTrack = "next-track"
     case previousTrack = "previous-track"
@@ -178,7 +178,7 @@ enum MediaKey: String, Codable, CaseIterable {
     case brightnessDown = "brightness-down"
 }
 
-struct GridConfig {
+struct GridConfig: Equatable {
     var cols: Int
     var rows: Int
     var cellStyle: CellStyle

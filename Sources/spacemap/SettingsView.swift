@@ -68,76 +68,24 @@ struct SettingsView: View {
         }
     }
 
-    @State private var isRecording = false
-    @State private var monitors: [Any] = []
     @State private var updateMode: UpdateMode = .notify
-    @State private var previousUpdateMode: UpdateMode = .notify
     @State private var selectedSection: SidebarSection = .grid
     @State private var isYabaiHealthy: Bool?
     @State private var isSocketHealthy: Bool?
     @State private var isRefreshingDiagnostics = false
 
-    private let socketHealthOptions = [15, 30, 45, 60]
+    private let yabaiService: YabaiService
     private let diagnosticsTimer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
-    private var maxSpacesOptions: [Int] { Array(1...16) }
-
-    private var gridLayouts: [(cols: Int, rows: Int, label: String)] {
-        var layouts: [(Int, Int, String)] = []
-        for c in 1...maxSpaces {
-            if maxSpaces % c == 0 {
-                let r = maxSpaces / c
-                layouts.append((c, r, "\(c)×\(r)"))
-            }
-        }
-        return layouts
-    }
-
-    private var backgroundTransparencySteps: [Double] {
-        [0.00, 0.05, 0.12, 0.22, 0.35, 0.50, 0.65, 0.80, 0.92, 1.00]
-    }
-
-    private var uiScaleSteps: [Double] {
-        [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    }
-
-    private var iconScaleSteps: [Double] {
-        [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-    }
-
-    private func nearest<T: FixedWidthInteger>(to value: T, from sorted: [T]) -> T {
-        guard var closest = sorted.first else { return value }
-        for item in sorted {
-            let diff = item > value ? item - value : value - item
-            let closestDiff = closest > value ? closest - value : value - closest
-            if diff < closestDiff {
-                closest = item
-            }
-        }
-        return closest
-    }
-
-    private func nearest<T: BinaryFloatingPoint>(to value: T, from sorted: [T]) -> T {
-        guard var closest = sorted.first else { return value }
-        for item in sorted {
-            let diff = abs(item - value)
-            let closestDiff = abs(closest - value)
-            if diff < closestDiff {
-                closest = item
-            }
-        }
-        return closest
-    }
-
-init() {
-        let config = Config.load()
+    init(yabaiService: YabaiService, config: GridConfig = Config.load()) {
+        self.yabaiService = yabaiService
         _cols = State(initialValue: config.cols)
         _rows = State(initialValue: config.rows)
         _cellStyle = State(initialValue: config.cellStyle)
         _hotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hotkey))
         _pinnedHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.pinnedHotkey))
-        _socketHealthInterval = State(initialValue: nearest(to: config.socketHealthInterval, from: socketHealthOptions))
-        _uiScale = State(initialValue: nearest(to: config.uiScale, from: uiScaleSteps))
+        _socketHealthInterval = State(initialValue: config.socketHealthInterval)
+        _uiScale = State(initialValue: config.uiScale)
         _autoHideTimeout = State(initialValue: config.autoHideTimeout)
         _theme = State(initialValue: config.theme)
         _showMode = State(initialValue: config.showMode)
@@ -146,10 +94,10 @@ init() {
         _separateHUDVisibility = State(initialValue: config.separateHUDVisibility)
         _displayNavigationWrap = State(initialValue: config.displayNavigationWrap)
         _maxSpaces = State(initialValue: config.maxSpaces)
-        _backgroundAlpha = State(initialValue: nearest(to: config.backgroundAlpha, from: backgroundTransparencySteps))
+        _backgroundAlpha = State(initialValue: config.backgroundAlpha)
         _hudShadow = State(initialValue: config.hudShadow)
         _mode = State(initialValue: config.mode)
-        _iconScale = State(initialValue: nearest(to: config.iconScale, from: iconScaleSteps))
+        _iconScale = State(initialValue: config.iconScale)
         _showSpaceNumbers = State(initialValue: config.showSpaceNumbers)
         _showSpaceNames = State(initialValue: config.showSpaceNames)
         _showIconStrip = State(initialValue: config.showIconStrip)
@@ -168,21 +116,12 @@ init() {
         _focusSpaceOnWindowDropModifier = State(initialValue: config.focusSpaceOnWindowDropModifier)
         _showHUDOnSpaceChange = State(initialValue: config.showHUDOnSpaceChange)
         _spaceNameInputs = State(initialValue: config.spaceNames)
-        _gridLayoutIndex = State(initialValue: findBestGridLayoutIndexFor(cols: config.cols, rows: config.rows, maxSpaces: config.maxSpaces))
+        _gridLayoutIndex = State(initialValue: SettingsGrid.layoutIndex(
+            maxSpaces: config.maxSpaces,
+            currentCols: config.cols,
+            currentRows: config.rows
+        ))
         _updateMode = State(initialValue: config.updateMode)
-        _previousUpdateMode = State(initialValue: config.updateMode)
-    }
-
-    private func findBestGridLayoutIndexFor(cols: Int, rows: Int, maxSpaces: Int) -> Int {
-        let layouts: [(Int, Int)] = (1...maxSpaces).compactMap { c in
-            maxSpaces % c == 0 ? (c, maxSpaces / c) : nil
-        }
-        for (idx, layout) in layouts.enumerated() {
-            if layout.0 == cols && layout.1 == rows {
-                return idx
-            }
-        }
-        return 0
     }
 
     private func saveConfig() {
@@ -340,8 +279,8 @@ init() {
         guard !isRefreshingDiagnostics else { return }
         isRefreshingDiagnostics = true
         let socketPath = "/tmp/spacemap_\(NSUserName()).socket"
-        DispatchQueue.global(qos: .utility).async {
-            let yabaiHealthy = YabaiClient.isYabaiRunning(forceRefresh: true)
+        yabaiService.runOnYabaiQueue {
+            let yabaiHealthy = yabaiService.isYabaiRunning(forceRefresh: true)
             let socketHealthy = SocketListener.sendCommand(to: socketPath, command: 5)
             DispatchQueue.main.async {
                 isYabaiHealthy = yabaiHealthy

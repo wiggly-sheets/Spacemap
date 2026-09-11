@@ -28,7 +28,7 @@ final class AlertsServiceImpl: AlertsService {
 
         let response = alert.runModal()
         if response == .alertSecondButtonReturn {
-            workspace.open(URL(string: "https://github.com/koekeishiya/yabai")!)
+            _ = workspace.open(URL(string: "https://github.com/koekeishiya/yabai")!)
         }
         NSApp.terminate(nil)
     }
@@ -87,7 +87,7 @@ final class AlertsServiceImpl: AlertsService {
         alert.addButton(withTitle: NSLocalizedString("Open System Settings", comment: ""))
 
         if alert.runModal() == .alertSecondButtonReturn {
-            workspace.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
+            _ = workspace.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
         }
         NSApp.setActivationPolicy(.prohibited)
     }

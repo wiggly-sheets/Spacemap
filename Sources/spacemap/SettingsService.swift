@@ -4,6 +4,8 @@ final class SettingsService: SettingsHandling {
     let yabaiService: YabaiService
     let checkForUpdates: () -> Void
     private var settingsWindowController: SettingsWindowController?
+    private var settingsWindowCloseObserver: NSObjectProtocol?
+    private(set) var aboutWindowController: AboutWindowController?
 
     init(
         yabaiService: YabaiService,
@@ -11,6 +13,10 @@ final class SettingsService: SettingsHandling {
     ) {
         self.yabaiService = yabaiService
         self.checkForUpdates = checkForUpdates
+    }
+
+    deinit {
+        removeSettingsWindowCloseObserver()
     }
 
     func showSettingsWindow() {
@@ -28,22 +34,32 @@ final class SettingsService: SettingsHandling {
         controller.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         if let window = controller.window {
-            NotificationCenter.default.addObserver(
+            removeSettingsWindowCloseObserver()
+            settingsWindowCloseObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.willCloseNotification,
                 object: window,
                 queue: .main
-            ) { _ in
+            ) { [weak self] _ in
+                guard let self else { return }
                 self.settingsWindowController = nil
-                NSApp.setActivationPolicy(.prohibited)
+                self.removeSettingsWindowCloseObserver()
+                DispatchQueue.main.async {
+                    let hasOtherWindow = NSApp.windows.contains {
+                        $0.isVisible && $0.canBecomeKey
+                    }
+                    if !hasOtherWindow {
+                        NSApp.setActivationPolicy(.prohibited)
+                    }
+                }
             }
         }
     }
 
     func showAboutWindow() {
         NSApp.setActivationPolicy(.regular)
-        if let aboutWindowController = NSApp.delegate?.perform(NSSelectorFromString("aboutWindowController"))?.takeUnretainedValue() as? NSWindowController {
-            aboutWindowController.showWindow(nil)
-            aboutWindowController.window?.makeKeyAndOrderFront(nil)
+        if let controller = aboutWindowController {
+            controller.showWindow(nil)
+            controller.window?.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
@@ -68,5 +84,9 @@ final class SettingsService: SettingsHandling {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private var aboutWindowController: AboutWindowController?
+    private func removeSettingsWindowCloseObserver() {
+        guard let settingsWindowCloseObserver else { return }
+        NotificationCenter.default.removeObserver(settingsWindowCloseObserver)
+        self.settingsWindowCloseObserver = nil
+    }
 }

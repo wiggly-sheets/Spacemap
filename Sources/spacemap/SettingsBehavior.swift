@@ -6,6 +6,8 @@ import Sparkle
 
 struct SettingsBehavior: View {
 
+    @State private var hotkeyRecorderCoordinator = HotkeyRecorderCoordinator()
+
     @Binding var hotkeyString: String
     @Binding var pinnedHotkeyString: String
     @Binding var hudPositionKind: HUDPositionKind
@@ -23,23 +25,28 @@ struct SettingsBehavior: View {
     @Binding var updateMode: UpdateMode
 
 
-    @State private var previousUpdateMode: UpdateMode = .notify
-
-
     let onSave: () -> Void
     let checkForUpdates: () -> Void
 
 
     var body: some View {
         Section(header: SettingsSectionHeader(title: "Behavior")) {
-            HotkeyRecorder(label: "Hotkey", hotkey: $hotkeyString)
+            HotkeyRecorder(
+                label: "Hotkey",
+                hotkey: $hotkeyString,
+                coordinator: hotkeyRecorderCoordinator
+            )
                 .onChange(of: hotkeyString) { value in
                     if Self.matches(value, pinnedHotkeyString) {
                         pinnedHotkeyString = "none"
                     }
                     onSave()
                 }
-            HotkeyRecorder(label: "Pinned HUD Hotkey", hotkey: $pinnedHotkeyString)
+            HotkeyRecorder(
+                label: "Pinned HUD Hotkey",
+                hotkey: $pinnedHotkeyString,
+                coordinator: hotkeyRecorderCoordinator
+            )
                 .onChange(of: pinnedHotkeyString) { value in
                     if Self.matches(value, hotkeyString) {
                         hotkeyString = "none"
@@ -155,12 +162,7 @@ struct SettingsBehavior: View {
                 Text("Off").tag(UpdateMode.off)
             }
             .pickerStyle(.segmented)
-            .onChange(of: updateMode) { newValue in
-                if newValue != previousUpdateMode {
-                    onSave()
-                    previousUpdateMode = newValue
-                }
-            }
+            .onChange(of: updateMode) { _ in onSave() }
 
             Button("Check for Updates...") {
                 checkForUpdates()

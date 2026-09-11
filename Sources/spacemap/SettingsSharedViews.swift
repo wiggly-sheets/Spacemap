@@ -55,9 +55,13 @@ struct SettingsFootnote: View {
 struct HotkeyRecorder: View {
     let label: String
     @Binding var hotkey: String
+    let coordinator: HotkeyRecorderCoordinator
 
-    @State private var isRecording = false
+    @State private var recordingState = HotkeyRecordingState()
     @State private var monitors: [Any] = []
+    @State private var recorderID = UUID()
+
+    private var isRecording: Bool { recordingState.isRecording }
 
     var body: some View {
         HStack {
@@ -71,7 +75,13 @@ struct HotkeyRecorder: View {
                         .strokeBorder(isRecording ? Color.accentColor : Color.secondary.opacity(0.3),
                                     lineWidth: 1)
                 )
-                .onTapGesture { startRecording() }
+                .onTapGesture {
+                    if isRecording {
+                        cancelRecording()
+                    } else {
+                        startRecording()
+                    }
+                }
 
             if Self.canClear(hotkey), !isRecording {
                 Button(action: clear) {
@@ -83,54 +93,74 @@ struct HotkeyRecorder: View {
                 .accessibilityLabel("Clear \(label)")
             }
         }
+        .onDisappear { cancelRecording() }
     }
 
     private func startRecording() {
-        isRecording = true
-        hotkey = "Recording..."
-
-        let keyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            handleKeyDown(event)
-            return nil
+        guard recordingState.begin(currentHotkey: hotkey) else { return }
+        coordinator.activate(recorderID: recorderID) {
+            cancelRecording()
         }
 
-        let flagsChangedMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
-            handleFlagsChanged(event)
+        let keyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if Self.isCancelKey(event) {
+                cancelRecording()
+            } else {
+                handleKeyDown(event)
+            }
             return nil
         }
 
         let mediaKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .systemDefined) { event in
-            handleMediaKey(event)
-            return nil
+            handleMediaKey(event) ? nil : event
         }
 
-        monitors = [keyDownMonitor, flagsChangedMonitor, mediaKeyMonitor].compactMap { $0 }
+        monitors = [keyDownMonitor, mediaKeyMonitor].compactMap { $0 }
+        if monitors.isEmpty {
+            cancelRecording()
+        }
     }
 
     private func handleKeyDown(_ event: NSEvent) {
         let hotkeyConfig = Hotkey.parseHotkeyFromEvent(event)
-        hotkey = HotkeyRecorder.hotkeyStringFrom(hotkeyConfig)
-        stopRecording()
-    }
-
-    private func handleFlagsChanged(_ event: NSEvent) {
-        let hotkeyConfig = Hotkey.parseHotkeyFromEvent(event)
-        if hotkeyConfig.isDisabled {
-            hotkey = "none"
-            stopRecording()
+        let recordedHotkey = HotkeyRecorder.hotkeyStringFrom(hotkeyConfig)
+        guard Hotkey.parseHotkey(recordedHotkey) != nil else {
+            NSSound.beep()
+            return
         }
+        hotkey = recordedHotkey
+        stopRecording()
     }
 
-    private func handleMediaKey(_ event: NSEvent) {
-        guard let hotkeyConfig = Hotkey.parseHotkeyFromMediaKeyEvent(event) else { return }
+    private func handleMediaKey(_ event: NSEvent) -> Bool {
+        guard let hotkeyConfig = Hotkey.parseHotkeyFromMediaKeyEvent(event) else { return false }
         hotkey = HotkeyRecorder.hotkeyStringFrom(hotkeyConfig)
         stopRecording()
+        return true
     }
 
     private func stopRecording() {
-        isRecording = false
-        monitors.forEach { NSEvent.removeMonitor($0) }
-        monitors.removeAll()
+        removeMonitors()
+        recordingState.complete()
+        coordinator.deactivate(recorderID: recorderID)
+    }
+
+    private func cancelRecording() {
+        guard recordingState.isRecording else {
+            removeMonitors()
+            coordinator.deactivate(recorderID: recorderID)
+            return
+        }
+        removeMonitors()
+        if let originalHotkey = recordingState.cancel() {
+            hotkey = originalHotkey
+        }
+        coordinator.deactivate(recorderID: recorderID)
+    }
+
+    private func removeMonitors() {
+        monitors.forEach(NSEvent.removeMonitor)
+        monitors = []
     }
 
     private func clear() {
@@ -144,5 +174,59 @@ struct HotkeyRecorder: View {
 
     static func canClear(_ hotkey: String) -> Bool {
         hotkey.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() != "none"
+    }
+
+    static func isCancelKey(_ event: NSEvent) -> Bool {
+        let shortcutModifiers = event.modifierFlags.intersection([
+            .control,
+            .command,
+            .option,
+            .shift,
+            .function
+        ])
+        return event.type == .keyDown && event.keyCode == 53 && shortcutModifiers.isEmpty
+    }
+}
+
+final class HotkeyRecorderCoordinator {
+    private(set) var activeRecorderID: UUID?
+    private var cancelActiveRecorder: (() -> Void)?
+
+    func activate(recorderID: UUID, onCancel: @escaping () -> Void) {
+        if activeRecorderID != recorderID {
+            let cancelPrevious = cancelActiveRecorder
+            activeRecorderID = nil
+            cancelActiveRecorder = nil
+            cancelPrevious?()
+        }
+        activeRecorderID = recorderID
+        cancelActiveRecorder = onCancel
+    }
+
+    func deactivate(recorderID: UUID) {
+        guard activeRecorderID == recorderID else { return }
+        activeRecorderID = nil
+        cancelActiveRecorder = nil
+    }
+}
+
+struct HotkeyRecordingState {
+    private(set) var originalHotkey: String?
+
+    var isRecording: Bool { originalHotkey != nil }
+
+    mutating func begin(currentHotkey: String) -> Bool {
+        guard !isRecording else { return false }
+        originalHotkey = currentHotkey
+        return true
+    }
+
+    mutating func complete() {
+        originalHotkey = nil
+    }
+
+    mutating func cancel() -> String? {
+        defer { originalHotkey = nil }
+        return originalHotkey
     }
 }
