@@ -1,86 +1,86 @@
 /* SettingsView - Grid Section */
-"Grid" = "\u7f51\u683c";
-"Max Spaces" = "\u6700\u5927\u7a7a\u95f4\u6570";
-"Grid Layout" = "\u7f51\u683c\u5e03\u5c40";
-"Show Mode" = "\u663e\u793a\u6a21\u5f0f";
-"All Spaces" = "\u6240\u6709\u7a7a\u95f4";
-"Active Spaces" = "\u6d3b\u8dc3\u7a7a\u95f4";
-"Cell Style" = "\u5355\u5143\u683c\u6837\u5f0f";
-"Rectangles" = "\u77e9\u5f62";
+"Grid" = "\U7F51\U683C";
+"Max Spaces" = "\U6700\U5927\U7A7A\U95F4\U6570";
+"Grid Layout" = "\U7F51\U683C\U5E03\U5C40";
+"Show Mode" = "\U663E\U793A\U6A21\U5F0F";
+"All Spaces" = "\U6240\U6709\U7A7A\U95F4";
+"Active Spaces" = "\U6D3B\U8DC3\U7A7A\U95F4";
+"Cell Style" = "\U5355\U5143\U683C\U6837\U5F0F";
+"Rectangles" = "\U77E9\U5F62";
 "Hybrid" = "混合";
-"Icons" = "\u56fe\u6807";
-"Thumbnails" = "\u7f29\u7565\u56fe";
-"Simple" = "\u7b80\u6d01";
-"Show Space Numbers" = "\u663e\u793a\u7a7a\u95f4\u7f16\u53f7";
-"Show Icon Strip" = "\u663e\u793a\u56fe\u6807\u680f";
-"Show Each Window Icon" = "\u663e\u793a\u6bcf\u4e2a\u7a97\u53e3\u56fe\u6807";
+"Icons" = "\U56FE\U6807";
+"Thumbnails" = "\U7F29\U7565\U56FE";
+"Simple" = "\U7B80\U6D01";
+"Show Space Numbers" = "\U663E\U793A\U7A7A\U95F4\U7F16\U53F7";
+"Show Icon Strip" = "\U663E\U793A\U56FE\U6807\U680F";
+"Show Each Window Icon" = "\U663E\U793A\U6BCF\U4E2A\U7A97\U53E3\U56FE\U6807";
 
 /* SettingsView - Appearance Section */
-"Appearance" = "\u5916\u89c2";
-"Theme" = "\u4e3b\u9898";
-"Open Config File" = "\u6253\u5f00\u914d\u7f6e\u6587\u4ef6";
-"Open Themes Folder" = "\u6253\u5f00\u4e3b\u9898\u6587\u4ef6\u5939";
-"Background Color" = "\u80cc\u666f\u8272";
-"Light" = "\u6d45\u8272";
-"Dark" = "\u6df1\u8272";
-"Auto" = "\u81ea\u52a8";
-"Background Transparency" = "\u80cc\u666f\u900f\u660e\u5ea6";
-"Icon Scale" = "\u56fe\u6807\u5927\u5c0f";
-"UI Scale" = "\u754c\u9762\u7f29\u653e";
+"Appearance" = "\U5916\U89C2";
+"Theme" = "\U4E3B\U9898";
+"Open Config File" = "\U6253\U5F00\U914D\U7F6E\U6587\U4EF6";
+"Open Themes Folder" = "\U6253\U5F00\U4E3B\U9898\U6587\U4EF6\U5939";
+"Background Color" = "\U80CC\U666F\U8272";
+"Light" = "\U6D45\U8272";
+"Dark" = "\U6DF1\U8272";
+"Auto" = "\U81EA\U52A8";
+"Background Transparency" = "\U80CC\U666F\U900F\U660E\U5EA6";
+"Icon Scale" = "\U56FE\U6807\U5927\U5C0F";
+"UI Scale" = "\U754C\U9762\U7F29\U653E";
 
 /* SettingsView - Behavior Section */
-"Behavior" = "\u884c\u4e3a";
-"Hotkey" = "\u5feb\u6377\u952e";
-"Socket Health Interval (s)" = "\u5957\u63a5\u5b57\u5065\u5eb7\u95f4\u9694\uff08\u79d2\uff09";
-"Auto-hide Timeout (s): %d (0 = disabled)" = "\u81ea\u52a8\u9690\u85cf\uff08\u79d2\uff09\uff1a%d\uff080 = \u7981\u7528\uff09";
-"Hide Menu Bar Icon" = "\u9690\u85cf\u83dc\u5355\u680f\u56fe\u6807";
-"Access settings by relaunching the app or pressing \u2318, while the HUD is open." = "\u901a\u8fc7\u91cd\u542f\u5e94\u7528\u6216\u6309\u2318\u952e\u8bbf\u95ee\u8bbe\u7f6e\uff08HUD\u6253\u5f00\u65f6\uff09\u3002";
-"Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)" = "\u4f7f\u7528\u65b9\u5411\u952e\u5bfc\u822a (\u2190\u2191\u2193\u2192)";
-"Navigate with Vim Keys (hjkl)" = "\u4f7f\u7528 Vim \u952e\u5bfc\u822a (hjkl)";
+"Behavior" = "\U884C\U4E3A";
+"Hotkey" = "\U5FEB\U6377\U952E";
+"Socket Health Interval (s)" = "\U5957\U63A5\U5B57\U5065\U5EB7\U95F4\U9694\UFF08\U79D2\UFF09";
+"Auto-hide Timeout (s): %d (0 = disabled)" = "\U81EA\U52A8\U9690\U85CF\UFF08\U79D2\UFF09\UFF1A%d\UFF080 = \U7981\U7528\UFF09";
+"Hide Menu Bar Icon" = "\U9690\U85CF\U83DC\U5355\U680F\U56FE\U6807";
+"Access settings by relaunching the app or pressing \U2318, while the HUD is open." = "\U901A\U8FC7\U91CD\U542F\U5E94\U7528\U6216\U6309\U2318\U952E\U8BBF\U95EE\U8BBE\U7F6E\UFF08HUD\U6253\U5F00\U65F6\UFF09\U3002";
+"Navigate with Arrow Keys (\U2190\U2191\U2193\U2192)" = "\U4F7F\U7528\U65B9\U5411\U952E\U5BFC\U822A (\U2190\U2191\U2193\U2192)";
+"Navigate with Vim Keys (hjkl)" = "\U4F7F\U7528 Vim \U952E\U5BFC\U822A (hjkl)";
 
 /* SettingsView - Space Names Section */
-"Space Names" = "\u7a7a\u95f4\u540d\u79f0";
-"Show Space Names" = "\u663e\u793a\u7a7a\u95f4\u540d\u79f0";
-"(Each input below corresponds to each space number, up to Max Spaces)" = "(\u4e0b\u65b9\u6bcf\u4e2a\u8f93\u5165\u5bf9\u5e94\u4e00\u4e2a\u7a7a\u95f4\u7f16\u53f7\uff0c\u6700\u591a\u81f3\u6700\u5927\u7a7a\u95f4\u6570)";
-"Space %d:" = "\u7a7a\u95f4 %d\uff1a";
+"Space Names" = "\U7A7A\U95F4\U540D\U79F0";
+"Show Space Names" = "\U663E\U793A\U7A7A\U95F4\U540D\U79F0";
+"(Each input below corresponds to each space number, up to Max Spaces)" = "(\U4E0B\U65B9\U6BCF\U4E2A\U8F93\U5165\U5BF9\U5E94\U4E00\U4E2A\U7A7A\U95F4\U7F16\U53F7\UFF0C\U6700\U591A\U81F3\U6700\U5927\U7A7A\U95F4\U6570)";
+"Space %d:" = "\U7A7A\U95F4 %d\UFF1A";
 
 /* HotkeyRecorder */
-"Recording..." = "\u5f55\u5236\u4e2d...";
-"Click to record" = "\u70b9\u51fb\u5f55\u5236";
+"Recording..." = "\U5F55\U5236\U4E2D...";
+"Click to record" = "\U70B9\U51FB\U5F55\U5236";
 
 /* App Menu Items */
-"Show/Hide Map (%@)" = "\u663e\u793a/\u9690\u85cf\u5730\u56fe (%@)";
-"Settings..." = "\u8bbe\u7f6e...";
-"Open Accessibility Permissions (for hotkey)" = "\u6253\u5f00\u8f85\u52a9\u529f\u80fd\u6743\u9650\uff08\u7528\u4e8e\u5feb\u6377\u952e\uff09";
-"Open Screen Recording Permissions (for thumbnails)" = "\u6253\u5f00\u5c4f\u5e55\u5f55\u5236\u6743\u9650\uff08\u7528\u4e8e\u7f29\u7565\u56fe\uff09";
-"Launch at Login" = "\u767b\u5f55\u65f6\u542f\u52a8";
-"Restart Spacemap" = "\u91cd\u542f Spacemap";
-"Quit Spacemap" = "\u9000\u51fa Spacemap";
+"Show/Hide Map (%@)" = "\U663E\U793A/\U9690\U85CF\U5730\U56FE (%@)";
+"Settings..." = "\U8BBE\U7F6E...";
+"Open Accessibility Permissions (for hotkeys)" = "\U6253\U5F00\U8F85\U52A9\U529F\U80FD\U6743\U9650\UFF08\U7528\U4E8E\U5FEB\U6377\U952E\UFF09";
+"Open Screen Recording Permissions (for thumbnails)" = "\U6253\U5F00\U5C4F\U5E55\U5F55\U5236\U6743\U9650\UFF08\U7528\U4E8E\U7F29\U7565\U56FE\UFF09";
+"Launch at Login" = "\U767B\U5F55\U65F6\U542F\U52A8";
+"Restart Spacemap" = "\U91CD\U542F Spacemap";
+"Quit Spacemap" = "\U9000\U51FA Spacemap";
 
 /* App Alerts - Move to Applications */
-"Move Spacemap to Applications?" = "\u5c06 Spacemap \u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\uff1f";
-"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap \u5e94\u4ece\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\u6587\u4ef6\u5939\u8fd0\u884c\u4ee5\u83b7\u5f97\u6700\u4f73\u6027\u80fd\u3002\u662f\u5426\u7acb\u5373\u79fb\u52a8\uff1f";
-"Move to Applications" = "\u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d";
-"Cancel" = "\u53d6\u6d88";
-"Moved to Applications" = "\u5df2\u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d";
-"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap \u5df2\u590d\u5236\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\u6587\u4ef6\u5939\u3002\u8bf7\u9000\u51fa\u5e76\u4ece\u90a3\u91cc\u91cd\u65b0\u542f\u52a8\u3002";
-"Failed to move" = "\u79fb\u52a8\u5931\u8d25";
-"Could not move Spacemap to Applications: %@" = "\u65e0\u6cd5\u5c06 Spacemap \u79fb\u5230\u201c\u5e94\u7528\u7a0b\u5e8f\u201d\uff1a%@";
+"Move Spacemap to Applications?" = "\U5C06 Spacemap \U79FB\U5230\U201C\U5E94\U7528\U7A0B\U5E8F\U201D\UFF1F";
+"Spacemap should be run from the Applications folder for best performance. Would you like to move it there now?" = "Spacemap \U5E94\U4ECE\U201C\U5E94\U7528\U7A0B\U5E8F\U201D\U6587\U4EF6\U5939\U8FD0\U884C\U4EE5\U83B7\U5F97\U6700\U4F73\U6027\U80FD\U3002\U662F\U5426\U7ACB\U5373\U79FB\U52A8\UFF1F";
+"Move to Applications" = "\U79FB\U5230\U201C\U5E94\U7528\U7A0B\U5E8F\U201D";
+"Cancel" = "\U53D6\U6D88";
+"Moved to Applications" = "\U5DF2\U79FB\U5230\U201C\U5E94\U7528\U7A0B\U5E8F\U201D";
+"Spacemap has been copied to the Applications folder. Please quit and relaunch from there." = "Spacemap \U5DF2\U590D\U5236\U5230\U201C\U5E94\U7528\U7A0B\U5E8F\U201D\U6587\U4EF6\U5939\U3002\U8BF7\U9000\U51FA\U5E76\U4ECE\U90A3\U91CC\U91CD\U65B0\U542F\U52A8\U3002";
+"Failed to move" = "\U79FB\U52A8\U5931\U8D25";
+"Could not move Spacemap to Applications: %@" = "\U65E0\U6CD5\U5C06 Spacemap \U79FB\U5230\U201C\U5E94\U7528\U7A0B\U5E8F\U201D\UFF1A%@";
 
 /* App Alerts - Launch at Login */
-"Launch at Login?" = "\u767b\u5f55\u65f6\u542f\u52a8\uff1f";
-"Would you like Spacemap to start automatically when you log in?" = "\u662f\u5426\u5e0c\u671b Spacemap \u5728\u767b\u5f55\u65f6\u81ea\u52a8\u542f\u52a8\uff1f";
-"Yes" = "\u662f";
-"No" = "\u5426";
+"Launch at Login?" = "\U767B\U5F55\U65F6\U542F\U52A8\UFF1F";
+"Would you like Spacemap to start automatically when you log in?" = "\U662F\U5426\U5E0C\U671B Spacemap \U5728\U767B\U5F55\U65F6\U81EA\U52A8\U542F\U52A8\UFF1F";
+"Yes" = "\U662F";
+"No" = "\U5426";
 
 /* App Alerts - yabai not running */
-"yabai is not running" = "yabai \u672a\u8fd0\u884c";
-"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap \u9700\u8981 yabai \u8fd0\u884c\u3002\u8bf7\u542f\u52a8 yabai \u5e76\u91cd\u65b0\u542f\u52a8 Spacemap\u3002";
-"Quit" = "\u9000\u51fa";
-"Open yabai" = "\u6253\u5f00 yabai";
+"yabai is not running" = "yabai \U672A\U8FD0\U884C";
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap." = "Spacemap \U9700\U8981 yabai \U8FD0\U884C\U3002\U8BF7\U542F\U52A8 yabai \U5E76\U91CD\U65B0\U542F\U52A8 Spacemap\U3002";
+"Quit" = "\U9000\U51FA";
+"Open yabai" = "\U6253\U5F00 yabai";
 
 /* App Alerts - MRU Spaces */
-"Spaces Auto-Rearrange Enabled" = "\u5df2\u542f\u7528\u7a7a\u95f4\u81ea\u52a8\u91cd\u6392";
-"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap \u9700\u8981\u7981\u7528\u6b64\u529f\u80fd\u4ee5\u4fdd\u6301\u7f51\u683c\u7a33\u5b9a\u3002\u7a7a\u95f4\u5fc5\u987b\u4fdd\u6301\u56fa\u5b9a\u987a\u5e8f\uff0c\u5426\u5219\u7f51\u683c\u5c06\u4e0d\u53ef\u9760\u3002";
-"Leave as Is" = "\u4fdd\u6301\u73b0\u72b6";
-"Fix It" = "\u4fee\u590d";
+"Spaces Auto-Rearrange Enabled" = "\U5DF2\U542F\U7528\U7A7A\U95F4\U81EA\U52A8\U91CD\U6392";
+"Spacemap needs this disabled for stable grid layout. Spaces must stay in a fixed order or the grid becomes unreliable." = "Spacemap \U9700\U8981\U7981\U7528\U6B64\U529F\U80FD\U4EE5\U4FDD\U6301\U7F51\U683C\U7A33\U5B9A\U3002\U7A7A\U95F4\U5FC5\U987B\U4FDD\U6301\U56FA\U5B9A\U987A\U5E8F\UFF0C\U5426\U5219\U7F51\U683C\U5C06\U4E0D\U53EF\U9760\U3002";
+"Leave as Is" = "\U4FDD\U6301\U73B0\U72B6";
+"Fix It" = "\U4FEE\U590D";

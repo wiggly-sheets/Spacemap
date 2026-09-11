@@ -9,6 +9,7 @@ permissions:
 
 env:
   SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
+  APPCAST_MAX_ITEMS: "5"
 
 jobs:
   release:
@@ -32,10 +33,23 @@ jobs:
         run: |
           brew install create-dmg scdoc
 
-      - name: Read version
+      - name: Validate release version
         id: version
         run: |
-          echo "tag=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          REPOSITORY_VERSION=$(tr -d '[:space:]' < VERSION)
+          PLIST_SHORT_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Sources/spacemap/Info.plist)
+          PLIST_BUILD_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' Sources/spacemap/Info.plist)
+          for value in "$REPOSITORY_VERSION" "$PLIST_SHORT_VERSION" "$PLIST_BUILD_VERSION"; do
+            if [ "$value" != "$TAG_VERSION" ]; then
+              echo "::error::Release tag v$TAG_VERSION does not match VERSION and Info.plist ($REPOSITORY_VERSION, $PLIST_SHORT_VERSION, $PLIST_BUILD_VERSION)"
+              exit 1
+            fi
+          done
+          echo "tag=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        run: swift test
 
       - name: Verify Sparkle signing key pair
         env:
@@ -83,6 +97,17 @@ jobs:
         run: |
           rm -rf .build
           make app-universal
+
+      - name: Verify bundled versions and localizations
+        run: |
+          for bundle in spacemap-arm64.app spacemap-x86_64.app Spacemap.app; do
+            make --no-print-directory verify-localizations BUNDLE="$bundle"
+            bundle_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$bundle/Contents/Info.plist")
+            if [ "$bundle_version" != "${{ steps.version.outputs.tag }}" ]; then
+              echo "::error::$bundle contains version $bundle_version"
+              exit 1
+            fi
+          done
 
       - name: Code sign and verify app bundles
         run: |
@@ -184,6 +209,7 @@ jobs:
           APPCAST_URL: https://wiggly-sheets.github.io/Spacemap/appcast.xml
           RELEASES_URL: https://github.com/wiggly-sheets/Spacemap/releases/download/v${{ steps.version.outputs.tag }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          MAX_ITEMS: ${{ env.APPCAST_MAX_ITEMS }}
         run: |
           export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
           # Download Sparkle's sign_update tool. The key pair was validated
@@ -209,6 +235,24 @@ jobs:
           for asset in "${assets[@]}"; do
             test -s "$asset" || { echo "::error::Missing or empty release asset: $asset"; exit 1; }
           done
+          xmllint --noout appcast.xml
+          item_count=$(awk '/<item>/{count++} END{print count+0}' appcast.xml)
+          enclosure_count=$(awk '/<enclosure /{count++} END{print count+0}' appcast.xml)
+          version_count=$(awk '/<sparkle:version>/{count++} END{print count+0}' appcast.xml)
+          short_version_count=$(awk '/<sparkle:shortVersionString>/{count++} END{print count+0}' appcast.xml)
+          current_version_count=$(awk -v version="${{ steps.version.outputs.tag }}" \
+            'index($0, "<sparkle:version>" version "</sparkle:version>"){count++} END{print count+0}' \
+            appcast.xml)
+          if [ "$item_count" -lt 1 ] || [ "$item_count" -gt "$APPCAST_MAX_ITEMS" ] || \
+             [ "$enclosure_count" -ne "$item_count" ] || [ "$version_count" -ne "$item_count" ] || \
+             [ "$short_version_count" -ne "$item_count" ]; then
+            echo "::error::Appcast history is incomplete or exceeds its retention limit"
+            exit 1
+          fi
+          if [ "$current_version_count" -ne 1 ]; then
+            echo "::error::Appcast must contain the current version exactly once"
+            exit 1
+          fi
           ls -lh "${assets[@]}"
 
       - name: Create GitHub Release

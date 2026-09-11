@@ -10,6 +10,27 @@ APP_NAME="${APP_NAME:-Spacemap}"
 APPCAST_URL="${APPCAST_URL:-https://wiggly-sheets.github.io/Spacemap/appcast.xml}"
 RELEASES_URL="${RELEASES_URL:-https://github.com/wiggly-sheets/Spacemap/releases/download/v${VERSION}}"
 MAX_ITEMS="${MAX_ITEMS:-5}"
+ALLOW_MISSING_APPCAST="${ALLOW_MISSING_APPCAST:-0}"
+
+case "$MAX_ITEMS" in
+    ''|*[!0-9]*|0)
+        echo "MAX_ITEMS must be a positive integer" >&2
+        exit 1
+        ;;
+esac
+
+case "$ALLOW_MISSING_APPCAST" in
+    0|1) ;;
+    *)
+        echo "ALLOW_MISSING_APPCAST must be 0 or 1" >&2
+        exit 1
+        ;;
+esac
+
+if ! command -v xmllint >/dev/null 2>&1; then
+    echo "xmllint is required to validate appcast history" >&2
+    exit 1
+fi
 
 SIGNATURE_ATTR=""
 [ -n "$ED_SIGNATURE" ] && SIGNATURE_ATTR=" sparkle:edSignature=\"${ED_SIGNATURE}\""
@@ -42,50 +63,95 @@ generate_appcast_footer() {
     echo "</rss>"
 }
 
-generate_new_appcast() {
-    generate_appcast_header
-    echo "${NEW_ITEM}"
-    generate_appcast_footer
-}
+validate_appcast() {
+    local appcast_path="$1"
 
-fetch_existing_appcast() {
-    local existing
-    existing=$(curl -s --max-time 30 "${APPCAST_URL}" 2>/dev/null || true)
-    if [ -z "$existing" ]; then
-        generate_new_appcast
-        return
+    if ! xmllint --noout "$appcast_path" >/dev/null 2>&1; then
+        echo "Appcast is not valid XML: ${appcast_path}" >&2
+        return 1
     fi
 
-    generate_appcast_header
+    local is_valid
+    is_valid=$(xmllint --xpath '
+        boolean(
+            count(/rss) = 1 and
+            count(/rss/channel) = 1 and
+            count(/rss/channel/item) > 0 and
+            count(
+                /rss/channel/item[
+                    count(*[
+                        local-name() = "version" and
+                        namespace-uri() = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+                    ]) != 1 or
+                    count(*[
+                        local-name() = "shortVersionString" and
+                        namespace-uri() = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+                    ]) != 1 or
+                    count(enclosure) != 1
+                ]
+            ) = 0
+        )
+    ' "$appcast_path" 2>/dev/null || true)
 
-    echo "${NEW_ITEM}"
+    if [ "$is_valid" != "true" ]; then
+        echo "Appcast does not contain a valid Sparkle item history: ${appcast_path}" >&2
+        return 1
+    fi
+}
 
-    local in_item=false
-    local item_count=0
-    local skip_footer=true
+append_previous_items() {
+    local existing_path="$1"
+    local previous_item_limit=$((MAX_ITEMS - 1))
+    [ "$previous_item_limit" -gt 0 ] || return
 
-    while IFS= read -r line; do
-        if $in_item; then
-            if echo "$line" | grep -q '</item>'; then
-                in_item=false
-                item_count=$((item_count + 1))
-                if [ "$item_count" -ge "$MAX_ITEMS" ]; then
-                    break
-                fi
-                echo "$line"
-            fi
-        else
-            if echo "$line" | grep -q '<item>'; then
-                in_item=true
-                echo "$line"
-            elif echo "$line" | grep -q '</rss>'; then
-                skip_footer=false
-            fi
+    local existing_item_count
+    existing_item_count=$(xmllint --xpath 'count(/rss/channel/item)' "$existing_path")
+
+    local item_index=1
+    local appended_count=0
+    while [ "$item_index" -le "$existing_item_count" ] && [ "$appended_count" -lt "$previous_item_limit" ]; do
+        local item_version
+        item_version=$(xmllint --xpath "string(/rss/channel/item[${item_index}]/*[
+            local-name() = 'version' and
+            namespace-uri() = 'http://www.andymatuschak.org/xml-namespaces/sparkle'
+        ])" "$existing_path")
+
+        if [ "$item_version" != "$VERSION" ]; then
+            xmllint --xpath "/rss/channel/item[${item_index}]" "$existing_path"
+            echo
+            appended_count=$((appended_count + 1))
         fi
-    done <<< "$(echo "$existing" | tail -n +2 | head -n -1)"
+        item_index=$((item_index + 1))
+    done
+}
 
+generate_appcast() {
+    local existing_path="${1:-}"
+
+    generate_appcast_header
+    echo "${NEW_ITEM}"
+    if [ -n "$existing_path" ]; then
+        append_previous_items "$existing_path"
+    fi
     generate_appcast_footer
 }
 
-generate_new_appcast > appcast.xml
+work_directory=$(mktemp -d "${TMPDIR:-/tmp}/spacemap-appcast.XXXXXX")
+trap 'rm -rf "$work_directory"' EXIT
+existing_appcast_path="${work_directory}/existing.xml"
+generated_appcast_path="${work_directory}/generated.xml"
+
+if curl -fL --silent --show-error --max-time 30 "$APPCAST_URL" --output "$existing_appcast_path"; then
+    validate_appcast "$existing_appcast_path"
+    generate_appcast "$existing_appcast_path" > "$generated_appcast_path"
+elif [ "$ALLOW_MISSING_APPCAST" = "1" ]; then
+    echo "Existing appcast is unavailable; generating an explicitly allowed first-release feed" >&2
+    generate_appcast > "$generated_appcast_path"
+else
+    echo "Failed to fetch existing appcast; refusing to truncate release history" >&2
+    exit 1
+fi
+
+validate_appcast "$generated_appcast_path"
+mv "$generated_appcast_path" appcast.xml
 echo "Generated appcast.xml with version ${VERSION}"

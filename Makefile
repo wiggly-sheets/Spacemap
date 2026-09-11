@@ -15,8 +15,10 @@ BUILD_X86_64 = .build/x86_64-apple-macosx/release
 SPARKLE_PUBLIC_KEY ?= $(shell cat sparklesigner.pub 2>/dev/null | tr -d '\n')
 MAN_SOURCE = docs/spacemap.1.scd
 MAN_PAGE = docs/spacemap.1
+LOCALIZATION_DIRS = $(wildcard Sources/spacemap/Resources/*.lproj)
+LOCALIZATION_NAMES = $(notdir $(LOCALIZATION_DIRS))
 
-.PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal generate-xcodeproj test release man
+.PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal verify-localizations generate-xcodeproj test release man
 
 build:
 	swift build -c release --product $(BINARY_NAME)
@@ -66,7 +68,9 @@ app: build man
 	cp Sources/spacemap/AppIcon.icns $(APP_CONTENTS)/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(APP_CONTENTS)/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_CONTENTS)/Resources/
+	cp -R $(LOCALIZATION_DIRS) $(APP_CONTENTS)/Resources/
 	cp $(MAN_PAGE) $(APP_CONTENTS)/Resources/spacemap.1
+	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_BUNDLE)
 
 app-arm64: build-arm64 man
 	mkdir -p $(APP_NAME)-arm64.app/Contents/MacOS
@@ -87,7 +91,9 @@ app-arm64: build-arm64 man
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-arm64.app/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(APP_NAME)-arm64.app/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_NAME)-arm64.app/Contents/Resources/
+	cp -R $(LOCALIZATION_DIRS) $(APP_NAME)-arm64.app/Contents/Resources/
 	cp $(MAN_PAGE) $(APP_NAME)-arm64.app/Contents/Resources/spacemap.1
+	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_NAME)-arm64.app
 	@echo "Built $(APP_NAME)-arm64.app (Apple Silicon)"
 
 app-x86_64: build-x86_64 man
@@ -109,7 +115,9 @@ app-x86_64: build-x86_64 man
 	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-x86_64.app/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(APP_NAME)-x86_64.app/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_NAME)-x86_64.app/Contents/Resources/
+	cp -R $(LOCALIZATION_DIRS) $(APP_NAME)-x86_64.app/Contents/Resources/
 	cp $(MAN_PAGE) $(APP_NAME)-x86_64.app/Contents/Resources/spacemap.1
+	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_NAME)-x86_64.app
 	@echo "Built $(APP_NAME)-x86_64.app (Intel)"
 
 app-universal: build-universal man
@@ -131,8 +139,27 @@ app-universal: build-universal man
 	cp Sources/spacemap/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(APP_BUNDLE)/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(APP_BUNDLE)/Contents/Resources/
+	cp -R $(LOCALIZATION_DIRS) $(APP_BUNDLE)/Contents/Resources/
 	cp $(MAN_PAGE) $(APP_BUNDLE)/Contents/Resources/spacemap.1
+	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_BUNDLE)
 	@echo "Built $(APP_BUNDLE) (Universal: arm64 + x86_64)"
+
+verify-localizations:
+	@test -n "$(BUNDLE)" || { echo "BUNDLE is required"; exit 1; }
+	@test -n "$(LOCALIZATION_NAMES)" || { echo "No source localizations found"; exit 1; }
+	@for locale in $(LOCALIZATION_NAMES); do \
+		localization="$(BUNDLE)/Contents/Resources/$$locale/Localizable.strings"; \
+		test -s "$$localization" || { \
+			echo "Missing localization: $$localization"; \
+			exit 1; \
+		}; \
+		/usr/bin/plutil -lint "$$localization" >/dev/null || exit 1; \
+		if /usr/bin/grep -Eq '\\u[0-9A-Fa-f]{4}' "$$localization"; then \
+			echo "Invalid lowercase Unicode escape in $$localization (use \\Uhhhh)"; \
+			exit 1; \
+		fi; \
+	done
+	@echo "Verified $(words $(LOCALIZATION_NAMES)) localizations in $(BUNDLE)"
 
 archive: app
 	rm -rf $(STAGE) $(ARCHIVE)
@@ -193,7 +220,9 @@ install: app
 	cp Sources/spacemap/AppIcon.icns $(INSTALL_PATH)/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(INSTALL_PATH)/Contents/Resources/Assets.car
 	cp -R Assets.xcassets $(INSTALL_PATH)/Contents/Resources/
+	cp -R $(APP_CONTENTS)/Resources/*.lproj $(INSTALL_PATH)/Contents/Resources/
 	cp $(MAN_PAGE) $(INSTALL_PATH)/Contents/Resources/spacemap.1
+	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(INSTALL_PATH)
 	# Sign with Sparkle entitlements (ad-hoc for dev builds)
 	codesign --force --sign - --options runtime \
 		--entitlements sparkle-entitlements.plist \

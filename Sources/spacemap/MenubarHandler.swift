@@ -2,6 +2,9 @@ import AppKit
 import ServiceManagement
 
 class MenubarHandler {
+    private static let toggleHUDMenuItemTag = 1000
+    private static let launchAtLoginMenuItemTag = 1001
+
     private var statusItem: NSStatusItem?
     private var menubarRefreshWorkItem: DispatchWorkItem?
     private var menubarRefreshGeneration = 0
@@ -43,12 +46,13 @@ class MenubarHandler {
         applyMenubarIcon(to: item)
         let config = onGetConfig()
         let menu = NSMenu()
-        let hotkeyLabel = hotkeyMenuString(config.hotkey)
-        menu.addItem(menuItem(
-            title: String(format: NSLocalizedString("Show/Hide Map (%@)", comment: ""), hotkeyLabel),
+        let toggleHUDItem = menuItem(
+            title: toggleHUDMenuTitle(config: config),
             action: #selector(menubarToggleHUD),
             symbolName: "square.grid.3x3"
-        ))
+        )
+        toggleHUDItem.tag = Self.toggleHUDMenuItemTag
+        menu.addItem(toggleHUDItem)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(menuItem(
             title: NSLocalizedString("About Spacemap", comment: ""),
@@ -83,7 +87,7 @@ class MenubarHandler {
             action: #selector(menubarToggleLaunchAtLogin),
             symbolName: "power"
         )
-        launchAtLoginItem.tag = 1001
+        launchAtLoginItem.tag = Self.launchAtLoginMenuItemTag
         let isEnabled = SMAppService.mainApp.status == .enabled
         if isEnabled {
             launchAtLoginItem.state = .on
@@ -115,30 +119,31 @@ class MenubarHandler {
     }
 
     func showMenubarMenu() {
-        let hideAfterClosing = onGetConfig().hideMenuBarIcon
+        let config = onGetConfig()
+        let hideAfterClosing = config.hideMenuBarIcon
         if statusItem == nil {
             setupMenubar()
         }
+        updateHotkeyMenuItem(config: config)
         statusItem?.button?.performClick(nil)
         if hideAfterClosing {
-            statusItem?.isVisible = false
-            statusItem = nil
+            removeStatusItem()
         }
     }
 
     func applyMenubarVisibility(config: GridConfig) {
         if config.hideMenuBarIcon {
-            if let item = statusItem {
-                item.isVisible = false
-            }
-            statusItem = nil
+            removeStatusItem()
         } else if statusItem == nil {
             setupMenubar()
+        } else {
+            updateHotkeyMenuItem(config: config)
         }
     }
 
     func refreshMenubarPreview(config: GridConfig? = nil) {
         let config = config ?? onGetConfig()
+        updateHotkeyMenuItem(config: config)
         guard let item = statusItem else { return }
         menubarRefreshGeneration += 1
         let generation = menubarRefreshGeneration
@@ -236,6 +241,26 @@ class MenubarHandler {
         }
     }
 
+    func toggleHUDMenuTitle(config: GridConfig) -> String {
+        String(
+            format: NSLocalizedString("Show/Hide Map (%@)", comment: ""),
+            hotkeyMenuString(config.hotkey)
+        )
+    }
+
+    private func updateHotkeyMenuItem(config: GridConfig) {
+        statusItem?.menu?.item(withTag: Self.toggleHUDMenuItemTag)?.title = toggleHUDMenuTitle(config: config)
+    }
+
+    private func removeStatusItem() {
+        menubarRefreshGeneration += 1
+        menubarRefreshWorkItem?.cancel()
+        menubarRefreshWorkItem = nil
+        guard let item = statusItem else { return }
+        NSStatusBar.system.removeStatusItem(item)
+        statusItem = nil
+    }
+
     private func menuItem(
         title: String,
         action: Selector,
@@ -256,12 +281,12 @@ class MenubarHandler {
 
     @objc private func menubarOpenAccessibility() {
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-        NSWorkspace.shared.open(url)
+        _ = NSWorkspace.shared.open(url)
     }
 
     @objc private func menubarOpenScreenRecording() {
         let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
-        NSWorkspace.shared.open(url)
+        _ = NSWorkspace.shared.open(url)
     }
 
     @objc private func menubarToggleLoginAtLabelImpl() {
@@ -270,7 +295,7 @@ class MenubarHandler {
         onSetLoginAtLogin(newEnabled)
 
         if let menu = statusItem?.menu {
-            for item in menu.items where item.tag == 1001 {
+            for item in menu.items where item.tag == Self.launchAtLoginMenuItemTag {
                 item.state = SMAppService.mainApp.status == .enabled ? .on : .off
                 break
             }

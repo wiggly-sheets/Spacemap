@@ -34,8 +34,8 @@
 "Socket Health Interval (s)" = "Socket Health Interval (s)";
 "Auto-hide Timeout (s): %d (0 = disabled)" = "Auto-hide Timeout (s): %d (0 = disabled)";
 "Hide Menu Bar Icon" = "Hide Menu Bar Icon";
-"Access settings by relaunching the app or pressing \u2318, while the HUD is open." = "Access settings by relaunching the app or pressing \u2318, while the HUD is open.";
-"Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)" = "Navigate with Arrow Keys (\u2190\u2191\u2193\u2192)";
+"Access settings by relaunching the app or pressing \U2318, while the HUD is open." = "Access settings by relaunching the app or pressing \U2318, while the HUD is open.";
+"Navigate with Arrow Keys (\U2190\U2191\U2193\U2192)" = "Navigate with Arrow Keys (\U2190\U2191\U2193\U2192)";
 "Navigate with Vim Keys (hjkl)" = "Navigate with Vim Keys (hjkl)";
 
 /* SettingsView - Space Names Section */
@@ -51,7 +51,7 @@
 /* App Menu Items */
 "Show/Hide Map (%@)" = "Show/Hide Map (%@)";
 "Settings..." = "Settings...";
-"Open Accessibility Permissions (for hotkey)" = "Open Accessibility Permissions (for hotkey)";
+"Open Accessibility Permissions (for hotkeys)" = "Open Accessibility Permissions (for hotkeys)";
 "Open Screen Recording Permissions (for thumbnails)" = "Open Screen Recording Permissions (for thumbnails)";
 "Launch at Login" = "Launch at Login";
 "Restart Spacemap" = "Restart Spacemap";
@@ -89,3 +89,41 @@
 "Displays Have Separate Spaces Disabled" = "Displays Have Separate Spaces Disabled";
 "Spacemap needs Displays have separate Spaces enabled to show and navigate each monitor independently. Enable it in System Settings, then log out and back in before using multi-monitor HUD modes." = "Spacemap needs Displays have separate Spaces enabled to show and navigate each monitor independently. Enable it in System Settings, then log out and back in before using multi-monitor HUD modes.";
 "Open System Settings" = "Open System Settings";
+
+"About Spacemap" = "About Spacemap";
+
+"Automatic Updates?" = "Automatic Updates?";
+
+"Check for Updates..." = "Check for Updates...";
+
+"Command-Line Tools Not Installed" = "Command-Line Tools Not Installed";
+
+"Command-Line Tools Partially Installed" = "Command-Line Tools Partially Installed";
+
+"Command-Line Tools Ready" = "Command-Line Tools Ready";
+
+"How would you like Spacemap to check for updates?" = "How would you like Spacemap to check for updates?";
+
+"Install" = "Install";
+
+"Install CLI and Man Page…" = "Install CLI and Man Page…";
+
+"Install Command-Line Tools?" = "Install Command-Line Tools?";
+
+"Not Now" = "Not Now";
+
+"Off" = "Off";
+
+"Spacemap could not install the command-line tool and manual page. You can try again from the menu bar." = "Spacemap could not install the command-line tool and manual page. You can try again from the menu bar.";
+
+"Spacemap installed available links but preserved an unrelated item at a destination path." = "Spacemap installed available links but preserved an unrelated item at a destination path.";
+
+"Spacemap needs administrator permission to link its command and manual page into /usr/local. This does not change your shell configuration." = "Spacemap needs administrator permission to link its command and manual page into /usr/local. This does not change your shell configuration.";
+
+"Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap. See https://github.com/koekeishiya/yabai for installation instructions." = "Spacemap requires yabai to be running. Please start yabai and relaunch Spacemap. See https://github.com/koekeishiya/yabai for installation instructions.";
+
+"Spacemap workspace dots" = "Spacemap workspace dots";
+
+"Spacemap workspace preview" = "Spacemap workspace preview";
+
+"You can now use `spacemap` and `man spacemap` from Terminal." = "You can now use `spacemap` and `man spacemap` from Terminal.";

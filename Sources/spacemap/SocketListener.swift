@@ -100,9 +100,14 @@ final class SocketListener {
             return
         }
 
+        chmod(socketPath, 0o600)
         serverFd = fd
         let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: listenerQueue)
         src.setEventHandler { [weak self] in self?.accept() }
+        src.setCancelHandler { [weak self] in
+            close(fd)
+            self?.serverFd = -1
+        }
         src.resume()
         source = src
 
@@ -118,6 +123,9 @@ final class SocketListener {
             scheduleRestart()
             return
         }
+
+        let flags = fcntl(clientFd, F_GETFL, 0)
+        if flags >= 0 { _ = fcntl(clientFd, F_SETFL, flags | O_NONBLOCK) }
 
         var buf = [UInt8](repeating: 0, count: 1)
         let bytesRead = read(clientFd, &buf, buf.count)
@@ -154,7 +162,6 @@ final class SocketListener {
     private func tearDownSocket() {
         healthTimer?.cancel(); healthTimer = nil
         source?.cancel(); source = nil
-        if serverFd >= 0 { close(serverFd); serverFd = -1 }
         unlink(socketPath)
     }
 
