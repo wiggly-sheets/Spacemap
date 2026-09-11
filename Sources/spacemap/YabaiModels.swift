@@ -1,7 +1,7 @@
 import Foundation
 import CoreGraphics
 
-struct YabaiSpace: Decodable {
+struct YabaiSpace: Decodable, Equatable {
     let id: Int
     let index: Int
     let display: Int
@@ -17,8 +17,8 @@ struct YabaiSpace: Decodable {
     }
 }
 
-struct YabaiDisplay: Decodable {
-    struct Frame: Decodable {
+struct YabaiDisplay: Decodable, Equatable {
+    struct Frame: Decodable, Equatable {
         let x: CGFloat
         let y: CGFloat
         let w: CGFloat
@@ -149,9 +149,5 @@ struct GridState: Equatable {
 
     var populatedDisplayIndices: [Int] {
         Array(Set(spaces.map(\.display))).sorted()
-    }
-
-    static func == (lhs: GridState, rhs: GridState) -> Bool {
-        lhs.focusedIndex == rhs.focusedIndex
     }
 }

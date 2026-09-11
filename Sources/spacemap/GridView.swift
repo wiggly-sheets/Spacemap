@@ -7,6 +7,7 @@ struct GridView: View {
     let uiScale: Double
     let theme: String
     let displayNumber: Int?
+    let resolvedTheme: AppTheme
     
     private var isDarkMode: Bool {
         switch state.config.mode {
@@ -17,7 +18,7 @@ struct GridView: View {
     }
 
     private var displayNumberColor: Color {
-        Color(hex: AppTheme.named(theme).text).opacity(0.9)
+        Color(hex: resolvedTheme.text).opacity(0.9)
     }
     
     private let _visibleSpaceIndices: [Int]
@@ -64,10 +65,8 @@ struct GridView: View {
         state.spaces.first { $0.index == index }?.label
     }
     
-    private var visibleSpaceIndices: [Int] {
-        GridLayout.visibleSpaceIndices(maxSpaces: state.config.maxSpaces,
-                                      showMode: state.config.showMode,
-                                      activeIndices: Set(state.spaces.map(\.index)))
+    var visibleSpaceIndices: [Int] {
+        _visibleSpaceIndices
     }
 
     private var displayBoundaries: [DisplayBoundary] {
@@ -95,7 +94,7 @@ struct GridView: View {
                 let column = boundary.offset % columns
                 let slotWidth = effectiveCellWidth + effectiveGap
                 let slotHeight = effectiveCellHeight + effectiveGap
-                let separatorColor = Color(hex: AppTheme.named(theme).focused).opacity(isDarkMode ? 0.7 : 0.45)
+                let separatorColor = Color(hex: resolvedTheme.focused).opacity(isDarkMode ? 0.7 : 0.45)
 
                 if column == 0 {
                     Rectangle()
@@ -129,8 +128,7 @@ struct GridView: View {
         let cellDisplayBounds = state.displayBounds(forSpace: spaceIndex)
         let cellStyle = state.config.cellStyle
         let cellIsActive = state.spaces.contains { $0.index == spaceIndex }
-        let resolvedTheme = AppTheme.named(theme)
-        
+
         return CellView(
             spaceIndex: cellSpaceIndex,
             spaceLabel: cellSpaceLabel,
@@ -176,6 +174,7 @@ struct GridView: View {
         onSelect: @escaping (Int) -> Void,
         uiScale: Double = 1.0,
         theme: String = "default",
+        resolvedTheme: AppTheme,
         spaceIndices: [Int]? = nil
     ) {
         self.state = state
@@ -184,6 +183,7 @@ struct GridView: View {
         self.onSelect = onSelect
         self.uiScale = uiScale
         self.theme = theme
+        self.resolvedTheme = resolvedTheme
         if let spaceIndices {
             self._visibleSpaceIndices = spaceIndices.sorted()
         } else {

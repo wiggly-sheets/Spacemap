@@ -171,15 +171,17 @@ final class MenuBarPreviewRendererTests: XCTestCase {
         let spaces = [
             YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
         ]
+        var config = GridConfig.default
+        config.menuBarDisplayMode = .icon
         let state = GridState(
-            config: GridConfig.default,
+            config: config,
             spaces: spaces,
             windows: [],
             displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
             focusedIndex: 1
         )
-        let config = GridConfig.default
-        _ = config.menuBarDisplayMode
+
+        XCTAssertNil(MenuBarPreviewRenderer.image(for: state))
     }
 
     func testImageReturnsNonNilForDotsMode() {

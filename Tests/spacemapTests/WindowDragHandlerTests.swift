@@ -5,18 +5,17 @@ import CoreGraphics
 final class WindowDragHandlerTests: XCTestCase {
 
     private var handler: WindowDragHandler!
-    private var mockYabai: MockYabaiService!
 
     override func setUp() {
         super.setUp()
-        mockYabai = MockYabaiService()
-        handler = WindowDragHandler(yabaiService: mockYabai)
+        handler = WindowDragHandler(
+            frontmostApplicationName: { "Finder" }
+        )
     }
 
     override func tearDown() {
         handler.stop()
         handler = nil
-        mockYabai = nil
         super.tearDown()
     }
 
@@ -209,6 +208,64 @@ final class WindowDragHandlerTests: XCTestCase {
         XCTAssertEqual(result, 42)
     }
 
+    func testFindDraggedWindowIDUsesFocusedFallbackWhenCacheIsEmpty() {
+        handler.frontmostAppAtMouseDown = "Finder"
+        handler.focusedWindowIDAtOpen = 99
+        handler.cachedWindows = []
+
+        XCTAssertEqual(handler.findDraggedWindowID(atCG: CGPoint(x: 50, y: 50)), 99)
+    }
+
+    func testDisabledEventTapTypesRequireRecovery() {
+        XCTAssertTrue(WindowDragHandler.shouldRecoverEventTap(for: .tapDisabledByTimeout))
+        XCTAssertTrue(WindowDragHandler.shouldRecoverEventTap(for: .tapDisabledByUserInput))
+        XCTAssertFalse(WindowDragHandler.shouldRecoverEventTap(for: .leftMouseDragged))
+    }
+
+    func testStoppedHandlerIgnoresQueuedEventTapRecovery() {
+        handler.stop()
+
+        handler.recoverEventTap()
+
+        XCTAssertFalse(handler.isEventTapRequested)
+    }
+
+    func testDragWaitsForFreshMouseDownSnapshot() {
+        var requestedGeneration: Int?
+        handler.cellFrames = [(1, CGRect(x: 0, y: 0, width: 100, height: 100))]
+        handler.focusedWindowIDAtOpen = 10
+        handler.cachedWindows = [makeWindow(id: 10, app: "Finder")]
+        handler.onRequestDragSnapshot = { requestedGeneration = $0 }
+
+        handler.handleMouseDown(at: CGPoint(x: 10, y: 10))
+        handler.handleDrag(at: CGPoint(x: 30, y: 30))
+        XCTAssertNil(handler.draggedWindowID)
+
+        handler.applyDragSnapshot(
+            focusedWindowID: 20,
+            windows: [makeWindow(id: 20, app: "Finder")],
+            generation: try! XCTUnwrap(requestedGeneration)
+        )
+
+        XCTAssertEqual(handler.draggedWindowID, 20)
+    }
+
+    func testStopCancelsQueuedDropDelivery() {
+        let dropped = expectation(description: "drop is cancelled")
+        dropped.isInverted = true
+        handler.cellFrames = [(1, CGRect(x: 0, y: 0, width: 100, height: 100))]
+        handler.cachedWindows = [makeWindow(id: 10, app: "Finder")]
+        handler.focusedWindowIDAtOpen = 10
+        handler.onDropInCell = { _, _, _ in dropped.fulfill() }
+
+        handler.handleMouseDown(at: CGPoint(x: 10, y: 10))
+        handler.handleDrag(at: CGPoint(x: 30, y: 30))
+        handler.handleMouseUp(at: CGPoint(x: 30, y: 30), modifiers: [])
+        handler.stop()
+
+        wait(for: [dropped], timeout: 0.1)
+    }
+
     func testFindDraggedWindowIDPrefersFocusedWindow() {
         handler.frontmostAppAtMouseDown = "Finder"
         handler.focusedWindowIDAtOpen = 10
@@ -266,11 +323,11 @@ final class WindowDragHandlerTests: XCTestCase {
         handler.lastHoveredCell = 1
         handler.frontmostAppAtMouseDown = "Finder"
 
-        if case .dragging(let state) = handler.dragState {
-            XCTAssertTrue(state.isDragging)
-            XCTAssertEqual(state.draggedWindowID, 42)
-            XCTAssertEqual(state.lastHoveredCell, 1)
-            XCTAssertEqual(state.frontmostAppAtMouseDown, "Finder")
+        if case let .dragging(isDragging, draggedWindowID, lastHoveredCell, frontmostAppAtMouseDown) = handler.dragState {
+            XCTAssertTrue(isDragging)
+            XCTAssertEqual(draggedWindowID, 42)
+            XCTAssertEqual(lastHoveredCell, 1)
+            XCTAssertEqual(frontmostAppAtMouseDown, "Finder")
         } else {
             XCTFail("Expected dragging state")
         }
@@ -309,5 +366,17 @@ final class WindowDragHandlerTests: XCTestCase {
         }
         XCTAssertEqual(handler.cachedWindows, cachedWindows)
         XCTAssertEqual(handler.focusedWindowIDAtOpen, focusedWindowIDAtOpen)
+    }
+
+    private func makeWindow(id: Int, app: String) -> YabaiWindow {
+        YabaiWindow(
+            id: id,
+            app: app,
+            space: 1,
+            frame: .init(x: 0, y: 0, w: 100, h: 100),
+            isHidden: false,
+            isMinimized: false,
+            subLayer: "normal"
+        )
     }
 }

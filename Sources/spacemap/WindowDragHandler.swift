@@ -1,12 +1,21 @@
 import Cocoa
 
+private func shouldRecoverWindowDragEventTap(for type: CGEventType) -> Bool {
+    type == .tapDisabledByTimeout || type == .tapDisabledByUserInput
+}
+
 class WindowDragHandler: WindowDragService {
     var onHoverCell: ((Int?) -> Void)?
     var onDropInCell: ((Int, Int, CGEventFlags) -> Void)?
+    var onRequestDragSnapshot: ((Int) -> Void)?
 
-    private let yabaiService: YabaiService
+    private let frontmostApplicationName: () -> String?
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private var wantsEventTap = false
+    private var eventTapGeneration = 0
+    private var dragSnapshotGeneration = 0
+    private var dragSnapshotReady = true
 
     var cellFrames: [(spaceIndex: Int, frame: CGRect)] = []
     var cachedWindows: [YabaiWindow] = []
@@ -28,8 +37,14 @@ class WindowDragHandler: WindowDragService {
         )
     }
 
-    init(yabaiService: YabaiService) {
-        self.yabaiService = yabaiService
+    var isEventTapRequested: Bool { wantsEventTap }
+
+    init(
+        frontmostApplicationName: @escaping () -> String? = {
+            NSWorkspace.shared.frontmostApplication?.localizedName
+        }
+    ) {
+        self.frontmostApplicationName = frontmostApplicationName
     }
 
     func updateInput(_ input: WindowDragInput) {
@@ -39,6 +54,10 @@ class WindowDragHandler: WindowDragService {
     }
 
     func start() {
+        if !wantsEventTap {
+            wantsEventTap = true
+            eventTapGeneration += 1
+        }
         guard eventTap == nil else { return }
 
         let mask = CGEventMask(
@@ -53,8 +72,14 @@ class WindowDragHandler: WindowDragService {
             options: .listenOnly,
             eventsOfInterest: mask,
             callback: { _, type, event, refcon -> Unmanaged<CGEvent>? in
-                guard let refcon else { return nil }
+                guard let refcon else { return Unmanaged.passUnretained(event) }
                 let handler = Unmanaged<WindowDragHandler>.fromOpaque(refcon).takeUnretainedValue()
+                if shouldRecoverWindowDragEventTap(for: type) {
+                    DispatchQueue.main.async { [weak handler] in
+                        handler?.recoverEventTap()
+                    }
+                    return Unmanaged.passUnretained(event)
+                }
                 let cgPoint = event.location
                 switch type {
                 case .leftMouseDown:    handler.handleMouseDown(at: cgPoint)
@@ -62,15 +87,19 @@ class WindowDragHandler: WindowDragService {
                 case .leftMouseUp:      handler.handleMouseUp(at: cgPoint, modifiers: event.flags)
                 default: break
                 }
-                return nil
+                return Unmanaged.passUnretained(event)
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         )
 
         guard let tap else { return }
+        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
+            CFMachPortInvalidate(tap)
+            return
+        }
         eventTap = tap
-        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
+        runLoopSource = source
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
     }
 
@@ -79,18 +108,42 @@ class WindowDragHandler: WindowDragService {
     }
 
     func stop() {
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
-            if let source = runLoopSource {
-                CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-            }
-        }
-        eventTap = nil
-        runLoopSource = nil
+        wantsEventTap = false
+        eventTapGeneration += 1
+        tearDownEventTap()
         reset()
     }
 
+    static func shouldRecoverEventTap(for type: CGEventType) -> Bool {
+        shouldRecoverWindowDragEventTap(for: type)
+    }
+
+    func recoverEventTap() {
+        guard wantsEventTap else { return }
+        if let tap = eventTap, CFMachPortIsValid(tap) {
+            CGEvent.tapEnable(tap: tap, enable: true)
+            if CGEvent.tapIsEnabled(tap: tap) { return }
+        }
+        tearDownEventTap()
+        reset()
+        start()
+    }
+
+    private func tearDownEventTap() {
+        if let source = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+        if let tap = eventTap, CFMachPortIsValid(tap) {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
+        }
+        eventTap = nil
+        runLoopSource = nil
+    }
+
     func reset() {
+        dragSnapshotGeneration += 1
+        dragSnapshotReady = true
         isDragging = false
         draggedWindowID = nil
         dragStartPoint = nil
@@ -99,10 +152,33 @@ class WindowDragHandler: WindowDragService {
     }
 
     func handleMouseDown(at cgPoint: CGPoint) {
+        dragSnapshotGeneration += 1
+        let snapshotGeneration = dragSnapshotGeneration
         dragStartPoint = cgPoint
         isDragging = false
         draggedWindowID = nil
-        frontmostAppAtMouseDown = NSWorkspace.shared.frontmostApplication?.localizedName
+        frontmostAppAtMouseDown = frontmostApplicationName()
+        if let onRequestDragSnapshot {
+            dragSnapshotReady = false
+            focusedWindowIDAtOpen = nil
+            onRequestDragSnapshot(snapshotGeneration)
+        } else {
+            dragSnapshotReady = true
+        }
+    }
+
+    func applyDragSnapshot(
+        focusedWindowID: Int?,
+        windows: [YabaiWindow],
+        generation: Int
+    ) {
+        guard generation == dragSnapshotGeneration, dragStartPoint != nil else { return }
+        focusedWindowIDAtOpen = focusedWindowID
+        cachedWindows = windows
+        dragSnapshotReady = true
+        if isDragging, draggedWindowID == nil, let start = dragStartPoint {
+            draggedWindowID = findDraggedWindowID(atCG: start)
+        }
     }
 
     func handleDrag(at cgPoint: CGPoint) {
@@ -112,6 +188,8 @@ class WindowDragHandler: WindowDragService {
             guard let start = dragStartPoint,
                   hypot(cgPoint.x - start.x, cgPoint.y - start.y) > 5 else { return }
             isDragging = true
+        }
+        if draggedWindowID == nil, dragSnapshotReady, let start = dragStartPoint {
             draggedWindowID = findDraggedWindowID(atCG: start)
         }
 
@@ -123,6 +201,7 @@ class WindowDragHandler: WindowDragService {
     }
 
     func handleMouseUp(at cgPoint: CGPoint, modifiers: CGEventFlags) {
+        let deliveryGeneration = eventTapGeneration
         defer { reset() }
         guard isDragging,
               let cell = cellSpaceIndex(forCG: cgPoint),
@@ -133,8 +212,9 @@ class WindowDragHandler: WindowDragService {
             return
         }
         DispatchQueue.main.async { [weak self] in
-            self?.onHoverCell?(nil)
-            self?.onDropInCell?(windowID, cell, modifiers)
+            guard let self, self.eventTapGeneration == deliveryGeneration else { return }
+            self.onHoverCell?(nil)
+            self.onDropInCell?(windowID, cell, modifiers)
         }
     }
 
@@ -154,10 +234,7 @@ class WindowDragHandler: WindowDragService {
             return focusedWindowIDAtOpen
         }
 
-        var candidates = cachedWindows.filter { $0.app == appName }
-        if candidates.isEmpty {
-            candidates = ((try? yabaiService.queryWindows()) ?? []).filter { $0.app == appName }
-        }
+        let candidates = cachedWindows.filter { $0.app == appName }
 
         guard !candidates.isEmpty else { return focusedWindowIDAtOpen }
 

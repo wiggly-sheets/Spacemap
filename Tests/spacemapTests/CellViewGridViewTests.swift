@@ -290,6 +290,23 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(String(describing: c1), String(describing: c2))
     }
 
+    func testAppColorUsesStableFNVHash() {
+        XCTAssertEqual(CellView.stableAppHash(""), 14_695_981_039_346_656_037)
+        XCTAssertEqual(CellView.stableAppHash("a"), 12_638_187_200_555_641_996)
+    }
+
+    func testAppColorLightnessActuallyVariesByApp() {
+        let variations = ["Firefox", "Safari", "Terminal", "VSCode", "Slack", "Notes"]
+            .map(CellView.appColorVariation(for:))
+        let lightnesses = Set(variations.map(\.lightness))
+
+        XCTAssertGreaterThan(lightnesses.count, 1)
+        for variation in variations {
+            XCTAssertTrue((0.42...0.58).contains(variation.lightness))
+            XCTAssertTrue((0.35...0.69).contains(variation.saturation))
+        }
+    }
+
     func testAppColorReturnsValidThemeColor() {
         let theme = AppTheme(background: 0, focused: 0, text: 0, dropTarget: 0, cellBg: 0, cellBgFocused: 0,
                              rect1: 0xff0000, rect2: 0x00ff00, rect3: 0x0000ff)
@@ -329,6 +346,34 @@ final class CellViewGridViewTests: XCTestCase {
             maxSpaces: 20, showMode: .all, activeIndices: Set()
         )
         XCTAssertEqual(indices.count, 16)
+    }
+
+    func testGridViewUsesSuppliedSpaceIndicesForItsLayout() {
+        var config = GridConfig.default
+        config.cols = 8
+        config.maxSpaces = 8
+        config.showMode = .all
+        let state = GridState(
+            config: config,
+            spaces: makeSpaces(1...8),
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            focusedIndex: 1
+        )
+
+        let view = GridView(
+            state: state,
+            hoveredCell: nil,
+            onSelect: { _ in },
+            resolvedTheme: .default,
+            spaceIndices: [6, 5]
+        )
+
+        XCTAssertEqual(view.visibleSpaceIndices, [5, 6])
+        XCTAssertEqual(
+            view.idealSize,
+            GridLayout.idealSize(visibleIndices: 2, cols: 8, uiScale: 1)
+        )
     }
 
     func testVisibleIndicesActiveNoOverlap() {
@@ -484,7 +529,6 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(minW, 40, accuracy: 0.001)
         XCTAssertEqual(maxW, 320, accuracy: 0.001)
     }
-}
 
     func testHitTestReturnsIndexForPointInsideFrame() {
         let frames = [CGRect(x: 0, y: 0, width: 80, height: 50),
@@ -503,6 +547,7 @@ final class CellViewGridViewTests: XCTestCase {
                       CGRect(x: 50, y: 50, width: 100, height: 100)]
         XCTAssertEqual(GridLayout.hitTest(point: CGPoint(x: 75, y: 75), in: frames), 0)
     }
+}
 
 
 private func makeSpaces(_ indices: ClosedRange<Int>) -> [YabaiSpace] {
