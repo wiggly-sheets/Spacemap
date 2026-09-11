@@ -14,6 +14,15 @@ protocol HUDInputDelegate: AnyObject {
 }
 
 final class HUDInput {
+    enum KeyboardTapRecoveryAction: Equatable {
+        case waitForPermission
+        case remove
+        case install
+        case reinstall
+        case reenable
+        case none
+    }
+
     weak var delegate: HUDInputDelegate?
 
     var quartzPointConverter: ((CGPoint) -> CGPoint)?
@@ -63,6 +72,9 @@ final class HUDInput {
     }
 
     func updateVisibility(_ visible: Bool) {
+        if visible, !isVisible {
+            didNotifyAccessibilityRevocation = false
+        }
         isVisible = visible
     }
 
@@ -254,6 +266,38 @@ final class HUDInput {
         onNumberEntry?(nil)
     }
 
+    static func shouldConsumeKeyboardEvent(
+        isTrusted: Bool,
+        isVisible: Bool,
+        isPinned: Bool,
+        type: CGEventType,
+        action: InputAction
+    ) -> Bool {
+        guard isTrusted, isVisible else { return false }
+        guard type == .keyDown || type == .keyUp else { return false }
+        guard isPinned else { return true }
+        guard type == .keyDown else { return false }
+        switch action {
+        case .none:
+            return false
+        case .navigate, .enterSpaceNumber, .showSettings:
+            return true
+        }
+    }
+
+    static func keyboardTapRecoveryAction(
+        isTrusted: Bool,
+        hasTap: Bool,
+        tapIsValid: Bool,
+        tapIsEnabled: Bool
+    ) -> KeyboardTapRecoveryAction {
+        guard isTrusted else { return hasTap ? .remove : .waitForPermission }
+        guard hasTap else { return .install }
+        guard tapIsValid else { return .reinstall }
+        guard tapIsEnabled else { return .reenable }
+        return .none
+    }
+
 
     private func startSettingsKeyMonitor() {
         guard keyboardEventTap == nil, AXIsProcessTrusted() else { return }
@@ -269,7 +313,11 @@ final class HUDInput {
             callback: { _, type, event, refcon in
                 guard let refcon else { return Unmanaged.passUnretained(event) }
                 let input = Unmanaged<HUDInput>.fromOpaque(refcon).takeUnretainedValue()
-                guard AXIsProcessTrusted() else {
+                let isTrusted = AXIsProcessTrusted()
+                guard isTrusted else {
+                    if let tap = input.keyboardEventTap, CFMachPortIsValid(tap) {
+                        CGEvent.tapEnable(tap: tap, enable: false)
+                    }
                     DispatchQueue.main.async {
                         input.handleAccessibilityState(isTrusted: false)
                     }
@@ -282,11 +330,19 @@ final class HUDInput {
                     return Unmanaged.passUnretained(event)
                 }
                 guard input.isVisible else { return Unmanaged.passUnretained(event) }
+                var action = InputAction.none
                 if type == .keyDown {
-                    let action = input.handleHUDKeyDown(event)
+                    action = input.handleHUDKeyDown(event)
                     input.dispatchAction(action)
                 }
-                return nil
+                let shouldConsume = HUDInput.shouldConsumeKeyboardEvent(
+                    isTrusted: isTrusted,
+                    isVisible: input.isVisible,
+                    isPinned: input.isPinned,
+                    type: type,
+                    action: action
+                )
+                return shouldConsume ? nil : Unmanaged.passUnretained(event)
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
@@ -308,10 +364,7 @@ final class HUDInput {
     }
 
     func handleAccessibilityState(isTrusted: Bool) {
-        if isTrusted {
-            didNotifyAccessibilityRevocation = false
-            startSettingsKeyMonitor()
-        } else {
+        guard isTrusted else {
             if keyboardEventTap != nil {
                 NSLog("spacemap/HUDInput: Accessibility revoked; releasing keyboard capture")
                 stopSettingsKeyMonitor()
@@ -319,6 +372,32 @@ final class HUDInput {
             if isVisible, !didNotifyAccessibilityRevocation {
                 didNotifyAccessibilityRevocation = true
                 onAccessibilityRevoked?()
+            }
+            return
+        }
+
+        didNotifyAccessibilityRevocation = false
+        let tapIsValid = keyboardEventTap.map(CFMachPortIsValid) ?? false
+        let tapIsEnabled = tapIsValid && (keyboardEventTap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false)
+        switch Self.keyboardTapRecoveryAction(
+            isTrusted: true,
+            hasTap: keyboardEventTap != nil,
+            tapIsValid: tapIsValid,
+            tapIsEnabled: tapIsEnabled
+        ) {
+        case .waitForPermission, .remove, .none:
+            break
+        case .install:
+            startSettingsKeyMonitor()
+        case .reinstall:
+            stopSettingsKeyMonitor()
+            startSettingsKeyMonitor()
+        case .reenable:
+            guard let tap = keyboardEventTap else { return }
+            CGEvent.tapEnable(tap: tap, enable: true)
+            if !CGEvent.tapIsEnabled(tap: tap) {
+                stopSettingsKeyMonitor()
+                startSettingsKeyMonitor()
             }
         }
     }
@@ -328,7 +407,9 @@ final class HUDInput {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         }
         if let tap = keyboardEventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
+            if CFMachPortIsValid(tap) {
+                CGEvent.tapEnable(tap: tap, enable: false)
+            }
             CFMachPortInvalidate(tap)
         }
         keyboardRunLoopSource = nil

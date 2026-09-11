@@ -72,7 +72,6 @@ protocol DeepLinkHandling {
 }
 
 protocol HotkeyHandling {
-    func startHotkey(config: GridConfig)
-    func startPinnedHotkey(config: GridConfig)
-    func restartHotkey(config: GridConfig)
+    func restartHotkeys(config: GridConfig)
+    func stopHotkeys()
 }

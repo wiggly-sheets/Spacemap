@@ -3,19 +3,15 @@ import AppKit
 final class HotkeyService: HotkeyHandling {
     private let hotkeyHandler: HotkeyHandler
 
-    init(hud: HUDWindowController, hotkeyMonitorFactory: HotkeyMonitorFactory) {
+    init(hud: HUDWindowController, hotkeyMonitorFactory: HotkeyMonitorBuilding) {
         self.hotkeyHandler = HotkeyHandler(hud: hud, hotkeyMonitorFactory: hotkeyMonitorFactory)
     }
 
-    func startHotkey(config: GridConfig) {
-        hotkeyHandler.startHotkey(config: config)
+    func restartHotkeys(config: GridConfig) {
+        hotkeyHandler.restartHotkeys(config: config)
     }
 
-    func startPinnedHotkey(config: GridConfig) {
-        hotkeyHandler.startPinnedHotkey(config: config)
-    }
-
-    func restartHotkey(config: GridConfig) {
-        hotkeyHandler.restartHotkey(config: config)
+    func stopHotkeys() {
+        hotkeyHandler.stopHotkeys()
     }
 }
