@@ -32,8 +32,6 @@ final class GridLayoutTests: XCTestCase {
     }
 
     func testAllModeShowsAllSpaces() throws {
-        let config = GridConfig.default
-
         let spacesIndices = GridLayout.visibleSpaceIndices(
             maxSpaces: 5,
             showMode: .all,

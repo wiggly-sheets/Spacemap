@@ -8,8 +8,6 @@ final class SpacemapServices {
     var yabaiService: YabaiService { core.yabaiService }
     var appConfig: AppConfig { core.appConfig }
     var themeService: ThemeService { core.themeService }
-    var iconCache: IconCacheService { core.iconCache }
-    var thumbnailCache: Any { core.thumbnailCache }
     var sparkleController: SPUStandardUpdaterController { core.sparkleController }
     var fileManager: FileManagerProtocol { core.fileManager }
     var process: ProcessProtocol { core.process }
@@ -45,22 +43,18 @@ final class SpacemapServices {
         yabaiService: YabaiService? = nil,
         appConfig: AppConfig? = nil,
         themeService: ThemeService? = nil,
-        iconCache: IconCacheService? = nil,
-        thumbnailCache: Any? = nil,
         sparkleController: SPUStandardUpdaterController? = nil,
         fileManager: FileManagerProtocol? = nil,
         process: ProcessProtocol? = nil,
         workspace: WorkspaceProtocol? = nil,
         socketListenerFactory: SocketListenerFactory? = nil,
-        hotkeyMonitorFactory: HotkeyMonitorFactory? = nil,
+        hotkeyMonitorFactory: HotkeyMonitorBuilding? = nil,
         alertsService: AlertsService? = nil
     ) {
         self.core = SpacemapCoreServices(
             yabaiService: yabaiService,
             appConfig: appConfig,
             themeService: themeService,
-            iconCache: iconCache,
-            thumbnailCache: thumbnailCache,
             sparkleController: sparkleController,
             fileManager: fileManager,
             process: process,
@@ -82,9 +76,8 @@ final class SpacemapServices {
     func refreshMenubarPreview(config: GridConfig? = nil) { menubarService.refreshMenubarPreview(config: config) }
     func applyMenubarIcon(to item: NSStatusItem) { menubarService.applyMenubarIcon(to: item) }
     func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String { menubarService.hotkeyMenuString(hotkey) }
-    func startHotkey(config: GridConfig) { hotkeyService.startHotkey(config: config) }
-    func startPinnedHotkey(config: GridConfig) { hotkeyService.startPinnedHotkey(config: config) }
-    func restartHotkey(config: GridConfig) { hotkeyService.restartHotkey(config: config) }
+    func restartHotkeys(config: GridConfig) { hotkeyService.restartHotkeys(config: config) }
+    func stopHotkeys() { hotkeyService.stopHotkeys() }
     func checkApplicationLocation() { cliToolsService.checkApplicationLocation() }
     func showMoveToApplicationsDialog() { cliToolsService.showMoveToApplicationsDialog() }
     func moveToApplications() { cliToolsService.moveToApplications() }
@@ -141,8 +134,5 @@ final class SpacemapServices {
             onToggle: onToggle,
             onSettings: onSettings
         )
-    }
-    func makeHotkeyMonitor(config: HotkeyConfig, onTrigger: @escaping () -> Void) -> HotkeyMonitor {
-        core.hotkeyMonitorFactory.makeHotkeyMonitor(config: config, onTrigger: onTrigger)
     }
 }

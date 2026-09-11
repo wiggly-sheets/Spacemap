@@ -9,8 +9,6 @@ final class SpacemapCoreServices {
     let yabaiService: YabaiService
     let appConfig: AppConfig
     let themeService: ThemeService
-    let iconCache: IconCacheService
-    let thumbnailCache: Any
     let sparkleController: SPUStandardUpdaterController
     let fileManager: FileManagerProtocol
     let process: ProcessProtocol
@@ -18,7 +16,7 @@ final class SpacemapCoreServices {
 
 
     let socketListenerFactory: SocketListenerFactory
-    let hotkeyMonitorFactory: HotkeyMonitorFactory
+    let hotkeyMonitorFactory: HotkeyMonitorBuilding
     let alertsService: AlertsService
 
 
@@ -26,25 +24,17 @@ final class SpacemapCoreServices {
         yabaiService: YabaiService? = nil,
         appConfig: AppConfig? = nil,
         themeService: ThemeService? = nil,
-        iconCache: IconCacheService? = nil,
-        thumbnailCache: Any? = nil,
         sparkleController: SPUStandardUpdaterController? = nil,
         fileManager: FileManagerProtocol? = nil,
         process: ProcessProtocol? = nil,
         workspace: WorkspaceProtocol? = nil,
         socketListenerFactory: SocketListenerFactory? = nil,
-        hotkeyMonitorFactory: HotkeyMonitorFactory? = nil,
+        hotkeyMonitorFactory: HotkeyMonitorBuilding? = nil,
         alertsService: AlertsService? = nil
     ) {
         self.yabaiService = yabaiService ?? YabaiClientImpl()
         self.appConfig = appConfig ?? AppConfig()
         self.themeService = themeService ?? ThemeService()
-        self.iconCache = iconCache ?? IconCacheService()
-        if #available(macOS 14.0, *) {
-            self.thumbnailCache = thumbnailCache ?? ThumbnailCacheService()
-        } else {
-            self.thumbnailCache = thumbnailCache ?? NSNull()
-        }
         self.sparkleController = sparkleController ?? SPUStandardUpdaterController(
             startingUpdater: false,
             updaterDelegate: nil,
