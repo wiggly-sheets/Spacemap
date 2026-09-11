@@ -49,4 +49,120 @@ final class HUDInputTests: XCTestCase {
 
         wait(for: [revoked], timeout: 0.1)
     }
+
+    func testReopeningWhileUntrustedNotifiesEachPresentation() {
+        let input = HUDInput(panel: nil)
+        var notificationCount = 0
+        input.onAccessibilityRevoked = { notificationCount += 1 }
+
+        input.updateVisibility(true)
+        input.handleAccessibilityState(isTrusted: false)
+        input.updateVisibility(false)
+        input.updateVisibility(true)
+        input.handleAccessibilityState(isTrusted: false)
+
+        XCTAssertEqual(notificationCount, 2)
+    }
+
+    func testKeyboardCaptureFailsOpenWhenAccessibilityIsRevoked() {
+        XCTAssertFalse(
+            HUDInput.shouldConsumeKeyboardEvent(
+                isTrusted: false,
+                isVisible: true,
+                isPinned: false,
+                type: .keyDown,
+                action: .navigate(direction: .left)
+            )
+        )
+    }
+
+    func testPinnedHUDOnlyConsumesRecognizedKeyDownActions() {
+        XCTAssertFalse(
+            HUDInput.shouldConsumeKeyboardEvent(
+                isTrusted: true,
+                isVisible: true,
+                isPinned: true,
+                type: .keyDown,
+                action: .none
+            )
+        )
+        XCTAssertFalse(
+            HUDInput.shouldConsumeKeyboardEvent(
+                isTrusted: true,
+                isVisible: true,
+                isPinned: true,
+                type: .keyUp,
+                action: .navigate(direction: .left)
+            )
+        )
+        XCTAssertTrue(
+            HUDInput.shouldConsumeKeyboardEvent(
+                isTrusted: true,
+                isVisible: true,
+                isPinned: true,
+                type: .keyDown,
+                action: .navigate(direction: .left)
+            )
+        )
+    }
+
+    func testUnpinnedHUDConsumesKeyboardEventsWhileVisible() {
+        XCTAssertTrue(
+            HUDInput.shouldConsumeKeyboardEvent(
+                isTrusted: true,
+                isVisible: true,
+                isPinned: false,
+                type: .keyDown,
+                action: .none
+            )
+        )
+        XCTAssertTrue(
+            HUDInput.shouldConsumeKeyboardEvent(
+                isTrusted: true,
+                isVisible: true,
+                isPinned: false,
+                type: .keyUp,
+                action: .none
+            )
+        )
+    }
+
+    func testKeyboardTapRecoveryRepairsInvalidAndDisabledTaps() {
+        XCTAssertEqual(
+            HUDInput.keyboardTapRecoveryAction(
+                isTrusted: false,
+                hasTap: true,
+                tapIsValid: true,
+                tapIsEnabled: true
+            ),
+            .remove
+        )
+        XCTAssertEqual(
+            HUDInput.keyboardTapRecoveryAction(
+                isTrusted: true,
+                hasTap: false,
+                tapIsValid: false,
+                tapIsEnabled: false
+            ),
+            .install
+        )
+        XCTAssertEqual(
+            HUDInput.keyboardTapRecoveryAction(
+                isTrusted: true,
+                hasTap: true,
+                tapIsValid: false,
+                tapIsEnabled: false
+            ),
+            .reinstall
+        )
+        XCTAssertEqual(
+            HUDInput.keyboardTapRecoveryAction(
+                isTrusted: true,
+                hasTap: true,
+                tapIsValid: true,
+                tapIsEnabled: false
+            ),
+            .reenable
+        )
+    }
 }

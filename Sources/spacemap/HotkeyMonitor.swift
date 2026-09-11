@@ -1,6 +1,13 @@
 import Cocoa
 
 final class HotkeyMonitor {
+    struct KeyEventDecision: Equatable {
+        let shouldConsume: Bool
+        let shouldTrigger: Bool
+
+        static let passThrough = KeyEventDecision(shouldConsume: false, shouldTrigger: false)
+    }
+
     enum EventTapRecoveryAction: Equatable {
         case waitForPermission
         case remove
@@ -69,6 +76,29 @@ final class HotkeyMonitor {
         guard tapIsValid else { return .reinstall }
         guard tapIsEnabled else { return .reenable }
         return .none
+    }
+
+    static func keyEventDecision(
+        isTrusted: Bool,
+        type: CGEventType,
+        isAutoRepeat: Bool,
+        keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        targetKey: HotkeyKey,
+        targetModifiers: CGEventFlags
+    ) -> KeyEventDecision {
+        guard isTrusted, type == .keyDown else { return .passThrough }
+        guard case .keyCode(let targetKeyCode) = targetKey, keyCode == targetKeyCode else {
+            return .passThrough
+        }
+        let relevantFlags = flags.intersection([
+            .maskControl,
+            .maskCommand,
+            .maskAlternate,
+            .maskShift
+        ])
+        guard relevantFlags == targetModifiers else { return .passThrough }
+        return KeyEventDecision(shouldConsume: true, shouldTrigger: !isAutoRepeat)
     }
 
     private func startHealthTimer() {
@@ -161,6 +191,17 @@ final class HotkeyMonitor {
                 guard let refcon else { return Unmanaged.passUnretained(event) }
                 let monitor = Unmanaged<HotkeyMonitor>.fromOpaque(refcon).takeUnretainedValue()
 
+                let isTrusted = AXIsProcessTrusted()
+                guard isTrusted else {
+                    if let tap = monitor.eventTap, CFMachPortIsValid(tap) {
+                        CGEvent.tapEnable(tap: tap, enable: false)
+                    }
+                    DispatchQueue.main.async {
+                        monitor.reconcileAccessibility(promptIfNeeded: false)
+                    }
+                    return Unmanaged.passUnretained(event)
+                }
+
                 if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
                     DispatchQueue.main.async {
                         monitor.reconcileAccessibility(promptIfNeeded: false)
@@ -168,23 +209,20 @@ final class HotkeyMonitor {
                     return Unmanaged.passUnretained(event)
                 }
 
-                guard type == .keyDown else { return Unmanaged.passUnretained(event) }
-                if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
-                    return Unmanaged.passUnretained(event)
-                }
-
                 let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-                let flags = event.flags.intersection([
-                    .maskControl,
-                    .maskCommand,
-                    .maskAlternate,
-                    .maskShift
-                ])
-
-                if case .keyCode(let targetKeyCode) = monitor.targetKey,
-                   keyCode == targetKeyCode,
-                   flags == monitor.targetModifiers {
+                let decision = HotkeyMonitor.keyEventDecision(
+                    isTrusted: isTrusted,
+                    type: type,
+                    isAutoRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
+                    keyCode: keyCode,
+                    flags: event.flags,
+                    targetKey: monitor.targetKey,
+                    targetModifiers: monitor.targetModifiers
+                )
+                if decision.shouldTrigger {
                     DispatchQueue.main.async { monitor.onTrigger() }
+                }
+                if decision.shouldConsume {
                     return nil
                 }
 

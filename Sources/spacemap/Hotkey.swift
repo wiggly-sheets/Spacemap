@@ -257,8 +257,10 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
     static func parseHotkeyFromMediaKeyEvent(_ event: NSEvent) -> HotkeyConfig? {
         guard event.type == .systemDefined, event.subtype.rawValue == 8 else { return nil }
         let code = Int((event.data1 & 0xFFFF0000) >> 16)
-        let state = ((event.data1 & 0x0000FFFF) >> 8) & 0x0F
-        guard state == 0xA || state == 0xB, let mediaKey = mediaKeyForSystemKeyCode(code) else {
+        let keyFlags = event.data1 & 0x0000FFFF
+        let state = (keyFlags >> 8) & 0x0F
+        let isRepeat = keyFlags & 0x1 != 0
+        guard state == 0xA, !isRepeat, let mediaKey = mediaKeyForSystemKeyCode(code) else {
             return nil
         }
 

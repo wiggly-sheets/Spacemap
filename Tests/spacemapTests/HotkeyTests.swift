@@ -92,6 +92,42 @@ final class HotkeyTests: XCTestCase {
         XCTAssertEqual(HotkeyRecorder.hotkeyStringFrom(try! XCTUnwrap(hotkey)), "ctrl+play-pause")
     }
 
+    func testMediaKeyReleaseDoesNotTriggerShortcut() {
+        let event = try! XCTUnwrap(
+            NSEvent.otherEvent(
+                with: .systemDefined,
+                location: .zero,
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                subtype: 8,
+                data1: (16 << 16) | (0xB << 8),
+                data2: 0
+            )
+        )
+
+        XCTAssertNil(Hotkey.parseHotkeyFromMediaKeyEvent(event))
+    }
+
+    func testMediaKeyRepeatDoesNotTriggerShortcut() {
+        let event = try! XCTUnwrap(
+            NSEvent.otherEvent(
+                with: .systemDefined,
+                location: .zero,
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                subtype: 8,
+                data1: (16 << 16) | (0xA << 8) | 0x1,
+                data2: 0
+            )
+        )
+
+        XCTAssertNil(Hotkey.parseHotkeyFromMediaKeyEvent(event))
+    }
+
     func testBareMediaKeyRoundTripsThroughSettingsParser() {
         let input = HotkeyRecorder.hotkeyStringFrom(
             HotkeyConfig(key: .mediaKey(.playPause), modifiers: [])
@@ -172,5 +208,85 @@ final class HotkeyTests: XCTestCase {
                 expected
             )
         }
+    }
+
+    func testEventTapNeverConsumesMatchingShortcutAfterAccessibilityRevocation() {
+        XCTAssertEqual(
+            HotkeyMonitor.keyEventDecision(
+                isTrusted: false,
+                type: .keyDown,
+                isAutoRepeat: false,
+                keyCode: 40,
+                flags: [.maskCommand, .maskShift],
+                targetKey: .keyCode(40),
+                targetModifiers: [.maskCommand, .maskShift]
+            ),
+            .passThrough
+        )
+    }
+
+    func testMatchingHotkeyRepeatsStayConsumedWithoutRetriggering() {
+        let initial = HotkeyMonitor.keyEventDecision(
+            isTrusted: true,
+            type: .keyDown,
+            isAutoRepeat: false,
+            keyCode: 40,
+            flags: [.maskCommand, .maskShift],
+            targetKey: .keyCode(40),
+            targetModifiers: [.maskCommand, .maskShift]
+        )
+        let repeated = HotkeyMonitor.keyEventDecision(
+            isTrusted: true,
+            type: .keyDown,
+            isAutoRepeat: true,
+            keyCode: 40,
+            flags: [.maskCommand, .maskShift],
+            targetKey: .keyCode(40),
+            targetModifiers: [.maskCommand, .maskShift]
+        )
+
+        XCTAssertEqual(initial, .init(shouldConsume: true, shouldTrigger: true))
+        XCTAssertEqual(repeated, .init(shouldConsume: true, shouldTrigger: false))
+    }
+
+    func testHotkeyHandlerRestartStopsEveryPreviousMonitor() {
+        let factory = RecordingHotkeyMonitorFactory()
+        let handler = HotkeyHandler(
+            hotkeyMonitorFactory: factory,
+            onToggle: {},
+            onTogglePinned: {}
+        )
+        var config = GridConfig.default
+        config.pinnedHotkey = HotkeyConfig(key: .keyCode(122), modifiers: .maskControl)
+
+        handler.restartHotkeys(config: config)
+        XCTAssertEqual(factory.monitors.count, 2)
+        XCTAssertTrue(factory.monitors.allSatisfy { $0.startCount == 1 && $0.stopCount == 0 })
+
+        handler.restartHotkeys(config: config)
+        XCTAssertEqual(factory.monitors.count, 4)
+        XCTAssertTrue(factory.monitors.prefix(2).allSatisfy { $0.stopCount == 1 })
+        XCTAssertTrue(factory.monitors.suffix(2).allSatisfy { $0.startCount == 1 && $0.stopCount == 0 })
+
+        handler.stopHotkeys()
+        XCTAssertTrue(factory.monitors.allSatisfy { $0.stopCount == 1 })
+    }
+}
+
+private final class RecordingHotkeyMonitor: HotkeyMonitoring {
+    private(set) var startCount = 0
+    private(set) var stopCount = 0
+
+    func start() { startCount += 1 }
+    func stop() { stopCount += 1 }
+}
+
+private final class RecordingHotkeyMonitorFactory: HotkeyMonitorBuilding {
+    private(set) var monitors: [RecordingHotkeyMonitor] = []
+
+    func makeHotkeyMonitor(config: HotkeyConfig, onTrigger: @escaping () -> Void) -> HotkeyMonitoring {
+        let monitor = RecordingHotkeyMonitor()
+        monitors.append(monitor)
+        return monitor
     }
 }
