@@ -6,9 +6,13 @@ class HUDWindowController {
     private var hoveredCell: Int? = nil
     private var currentState: GridState? = nil
     private var lastFocusedSpaceIndex: Int? = nil
-    private var focusedWindowIDAtOpen: Int? = nil
+    private(set) var focusedWindowIDAtOpen: Int? = nil
+    private var presentationGeneration = 0
     var isVisible = false
-    var isPinned = false
+    var isPinned: Bool {
+        get { hudInput.isPinned }
+        set { hudInput.isPinned = newValue }
+    }
     var isToggling = false
     private let services: SpacemapServices
     private var _config: GridConfig? = nil
@@ -18,12 +22,17 @@ class HUDWindowController {
     private let hudDisplay: HUDDisplay
     private let hudStateSync: HUDStateSync
 
-    init(services: SpacemapServices) {
+    init(services: SpacemapServices, hudStateSync: HUDStateSync? = nil) {
         self.services = services
-        self.hudStateSync = DefaultHUDStateSync(coordinator: GridStateCoordinator(yabaiService: services.yabaiService))
-        self.hudDisplay = HUDDisplay(yabaiService: services.yabaiService)
+        self.hudStateSync = hudStateSync ?? DefaultHUDStateSync(
+            coordinator: GridStateCoordinator(yabaiService: services.yabaiService)
+        )
+        self.hudDisplay = HUDDisplay(
+            yabaiService: services.yabaiService,
+            themeService: services.themeService
+        )
         self.hudInput = HUDInput(panel: nil)
-        self.dragHandler = WindowDragHandler(yabaiService: services.yabaiService)
+        self.dragHandler = WindowDragHandler()
         setupDelegates()
     }
     private func setupDelegates() {
@@ -47,7 +56,7 @@ class HUDWindowController {
             self.resetAutoHideTimer()
         }
         dragHandler.onDropInCell = { [weak self] windowID, spaceIndex, modifiers in
-            guard let self else { return }
+            guard let self, self.isVisible else { return }
             self.hoveredCell = nil
             self.hudDisplay.updateHoveredCell(nil)
             let focusDestination = self.config.focusSpaceOnWindowDrop.shouldFocus(
@@ -63,6 +72,25 @@ class HUDWindowController {
                 if case .failure(let error) = result { NSLog("spacemap/HUD: window drop failed: \(error.localizedDescription)") }
                 self.refresh()
                 self.resetAutoHideTimer()
+            }
+        }
+        dragHandler.onRequestDragSnapshot = { [weak self] requestGeneration in
+            guard let self else { return }
+            let presentationGeneration = self.presentationGeneration
+            self.services.yabaiService.runOnYabaiQueue { [weak self] in
+                guard let self else { return }
+                let focusedWindowID = try? self.services.yabaiService.queryFocusedWindow()
+                let windows = (try? self.services.yabaiService.queryWindows()) ?? []
+                DispatchQueue.main.async { [weak self] in
+                    guard let self,
+                          self.isVisible,
+                          self.presentationGeneration == presentationGeneration else { return }
+                    self.dragHandler.applyDragSnapshot(
+                        focusedWindowID: focusedWindowID,
+                        windows: windows,
+                        generation: requestGeneration
+                    )
+                }
             }
         }
     }
@@ -91,6 +119,7 @@ class HUDWindowController {
     func show() {
         guard !isVisible else { return }
         hudDisplay.hide(); reloadConfig()
+        presentationGeneration += 1
         isVisible = true
         hudInput.updateVisibility(true)
         if let state = hudStateSync.currentState {
@@ -99,7 +128,6 @@ class HUDWindowController {
         } else if config.multiMonitorHUDMode == .unified {
             hudDisplay.render(state: GridState(config: config, spaces: [], windows: [], displayBounds: NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440), focusedIndex: nil))
         }
-        hudInput.isPinned = isPinned
         hudInput.autoHideTimeout = TimeInterval(config.autoHideTimeout)
         hudInput.resetAutoHideTimer()
         hudInput.startPollTimer()
@@ -126,11 +154,13 @@ class HUDWindowController {
         hudInput.lastFocusedSpaceIndex = state.focusedIndex
         dragHandler.start()
         if refreshFocusedWindow {
+            let generation = presentationGeneration
             services.yabaiService.runOnYabaiQueue { [weak self] in
                 guard let self = self else { return }
                 let focusedWindowID = try? services.yabaiService.queryFocusedWindow()
                 DispatchQueue.main.async {
-                    guard let focusedWindowID = focusedWindowID else { return }
+                    guard self.isVisible, self.presentationGeneration == generation else { return }
+                    self.focusedWindowIDAtOpen = focusedWindowID
                     let cellFrames = self.hudDisplay.computeCellFrames(state: state)
                     self.dragHandler.updateInput(WindowDragInput(cellFrames: cellFrames, cachedWindows: state.windows, focusedWindowIDAtOpen: focusedWindowID))
                 }
@@ -140,12 +170,14 @@ class HUDWindowController {
     }
     func hide() {
         guard isVisible else { return }
+        presentationGeneration += 1
         isVisible = false
         hudInput.updateVisibility(false)
         isPinned = false; dragHandler.stop()
         hudInput.stop()
         hudDisplay.hide()
         hoveredCell = nil; currentState = nil; hudInput.currentState = nil
+        focusedWindowIDAtOpen = nil
         hudInput.isPollingFocusedSpace = false
         hudInput.lastFocusedSpaceIndex = nil
         hudStateSync.clearPendingFocus(); hudStateSync.cancelPendingFetch()
@@ -169,6 +201,7 @@ class HUDWindowController {
     }
     func reloadConfig() {
         _config = nil
+        services.themeService.reload()
         hudInput.config = config
         hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
         hudDisplay.updateConfig(config)

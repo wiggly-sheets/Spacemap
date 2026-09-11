@@ -20,11 +20,13 @@ final class HUDDisplay {
     private var displayNumber: Int?
     private var renderedState: GridState?
     private var yabaiService: YabaiService
+    private let themeService: ThemeService
 
     var unifiedPanel: NSPanel? { panel }
 
-    init(yabaiService: YabaiService) {
+    init(yabaiService: YabaiService, themeService: ThemeService = ThemeService()) {
         self.yabaiService = yabaiService
+        self.themeService = themeService
     }
 
     func updateConfig(_ config: GridConfig) {
@@ -301,7 +303,8 @@ final class HUDDisplay {
         GridView(state: state, hoveredCell: hoveredCell, displayNumber: displayNumber, onSelect: { [weak self] index in
             self?.yabaiService.focusSpaceAsync(index)
             self?.delegate?.hide()
-        }, uiScale: currentConfig.uiScale, theme: currentConfig.theme, spaceIndices: spaceIndices)
+        }, uiScale: currentConfig.uiScale, theme: currentConfig.theme,
+           resolvedTheme: themeService.named(currentConfig.theme), spaceIndices: spaceIndices)
     }
 
     private func cellFrames(for cells: [Int], in panel: NSPanel) -> [(spaceIndex: Int, frame: CGRect)] {

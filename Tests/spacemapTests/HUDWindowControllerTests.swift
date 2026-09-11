@@ -154,11 +154,7 @@ final class HUDWindowControllerTests: XCTestCase {
 
         XCTAssertTrue(controller.isVisible, "toggle() when hidden should show the HUD")
 
-        let exp = expectation(description: "wait for toggle to complete")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            exp.fulfill()
-        }
-        waitForExpectations(timeout: 1.0)
+        controller.isToggling = false
 
         controller.toggle()
 
@@ -236,6 +232,41 @@ final class HUDWindowControllerTests: XCTestCase {
 
         XCTAssertTrue(controller.isPinned, "pin() should set isPinned to true")
         XCTAssertTrue(controller.isVisible, "pin() should keep the HUD visible")
+    }
+
+    func testPinningVisibleHUDUsesTheInputPinnedStateAsSourceOfTruth() {
+        let controller = makeHUDWindowController()
+        controller.show()
+
+        controller.pin()
+
+        XCTAssertTrue(controller.isPinned)
+    }
+
+    func testFocusedWindowAtOpenPersistsAcrossFrameUpdatesAndClearsOnHide() {
+        let yabaiService = MockYabaiService()
+        yabaiService.queryFocusedWindowResult = 77
+        let stateSync = MockHUDStateSync()
+        let state = cannedState()
+        stateSync.currentState = state
+        let services = SpacemapServices(
+            yabaiService: yabaiService,
+            alertsService: Alerts()
+        )
+        let controller = HUDWindowController(services: services, hudStateSync: stateSync)
+        let queried = expectation(description: "focused window queried")
+
+        controller.show()
+        DispatchQueue.main.async {
+            XCTAssertEqual(controller.focusedWindowIDAtOpen, 77)
+            controller.updateCellFrames(state: state)
+            XCTAssertEqual(controller.focusedWindowIDAtOpen, 77)
+            queried.fulfill()
+        }
+        waitForExpectations(timeout: 1)
+
+        controller.hide()
+        XCTAssertNil(controller.focusedWindowIDAtOpen)
     }
 
 

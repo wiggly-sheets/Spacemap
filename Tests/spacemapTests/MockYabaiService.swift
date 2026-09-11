@@ -37,6 +37,8 @@ final class MockYabaiService: YabaiService {
     private(set) var resetYabaiRunningCacheCallCount = 0
     private(set) var resetYabaiProcessCheckCallCount = 0
     private(set) var runOnYabaiQueueCallCount = 0
+    private(set) var pendingYabaiQueueBlocks: [() -> Void] = []
+    var runsYabaiQueueImmediately = true
 
 
     private(set) var lastFocusSpaceIndex: Int?
@@ -60,12 +62,26 @@ final class MockYabaiService: YabaiService {
 
     func runOnYabaiQueue(_ block: @escaping () -> Void) {
         runOnYabaiQueueCallCount += 1
-        block()
+        if runsYabaiQueueImmediately {
+            block()
+        } else {
+            pendingYabaiQueueBlocks.append(block)
+        }
     }
 
     func runOnYabaiQueue(_ workItem: DispatchWorkItem) {
         runOnYabaiQueueCallCount += 1
-        workItem.perform()
+        if runsYabaiQueueImmediately {
+            workItem.perform()
+        } else {
+            pendingYabaiQueueBlocks.append { workItem.perform() }
+        }
+    }
+
+    func performPendingYabaiQueueBlocks() {
+        let blocks = pendingYabaiQueueBlocks
+        pendingYabaiQueueBlocks = []
+        blocks.forEach { $0() }
     }
 
     func isYabaiRunning(forceRefresh: Bool) -> Bool {

@@ -300,7 +300,8 @@ var body: some View {
     static func appColor(_ name: String, theme: AppTheme, windowCount: Int) -> Color {
         let t = theme
         let rects = [t.rect1, t.rect2, t.rect3]
-        let base = rects[(name.hashValue % 3 + 3) % 3]
+        let variation = appColorVariation(for: name)
+        let base = rects[variation.paletteIndex]
         if windowCount <= 3 {
             return Color(hex: base)
         }
@@ -318,9 +319,8 @@ var body: some View {
             h /= 6
             if h < 0 { h += 1 }
         }
-        let hash = name.hashValue % 35
-        let sat = 0.35 + Double(hash >= 0 ? hash : hash + 35) / 100.0
-        let lit = 0.50 + Double(((hash / 35) % 35 + 35) % 35) / 100.0
+        let sat = variation.saturation
+        let lit = variation.lightness
         let c = (1 - abs(2 * lit - 1)) * sat
         let x = c * (1 - abs((h * 6).truncatingRemainder(dividingBy: 2) - 1))
         let m = lit - c / 2
@@ -334,6 +334,28 @@ var body: some View {
         default: (rr, gg, bb) = (c, 0, x)
         }
         return Color(red: rr + m, green: gg + m, blue: bb + m)
+    }
+
+    static func stableAppHash(_ name: String) -> UInt64 {
+        var hash: UInt64 = 14_695_981_039_346_656_037
+        for byte in name.precomposedStringWithCanonicalMapping.utf8 {
+            hash ^= UInt64(byte)
+            hash &*= 1_099_511_628_211
+        }
+        return hash
+    }
+
+    static func appColorVariation(for name: String) -> (
+        paletteIndex: Int,
+        saturation: Double,
+        lightness: Double
+    ) {
+        let hash = stableAppHash(name)
+        return (
+            paletteIndex: Int(hash % 3),
+            saturation: 0.35 + Double((hash >> 8) % 35) / 100,
+            lightness: 0.42 + Double((hash >> 16) % 17) / 100
+        )
     }
 }
 
