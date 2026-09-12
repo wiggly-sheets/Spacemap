@@ -20,55 +20,7 @@ class YabaiClientImpl: YabaiService {
         }
     }
 
-    private final class PipeReader {
-        private let handle: FileHandle
-        private let completion: DispatchGroup
-        private let lock = NSLock()
-        private var data = Data()
-        private var isFinished = false
-
-        init(handle: FileHandle, completion: DispatchGroup) {
-            self.handle = handle
-            self.completion = completion
-        }
-
-        func start() {
-            completion.enter()
-            handle.readabilityHandler = { [weak self] handle in
-                guard let self else { return }
-                let chunk = handle.availableData
-                if chunk.isEmpty {
-                    finish()
-                    return
-                }
-                lock.lock()
-                if !isFinished { data.append(chunk) }
-                lock.unlock()
-            }
-        }
-
-        func finish() {
-            lock.lock()
-            guard !isFinished else {
-                lock.unlock()
-                return
-            }
-            isFinished = true
-            lock.unlock()
-            handle.readabilityHandler = nil
-            handle.closeFile()
-            completion.leave()
-        }
-
-        func collectedData() -> Data {
-            lock.lock()
-            defer { lock.unlock() }
-            return data
-        }
-    }
-
     private static let commandTimeout: TimeInterval = 10
-    private static let pipeDrainTimeout: TimeInterval = 2
 
     private let yabaiQueue = DispatchQueue(label: "com.spacemap.yabai", qos: .userInitiated)
     // Keep interactive focus changes ahead of state refreshes.
@@ -389,11 +341,33 @@ class YabaiClientImpl: YabaiService {
         outputPipe.fileHandleForWriting.closeFile()
         errorPipe.fileHandleForWriting.closeFile()
 
+        // Drain both pipes on dedicated threads while the process runs so a large
+        // output cannot fill the pipe and deadlock the child. Blocking reads are
+        // used instead of readabilityHandler callbacks: EOF is guaranteed once the
+        // child exits, so no data can be lost to a starved callback queue.
         let readers = DispatchGroup()
-        let standardOutput = PipeReader(handle: outputPipe.fileHandleForReading, completion: readers)
-        let standardError = PipeReader(handle: errorPipe.fileHandleForReading, completion: readers)
-        standardOutput.start()
-        standardError.start()
+        let outputHandle = outputPipe.fileHandleForReading
+        let errorHandle = errorPipe.fileHandleForReading
+        let outputLock = NSLock()
+        let errorLock = NSLock()
+        var outputData = Data()
+        var errorData = Data()
+        readers.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let data = outputHandle.readDataToEndOfFile()
+            outputLock.lock()
+            outputData = data
+            outputLock.unlock()
+            readers.leave()
+        }
+        readers.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            let data = errorHandle.readDataToEndOfFile()
+            errorLock.lock()
+            errorData = data
+            errorLock.unlock()
+            readers.leave()
+        }
 
         if termination.wait(timeout: .now() + timeout) == .timedOut {
             process.terminate()
@@ -401,19 +375,11 @@ class YabaiClientImpl: YabaiService {
                 kill(process.processIdentifier, SIGKILL)
                 _ = termination.wait(timeout: .now() + 1)
             }
-            standardOutput.finish()
-            standardError.finish()
             readers.wait()
             throw YabaiError.commandTimedOut(arguments: arguments, timeout: timeout)
         }
-
-        if readers.wait(timeout: .now() + pipeDrainTimeout) == .timedOut {
-            standardOutput.finish()
-            standardError.finish()
-            readers.wait()
-        }
-        let outputData = standardOutput.collectedData()
-        let errorData = standardError.collectedData()
+        // The child is dead, so both pipes have hit EOF; the readers are guaranteed to finish.
+        readers.wait()
         guard process.terminationStatus == 0 else {
             let message = String(data: errorData, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
