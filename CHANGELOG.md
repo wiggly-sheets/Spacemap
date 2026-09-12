@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Drain yabai subprocess output without losing data when the system is under load.
 - Keep separate-display HUD cells aligned with their display-specific click and drag targets.
 - Keep pinned HUD input state and focused-window drag fallback synchronized across refreshes.
 - Keep window-drag event taps responsive and recover after macOS disables them.

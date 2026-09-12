@@ -224,6 +224,26 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(started), 2)
     }
 
+    func testRunProcessCapturesOutputProducedAfterDelay() throws {
+        let output = try YabaiClientImpl.runProcess(
+            executable: "/bin/sh",
+            arguments: ["-c", "sleep 0.3; printf 'late output'"],
+            timeout: 5
+        )
+
+        XCTAssertEqual(output, "late output")
+    }
+
+    func testRunProcessCapturesStderrInFailureMessage() {
+        XCTAssertThrowsError(try YabaiClientImpl.runProcess(
+            executable: "/bin/sh",
+            arguments: ["-c", "printf 'boom' >&2; exit 1"],
+            timeout: 5
+        )) { error in
+            XCTAssertTrue(error.localizedDescription.contains("boom"))
+        }
+    }
+
 
     func testRemoveSignalsRemovesSignals() throws {
         guard isYabaiAvailable else {
