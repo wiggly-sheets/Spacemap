@@ -110,6 +110,17 @@ final class MenubarHandlerTests: XCTestCase {
     }
 
 
+    func testEveryMenuItemTargetsHandlerThatRespondsToItsAction() {
+        let handler = makeHandler()
+        let menu = handler.makeMenu(config: GridConfig.default)
+
+        for item in menu.items {
+            guard let action = item.action else { continue }  // separators carry no action
+            XCTAssertNotNil(item.target, "no target for menu item: \(item.title)")
+            XCTAssertTrue(item.target?.responds(to: action) == true, "target cannot perform \(action) for: \(item.title)")
+        }
+    }
+
     private func makeHandler() -> MenubarHandler {
         MenubarHandler(
             yabaiService: MockYabaiService(),

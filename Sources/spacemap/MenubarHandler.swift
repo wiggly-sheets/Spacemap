@@ -1,7 +1,7 @@
 import AppKit
 import ServiceManagement
 
-class MenubarHandler {
+class MenubarHandler: NSObject {
     private static let toggleHUDMenuItemTag = 1000
     private static let launchAtLoginMenuItemTag = 1001
 
@@ -39,12 +39,19 @@ class MenubarHandler {
         self.onRestartApp = onRestartApp
         self.onGetConfig = onGetConfig
         self.onSetLoginAtLogin = onSetLoginAtLogin
+        super.init()
     }
 
     func setupMenubar() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         applyMenubarIcon(to: item)
         let config = onGetConfig()
+        item.menu = makeMenu(config: config)
+        statusItem = item
+        refreshMenubarPreview(config: config)
+    }
+
+    func makeMenu(config: GridConfig) -> NSMenu {
         let menu = NSMenu()
         let toggleHUDItem = menuItem(
             title: toggleHUDMenuTitle(config: config),
@@ -109,13 +116,11 @@ class MenubarHandler {
         menu.addItem(restartItem)
         menu.addItem(menuItem(
             title: NSLocalizedString("Quit Spacemap", comment: ""),
-            action: #selector(NSApplication.terminate(_:)),
+            action: #selector(menubarQuit),
             keyEquivalent: "q",
             symbolName: "xmark.circle"
         ))
-        item.menu = menu
-        statusItem = item
-        refreshMenubarPreview(config: config)
+        return menu
     }
 
     func showMenubarMenu() {
@@ -268,9 +273,12 @@ class MenubarHandler {
         symbolName: String
     ) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        item.target = self
         item.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: title)
         return item
     }
+
+    @objc private func menubarQuit() { NSApp.terminate(nil) }
 
     @objc private func menubarToggleHUD() { onToggleHUD() }
     @objc private func menubarShowAbout() { onShowAbout() }
