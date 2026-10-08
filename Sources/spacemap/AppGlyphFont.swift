@@ -159,17 +159,25 @@ final class AppGlyphFont {
     /// or inside the generated `spacemap_spacemap.bundle` (under `swift test`),
     /// without depending on `Bundle(for:).resourceURL` being non-nil or on the
     /// generated `Bundle.module` accessor, which `fatalError`s when the SwiftPM
-    /// resource bundle is absent.
+    /// resource bundle is absent. The executable URL anchors the walk: it is
+    /// the one root that is never nil, so when the Bundle APIs return empty
+    /// (which is what the CI runner does) the walk still reaches the ttf.
     private static func walkForFont(named name: String) -> [URL] {
-        let roots = [
+        let exe = Bundle.main.executableURL
+        let roots: [URL?] = [
             Bundle.main.resourceURL,
             Bundle.main.bundleURL,
             Bundle(for: AppGlyphFont.self).resourceURL,
-            Bundle(for: AppGlyphFont.self).bundleURL
-        ].compactMap { $0 }
+            Bundle(for: AppGlyphFont.self).bundleURL,
+            exe,
+            exe?.deletingLastPathComponent(),
+            exe?.deletingLastPathComponent().deletingLastPathComponent()
+        ]
+        var seen = Set<URL>()
         var found: [URL] = []
         let fm = FileManager.default
-        for root in roots {
+        for case let root? in roots where !seen.contains(root) {
+            seen.insert(root)
             guard let enumerator = fm.enumerator(at: root, includingPropertiesForKeys: nil) else { continue }
             for case let url as URL in enumerator {
                 if url.lastPathComponent == name {
