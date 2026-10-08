@@ -631,8 +631,9 @@ private final class GlyphStripContainerView: NSView {
     let glyphs: GlyphStripView
 
     private let fallbackGlass = NSVisualEffectView()
-    /// `NSGlassEffectView` on macOS 26+, stored untyped so this file compiles
-    /// back to the v13 deployment target.
+    /// `NSGlassEffectView` on macOS 26+, stored untyped. Native-glass code is
+    /// additionally gated on `compiler(>=6.0)` (see `useNativeGlass`) because
+    /// pre-6.0 SDKs lack the type entirely, so it must not appear in source.
     private var nativeGlass: NSView?
 
     init(controller: GlyphStripPanelController) {
@@ -651,11 +652,15 @@ private final class GlyphStripContainerView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     /// Native glass whenever the OS has it, except under Reduce Transparency
-    /// where the masked `NSVisualEffectView` stays legible.
+    /// where the masked `NSVisualEffectView` stays legible. Also requires a
+    /// 6.0+ compiler: the type only exists in post-5.9 SDKs (CI's macos-14
+    /// toolchain cannot even name it), so it must be source-excluded there.
     private var useNativeGlass: Bool {
+        #if compiler(>=6.0)
         if #available(macOS 26, *) {
             return !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
         }
+        #endif
         return false
     }
 
@@ -681,6 +686,9 @@ private final class GlyphStripContainerView: NSView {
     }
 
     private func layoutNativeGlass(backdrop: GlyphStrip.Backdrop, controller: GlyphStripPanelController) {
+        // Source-gated (not just availability-gated): pre-6.0 SDKs lack
+        // `NSGlassEffectView` entirely, so any naming of it fails to compile.
+        #if compiler(>=6.0)
         if #available(macOS 26, *) {
             let glass: NSGlassEffectView
             if let existing = nativeGlass as? NSGlassEffectView {
@@ -717,6 +725,7 @@ private final class GlyphStripContainerView: NSView {
             glyphs.insideGlass = true
             glyphs.frame = glass.bounds
         }
+        #endif
         fallbackGlass.isHidden = true
         fallbackGlass.maskImage = nil
     }
@@ -749,12 +758,14 @@ private final class GlyphStripContainerView: NSView {
     /// Returns the drawing layer to a direct sibling above the fallback glass,
     /// detaching it from the native glass when it was embedded there.
     private func dockGlyphsAsSibling() {
+        #if compiler(>=6.0)
         if #available(macOS 26, *) {
             if let native = nativeGlass as? NSGlassEffectView, native.contentView === glyphs {
                 native.contentView = nil
             }
-            nativeGlass?.isHidden = true
         }
+        #endif
+        nativeGlass?.isHidden = true
         if glyphs.superview !== self {
             glyphs.removeFromSuperview()
             addSubview(glyphs, positioned: .above, relativeTo: fallbackGlass)
