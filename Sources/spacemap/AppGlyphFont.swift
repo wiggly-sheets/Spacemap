@@ -147,6 +147,17 @@ final class AppGlyphFont {
             URL(fileURLWithPath: NSString(string: "~/Library/Fonts/\(name)").expandingTildeInPath),
             URL(fileURLWithPath: "/Library/Fonts/\(name)")
         ]
+        // Search class bundle (e.g. under `swift test`)
+        let classBundle = Bundle(for: AppGlyphFont.self)
+        if let resources = classBundle.resourceURL {
+            urls.append(resources.appendingPathComponent(name))
+            urls.append(resources.appendingPathComponent(spmBundle))
+        }
+        let classBundlePath = classBundle.bundleURL.path
+        if !classBundlePath.isEmpty {
+            urls.append(classBundle.bundleURL.appendingPathComponent(spmBundle))
+        }
+        // Search main bundle (e.g. when run inside the app)
         if let resources = Bundle.main.resourceURL {
             urls.append(resources.appendingPathComponent(name))
             urls.append(resources.appendingPathComponent(spmBundle))
