@@ -27,6 +27,7 @@ let package = Package(
             ],
             linkerSettings: [
                 .linkedFramework("CoreGraphics"),
+                .linkedFramework("CoreText"),
                 .linkedFramework("ApplicationServices"),
                 .linkedFramework("AppKit"),
                 .linkedLibrary("c++")
