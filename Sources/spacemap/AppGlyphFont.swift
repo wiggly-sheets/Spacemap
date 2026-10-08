@@ -139,53 +139,45 @@ final class AppGlyphFont {
     /// `Bundle.module` is avoided by name: its generated accessor
     /// `fatalError`s when the SwiftPM resource bundle is absent, which is the
     /// case inside the hand-assembled `.app` where the ttf sits directly in
-    /// `Contents/Resources`. Locate the bundle by path instead so both contexts
-    /// work, and so a runner where `Bundle(for:).resourceURL` is nil still
-    /// finds the font.
+    /// `Contents/Resources`. The ttf's real home varies by context — user
+    /// install, `swift test`'s xctest resource bundle, or the `.app` — so the
+    /// search is by filesystem walk rather than by guessing a path, which is
+    /// what let the CI runner slip through (its bundle layout differs from the
+    /// local one).
     static func candidateURLs() -> [URL] {
         let name = "\(resourceName).ttf"
-        let spmBundle = "spacemap_spacemap.bundle/Contents/Resources/\(name)"
         var urls: [URL] = [
             URL(fileURLWithPath: NSString(string: "~/Library/Fonts/\(name)").expandingTildeInPath),
             URL(fileURLWithPath: "/Library/Fonts/\(name)")
         ]
-        for bundle in [Bundle(for: AppGlyphFont.self), Bundle.main] {
-            if let resources = bundle.resourceURL {
-                urls.append(resources.appendingPathComponent(name))
-                urls.append(resources.appendingPathComponent(spmBundle))
-            }
-            let bundleURL = bundle.bundleURL
-            if !bundleURL.path.isEmpty {
-                urls.append(bundleURL.appendingPathComponent(spmBundle))
-            }
-        }
-        // The SwiftPM resource bundle may sit inside either the app or the
-        // test bundle; find it by path and search its resources too.
-        if let module = moduleBundle(), let resources = module.resourceURL {
-            urls.append(resources.appendingPathComponent(name))
-            urls.append(resources.appendingPathComponent(spmBundle))
-        }
+        urls.append(contentsOf: walkForFont(named: name))
         return urls
     }
 
-    /// Returns the `spacemap_spacemap` resource bundle without touching the
-    /// generated `Bundle.module` accessor, whose `fatalError` would fire when
-    /// the bundle is absent (the hand-assembled `.app` layout).
-    private static func moduleBundle() -> Bundle? {
-        let bundleName = "spacemap_spacemap.bundle"
-        let searchRoots = [
+    /// Walks the app and test bundle trees looking for the ttf by name. This
+    /// finds it whether it sits directly in `Contents/Resources` (the `.app`)
+    /// or inside the generated `spacemap_spacemap.bundle` (under `swift test`),
+    /// without depending on `Bundle(for:).resourceURL` being non-nil or on the
+    /// generated `Bundle.module` accessor, which `fatalError`s when the SwiftPM
+    /// resource bundle is absent.
+    private static func walkForFont(named name: String) -> [URL] {
+        let roots = [
             Bundle.main.resourceURL,
+            Bundle.main.bundleURL,
             Bundle(for: AppGlyphFont.self).resourceURL,
-            Bundle(for: AppGlyphFont.self).bundleURL,
-            Bundle.main.bundleURL
+            Bundle(for: AppGlyphFont.self).bundleURL
         ].compactMap { $0 }
-        for root in searchRoots {
-            let candidate = root.appendingPathComponent(bundleName)
-            if FileManager.default.fileExists(atPath: candidate.path) {
-                return Bundle(url: candidate)
+        var found: [URL] = []
+        let fm = FileManager.default
+        for root in roots {
+            guard let enumerator = fm.enumerator(at: root, includingPropertiesForKeys: nil) else { continue }
+            for case let url as URL in enumerator {
+                if url.lastPathComponent == name {
+                    found.append(url)
+                }
             }
         }
-        return nil
+        return found
     }
 
     /// Reads the `APPM` record out of the font's `meta` table.
