@@ -12,7 +12,9 @@ final class SpacemapCommandTests: XCTestCase {
 
     func testSocketPathFormat() {
         let path = SpacemapCommand.socketPath
-        XCTAssertTrue(path.hasPrefix("/tmp/spacemap_"))
+        // Per-user temp dir ($TMPDIR), never the shared /tmp stencil.
+        XCTAssertFalse(path.hasPrefix("/tmp/"))
+        XCTAssertTrue(path.contains("spacemap_"))
         XCTAssertTrue(path.hasSuffix(".socket"))
     }
 

@@ -22,13 +22,13 @@ final class HotkeyTests: XCTestCase {
 
     func testDuplicateHotkeyBindingsMatchOnlyWhenEnabledAndEquivalent() {
         XCTAssertTrue(SettingsBehavior.matches("ctrl+space", " CTRL + space "))
-        XCTAssertTrue(SettingsBehavior.matches("fn+f8", "f8"))
+        XCTAssertFalse(SettingsBehavior.matches("fn+f8", "f8"))
         XCTAssertFalse(SettingsBehavior.matches("none", "none"))
         XCTAssertFalse(SettingsBehavior.matches("ctrl+space", "cmd+space"))
     }
 
-    func testRecorderAcceptsKeyCodeZero() {
-        let event = try! XCTUnwrap(
+    func testRecorderAcceptsKeyCodeZero() throws {
+        let event = try XCTUnwrap(
             NSEvent.keyEvent(
                 with: .keyDown,
                 location: .zero,
@@ -47,8 +47,8 @@ final class HotkeyTests: XCTestCase {
         XCTAssertEqual(HotkeyRecorder.hotkeyStringFrom(hotkey), "ctrl+a")
     }
 
-    func testRecorderIgnoresFunctionModifierForFunctionKeys() {
-        let event = try! XCTUnwrap(
+    func testRecorderCapturesFunctionModifierForFunctionKeys() throws {
+        let event = try XCTUnwrap(
             NSEvent.keyEvent(
                 with: .keyDown,
                 location: .zero,
@@ -64,17 +64,17 @@ final class HotkeyTests: XCTestCase {
         )
 
         let hotkey = Hotkey.parseHotkeyFromEvent(event)
-        XCTAssertEqual(HotkeyRecorder.hotkeyStringFrom(hotkey), "f8")
+        XCTAssertEqual(HotkeyRecorder.hotkeyStringFrom(hotkey), "fn+f8")
     }
 
-    func testLegacyFunctionModifierIsNormalized() {
-        let hotkey = try! XCTUnwrap(Hotkey.parseHotkey("fn+f8"))
-        XCTAssertEqual(Hotkey.hotkeyToString(hotkey), "f8")
-        XCTAssertFalse(hotkey.modifiers.contains(.maskSecondaryFn))
+    func testFunctionModifierIsPreserved() throws {
+        let hotkey = try XCTUnwrap(Hotkey.parseHotkey("fn+f8"))
+        XCTAssertEqual(Hotkey.hotkeyToString(hotkey), "fn+f8")
+        XCTAssertTrue(hotkey.modifiers.contains(.maskSecondaryFn))
     }
 
-    func testMediaKeyEventRoundTripsThroughHotkeyConfig() {
-        let event = try! XCTUnwrap(
+    func testMediaKeyEventRoundTripsThroughHotkeyConfig() throws {
+        let event = try XCTUnwrap(
             NSEvent.otherEvent(
                 with: .systemDefined,
                 location: .zero,
@@ -89,11 +89,11 @@ final class HotkeyTests: XCTestCase {
         )
 
         let hotkey = Hotkey.parseHotkeyFromMediaKeyEvent(event)
-        XCTAssertEqual(HotkeyRecorder.hotkeyStringFrom(try! XCTUnwrap(hotkey)), "ctrl+play-pause")
+        XCTAssertEqual(HotkeyRecorder.hotkeyStringFrom(try XCTUnwrap(hotkey)), "ctrl+play-pause")
     }
 
-    func testMediaKeyReleaseDoesNotTriggerShortcut() {
-        let event = try! XCTUnwrap(
+    func testMediaKeyReleaseDoesNotTriggerShortcut() throws {
+        let event = try XCTUnwrap(
             NSEvent.otherEvent(
                 with: .systemDefined,
                 location: .zero,
@@ -110,8 +110,8 @@ final class HotkeyTests: XCTestCase {
         XCTAssertNil(Hotkey.parseHotkeyFromMediaKeyEvent(event))
     }
 
-    func testMediaKeyRepeatDoesNotTriggerShortcut() {
-        let event = try! XCTUnwrap(
+    func testMediaKeyRepeatDoesNotTriggerShortcut() throws {
+        let event = try XCTUnwrap(
             NSEvent.otherEvent(
                 with: .systemDefined,
                 location: .zero,
@@ -270,6 +270,50 @@ final class HotkeyTests: XCTestCase {
 
         handler.stopHotkeys()
         XCTAssertTrue(factory.monitors.allSatisfy { $0.stopCount == 1 })
+    }
+
+    func testGlyphStripHotkeyStartsAThirdMonitor() {
+        let factory = RecordingHotkeyMonitorFactory()
+        let handler = HotkeyHandler(
+            hotkeyMonitorFactory: factory,
+            onToggle: {},
+            onTogglePinned: {}
+        )
+        var config = GridConfig.default
+        config.pinnedHotkey = HotkeyConfig(key: .keyCode(122), modifiers: .maskControl)
+        config.glyphStripHotkey = HotkeyConfig(key: .keyCode(114), modifiers: .maskControl)
+
+        handler.restartHotkeys(config: config)
+        XCTAssertEqual(factory.monitors.count, 3, "hotkey + pinned + glyph strip")
+
+        handler.restartHotkeys(config: config)
+        XCTAssertEqual(factory.monitors.count, 6, "the third monitor restarts too")
+        XCTAssertTrue(factory.monitors.suffix(3).allSatisfy { $0.startCount == 1 && $0.stopCount == 0 })
+        XCTAssertTrue(factory.monitors.prefix(3).allSatisfy { $0.stopCount == 1 })
+
+        handler.stopHotkeys()
+        XCTAssertTrue(factory.monitors.allSatisfy { $0.stopCount == 1 })
+    }
+
+    func testGlyphStripHotkeyIsSkippedWhenUnboundOrConflicting() {
+        let factory = RecordingHotkeyMonitorFactory()
+        let handler = HotkeyHandler(
+            hotkeyMonitorFactory: factory,
+            onToggle: {},
+            onTogglePinned: {}
+        )
+
+        // Default: strip hotkey unbound, pinned unbound. Only the main
+        // hotkey's monitor starts.
+        handler.restartHotkeys(config: .default)
+        XCTAssertEqual(factory.monitors.count, 1)
+
+        // Same key as the main hotkey: the strip binding is ignored, so a
+        // second restart adds one monitor, not two.
+        var conflicting = GridConfig.default
+        conflicting.glyphStripHotkey = GridConfig.default.hotkey
+        handler.restartHotkeys(config: conflicting)
+        XCTAssertEqual(factory.monitors.count, 2)
     }
 }
 

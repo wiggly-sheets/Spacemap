@@ -1,6 +1,6 @@
 # HUDWindowController Decomposition
 
-**Status:** Proposed
+**Status:** Done (`HUDInput`/`HUDDisplay`/`HUDStateSync` exist, `StateFactory` deleted, `HUDInputTests`/`HUDDisplayTests`/`HUDWindowControllerTests` cover the modules)
 **Date:** 2026-08-04
 **Author:** Architecture Review
 

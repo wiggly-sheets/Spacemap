@@ -70,7 +70,7 @@ public enum Hotkey {
             case "cmd": result.insert(.maskCommand)
             case "alt": result.insert(.maskAlternate)
             case "shift": result.insert(.maskShift)
-            case "fn": break
+            case "fn": result.insert(.maskSecondaryFn)
             case "hyper":
                 result.insert(.maskCommand)
                 result.insert(.maskControl)
@@ -179,7 +179,7 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
         guard !tokens.isEmpty else { return nil }
 
         let modifierTokens = tokens.dropLast()
-        let keyToken = tokens.last!
+        guard let keyToken = tokens.last else { return nil }
 
         var modifiers: CGEventFlags = []
         for token in modifierTokens {
@@ -188,14 +188,14 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
             case "cmd":   modifiers.insert(.maskCommand)
             case "alt":   modifiers.insert(.maskAlternate)
             case "shift": modifiers.insert(.maskShift)
-            case "fn": break
+            case "fn": modifiers.insert(.maskSecondaryFn)
             case "hyper":
                 modifiers.insert(.maskCommand)
                 modifiers.insert(.maskControl)
                 modifiers.insert(.maskAlternate)
                 modifiers.insert(.maskShift)
             default:
-                print("spacemap: unknown modifier '\(token)' in HOTKEY")
+                NSLog("spacemap: unknown modifier '%@' in HOTKEY", token)
                 return nil
             }
         }
@@ -206,7 +206,7 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
         if let mediaKey = mediaKeyFor(keyToken) {
             return HotkeyConfig(key: .mediaKey(mediaKey), modifiers: modifiers)
         }
-        print("spacemap: unknown key '\(keyToken)' in HOTKEY")
+        NSLog("spacemap: unknown key '%@' in HOTKEY", keyToken)
         return nil
     }
 
@@ -269,6 +269,7 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
         if event.modifierFlags.contains(.command) { modifiers.insert(.maskCommand) }
         if event.modifierFlags.contains(.option) { modifiers.insert(.maskAlternate) }
         if event.modifierFlags.contains(.shift) { modifiers.insert(.maskShift) }
+        if event.modifierFlags.contains(.function) { modifiers.insert(.maskSecondaryFn) }
         return HotkeyConfig(key: .mediaKey(mediaKey), modifiers: modifiers)
     }
 
@@ -278,6 +279,7 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
         if event.modifierFlags.contains(.command) { modifiers.insert(.maskCommand) }
         if event.modifierFlags.contains(.option) { modifiers.insert(.maskAlternate) }
         if event.modifierFlags.contains(.shift) { modifiers.insert(.maskShift) }
+        if event.modifierFlags.contains(.function) { modifiers.insert(.maskSecondaryFn) }
 
         return HotkeyConfig(key: .keyCode(event.keyCode), modifiers: modifiers)
     }

@@ -31,6 +31,7 @@ protocol ConfigValuesProtocol {
     var spaceNames: [Int: String]? { get set }
     var useVimKeys: Bool? { get set }
     var useArrowKeys: Bool? { get set }
+    var useExtendedKeys: Bool? { get set }
     var jumpToSpaceEnabled: Bool? { get set }
     var hudPosition: HUDPosition? { get set }
     var customHUDX: Double? { get set }

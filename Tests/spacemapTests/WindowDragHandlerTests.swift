@@ -230,7 +230,7 @@ final class WindowDragHandlerTests: XCTestCase {
         XCTAssertFalse(handler.isEventTapRequested)
     }
 
-    func testDragWaitsForFreshMouseDownSnapshot() {
+    func testDragWaitsForFreshMouseDownSnapshot() throws {
         var requestedGeneration: Int?
         handler.cellFrames = [(1, CGRect(x: 0, y: 0, width: 100, height: 100))]
         handler.focusedWindowIDAtOpen = 10
@@ -244,7 +244,7 @@ final class WindowDragHandlerTests: XCTestCase {
         handler.applyDragSnapshot(
             focusedWindowID: 20,
             windows: [makeWindow(id: 20, app: "Finder")],
-            generation: try! XCTUnwrap(requestedGeneration)
+            generation: try XCTUnwrap(requestedGeneration)
         )
 
         XCTAssertEqual(handler.draggedWindowID, 20)

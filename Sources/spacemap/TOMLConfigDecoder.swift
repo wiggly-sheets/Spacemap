@@ -22,9 +22,9 @@ enum TOMLConfigDecoder {
         ])
         flatten("behavior", keys: [
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
-            "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange",
-            "focusSpaceOnWindowDropModifier", "hideMenuBarIcon", "menuBarDisplayMode",
-            "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode"
+            "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange",
+            "focusSpaceOnWindowDropModifier", "hideMenuBarIcon",
+            "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode"
         ])
         flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows"])
 
@@ -41,6 +41,9 @@ enum TOMLConfigDecoder {
         }
         if let pinnedHotkey = result.removeValue(forKey: "behavior.pinnedHotkey") {
             result["pinnedHotkey"] = pinnedHotkey
+        }
+        if let glyphStripHotkey = result.removeValue(forKey: "behavior.glyphStripHotkey") {
+            result["glyphStripHotkey"] = glyphStripHotkey
         }
         if let hudPosition = result.removeValue(forKey: "behavior.hudPosition") {
             result["hudPosition"] = hudPosition
@@ -130,30 +133,36 @@ enum TOMLConfigDecoder {
         }
         values.useVimKeys = value("useVimKeys")
         values.useArrowKeys = value("useArrowKeys")
+        values.useExtendedKeys = value("useExtendedKeys")
         values.jumpToSpaceEnabled = value("jumpToSpaceEnabled")
         values.customHUDX = rangedDouble("customHUDX")
         values.customHUDY = rangedDouble("customHUDY")
         if let name: String = value("focusSpaceOnWindowDrop") {
-            values.focusSpaceOnWindowDrop = WindowDropFocusMode(rawValue: name.lowercased())
+            values.focusSpaceOnWindowDrop = parsedEnum(from: name)
         }
         if let name: String = value("focusSpaceOnWindowDropModifier") {
-            values.focusSpaceOnWindowDropModifier = WindowDropFocusModifier(rawValue: name.lowercased())
+            values.focusSpaceOnWindowDropModifier = parsedEnum(from: name)
         }
         values.showHUDOnSpaceChange = value("showHUDOnSpaceChange")
         values.hideMenuBarIcon = value("hideMenuBarIcon")
+        values.glyphStrip = glyphStripConfig(from: object)
         if let name: String = value("menuBarDisplayMode") {
-            values.menuBarDisplayMode = menuBarDisplayMode(from: name)
+            values.menuBarDisplayMode = parsedEnum(from: name)
         }
         values.menuBarNearbyCount = positiveInt("menuBarNearbyCount")
         if let name: String = value("updateMode") {
             values.updateMode = updateMode(from: name)
         }
+        values.appFont = appFontConfig(from: object)
 
         if let table = object["hotkey"] as? [String: Any] {
             values.hotkey = parseHotkeyTable(table)
         }
         if let table = object["pinnedHotkey"] as? [String: Any] {
             values.pinnedHotkey = parseHotkeyTable(table)
+        }
+        if let table = object["glyphStripHotkey"] as? [String: Any] {
+            values.glyphStripHotkey = parseHotkeyTable(table)
         }
 
         if let table = object["hudPosition"] as? [String: Any],
@@ -163,9 +172,10 @@ enum TOMLConfigDecoder {
             case "top": values.hudPosition = .top
             case "bottom": values.hudPosition = .bottom
             case "custom":
-                let x = (table["x"] as? Double) ?? (table["x"] as? Int).map(Double.init) ?? 0.5
-                let y = (table["y"] as? Double) ?? (table["y"] as? Int).map(Double.init) ?? 0.5
-                if (0...1).contains(x), (0...1).contains(y) {
+                // Both coordinates required, numeric, in range. No invented
+                // 0.5 fallback: anything else stays nil so repair heals it.
+                if let x = number(table["x"]), let y = number(table["y"]),
+                   (0...1).contains(x), (0...1).contains(y) {
                     values.hudPosition = .custom(x: x, y: y)
                 }
             default:
@@ -175,6 +185,35 @@ enum TOMLConfigDecoder {
 
         values.socketHealthInterval = positiveInt("socketHealthInterval")
         values.showExtraWindows = value("showExtraWindows")
+
+        // Indexed-dotted schema written by ConfigLoader (`[spaceNameProfiles]`
+        // + `[spaceNameProfiles.N]` + `[spaceNameProfiles.N.names]`).
+        var index = 0
+        var indexedProfiles: [SpaceNameProfile] = []
+        while let profileDict = object["spaceNameProfiles.\(index)"] as? [String: Any] {
+            var profile = SpaceNameProfile.default
+            if let name = profileDict["name"] as? String {
+                profile.name = name
+            }
+            if let names = object["spaceNameProfiles.\(index).names"] as? [String: Any] {
+                var spaceNames: [Int: String] = [:]
+                for (key, rawName) in names {
+                    guard let spaceIndex = Int(key), spaceIndex > 0,
+                          let name = rawName as? String else { continue }
+                    spaceNames[spaceIndex] = name
+                }
+                profile.spaceNames = spaceNames
+            }
+            indexedProfiles.append(profile)
+            index += 1
+        }
+        if !indexedProfiles.isEmpty {
+            values.spaceNameProfiles = indexedProfiles
+        }
+        if let meta = object["spaceNameProfiles"] as? [String: Any],
+           let activeIndex = meta["activeIndex"] as? Int {
+            values.activeSpaceNameProfileIndex = activeIndex
+        }
 
         return values
     }
@@ -212,7 +251,91 @@ enum TOMLConfigDecoder {
             return nil
         }
     }
-private static func cellStyle(from name: String) -> CellStyle? {
+    /// `[glyphStrip]` table. Unknown enum names fall back to that key's default
+    /// instead of failing the whole load, matching how the other enum keys behave.
+    private static func glyphStripConfig(from object: [String: Any]) -> GlyphStripConfig? {
+        guard let table = object["glyphStrip"] as? [String: Any] else { return nil }
+        var config = GlyphStripConfig.default
+        if let value = table["enabled"] as? Bool { config.enabled = value }
+        if let value = table["showSpaceNumbers"] as? Bool { config.showSpaceNumbers = value }
+        if let value = table["showLayoutSuffix"] as? Bool { config.showLayoutSuffix = value }
+        if let value = table["showAppIcons"] as? Bool { config.showAppIcons = value }
+        if let value = table["dedupeAppsPerSpace"] as? Bool { config.dedupeAppsPerSpace = value }
+        if let value = number(table["maxIconsPerSpace"]) { config.maxIconsPerSpace = Int(value) }
+        if let value = number(table["iconSize"]) { config.iconSize = value }
+        if let value = number(table["indexSize"]) { config.indexSize = value }
+        if let value = table["highlightCurrentSpace"] as? Bool { config.highlightCurrentSpace = value }
+        if let name = table["backgroundMaterial"] as? String {
+            config.backgroundMaterial = parsedEnum(from: name) ?? GlyphStripConfig.default.backgroundMaterial
+        }
+        if let name = table["shape"] as? String {
+            config.shape = parsedEnum(from: name) ?? GlyphStripConfig.default.shape
+        }
+        if let value = number(table["glassAmount"]) { config.glassAmount = value }
+        if let value = table["useThemeTint"] as? Bool { config.useThemeTint = value }
+        if let value = number(table["backgroundOpacity"]) { config.backgroundOpacity = value }
+        if let value = number(table["cornerRadius"]) { config.cornerRadius = value }
+        if let value = number(table["margin"]) { config.margin = value }
+        if let value = number(table["iconSpacing"]) { config.iconSpacing = value }
+        if let value = number(table["indexPadding"]) { config.indexPadding = value }
+        if let value = number(table["yOffset"]) { config.yOffset = value }
+        if let value = number(table["hoverPadding"]) { config.hoverPadding = value }
+        if let value = number(table["hoverCornerRadius"]) { config.hoverCornerRadius = value }
+        if let value = table["showDisplaySeparators"] as? Bool { config.showDisplaySeparators = value }
+        if let value = table["showAddSpaceButton"] as? Bool { config.showAddSpaceButton = value }
+        if let value = table["showPlaceholders"] as? Bool { config.showPlaceholders = value }
+        if let name = table["leftClickAction"] as? String {
+            config.leftClickAction = parsedEnum(from: name) ?? GlyphStripConfig.default.leftClickAction
+        }
+        if let name = table["rightClickAction"] as? String {
+            config.rightClickAction = parsedEnum(from: name) ?? GlyphStripConfig.default.rightClickAction
+        }
+        if let name = table["middleClickAction"] as? String {
+            config.middleClickAction = parsedEnum(from: name) ?? GlyphStripConfig.default.middleClickAction
+        }
+        if let name = table["position"] as? String {
+            config.position = parsedEnum(from: name) ?? GlyphStripConfig.default.position
+        }
+        // Int storage (see GlyphStrip.customOffsets): round, don't truncate,
+        // so 12.7 lands on 13 rather than 12. Full-Double storage needs
+        // Glyph* call-site changes, out of scope for this pass.
+        if let value = number(table["xOffset"]) { config.xOffset = Int(value.rounded()) }
+        if let value = table["borderEnabled"] as? Bool { config.borderEnabled = value }
+        if let value = table["theme"] as? String { config.theme = value }
+        return config
+    }
+
+    /// Case-insensitive enum lookup: exact match, then lowercased, else nil.
+    /// Callers holding struct defaults apply `?? default`; callers holding
+    /// optionals assign directly so unknown names stay nil and flag repair.
+    private static func parsedEnum<E: RawRepresentable>(_ type: E.Type = E.self, from name: String) -> E?
+    where E.RawValue == String {
+        E(rawValue: name) ?? E(rawValue: name.lowercased())
+    }
+
+    private static func number(_ raw: Any?) -> Double? {
+        if let value = raw as? Double { return value }
+        if let value = raw as? Int { return Double(value) }
+        return nil
+    }
+
+    /// `[appFont]` table.
+    private static func appFontConfig(from object: [String: Any]) -> AppFontConfig? {
+        guard let table = object["appFont"] as? [String: Any] else { return nil }
+        var config = AppFontConfig.default
+        if let name = table["updateMode"] as? String {
+            config.updateMode = parsedEnum(from: name) ?? .manual
+        }
+        if let value = table["installedVersion"] as? String {
+            config.installedVersion = value
+        }
+        if let value = table["lastCheck"] as? Int, value >= 0 {
+            config.lastCheck = value
+        }
+        return config
+    }
+
+    private static func cellStyle(from name: String) -> CellStyle? {
         switch name.lowercased() {
         case "rects": return .rects
         case "hybrid": return .hybrid
@@ -271,9 +394,5 @@ private static func cellStyle(from name: String) -> CellStyle? {
         case "off": return .off
         default: return nil
         }
-    }
-
-    private static func menuBarDisplayMode(from name: String) -> MenuBarDisplayMode? {
-        MenuBarDisplayMode(rawValue: name.lowercased())
     }
 }

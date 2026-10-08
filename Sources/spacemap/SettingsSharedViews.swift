@@ -52,6 +52,42 @@ struct SettingsFootnote: View {
     }
 }
 
+/// Shared label so Grid and Glyph Strip panes stay in sync.
+let showSpaceNumbersTitle = "Show Space Numbers"
+
+func stepper(
+    _ label: String,
+    value: Binding<Double>,
+    range: ClosedRange<Double>,
+    step: Double = 1
+) -> some View {
+    HStack {
+        Text(label)
+        Spacer()
+        Text(String(format: step < 1 ? "%.2f" : "%.0f", value.wrappedValue))
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+        Stepper("", value: value, in: range, step: step)
+            .labelsHidden()
+    }
+}
+
+func stepper(
+    _ label: String,
+    value: Binding<Int>,
+    range: ClosedRange<Int>
+) -> some View {
+    HStack {
+        Text(label)
+        Spacer()
+        Text("\(value.wrappedValue)")
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+        Stepper("", value: value, in: range)
+            .labelsHidden()
+    }
+}
+
 struct HotkeyRecorder: View {
     let label: String
     @Binding var hotkey: String

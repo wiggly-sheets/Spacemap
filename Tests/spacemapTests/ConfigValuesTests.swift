@@ -13,6 +13,7 @@ final class ConfigValuesTests: XCTestCase {
         values.showMode = .active
         values.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: .maskCommand)
         values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
         values.maxSpaces = 12
         values.backgroundAlpha = 0.5
         values.hudShadow = false
@@ -28,11 +29,13 @@ final class ConfigValuesTests: XCTestCase {
         values.spaceNames = [1: "Term", 2: "Code"]
         values.useVimKeys = true
         values.useArrowKeys = true
+        values.useExtendedKeys = true
         values.jumpToSpaceEnabled = true
         values.hudPosition = .custom(x: 0.25, y: 0.75)
         values.customHUDX = 0.25
         values.customHUDY = 0.75
         values.hideMenuBarIcon = true
+        values.glyphStrip = GlyphStripConfig(enabled: true)
         values.menuBarDisplayMode = .nearby
         values.menuBarNearbyCount = 5
         values.displayNavigationWrap = .between
@@ -43,6 +46,7 @@ final class ConfigValuesTests: XCTestCase {
         values.focusSpaceOnWindowDropModifier = .option
         values.showHUDOnSpaceChange = true
         values.updateMode = .off
+        values.appFont = AppFontConfig(updateMode: .auto, installedVersion: "v3.0.5", lastCheck: 1700000000)
 
         let (config, needsRepair) = values.toGridConfig()
 
@@ -56,6 +60,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.hotkey.keyCode, 49)
         XCTAssertTrue(config.hotkey.modifiers.contains(.maskCommand))
         XCTAssertEqual(config.pinnedHotkey.key, .none)
+        XCTAssertEqual(config.glyphStripHotkey, HotkeyConfig(key: .keyCode(100), modifiers: .maskShift))
         XCTAssertEqual(config.maxSpaces, 12)
         XCTAssertEqual(config.backgroundAlpha, 0.5, accuracy: 0.001)
         XCTAssertFalse(config.hudShadow)
@@ -71,6 +76,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.spaceNames, [1: "Term", 2: "Code"])
         XCTAssertTrue(config.useVimKeys)
         XCTAssertTrue(config.useArrowKeys)
+        XCTAssertTrue(config.useExtendedKeys)
         XCTAssertTrue(config.jumpToSpaceEnabled)
         XCTAssertEqual(config.hudPosition, .custom(x: 0.25, y: 0.75))
         XCTAssertEqual(config.customHUDX, 0.25, accuracy: 0.001)
@@ -86,6 +92,117 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.focusSpaceOnWindowDropModifier, .option)
         XCTAssertTrue(config.showHUDOnSpaceChange)
         XCTAssertEqual(config.updateMode, .off)
+        XCTAssertTrue(config.glyphStrip.enabled)
+        XCTAssertEqual(config.appFont.updateMode, .auto)
+        XCTAssertEqual(config.appFont.installedVersion, "v3.0.5")
+        XCTAssertEqual(config.appFont.lastCheck, 1700000000)
+    }
+
+    func testToGridConfigWithFullGlyphStripTable() {
+        var values = ConfigValues()
+        // Mirror testToGridConfigWithAllFieldsSet: nothing may be nil or the
+        // repair flag trips.
+        values.cols = 8
+        values.rows = 2
+        values.cellStyle = .rects
+        values.hotkey = .default
+        values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.glyphStripHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.socketHealthInterval = 60
+        values.uiScale = 0.5
+        values.autoHideTimeout = 5
+        values.theme = "default"
+        values.showMode = .all
+        values.multiMonitorHUDMode = .unified
+        values.unifiedHUDVisibility = .active
+        values.separateHUDVisibility = .all
+        values.displayNavigationWrap = .within
+        values.maxSpaces = 16
+        values.backgroundAlpha = 0.3
+        values.hudShadow = true
+        values.mode = .auto
+        values.iconScale = 0.5
+        values.showSpaceNumbers = true
+        values.showSpaceNames = true
+        values.showIconStrip = true
+        values.showMultiAppIcons = false
+        values.hideMenuBarIcon = false
+        values.menuBarDisplayMode = .icon
+        values.menuBarNearbyCount = 3
+        values.spaceNames = [:]
+        values.useVimKeys = false
+        values.useArrowKeys = false
+        values.useExtendedKeys = true
+        values.jumpToSpaceEnabled = false
+        values.hudPosition = .center
+        values.customHUDX = 0.5
+        values.customHUDY = 0.5
+        values.showExtraWindows = false
+        values.focusSpaceOnWindowDrop = .never
+        values.focusSpaceOnWindowDropModifier = .command
+        values.showHUDOnSpaceChange = false
+        values.updateMode = .notify
+        values.appFont = .default
+
+        var strip = GlyphStripConfig.default
+        strip.enabled = true
+        strip.showSpaceNumbers = false
+        strip.showLayoutSuffix = false
+        strip.showAppIcons = false
+        strip.dedupeAppsPerSpace = false
+        strip.maxIconsPerSpace = 4
+        strip.iconSize = 14
+        strip.indexSize = 9
+        strip.highlightCurrentSpace = false
+        strip.backgroundMaterial = .liquidGlass
+        strip.shape = .pill
+        strip.backgroundOpacity = 0.5
+        strip.cornerRadius = 6
+        strip.showDisplaySeparators = false
+        strip.showAddSpaceButton = false
+        strip.showPlaceholders = false
+        strip.leftClickAction = .toggleFullscreen
+        strip.rightClickAction = .none
+        strip.middleClickAction = .balanceWindows
+        strip.position = .center
+        values.glyphStrip = strip
+
+        let (config, needsRepair) = values.toGridConfig()
+
+        XCTAssertFalse(needsRepair)
+        // No colour resolution pass any more: the strip's palette is fixed by
+        // theme roles at draw time, so every key survives untouched.
+        XCTAssertEqual(config.glyphStrip, strip)
+    }
+
+    func testNewMaterialAndShapeKeysRoundTripThroughTheConfigString() throws {
+        var values = ConfigValues()
+        var strip = GlyphStripConfig.default
+        strip.backgroundMaterial = .liquidGlass
+        strip.shape = .bar
+        values.glyphStrip = strip
+
+        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+        let reread = try TOMLParser.parse(toml)
+
+        XCTAssertEqual(reread.glyphStrip?.backgroundMaterial, .liquidGlass)
+        XCTAssertEqual(reread.glyphStrip?.shape, .bar)
+    }
+
+    func testToGridConfigClampsGlyphStripNumbersAndFlagsRepair() {
+        var values = ConfigValues()
+        var strip = GlyphStripConfig.default
+        strip.iconSize = 100
+        strip.backgroundOpacity = -2
+        strip.maxIconsPerSpace = -1
+        values.glyphStrip = strip
+
+        let (config, needsRepair) = values.toGridConfig()
+
+        XCTAssertTrue(needsRepair, "every other key is nil here too")
+        XCTAssertEqual(config.glyphStrip.iconSize, 24)
+        XCTAssertEqual(config.glyphStrip.backgroundOpacity, 0.01)
+        XCTAssertEqual(config.glyphStrip.maxIconsPerSpace, 0)
     }
 
     func testToGridConfigWithMissingFieldsUsesDefaults() {
@@ -124,7 +241,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.iconScale, GridConfig.default.iconScale)
         XCTAssertEqual(config.uiScale, GridConfig.default.uiScale)
         XCTAssertEqual(config.autoHideTimeout, GridConfig.default.autoHideTimeout)
-        XCTAssertEqual(config.menuBarNearbyCount, GridConfig.default.menuBarNearbyCount)
+        XCTAssertEqual(config.menuBarNearbyCount, 16)
     }
 
     func testToGridConfigWithEmptyConfigReturnsDefaults() {
@@ -138,6 +255,34 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.theme, GridConfig.default.theme)
         XCTAssertEqual(config.showMode, GridConfig.default.showMode)
         XCTAssertEqual(config.hotkey.keyCode, GridConfig.default.hotkey.keyCode)
+        XCTAssertEqual(config.glyphStripHotkey, GridConfig.default.glyphStripHotkey,
+                       "old configs without the key load with the strip hotkey unbound")
+    }
+
+    func testUseExtendedKeysRoundTripsAndDefaultsTrueWhenMissing() throws {
+        var values = ConfigValues()
+        values.useExtendedKeys = false
+
+        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+        let reread = try TOMLParser.parse(toml)
+
+        XCTAssertEqual(reread.useExtendedKeys, false)
+
+        let defaults = ConfigValues()
+        let (config, needsRepair) = defaults.toGridConfig()
+
+        XCTAssertTrue(config.useExtendedKeys, "old configs without the key load with extended keys enabled")
+        XCTAssertTrue(needsRepair, "the nil key should flag repair so the file is rewritten, like its siblings")
+    }
+
+    func testGlyphStripHotkeyRoundTripsThroughTheConfigString() throws {
+        var values = ConfigValues()
+        values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: [.maskCommand, .maskShift])
+
+        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+        let reread = try TOMLParser.parse(toml)
+
+        XCTAssertEqual(reread.glyphStripHotkey, values.glyphStripHotkey)
     }
 
     func testToGridConfigPreservesValidCustomValues() {
@@ -147,6 +292,7 @@ final class ConfigValuesTests: XCTestCase {
         values.cellStyle = .thumbnails
         values.hotkey = .default
         values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
         values.socketHealthInterval = 37
         values.uiScale = 0.37
         values.autoHideTimeout = 7
@@ -166,10 +312,12 @@ final class ConfigValuesTests: XCTestCase {
         values.showIconStrip = true
         values.showMultiAppIcons = false
         values.hideMenuBarIcon = false
+        values.glyphStrip = GlyphStripConfig.default
         values.menuBarDisplayMode = .dots
         values.menuBarNearbyCount = 7
         values.useVimKeys = true
         values.useArrowKeys = true
+        values.useExtendedKeys = true
         values.jumpToSpaceEnabled = false
         values.hudPosition = .top
         values.customHUDX = 0.42
@@ -179,6 +327,7 @@ final class ConfigValuesTests: XCTestCase {
         values.focusSpaceOnWindowDropModifier = .shift
         values.showHUDOnSpaceChange = true
         values.updateMode = .auto
+        values.appFont = .default
 
         let (config, needsRepair) = values.toGridConfig()
 
@@ -209,6 +358,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.menuBarNearbyCount, 7)
         XCTAssertTrue(config.useVimKeys)
         XCTAssertTrue(config.useArrowKeys)
+        XCTAssertTrue(config.useExtendedKeys)
         XCTAssertFalse(config.jumpToSpaceEnabled)
         XCTAssertEqual(config.hudPosition, .top)
         XCTAssertEqual(config.customHUDX, 0.42, accuracy: 0.001)

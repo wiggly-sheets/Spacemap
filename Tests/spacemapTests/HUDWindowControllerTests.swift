@@ -318,4 +318,28 @@ final class HUDWindowControllerTests: XCTestCase {
 
         XCTAssertTrue(controller.isVisible, "HUD should still be visible after navigate")
     }
+
+    func testRecentSpaceFocusUsesLiteralYabaiTarget() {
+        let yabaiService = MockYabaiService()
+        let stateSync = MockHUDStateSync()
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 2, index: 3, display: 1, hasFocus: true, isVisible: nil, label: nil)
+        ]
+        stateSync.currentState = cannedState(focusedIndex: 3, spaces: spaces)
+        let controller = HUDWindowController(
+            services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts()),
+            hudStateSync: stateSync
+        )
+
+        controller.show()
+        XCTAssertEqual(yabaiService.focusSpaceTargetCallCount, 0)
+
+        controller.focusRecent()
+        XCTAssertEqual(yabaiService.focusSpaceTargetCallCount, 1)
+        XCTAssertEqual(yabaiService.lastFocusSpaceTarget, SpaceFocusTarget(argument: "recent"))
+
+        controller.focusRecent()
+        XCTAssertEqual(yabaiService.focusSpaceTargetCallCount, 2)
+    }
 }

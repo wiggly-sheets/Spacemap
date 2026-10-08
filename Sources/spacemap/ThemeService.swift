@@ -4,7 +4,7 @@ final class ThemeService {
 
     private let themeManager: ThemeManager
 
-    init(themeManager: ThemeManager = ThemeManager()) {
+    init(themeManager: ThemeManager = .shared) {
         self.themeManager = themeManager
     }
 

@@ -7,6 +7,7 @@ final class AppcastScriptTests: XCTestCase {
         env["VERSION"] = "0.0.0-test"
         env["DMG_FILE"] = "Spacemap.dmg"
         env["DMG_SIZE"] = "12345"
+        env["ED_SIGNATURE"] = "test-signature-for-missing-appcast-path"
         env["APPCAST_URL"] = "https://example.invalid/appcast.xml"
         env["ALLOW_MISSING_APPCAST"] = "1"
         let process = Process()

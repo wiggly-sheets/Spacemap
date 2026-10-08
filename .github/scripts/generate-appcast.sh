@@ -6,6 +6,12 @@ DMG_FILE="${DMG_FILE:?DMG_FILE is required}"
 DMG_SIZE="${DMG_SIZE:?DMG_SIZE is required}"
 DMG_HASH="${DMG_HASH:-}"
 ED_SIGNATURE="${ED_SIGNATURE:-}"
+# Unsigned enclosure = unsigned update: Sparkle would install whatever the
+# feed points at. Fail the build rather than ship an unverifiable appcast.
+if [ -z "$ED_SIGNATURE" ]; then
+    echo "ED_SIGNATURE is required to generate a signed appcast" >&2
+    exit 1
+fi
 APP_NAME="${APP_NAME:-Spacemap}"
 APPCAST_URL="${APPCAST_URL:-https://wiggly-sheets.github.io/Spacemap/appcast.xml}"
 RELEASES_URL="${RELEASES_URL:-https://github.com/wiggly-sheets/Spacemap/releases/download/v${VERSION}}"

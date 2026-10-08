@@ -10,10 +10,12 @@ struct SettingsBehavior: View {
 
     @Binding var hotkeyString: String
     @Binding var pinnedHotkeyString: String
+    @Binding var glyphStripHotkeyString: String
     @Binding var hudPositionKind: HUDPositionKind
     @Binding var autoHideTimeout: Int
     @Binding var useArrowKeys: Bool
     @Binding var useVimKeys: Bool
+    @Binding var useExtendedKeys: Bool
     @Binding var jumpToSpaceEnabled: Bool
     @Binding var displayNavigationWrap: DisplayNavigationWrap
     @Binding var focusSpaceOnWindowDrop: WindowDropFocusMode
@@ -23,10 +25,15 @@ struct SettingsBehavior: View {
     @Binding var menuBarDisplayMode: MenuBarDisplayMode
     @Binding var menuBarNearbyCount: Int
     @Binding var updateMode: UpdateMode
+    @Binding var appFontUpdateMode: AppFontUpdateMode
 
 
     let onSave: () -> Void
     let checkForUpdates: () -> Void
+
+    @State private var installedFontVersion = ""
+    @State private var isCheckingFont = false
+    @State private var fontStatus: String?
 
 
     var body: some View {
@@ -40,6 +47,9 @@ struct SettingsBehavior: View {
                     if Self.matches(value, pinnedHotkeyString) {
                         pinnedHotkeyString = "none"
                     }
+                    if Self.matches(value, glyphStripHotkeyString) {
+                        glyphStripHotkeyString = "none"
+                    }
                     onSave()
                 }
             HotkeyRecorder(
@@ -51,9 +61,26 @@ struct SettingsBehavior: View {
                     if Self.matches(value, hotkeyString) {
                         hotkeyString = "none"
                     }
+                    if Self.matches(value, glyphStripHotkeyString) {
+                        glyphStripHotkeyString = "none"
+                    }
                     onSave()
                 }
-            SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it.")
+            HotkeyRecorder(
+                label: "Toggle Glyph Strip",
+                hotkey: $glyphStripHotkeyString,
+                coordinator: hotkeyRecorderCoordinator
+            )
+                .onChange(of: glyphStripHotkeyString) { value in
+                    if Self.matches(value, hotkeyString) {
+                        hotkeyString = "none"
+                    }
+                    if Self.matches(value, pinnedHotkeyString) {
+                        pinnedHotkeyString = "none"
+                    }
+                    onSave()
+                }
+            SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. The glyph strip hotkey shows or hides the menu-bar strip for the session.")
 
             Picker("HUD Position", selection: $hudPositionKind) {
                 Text("Center").tag(HUDPositionKind.center)
@@ -68,23 +95,20 @@ struct SettingsBehavior: View {
                 SettingsFootnote(text: "Drag the HUD to reposition. Position is saved automatically.")
             }
 
-            HStack {
-                Text("Auto-hide Timeout (s) (0 = disabled):")
-                Spacer()
-                Text("\(autoHideTimeout)")
-                Stepper("", value: $autoHideTimeout, in: 0...60)
-                    .labelsHidden()
-                    .onChange(of: autoHideTimeout) { _ in onSave() }
-            }
+            stepper("Auto-hide Timeout (s) (0 = disabled):", value: $autoHideTimeout, range: 0...60)
+                .onChange(of: autoHideTimeout) { _ in onSave() }
 
             Toggle("Navigate with Arrow Keys (←↑↓→)", isOn: $useArrowKeys)
                 .onChange(of: useArrowKeys) { _ in onSave() }
             Toggle("Navigate with Vim Keys (hjkl)", isOn: $useVimKeys)
                 .onChange(of: useVimKeys) { _ in onSave() }
+            Toggle("Navigate with Extended Keys (n/p/f/e, esc/c)", isOn: $useExtendedKeys)
+                .onChange(of: useExtendedKeys) { _ in onSave() }
+            SettingsFootnote(text: "n/p = previous/next space, f/e = first/last space, r = recent space, esc/c = close the HUD.")
             Toggle("Jump to Space with Number Keys", isOn: $jumpToSpaceEnabled)
                 .onChange(of: jumpToSpaceEnabled) { _ in onSave() }
 
-            if useArrowKeys || useVimKeys {
+            if useArrowKeys || useVimKeys || useExtendedKeys {
                 Picker("Display Navigation", selection: $displayNavigationWrap) {
                     Text("Wrap Within Display").tag(DisplayNavigationWrap.within)
                     Text("Wrap Between Displays").tag(DisplayNavigationWrap.between)
@@ -139,14 +163,8 @@ struct SettingsBehavior: View {
                 .onChange(of: menuBarDisplayMode) { _ in onSave() }
 
                 if menuBarDisplayMode == .nearby {
-                    HStack {
-                        Text("Nearby Space Count")
-                        Spacer()
-                        Text("\(menuBarNearbyCount)")
-                        Stepper("", value: $menuBarNearbyCount, in: 1...16)
-                            .labelsHidden()
-                            .onChange(of: menuBarNearbyCount) { _ in onSave() }
-                    }
+                    stepper("Nearby Space Count", value: $menuBarNearbyCount, range: 1...16)
+                        .onChange(of: menuBarNearbyCount) { _ in onSave() }
                 }
 
                 if menuBarDisplayMode == .dots {
@@ -168,16 +186,66 @@ struct SettingsBehavior: View {
                 checkForUpdates()
             }
         }
+
+        Section(header: SettingsSectionHeader(title: "App Font")) {
+            Picker("Font Update Mode", selection: $appFontUpdateMode) {
+                Text("Manual").tag(AppFontUpdateMode.manual)
+                Text("Auto").tag(AppFontUpdateMode.auto)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: appFontUpdateMode) { _ in onSave() }
+            SettingsFootnote(text: "Auto checks GitHub once a day for sketchybar-app-font updates.")
+
+            HStack {
+                Text(installedFontVersion.isEmpty
+                    ? "Current: bundled version"
+                    : "Current: \(installedFontVersion)")
+                Spacer()
+                Button("Check for Update") {
+                    checkForFontUpdate()
+                }
+                .disabled(isCheckingFont)
+            }
+            if let fontStatus {
+                SettingsFootnote(text: fontStatus)
+            }
+        }
+        .onAppear {
+            installedFontVersion = Config.load().appFont.installedVersion
+        }
     }
 
 
-    private func settingsSectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.title2.weight(.semibold))
-            .textCase(nil)
-            .foregroundStyle(.primary)
-            .padding(.bottom, 4)
+    private func checkForFontUpdate() {
+        isCheckingFont = true
+        fontStatus = "Checking for updates…"
+        let installedTag = Config.load().appFont.installedVersion
+        installedFontVersion = installedTag
+        Task {
+            let status: String
+            var updatedTag: String?
+            do {
+                switch try await AppFontUpdater.runCheck(installedTag: installedTag) {
+                case .upToDate(let tag):
+                    status = "Up to date (\(tag))"
+                case .updated(let info):
+                    status = "Updated to \(info.tag)"
+                    updatedTag = info.tag
+                }
+                AppFontUpdater.recordCheck(installedTag: updatedTag)
+            } catch {
+                status = "Update failed: \(error.localizedDescription)"
+            }
+            await MainActor.run {
+                if let updatedTag {
+                    installedFontVersion = updatedTag
+                }
+                fontStatus = status
+                isCheckingFont = false
+            }
+        }
     }
+
 
     static func matches(_ lhs: String, _ rhs: String) -> Bool {
         guard let left = Hotkey.parseHotkey(lhs),

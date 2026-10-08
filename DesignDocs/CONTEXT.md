@@ -12,7 +12,9 @@
 - **thumbnail** — a live ScreenCaptureKit capture of a space's windows, shown per-cell (macOS 14+, Screen Recording permission required).
 - **theme** — a `.smthemes` file that defines colors for the grid (background, focused, text, drop-target, cell backgrounds).
 - **config** — `~/.config/spacemap/config.toml`; governs grid dimensions, cell style, hotkey, behavior, and appearance.
-- **hotkey** — a global CGEventTap binding (keyCode + modifiers) that toggles the HUD.
+- **hotkey** — a global CGEventTap binding (keyCode + modifiers, fn preserved) that toggles the HUD; the glyph-strip hotkey is session-only and never persisted.
+- **glyph strip** — the always-visible menu-bar strip showing each space's index plus a glyph per window; theme-driven, notch-aware (`leftOfNotch`/`rightOfNotch`/`center`/`custom`).
+- **space-name profile** — a named set of space names with an active index, switchable from Settings or the menu bar.
 - **trigger** — any entry point that causes the HUD to show or toggle (hotkey, CLI `--trigger`, deep link `spacemap://toggle-hud`, yabai `space_changed` signal).
 
 ## Architecture terms (from codebase-design glossary)
@@ -30,14 +32,14 @@
 
 | Module | File(s) | Interface seam |
 |---|---|---|
-| `GridLayout` | `Sources/spacemap/GridLayout.swift` | Static geometry: cell size, gap, padding, ideal size, slot frames, hit-test, window→cell transforms |
-| `YabaiClient` | `Sources/spacemap/YabaiClient.swift` | `querySpaces()`, `queryWindows()`, `buildGridState()`, `focusSpace()`, `moveWindowCreatingSpacesIfNeeded()` |
-| `HUDWindowController` | `Sources/spacemap/HUDWindowController.swift` | `show()`, `hide()`, `toggle()`, `refresh()`, `reloadConfig()` |
-| `Config` | `Sources/spacemap/Config.swift` | `load()`, `saveConfig()`, `parseConfig()`, `parseHotkey()` |
-| `SocketListener` | `Sources/spacemap/SocketListener.swift` | Callback closures: `onRefresh`, `onShow`, `onToggle`, `onSettings` |
-| `HotkeyMonitor` | `Sources/spacemap/HotkeyMonitor.swift` | `start()`, `stop()`, `onTrigger` closure |
+| `GridLayout` | `Sources/spacemap/GridLayout.swift` | Static geometry: cell size, gap, padding, ideal size, slot frames, hit-test, window→cell transforms (guarded inputs) |
+| `YabaiClient` | `Sources/spacemap/YabaiClientImpl.swift` + `YabaiService.swift` | `querySpaces()`, `queryWindows()`, `buildGridState()`, `focusSpace()`, `moveWindowCreatingSpacesIfNeeded()` (10s timeout, async pipe drain) |
+| `HUDWindowController` | `Sources/spacemap/HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`HUDStateSync` | `show()`, `hide()`, `toggle()`, `refresh()`, `reloadConfig()` |
+| `Config` | `Sources/spacemap/Config.swift` facade + `ConfigLoader`/`TOMLParser`/`ConfigValues` | `load()`, `saveConfig()`, `parseConfig()`, `parseHotkey()` (invalid fields self-heal after `.bak`) |
+| `SocketListener` | `Sources/spacemap/SocketListener.swift` | Callback closures: `onRefresh`, `onShow`, `onToggle`, `onSettings` (socket mode 0600) |
+| `HotkeyMonitor` | `Sources/spacemap/HotkeyMonitor.swift` + `HotkeyService`/`HotkeyHandler` | `start()`, `stop()`, `onTrigger` closure (normal/pinned/glyph-strip bindings; fn preserved) |
 | `WindowDragHandler` | `Sources/spacemap/WindowDragHandler.swift` | `onHoverCell`, `onDropInCell` closures; `cellFrames`, `cachedWindows` |
 | `SpaceNavigator` | `Sources/spacemap/SpaceNavigator.swift` | Pure computation: `destination(...)`, `destinationAcrossDisplays(...)` |
 | `GridStateCoordinator` | `Sources/spacemap/GridStateCoordinator.swift` | Single-writer state machine: `fetch(completion:replacingFocusedIndex:)`, `refresh(completion:)`, `updateFocusedIndex(_:)`, `latestState`, `phase` |
-| `StateFactory` | `Sources/spacemap/StateFactory.swift` | `state(_:withFocusedIndex:)`, `emptyState(config:)` |
+| `GlyphStrip` | `Sources/spacemap/GlyphStrip.swift` (pure) + `GlyphStripPanel.swift` (AppKit) | `segments(for:options:font:)`, `frame(...)`, `hoverFill(...)`, `command(...)`; panel `update(config:)`, `refresh()`, `toggleVisibilityByHotkey()` (session-only) |
 | `Hotkey` | `Sources/spacemap/Hotkey.swift` | Parse/format round-trip, key-code and media-key tables |

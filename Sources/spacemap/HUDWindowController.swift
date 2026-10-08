@@ -5,7 +5,6 @@ class HUDWindowController {
     private var dragHandler: WindowDragHandler
     private var hoveredCell: Int? = nil
     private var currentState: GridState? = nil
-    private var lastFocusedSpaceIndex: Int? = nil
     private(set) var focusedWindowIDAtOpen: Int? = nil
     private var presentationGeneration = 0
     var isVisible = false
@@ -38,7 +37,7 @@ class HUDWindowController {
     private func setupDelegates() {
         hudInput.delegate = self
         hudDisplay.delegate = self
-        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
+        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, useExtendedKeys: config.useExtendedKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
         hudInput.yabaiService = services.yabaiService
         hudInput.config = config
         hudInput.hudStateSync = hudStateSync
@@ -150,7 +149,6 @@ class HUDWindowController {
         currentState = state
         hudInput.currentState = state
         hudDisplay.refreshAndRender(state: state, force: force)
-        lastFocusedSpaceIndex = state.focusedIndex
         hudInput.lastFocusedSpaceIndex = state.focusedIndex
         dragHandler.start()
         if refreshFocusedWindow {
@@ -166,7 +164,6 @@ class HUDWindowController {
                 }
             }
         }
-        NSLog("spacemap/HUD: state refresh complete, focused=\(state.focusedIndex ?? -1), spaces=\(state.spaces.count), windows=\(state.windows.count)")
     }
     func hide() {
         guard isVisible else { return }
@@ -203,7 +200,7 @@ class HUDWindowController {
         _config = nil
         services.themeService.reload()
         hudInput.config = config
-        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
+        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, useExtendedKeys: config.useExtendedKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
         hudDisplay.updateConfig(config)
         hudStateSync.reloadConfig()
     }
@@ -216,6 +213,14 @@ class HUDWindowController {
 }
 extension HUDWindowController: HUDInputDelegate {
     func navigate(direction: SpaceNavigationDirection) { navigateSpace(direction) }
+    func navigateToFirst() { hudInput.navigateToFirst() }
+    func navigateToLast() { hudInput.navigateToLast() }
+    func closeHUD() { hide() }
+    func focusRecent() {
+        // "recent" is a named selector; SpaceFocusTarget never fails for it.
+        guard let target = SpaceFocusTarget(argument: "recent") else { return }
+        services.yabaiService.focusSpace(target)
+    }
     func showSettings() { hide(); onShowSettings?() }
 }
 extension HUDWindowController: HUDDisplayDelegate {

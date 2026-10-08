@@ -42,6 +42,34 @@ class YabaiClientImpl: YabaiService {
 
     init() {
         yabaiProcessCheck = { [unowned self] in self.defaultYabaiProcessCheck() }
+        Self.warnIfYabaiUntrusted(path: yabaiPath)
+    }
+
+    /// Warn-only trust check: yabai runs with elevated scripting privileges,
+    /// so a binary owned by someone else (or with a broken signature) is
+    /// worth shouting about. Refusing would brick legit installs.
+    private static func warnIfYabaiUntrusted(path: String) {
+        var statBuf = stat()
+        if stat(path, &statBuf) == 0 {
+            let ownerOK = statBuf.st_uid == 0 || statBuf.st_uid == getuid()
+            if !ownerOK {
+                NSLog("spacemap/yabai: untrusted owner (uid \(statBuf.st_uid)) on \(path) — expected root or self")
+            }
+        }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+        task.arguments = ["-v", path]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = Pipe()
+        do {
+            try task.run()
+            task.waitUntilExit()
+            if task.terminationStatus != 0 {
+                NSLog("spacemap/yabai: codesign verify failed for \(path) — check your install source")
+            }
+        } catch {
+            NSLog("spacemap/yabai: could not verify signature for \(path): \(error)")
+        }
     }
 
 
@@ -170,7 +198,11 @@ class YabaiClientImpl: YabaiService {
         "window_moved",
         "window_resized",
         "window_minimized",
-        "window_deminimized"
+        "window_deminimized",
+        // Focus changes alter which space is highlighted, and an app gaining or
+        // losing focus changes the window list without a create/destroy event.
+        "window_focused",
+        "app_focused"
     ]
 
     let workspaceTopologyRefreshEvents: [String] = [
@@ -192,11 +224,21 @@ class YabaiClientImpl: YabaiService {
 
     func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
         let command = showHUDOnSpaceChange ? SpacemapCommand.show.rawValue : SpacemapCommand.refresh.rawValue
-        return "echo \(command) | /usr/bin/nc -U \(socketPath)"
+        guard let quoted = SpacemapCommand.shellQuoted(socketPath) else {
+            NSLog("spacemap/yabai: refusing signal with untrusted socket path")
+            return "/usr/bin/false"
+        }
+        let nonce = SpacemapCommand.currentNonceHex().map { ":\($0)" } ?? ""
+        return "printf '\(command)\(nonce)' | /usr/bin/nc -U \(quoted)"
     }
 
     func refreshSignalAction(socketPath: String) -> String {
-        "echo \(SpacemapCommand.refresh.rawValue) | /usr/bin/nc -U \(socketPath)"
+        guard let quoted = SpacemapCommand.shellQuoted(socketPath) else {
+            NSLog("spacemap/yabai: refusing signal with untrusted socket path")
+            return "/usr/bin/false"
+        }
+        let nonce = SpacemapCommand.currentNonceHex().map { ":\($0)" } ?? ""
+        return "printf '\(SpacemapCommand.refresh.rawValue)\(nonce)' | /usr/bin/nc -U \(quoted)"
     }
 
     func removeSignals() {
@@ -232,6 +274,75 @@ class YabaiClientImpl: YabaiService {
         }
     }
 
+
+    func createSpace() {
+        focusQueue.async { [weak self] in
+            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            self.runIgnoringFailure(["-m", "space", "--create"], "createSpace")
+        }
+    }
+
+    func destroySpace(_ index: Int) {
+        guard index > 0 else { return }
+        focusQueue.async { [weak self] in
+            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            self.runIgnoringFailure(["-m", "space", "--destroy", "\(index)"], "destroySpace(\(index))")
+        }
+    }
+
+    func moveFocusedWindow(toSpace index: Int) {
+        moveWindows([], toSpace: index)
+    }
+
+    func moveWindows(_ windowIDs: [Int], toSpace index: Int) {
+        guard index > 0 else { return }
+        // An empty list means "the focused window", which is yabai's default target.
+        focusQueue.async { [weak self] in
+            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            if windowIDs.isEmpty {
+                self.runIgnoringFailure(["-m", "window", "--space", "\(index)"], "moveFocusedWindow")
+                return
+            }
+            for windowID in windowIDs {
+                self.runIgnoringFailure(
+                    ["-m", "window", "\(windowID)", "--space", "\(index)"],
+                    "moveWindow(\(windowID))"
+                )
+            }
+        }
+    }
+
+    func toggleWindowFullscreen() {
+        focusQueue.async { [weak self] in
+            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            self.runIgnoringFailure(["-m", "window", "--toggle", "native-fullscreen"], "toggleFullscreen")
+        }
+    }
+
+    func balanceWindows() {
+        focusQueue.async { [weak self] in
+            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            self.runIgnoringFailure(["-m", "space", "--balance"], "balanceWindows")
+        }
+    }
+
+    func toggleWindowFloat() {
+        focusQueue.async { [weak self] in
+            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            self.runIgnoringFailure(["-m", "window", "--toggle", "float"], "toggleFloat")
+        }
+    }
+
+    /// Fire-and-forget yabai command. The result is discarded, but a failure is
+    /// logged rather than swallowed: these are driven by menu-bar clicks, so a
+    /// silent no-op is indistinguishable from a broken action otherwise.
+    private func runIgnoringFailure(_ arguments: [String], _ label: String) {
+        do {
+            _ = try shell([yabaiPath] + arguments)
+        } catch {
+            NSLog("spacemap/yabai: \(label) failed — \(error.localizedDescription)")
+        }
+    }
 
     func showSpacemap() {
         do { try SpacemapCommand.show.send() } catch { fputs("spacemap: \(error)\n", stderr) }
@@ -316,8 +427,16 @@ class YabaiClientImpl: YabaiService {
 
 
     private func shell(_ args: String...) throws -> String {
-        try Self.runProcess(
-            executable: args[0],
+        try shell(args)
+    }
+
+    /// Array form. `shell(path, args...)` cannot be spelled — a trailing `...`
+    /// after an identifier parses as a postfix range, not a variadic spread — so
+    /// callers that build their argument list dynamically use this instead.
+    private func shell(_ args: [String]) throws -> String {
+        guard let executable = args.first else { throw YabaiError.commandFailed(arguments: [], status: -1, message: "empty command") }
+        return try Self.runProcess(
+            executable: executable,
             arguments: Array(args.dropFirst()),
             timeout: Self.commandTimeout
         )

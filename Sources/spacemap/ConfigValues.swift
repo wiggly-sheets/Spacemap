@@ -7,6 +7,7 @@ struct ConfigValues: ConfigValuesProtocol {
     var cellStyle: CellStyle?
     var hotkey: HotkeyConfig?
     var pinnedHotkey: HotkeyConfig?
+    var glyphStripHotkey: HotkeyConfig?
     var socketHealthInterval: Int?
     var uiScale: Double?
     var autoHideTimeout: Int?
@@ -26,11 +27,13 @@ struct ConfigValues: ConfigValuesProtocol {
     var showIconStrip: Bool?
     var showMultiAppIcons: Bool?
     var hideMenuBarIcon: Bool?
+    var glyphStrip: GlyphStripConfig?
     var menuBarDisplayMode: MenuBarDisplayMode?
     var menuBarNearbyCount: Int?
     var spaceNames: [Int: String]?
     var useVimKeys: Bool?
     var useArrowKeys: Bool?
+    var useExtendedKeys: Bool?
     var jumpToSpaceEnabled: Bool?
     var hudPosition: HUDPosition?
     var customHUDX: Double?
@@ -40,7 +43,12 @@ struct ConfigValues: ConfigValuesProtocol {
     var focusSpaceOnWindowDropModifier: WindowDropFocusModifier?
     var showHUDOnSpaceChange: Bool?
     var updateMode: UpdateMode?
+    var appFont: AppFontConfig?
     var hasInvalidSpaceNames = false
+
+    /// Space name profiles
+    var spaceNameProfiles: [SpaceNameProfile]?
+    var activeSpaceNameProfileIndex: Int?
 
     init() {}
 
@@ -50,6 +58,7 @@ struct ConfigValues: ConfigValuesProtocol {
         self.cellStyle = config.cellStyle
         self.hotkey = config.hotkey
         self.pinnedHotkey = config.pinnedHotkey
+        self.glyphStripHotkey = config.glyphStripHotkey
         self.socketHealthInterval = config.socketHealthInterval
         self.uiScale = config.uiScale
         self.autoHideTimeout = config.autoHideTimeout
@@ -69,11 +78,13 @@ struct ConfigValues: ConfigValuesProtocol {
         self.showIconStrip = config.showIconStrip
         self.showMultiAppIcons = config.showMultiAppIcons
         self.hideMenuBarIcon = config.hideMenuBarIcon
+        self.glyphStrip = config.glyphStrip
         self.menuBarDisplayMode = config.menuBarDisplayMode
         self.menuBarNearbyCount = config.menuBarNearbyCount
         self.spaceNames = config.spaceNames
         self.useVimKeys = config.useVimKeys
         self.useArrowKeys = config.useArrowKeys
+        self.useExtendedKeys = config.useExtendedKeys
         self.jumpToSpaceEnabled = config.jumpToSpaceEnabled
         self.hudPosition = config.hudPosition
         self.customHUDX = config.customHUDX
@@ -83,6 +94,9 @@ struct ConfigValues: ConfigValuesProtocol {
         self.focusSpaceOnWindowDropModifier = config.focusSpaceOnWindowDropModifier
         self.showHUDOnSpaceChange = config.showHUDOnSpaceChange
         self.updateMode = config.updateMode
+        self.appFont = config.appFont
+        self.spaceNameProfiles = config.spaceNameProfiles
+        self.activeSpaceNameProfileIndex = config.activeSpaceNameProfileIndex
     }
 
     func toGridConfig() -> (config: GridConfig, needsRepair: Bool) {
@@ -102,6 +116,22 @@ struct ConfigValues: ConfigValuesProtocol {
             return value
         }
 
+        func oversizeClamped<T: Comparable>(_ value: T?, _ default: T, in range: ClosedRange<T>) -> T {
+            guard let value else {
+                needsRepair = true
+                return `default`
+            }
+            if value < range.lowerBound {
+                needsRepair = true
+                return `default`
+            }
+            if value > range.upperBound {
+                needsRepair = true
+                return range.upperBound
+            }
+            return value
+        }
+
         let resolvedCellStyle = orDefault(cellStyle, defaults.cellStyle)
         let resolvedShowMode = orDefault(showMode, defaults.showMode)
         let resolvedMultiMonitorMode = orDefault(multiMonitorHUDMode, defaults.multiMonitorHUDMode)
@@ -116,6 +146,7 @@ struct ConfigValues: ConfigValuesProtocol {
 
         let resolvedHotkey = orDefault(hotkey, defaults.hotkey)
         let resolvedPinnedHotkey = orDefault(pinnedHotkey, defaults.pinnedHotkey)
+        let resolvedGlyphStripHotkey = orDefault(glyphStripHotkey, defaults.glyphStripHotkey)
 
         let resolvedHudPosition: HUDPosition
         switch hudPosition {
@@ -126,12 +157,30 @@ struct ConfigValues: ConfigValuesProtocol {
             needsRepair = true
         }
 
+        var resolvedSpaceNameProfiles = spaceNameProfiles ?? defaults.spaceNameProfiles
+        if resolvedSpaceNameProfiles.isEmpty {
+            resolvedSpaceNameProfiles = defaults.spaceNameProfiles
+            needsRepair = true
+        }
+        var resolvedActiveProfileIndex = activeSpaceNameProfileIndex ?? defaults.activeSpaceNameProfileIndex
+        if !(0..<resolvedSpaceNameProfiles.count).contains(resolvedActiveProfileIndex) {
+            resolvedActiveProfileIndex = 0
+            needsRepair = true
+        }
+
+        let rawStrip = orDefault(glyphStrip, defaults.glyphStrip)
+        let clampedStrip = rawStrip.clamped()
+        if clampedStrip != rawStrip {
+            needsRepair = true
+        }
+
         let config = GridConfig(
             cols: valid(cols, defaults.cols) { $0 > 0 },
             rows: valid(rows, defaults.rows) { $0 > 0 },
             cellStyle: resolvedCellStyle,
             hotkey: resolvedHotkey,
             pinnedHotkey: resolvedPinnedHotkey,
+            glyphStripHotkey: resolvedGlyphStripHotkey,
             socketHealthInterval: valid(socketHealthInterval, defaults.socketHealthInterval) { $0 > 0 },
             uiScale: valid(uiScale, defaults.uiScale) { (0...1).contains($0) },
             autoHideTimeout: valid(autoHideTimeout, defaults.autoHideTimeout) { $0 >= 0 },
@@ -141,7 +190,7 @@ struct ConfigValues: ConfigValuesProtocol {
             unifiedHUDVisibility: resolvedUnifiedVisibility,
             separateHUDVisibility: resolvedSeparateVisibility,
             displayNavigationWrap: resolvedNavigationWrap,
-            maxSpaces: valid(maxSpaces, defaults.maxSpaces) { (1...16).contains($0) },
+            maxSpaces: oversizeClamped(maxSpaces, defaults.maxSpaces, in: 1...16),
             backgroundAlpha: valid(backgroundAlpha, defaults.backgroundAlpha) { (0...1).contains($0) },
             hudShadow: orDefault(hudShadow, defaults.hudShadow),
             mode: resolvedThemeMode,
@@ -151,11 +200,13 @@ struct ConfigValues: ConfigValuesProtocol {
             showIconStrip: orDefault(showIconStrip, defaults.showIconStrip),
             showMultiAppIcons: orDefault(showMultiAppIcons, defaults.showMultiAppIcons),
             hideMenuBarIcon: orDefault(hideMenuBarIcon, defaults.hideMenuBarIcon),
+            glyphStrip: clampedStrip,
             menuBarDisplayMode: resolvedMenuBarDisplayMode,
-            menuBarNearbyCount: valid(menuBarNearbyCount, defaults.menuBarNearbyCount) { (1...16).contains($0) },
+            menuBarNearbyCount: oversizeClamped(menuBarNearbyCount, defaults.menuBarNearbyCount, in: 1...16),
             spaceNames: spaceNames ?? defaults.spaceNames,
             useVimKeys: orDefault(useVimKeys, defaults.useVimKeys),
             useArrowKeys: orDefault(useArrowKeys, defaults.useArrowKeys),
+            useExtendedKeys: orDefault(useExtendedKeys, defaults.useExtendedKeys),
             jumpToSpaceEnabled: orDefault(jumpToSpaceEnabled, defaults.jumpToSpaceEnabled),
             hudPosition: resolvedHudPosition,
             customHUDX: valid(customHUDX, defaults.customHUDX) { (0...1).contains($0) },
@@ -164,7 +215,10 @@ struct ConfigValues: ConfigValuesProtocol {
             focusSpaceOnWindowDrop: resolvedWindowDropFocusMode,
             focusSpaceOnWindowDropModifier: resolvedWindowDropModifier,
             showHUDOnSpaceChange: orDefault(showHUDOnSpaceChange, defaults.showHUDOnSpaceChange),
-            updateMode: resolvedUpdateMode
+            updateMode: resolvedUpdateMode,
+            appFont: orDefault(appFont, defaults.appFont),
+            spaceNameProfiles: resolvedSpaceNameProfiles,
+            activeSpaceNameProfileIndex: resolvedActiveProfileIndex
         )
         return (config, needsRepair)
     }

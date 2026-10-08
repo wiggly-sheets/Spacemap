@@ -8,6 +8,8 @@ enum SpaceNavigationDirection {
 }
 
 enum SpaceNavigator {
+    private static func clampedColumns(_ columns: Int) -> Int { max(columns, 1) }
+
     static func navigableSpaceIndices(activeSpaceIndices: [Int], maxSpaces: Int) -> [Int] {
         let limit = min(max(maxSpaces, 0), 16)
         return Array(Set(activeSpaceIndices))
@@ -23,7 +25,7 @@ enum SpaceNavigator {
     ) -> Int? {
         guard !visibleSpaceIndices.isEmpty else { return nil }
 
-        let columnCount = max(columns, 1)
+        let columnCount = clampedColumns(columns)
         guard let currentPosition = visibleSpaceIndices.firstIndex(of: currentSpaceIndex) else {
             return visibleSpaceIndices.first
         }
@@ -59,7 +61,7 @@ enum SpaceNavigator {
             case .down:
                 targetOffset = (positionInColumn + 1) % positionsInColumn.count
             case .left, .right:
-                preconditionFailure("Handled before column navigation")
+                return nil
             }
             return visibleSpaceIndices[positionsInColumn[targetOffset]]
         }
@@ -114,7 +116,7 @@ enum SpaceNavigator {
         columns: Int,
         direction: SpaceNavigationDirection
     ) -> Bool {
-        let columnCount = max(columns, 1)
+        let columnCount = clampedColumns(columns)
         guard let currentPosition = visibleSpaceIndices.firstIndex(of: currentSpaceIndex) else {
             return false
         }
@@ -141,7 +143,7 @@ enum SpaceNavigator {
             case .down:
                 return positionInColumn + 1 == positionsInColumn.count
             case .left, .right:
-                preconditionFailure("Handled before column navigation")
+                return false
             }
         }
     }

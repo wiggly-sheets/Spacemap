@@ -4,6 +4,7 @@ import ServiceManagement
 class MenubarHandler: NSObject {
     private static let toggleHUDMenuItemTag = 1000
     private static let launchAtLoginMenuItemTag = 1001
+    private static let spaceNameProfileMenuBaseTag = 2000
 
     private var statusItem: NSStatusItem?
     private var menubarRefreshWorkItem: DispatchWorkItem?
@@ -18,6 +19,7 @@ class MenubarHandler: NSObject {
     private let onRestartApp: () -> Void
     private let onGetConfig: () -> GridConfig
     private let onSetLoginAtLogin: (Bool) -> Void
+    private let onChangeSpaceNameProfile: (Int) -> Void
 
     init(
         yabaiService: YabaiService,
@@ -28,7 +30,8 @@ class MenubarHandler: NSObject {
         onCheckForUpdates: @escaping () -> Void,
         onRestartApp: @escaping () -> Void,
         onGetConfig: @escaping () -> GridConfig,
-        onSetLoginAtLogin: @escaping (Bool) -> Void
+        onSetLoginAtLogin: @escaping (Bool) -> Void,
+        onChangeSpaceNameProfile: @escaping (Int) -> Void
     ) {
         self.yabaiService = yabaiService
         self.onToggleHUD = onToggleHUD
@@ -39,6 +42,7 @@ class MenubarHandler: NSObject {
         self.onRestartApp = onRestartApp
         self.onGetConfig = onGetConfig
         self.onSetLoginAtLogin = onSetLoginAtLogin
+        self.onChangeSpaceNameProfile = onChangeSpaceNameProfile
         super.init()
     }
 
@@ -89,6 +93,31 @@ class MenubarHandler: NSObject {
             symbolName: "terminal"
         ))
         menu.addItem(NSMenuItem.separator())
+
+        // Space Name Profiles submenu
+        if config.spaceNameProfiles.count > 1 {
+            let profilesMenu = NSMenu()
+            for (index, profile) in config.spaceNameProfiles.enumerated() {
+                let item = menuItem(
+                    title: profile.name,
+                    action: #selector(menubarChangeSpaceNameProfile(_:)),
+                    symbolName: index == config.activeSpaceNameProfileIndex ? "checkmark.circle.fill" : "circle"
+                )
+                item.tag = Self.spaceNameProfileMenuBaseTag + index
+                item.state = index == config.activeSpaceNameProfileIndex ? .on : .off
+                profilesMenu.addItem(item)
+            }
+            let profilesItem = NSMenuItem(
+                title: NSLocalizedString("Space Name Profiles", comment: ""),
+                action: nil,
+                keyEquivalent: ""
+            )
+            profilesItem.submenu = profilesMenu
+            profilesItem.image = NSImage(systemSymbolName: "textformat.alt", accessibilityDescription: "Space Name Profiles")
+            menu.addItem(profilesItem)
+            menu.addItem(NSMenuItem.separator())
+        }
+
         let launchAtLoginItem = menuItem(
             title: NSLocalizedString("Launch at Login", comment: ""),
             action: #selector(menubarToggleLaunchAtLogin),
@@ -312,5 +341,15 @@ class MenubarHandler: NSObject {
 
     @objc public func menubarToggleLaunchAtLogin() {
         self.menubarToggleLoginAtLabelImpl()
+    }
+
+    @objc private func menubarChangeSpaceNameProfile(_ sender: NSMenuItem) {
+        let index = sender.tag - Self.spaceNameProfileMenuBaseTag
+        guard index >= 0 else { return }
+        onChangeSpaceNameProfile(index)
+
+        // Rebuild menu to update checkmarks
+        let config = onGetConfig()
+        statusItem?.menu = makeMenu(config: config)
     }
 }

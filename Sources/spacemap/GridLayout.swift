@@ -42,12 +42,16 @@ public enum GridLayout {
 
 
     static func idealSize(visibleIndices: Int, cols: Int, uiScale: Double) -> CGSize {
-        let cellW = baseCellWidth * scale(for: uiScale)
-        let cellH = baseCellHeight * scale(for: uiScale)
         let gap = baseGap * scale(for: uiScale)
         let pad = basePadding * scale(for: uiScale)
-        let rowCount = Int((visibleIndices + cols - 1) / cols)
-        let colCount = min(cols, visibleIndices)
+        guard cols > 0 else {
+            return CGSize(width: pad * 2, height: pad * 2)
+        }
+        let visible = max(0, visibleIndices)
+        let cellW = baseCellWidth * scale(for: uiScale)
+        let cellH = baseCellHeight * scale(for: uiScale)
+        let rowCount = Int((visible + cols - 1) / cols)
+        let colCount = min(cols, visible)
         let w = CGFloat(colCount) * (cellW + gap) - gap + pad * 2
         let h = CGFloat(rowCount) * (cellH + gap) - gap + pad * 2
         return CGSize(width: w, height: h)
@@ -55,7 +59,8 @@ public enum GridLayout {
 
 
     static func visibleSpaceIndices(maxSpaces: Int, showMode: ShowMode, activeIndices: Set<Int>) -> [Int] {
-        let maxN = min(maxSpaces, 16)
+        let maxN = min(max(maxSpaces, 0), 16)
+        guard maxN > 0 else { return [] }
         let all = (1...maxN).map { $0 }
         if showMode == .active {
             return all.filter { activeIndices.contains($0) }
@@ -65,6 +70,7 @@ public enum GridLayout {
 
 
     static func cellFrame(offset: Int, cols: Int, uiScale: Double) -> CGRect {
+        guard cols > 0, offset >= 0 else { return .zero }
         let s = scale(for: uiScale)
         let cellW = baseCellWidth * s
         let cellH = baseCellHeight * s

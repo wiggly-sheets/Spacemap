@@ -32,8 +32,9 @@ struct GridView: View {
     
     var body: some View {
         let cells = visibleSpaceIndices
-        let rows = stride(from: 0, to: cells.count, by: state.config.cols).map {
-            Array(cells[$0..<min($0 + state.config.cols, cells.count)])
+        let safeCols = max(1, state.config.cols)
+        let rows = stride(from: 0, to: cells.count, by: safeCols).map {
+            Array(cells[$0..<min($0 + safeCols, cells.count)])
         }
         VStack(spacing: effectiveGap) {
             ForEach(0..<rows.count, id: \.self) { row in
