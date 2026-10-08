@@ -154,14 +154,31 @@ final class AppGlyphFont {
         return urls
     }
 
+    /// Returns the SwiftPM resource bundle (`spacemap_spacemap.bundle`) by
+    /// replicating the generated `Bundle.module` logic but returning `nil`
+    /// instead of `fatalError` when the bundle is absent (the hand-assembled
+    /// `.app` layout where the ttf sits directly in `Contents/Resources`).
+    private static func findModuleBundle() -> Bundle? {
+        let bundleName = "spacemap_spacemap"
+        let candidates = [
+            Bundle.main.resourceURL,
+            Bundle(for: AppGlyphFont.self).resourceURL,
+            Bundle.main.bundleURL
+        ].compactMap { $0 }
+        for candidate in candidates {
+            let bundlePath = candidate.appendingPathComponent(bundleName + ".bundle")
+            if let bundle = Bundle(url: bundlePath) {
+                return bundle
+            }
+        }
+        return nil
+    }
+
     /// Walks the app and test bundle trees looking for the ttf by name. This
     /// finds it whether it sits directly in `Contents/Resources` (the `.app`)
     /// or inside the generated `spacemap_spacemap.bundle` (under `swift test`),
-    /// without depending on `Bundle(for:).resourceURL` being non-nil or on the
-    /// generated `Bundle.module` accessor, which `fatalError`s when the SwiftPM
-    /// resource bundle is absent. The executable URL anchors the walk: it is
-    /// the one root that is never nil, so when the Bundle APIs return empty
-    /// (which is what the CI runner does) the walk still reaches the ttf.
+    /// without depending on the generated `Bundle.module` accessor, which
+    /// `fatalError`s when the SwiftPM resource bundle is absent.
     private static func walkForFont(named name: String) -> [URL] {
         let exe = Bundle.main.executableURL
         let roots: [URL?] = [
@@ -169,6 +186,8 @@ final class AppGlyphFont {
             Bundle.main.bundleURL,
             Bundle(for: AppGlyphFont.self).resourceURL,
             Bundle(for: AppGlyphFont.self).bundleURL,
+            findModuleBundle()?.resourceURL,
+            findModuleBundle()?.bundleURL,
             exe,
             exe?.deletingLastPathComponent(),
             exe?.deletingLastPathComponent().deletingLastPathComponent()
