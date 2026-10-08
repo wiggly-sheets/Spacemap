@@ -171,7 +171,7 @@ Open Settings from the menu bar or the HUD shortcut. Changes save immediately.
 | Section | What it controls |
 |---|---|
 | **Grid** | Space limit/layout, display behavior, cell style, labels, icon strip |
-| **Space Names** | Name visibility and per-space names |
+| **Space Names** | Name visibility, per-space names, and named profiles |
 | **Appearance** | Theme, background, opacity, scale, icon size, HUD shadow |
 | **Behavior** | Hotkeys, HUD position, auto-hide, key navigation, drag-drop focus, menu bar, updates |
 | **Debug/Advanced** | Signal socket health, diagnostics, extra window records |
@@ -251,6 +251,66 @@ jumpToSpaceEnabled = false
 keyKind = "keyCode"
 keyCode = 49
 modifiers = ["ctrl"]
+
+[glyphStrip]
+enabled = false
+maxIconsPerSpace = 8         # 0 = unlimited
+leftClickAction = "focusSpace"
+rightClickAction = "destroySpace"
+middleClickAction = "none"
+position = "leftOfNotch"
+```
+
+Glyph strip reference — every key with its default:
+
+```toml
+[glyphStrip]
+enabled = false                   # master toggle; legacy bare `glyphStrip = true` still reads
+showSpaceNumbers = true           # draw the space index digit
+showLayoutSuffix = true           # layout letter: bsp="", float="f", stack="s"
+showAppIcons = true               # draw sketchybar-app-font glyphs
+dedupeAppsPerSpace = true         # one glyph per app per space; false = one per window
+maxIconsPerSpace = 8              # glyph cap per space, then "+N"; 0 = unlimited
+iconSize = 11.0                   # glyph point size, clamped 6...24
+indexSize = 11.0                  # space-number point size, clamped 6...24
+highlightCurrentSpace = true
+backgroundMaterial = "none"       # none | solid | liquidGlass
+glassAmount = 0.5                 # liquidGlass tint 0...1; 0 clear, 0.5 default, 1 tinted
+                                   # (Settings slider shown only while Theme Tint is on)
+useThemeTint = true               # liquidGlass only; false = neutral pure frost, no fill overlay
+shape = "none"                    # none | pill | roundedRect | bar (none = no background, no outline)
+backgroundOpacity = 0.35          # solid only, 0.01...1.0 (Settings slider 1...100%)
+cornerRadius = 20.0               # roundedRect only, 0...40
+margin = 6.0                      # gap to the notch edge, clamped 0...40
+yOffset = 0.0                     # vertical nudge; positive moves the strip DOWN,
+                                  # clamped -10...10, 0 centered, NOT clamped back into the row
+iconSpacing = 3.0                  # extra gap between two app icons and before +N, clamped 0...20
+indexPadding = 6.0                 # gap from the space number to its first icon or placeholder, clamped 0...20
+hoverPadding = 1.0                # grow around the hovered segment's glyph box, both
+                                  # axes (symmetric), clamped 0...12; hit-testing uses
+                                  # the full slot while the pill stays glyph-sized
+hoverCornerRadius = 4.0           # rounding of that hover highlight, clamped 0...20
+showDisplaySeparators = true      # "|" between spaces on different displays
+showAddSpaceButton = true         # trailing "+"
+showPlaceholders = true           # placeholder glyph for empty spaces
+leftClickAction = "focusSpace"    # none | focusSpace | destroySpace | moveWindowHere |
+                                 # toggleFullscreen | floatWindow | balanceWindows | mergeWindows
+rightClickAction = "destroySpace"
+middleClickAction = "none"
+position = "leftOfNotch"          # leftOfNotch | rightOfNotch | center | custom
+xOffset = 0                       # custom only; points from the menu bar row's left edge, -4000...4000
+borderEnabled = true              # hairline outline, independent of the material;
+                                  # with none it follows shape, shape none = no outline
+theme = ""                        # follow main HUD theme; or a theme name
+                                    # leftOfNotch/rightOfNotch sit BESIDE the notch:
+                                    # the strip's outer edge is anchored `margin` short
+                                    # of NSScreen.auxiliaryTopLeftArea.maxX /
+                                    # auxiliaryTopRightArea.minX, so it never overlaps the
+                                    # camera housing. Displays without a notch report empty
+                                    # auxiliary rects, so these fall back to the screen edge.
+                                    # center puts the strip on the notch midpoint, which is
+                                    # under the camera on most displays — avoid it.
+
 ```
 
 <details>
@@ -260,10 +320,11 @@ modifiers = ["ctrl"]
 
 | Table | Useful keys |
 |---|---|
-| `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap` |
-| `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys |
-| `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `hudShadow`, `uiScale`, `iconScale`, `showSpaceNumbers`, `showIconStrip`, `showMultiAppIcons`, `hideMenuBarIcon` |
-| `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `updateMode` |
+| `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showIconStrip`, `showMultiAppIcons` |
+| `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]` |
+| `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `hudShadow`, `uiScale`, `iconScale` |
+| `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `hideMenuBarIcon`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
+| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassAmount`, `useThemeTint`, `shape`, `backgroundOpacity`, `cornerRadius`, `margin`, `yOffset`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `xOffset`, `borderEnabled` |
 | `[advanced]` | `socketHealthInterval`, `showExtraWindows` |
 
 Space names example:

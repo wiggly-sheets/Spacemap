@@ -7,10 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.1.0]
+
+### Added
+- Optional always-visible glyph strip in the menu bar row, showing each yabai space's index plus a sketchybar-app-font glyph per window. A new **Glyph Strip** settings pane and `[glyphStrip]` config table control contents (`showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`), appearance (`iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassAmount`, `useThemeTint`, `shape`, `backgroundOpacity` solid-only 0.01...1.0, `cornerRadius`, `margin`, `yOffset`), decoration (`showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `borderEnabled`, `theme`), click bindings (`leftClickAction`, `rightClickAction`, `middleClickAction`) and `position` (new `custom` value with `xOffset`). The former bare `[behavior] glyphStrip = true` boolean is still read and migrated on the next config repair.
+- Space-name profiles: named sets of space names with an active index, edited in a dedicated Settings section and switchable from Settings or the menu bar. Out-of-range indexes repair to 0; an empty list repairs to Default.
+- Session-only glyph-strip show/hide hotkey (`[behavior.glyphStripHotkey]`, default unbound). It flips an in-memory flag that starts visible every launch and is never written to config.
+
+### Changed
+- The glyph strip's palette is now theme-driven with no per-element colour keys: the current space, the add button and the hover highlight use the theme's `focused` role, resting glyphs use `text`, and the solid material fills with `cellBg`. Per-element colour keys (`currentSpaceColor`, `dimmedColor`, `indexColor`, `iconColor`, `hoverColor`, `backgroundColor`, `separatorColor`, `placeholderColor`, `addColor`) are removed; the legacy `backgroundStyle` key is migrated to `backgroundMaterial` + `shape` (none → none, pill → solid + pill, bar → solid + bar, roundedRect → solid + roundedRect, liquidGlass → liquidGlass + roundedRect).
+- `yOffset` (default `0.0`, clamped -10...10): nudge the glyph strip vertically in screen-reading terms, so a positive value moves it down into the screen interior. Deliberately not clamped back into the menu bar row, since the panel is ordered at `.statusBar` level.
+- Liquid glass now uses a continuous `glassAmount` slider (0...1, default 0.5) mirroring System Settings > Appearance > Liquid Glass — 0 is ultraclear, centre is default, 1 is opaque/tinted — driving the native glass `tintColor` alpha plus a fill overlay (view alpha stays 1.0). The old `glassStyle` key (`blurred`/`transparent`) still decodes to 0.5/0.15.
+- `indexPadding` (default `6.0`, clamped 0...20): the gap between a space's index number and its first app glyph or placeholder. Distinct from `iconSpacing`, which tracks icons within a run and before `+N` overflow.
+- Show gated controls only where they apply: the Glass Amount slider only for liquidGlass while Theme Tint is on, Background Opacity only for solid, Corner Radius only for roundedRect.
+- Solid fills span the full panel height while the glass mask keeps a 2pt vertical inset; with material `none` the outline follows the selected shape, and shape `none` draws no outline even with the border on.
+- Glyph verticals share one baseline with a 1pt drop; icon-font runs lift 1.5pt to sit with system digits, and the `+` add button draws bold at `indexSize + 2`.
+- Clicks hit the full slot while the hover pill stays glyph-sized (symmetric `hoverPadding` growth on both axes).
+- Preserved the `fn` modifier end to end (`maskSecondaryFn` record/serialize/match) across hotkeys and drop-focus modifiers.
 
 ### Fixed
+- Size the glyph strip's hover highlight to the glyphs it covers on both axes, and stop hover arming from anywhere in the 37.5pt menu bar row. The highlight is now the segment's glyph box grown by `hoverPadding` (default `1`, radius `4`) while clicks hit the full slot, so it sits on the glyphs rather than 1.5pt off and a few points too large.
+- Draw every glyph segment at its own slot's horizontal position. Segment 0's first run was drawn 3pt right of its slot, and a segment with no runs spent no leading pad at all — the pad was applied per run — so every later segment drifted 3pt further left of the frame the panel sized itself from. The pen now spends the leading pad once per segment, before its runs.
+- Honour `highlightCurrentSpace = false` for real. The flag only swapped the focused space's colour for the dimmed one, so the current space stayed visually distinct; it now resolves to byte-identical styling — colour, alpha and fill — so nothing marks it out, and hovering it behaves like hovering any other segment.
+- Show spaces from every display on the one strip, in global-index order, matching the SketchyBar config this replaces (which set `ignore_association = true` for exactly this). Spaces are never renumbered per display and indexes are never assumed contiguous.
+- Stop the glyph strip inventing spaces that do not exist. It iterated a fixed `1...maxSpaces` range, so every index past the last space yabai reported got a ghost segment. It now iterates the spaces yabai actually returned, which are global and not necessarily contiguous: real indexes are rendered in order, indexes that no longer exist are simply absent, display separators compare consecutive *rendered* spaces rather than `index + 1`, and click actions carry the real yabai index.
+- Give adjacent app glyphs room to breathe with a new `iconSpacing` key (default `3.0`, clamped 0...20). The gap is applied between two app glyphs and before the `+N` overflow, and the panel measures its frame from the same gap array it draws with, so content cannot be clipped or leave a gap.
+- Space the empty-space placeholder off the index with `indexPadding` and the `+N` overflow off the last icon with `iconSpacing`, so neither glues to its neighbour.
+- Place the glyph strip beside the notch instead of inside it: `leftOfNotch` and `rightOfNotch` had their anchors inverted, so the strip started at the notch edge and extended into the camera housing. Both now anchor the strip's *outer* edge to the notch and are verified against the real notch geometry.
+- Order the glyph strip front on every refresh instead of only after its panel already existed, so it is no longer created-but-never-shown until some later settings change.
+- Track the glyph strip with an always-active tracking area, so hover and the hover pill work while Spacemap is not the active app.
+- Anchor the glyph strip to the notch with `NSScreen.auxiliaryTopLeftArea` / `auxiliaryTopRightArea` and a new `margin` key, instead of the far screen edges, and recompute on display and resolution changes.
+- Honour each Material+Shape combo: `none` draws nothing, `solid` fills the strip with `cellBg` at `backgroundOpacity` (Settings slider 1...100%), and `liquidGlass` masks native glass to `shape` (`none` draws no shape; `pill`, `roundedRect` at `cornerRadius`, `bar`).
+- Take the first click on the glyph strip without requiring Spacemap to be active, log failed yabai commands triggered from the strip instead of swallowing them, and report a font that exists but cannot be parsed.
 - Drain yabai subprocess output without losing data when the system is under load.
+- Time out every yabai command after 10s (SIGTERM then SIGKILL) and create the signal socket mode 0600 with non-blocking clients.
+- Guard grid math at the boundaries: `cols > 0`, spaces clamped 0...16, zero-size display/cell frames return nil/empty instead of garbage.
+- Clamp all glyph-strip numerics at the model boundary so a hand-edited TOML cannot produce a degenerate layout.
 - Keep separate-display HUD cells aligned with their display-specific click and drag targets.
 - Keep pinned HUD input state and focused-window drag fallback synchronized across refreshes.
 - Keep window-drag event taps responsive and recover after macOS disables them.

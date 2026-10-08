@@ -28,7 +28,11 @@ final class AlertsServiceImpl: AlertsService {
 
         let response = alert.runModal()
         if response == .alertSecondButtonReturn {
-            _ = workspace.open(URL(string: "https://github.com/koekeishiya/yabai")!)
+            // Fixed allowlist destination — never open a computed URL here.
+            if let url = URL(string: "https://github.com/koekeishiya/yabai"),
+               url.scheme == "https", url.host == "github.com" {
+                _ = workspace.open(url)
+            }
         }
         NSApp.terminate(nil)
     }

@@ -39,6 +39,100 @@ final class HUDInputTests: XCTestCase {
         }
     }
 
+    func testExtendedKeyActionMapsKeysAndRespectsToggleAndModifiers() {
+        let cases: [(CGKeyCode, CGEventFlags, Bool, InputAction?)] = [
+            (45, [], true, .navigate(direction: .right)), // n
+            (35, [], true, .navigate(direction: .left)),  // p
+            (3, [], true, .navigateFirst),                // f
+            (14, [], true, .navigateLast),                // e
+            (15, [], true, .focusRecent),                 // r
+            (53, [], true, .closeHUD),                    // esc
+            (8, [], true, .closeHUD),                     // c
+            (45, [], false, nil),
+            (15, [], false, nil),
+            (45, .maskCommand, true, nil),
+            (45, .maskControl, true, nil),
+            (45, .maskAlternate, true, nil),
+            (15, .maskCommand, true, nil),
+            (15, .maskControl, true, nil),
+            (15, .maskAlternate, true, nil),
+            (45, .maskShift, true, .navigate(direction: .right)),
+            (12, [], true, nil)                            // q
+        ]
+
+        for (keyCode, flags, enabled, expected) in cases {
+            XCTAssertEqual(
+                HUDInput.extendedKeyAction(
+                    keyCode: keyCode,
+                    flags: flags,
+                    useExtendedKeys: enabled
+                ),
+                expected
+            )
+        }
+    }
+
+    func testHandleHUDKeyDownReturnsExtendedActionsWhenEnabled() {
+        let input = HUDInput(panel: nil)
+        input.updateConfig(useArrowKeys: false, useVimKeys: false, useExtendedKeys: true)
+        func event(_ key: CGKeyCode) -> CGEvent {
+            CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true)!
+        }
+
+        XCTAssertEqual(input.handleHUDKeyDown(event(45)), .navigate(direction: .right))
+        XCTAssertEqual(input.handleHUDKeyDown(event(35)), .navigate(direction: .left))
+        XCTAssertEqual(input.handleHUDKeyDown(event(3)), .navigateFirst)
+        XCTAssertEqual(input.handleHUDKeyDown(event(14)), .navigateLast)
+        XCTAssertEqual(input.handleHUDKeyDown(event(15)), .focusRecent)
+        XCTAssertEqual(input.handleHUDKeyDown(event(53)), .closeHUD)
+        XCTAssertEqual(input.handleHUDKeyDown(event(8)), .closeHUD)
+    }
+
+    func testNavigateToFirstAndLastMoveAcrossUnifiedGrid() {
+        let input = HUDInput(panel: nil)
+        var config = GridConfig.default
+        config.showMode = .active
+        config.maxSpaces = 8
+        let spaces = [
+            YabaiSpace(id: 1, index: 3, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 2, index: 5, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 3, index: 8, display: 1, hasFocus: false, isVisible: nil, label: nil)
+        ]
+        input.currentState = GridState(config: config, spaces: spaces, windows: [], displayBounds: .zero, focusedIndex: 5)
+        input.lastFocusedSpaceIndex = 5
+
+        input.navigateToFirst()
+
+        XCTAssertEqual(input.lastFocusedSpaceIndex, 3)
+
+        input.navigateToLast()
+
+        XCTAssertEqual(input.lastFocusedSpaceIndex, 8)
+    }
+
+    func testNavigateToFirstAndLastStayWithinFocusedDisplayInSeparateMode() {
+        let input = HUDInput(panel: nil)
+        var config = GridConfig.default
+        config.multiMonitorHUDMode = .separate
+        config.maxSpaces = 8
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 3, index: 4, display: 2, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 4, index: 7, display: 2, hasFocus: false, isVisible: nil, label: nil)
+        ]
+        input.currentState = GridState(config: config, spaces: spaces, windows: [], displayBounds: .zero, focusedIndex: 4)
+        input.lastFocusedSpaceIndex = 4
+
+        input.navigateToLast()
+
+        XCTAssertEqual(input.lastFocusedSpaceIndex, 7)
+
+        input.navigateToFirst()
+
+        XCTAssertEqual(input.lastFocusedSpaceIndex, 4)
+    }
+
     func testAccessibilityRevocationNotifiesOwner() {
         let input = HUDInput(panel: nil)
         let revoked = expectation(description: "accessibility revocation")

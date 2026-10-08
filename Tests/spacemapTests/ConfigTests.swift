@@ -36,6 +36,7 @@ final class ConfigTests: XCTestCase {
         displayNavigationWrap = "between"
         useVimKeys = true
         useArrowKeys = true
+        useExtendedKeys = true
         customHUDX = 0.25
         customHUDY = 0.75
         focusSpaceOnWindowDrop = "modifier"
@@ -89,6 +90,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.displayNavigationWrap, .between)
         XCTAssertTrue(c.useVimKeys)
         XCTAssertTrue(c.useArrowKeys)
+        XCTAssertTrue(c.useExtendedKeys)
         XCTAssertEqual(c.focusSpaceOnWindowDrop, .modifier)
         XCTAssertEqual(c.focusSpaceOnWindowDropModifier, .option)
         XCTAssertTrue(c.showHUDOnSpaceChange)
@@ -156,7 +158,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.uiScale, GridConfig.default.uiScale)
         XCTAssertEqual(c.autoHideTimeout, GridConfig.default.autoHideTimeout)
         XCTAssertEqual(c.menuBarDisplayMode, GridConfig.default.menuBarDisplayMode)
-        XCTAssertEqual(c.menuBarNearbyCount, GridConfig.default.menuBarNearbyCount)
+        XCTAssertEqual(c.menuBarNearbyCount, 16)
         XCTAssertEqual(c.socketHealthInterval, GridConfig.default.socketHealthInterval)
     }
 

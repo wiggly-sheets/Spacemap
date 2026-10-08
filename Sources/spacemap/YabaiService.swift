@@ -27,6 +27,13 @@ protocol YabaiService {
     func focusSpace(_ index: Int)
     func focusSpace(_ target: SpaceFocusTarget) -> Bool
     func focusSpaceAsync(_ index: Int)
+    func createSpace()
+    func destroySpace(_ index: Int)
+    func moveFocusedWindow(toSpace index: Int)
+    func moveWindows(_ windowIDs: [Int], toSpace index: Int)
+    func toggleWindowFullscreen()
+    func toggleWindowFloat()
+    func balanceWindows()
 
     func showSpacemap()
 

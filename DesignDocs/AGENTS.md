@@ -19,16 +19,17 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
 - **Sparkle updater**: `App.swift` initializes `SPUStandardUpdaterController` with `startingUpdater: false`; `start()` called after config load. Keys generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`.
 - **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
-- **Data**: `YabaiClient.swift` – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows; `Config.swift` – reads `~/.config/spacemap/config.toml`.
-- **Themes**: `ThemeManager.swift` – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
-- **Hotkey**: `HotkeyMonitor.swift` – global CGEventTap for toggle.
+- **Data**: `YabaiClientImpl.swift` (+ `YabaiService.swift` protocol) – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows, 10s command timeout with async pipe drain; `Config.swift` facade (+ `ConfigLoader`/`TOMLParser`/`ConfigValues`) – reads `~/.config/spacemap/config.toml`.
+- **Themes**: `ThemeService.swift` (+ `ThemeManager.swift`) – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
+- **Hotkey**: `HotkeyMonitor.swift` (+ `HotkeyService`/`HotkeyHandler`) – global CGEventTap for normal, pinned, and glyph-strip bindings; fails open on revocation; fn preserved.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
-- **Signals**: `SocketListener.swift` – Unix domain socket for yabai `space_changed` events.
-- **Models**: `Models.swift` – data structs (GridConfig, YabaiSpace, UpdateMode, etc.).
-- **Settings**: `SettingsView.swift` + `SettingsWindowController.swift` – permanent category sidebar with separate live-save detail forms.
+- **Signals**: `SocketListener.swift` – Unix domain socket (mode 0600) for yabai `space_changed` events.
+- **Models**: `ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift` – data structs (GridConfig, YabaiSpace, AppTheme with rect1/rect2/rect3, etc.).
+- **Settings**: `SettingsView.swift` (+ per-category `SettingsGrid`/`SettingsSpaceNames`/`SettingsAppearance`/`SettingsBehavior`/`SettingsGlyphStrip`/`SettingsAdvanced`) + `SettingsWindowController.swift` – permanent category sidebar with separate live-save detail forms.
+- **Glyph strip**: `GlyphStrip.swift` (pure model) + `GlyphStripPanel.swift` (panel/view) – menu-bar index+glyph strip, theme-driven, session-only hotkey toggle.
 - **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
-- **Config**: Stored at `~/.config/spacemap/config.toml`; reloads on HUD open (except HOTKEY needs restart).
+- **Config**: Stored at `~/.config/spacemap/config.toml`; reloads on HUD open, Settings applies hotkeys/update-mode/socket-health immediately (no restart).
 - **Permissions**: Requires Accessibility permission (prompted on first launch). Screen Recording permission required for thumbnail cell style.
 - **Sparkle Keys**: Public key is in `sparklesigner.pub`; `sparklesigner.pem` is the matching local PEM private key. Both are `.gitignore`d. GitHub `SPARKLE_PUBLIC_KEY` stores the public key; `SPARKLE_PRIVATE_KEY` must contain the matching base64-encoded 32-byte Ed25519 seed (not the PEM file). The release workflow verifies the pair before building.
 
@@ -48,16 +49,23 @@ Sources/spacemap/
 ├── HUDWindowController.swift  # Manages NSPanel HUD (show/hide/render)
 ├── GridView.swift         # SwiftUI grid container
 ├── CellView.swift         # Individual cell rendering (rects/icons/thumbnails)
-├── YabaiClient.swift      # Shells out to yabai binary for data/manipulation
-├── Config.swift     # Parses ~/.config/spacemap/config.toml
-├── HotkeyMonitor.swift   # Global CGEventTap for toggle hotkey
+├── YabaiClientImpl.swift   # Shells out to yabai binary for data/manipulation
+├── YabaiService.swift       # Protocol seam for yabai access (mockable)
+├── Config.swift     # Thin facade over ConfigLoader/TOMLParser/ConfigValues
+├── HotkeyMonitor.swift   # Global CGEventTap for normal/pinned/glyph-strip hotkeys
 ├── WindowDragHandler.swift # Detects window drag-and-drop over HUD
 ├── SocketListener.swift   # Unix domain socket server for yabai signals
-├── Models.swift           # Data structures (GridConfig, YabaiSpace, etc.)
+├── ConfigurationModels.swift # GridConfig, GlyphStripConfig, hotkeys, profiles
+├── ThemeModels.swift        # AppTheme (9 roles incl rect1/rect2/rect3)
+├── YabaiModels.swift        # YabaiSpace, YabaiWindow, GridState
+├── GlyphStrip.swift         # Menu-bar strip model (pure, testable)
+├── GlyphStripPanel.swift    # Strip panel/view (AppKit, notch-aware)
 ├── ThumbnailCache.swift   # ScreenCaptureKit capture, per-space caching (macOS 14+)
 ├── IconCache.swift         # App icon cache to avoid repeated NSWorkspace lookups
 ├── ThemeManager.swift      # Loads .smthemes files, seeds built-in themes on first launch
 ├── SettingsView.swift     # Fixed settings sidebar + category-specific live-save forms
+├── SettingsGrid.swift / SettingsSpaceNames.swift / SettingsAppearance.swift
+│   ├── SettingsBehavior.swift / SettingsGlyphStrip.swift / SettingsAdvanced.swift
 ├── SettingsWindowController.swift # AppKit window wrapper for SettingsView
 └── Info.plist            # App bundle metadata
 ```
@@ -66,8 +74,8 @@ Sources/spacemap/
 
 1. **App launches** → `App.swift` sets up menubar, hotkey monitor, and socket listener
 2. **Hotkey pressed** → `HUDWindowController.show()` is called
-3. **Show fetches data** → `YabaiClient.querySpaces()` / `queryWindows()` (shells to `/opt/homebrew/bin/yabai`)
-4. **Builds state** → `YabaiClient.buildGridState()` assembles `GridState` with config
+3. **Show fetches data** → `YabaiClientImpl.querySpaces()` / `queryWindows()` (shells to `/opt/homebrew/bin/yabai`)
+4. **Builds state** → `YabaiClientImpl.buildGridState()` assembles `GridState` with config
 5. **Renders grid** → SwiftUI `GridView` → `CellView` for each cell
 6. **Live updates** → yabai signal triggers → socket message → `HUDWindowController.refresh()`
 7. **Drag-and-drop** → `WindowDragHandler` uses CGEventTap to track mouse, yabai to move window
@@ -171,7 +179,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 3. **SwiftUI performance:** Each HUD open creates a new NSHostingView. The state is cached during a drag, but the view is recreated.
 4. **Icon strip flicker:** On space change, `CellView` rerenders and re-fetches icons via `NSWorkspace.shared.icon(forFile:)` which is potentially expensive
 5. **Drag resolution:** Window drag detection uses frontmost app name matching, which can be ambiguous for multi-window apps. Falls back to click proximity.
-6. **Test suite:** 193 unit tests across 9 files (`Tests/spacemapTests/`). Run with `make test` or `swift test`.
+6. **Test suite:** ~588 tests across 35 files (`Tests/spacemapTests/` + `MockYabaiService.swift`). Run with `make test` or `swift test`.
 7. **Socket health check:** Periodic `fcntl(fd, F_GETFD)` check + file existence check. Restarts on failure.
 
 ## Potential Extension Points
@@ -224,7 +232,10 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - Grid-aware keyboard navigation (arrow keys + vim keys with wrapping)
 - Dynamic yabai path detection (ARM + Intel)
 - Xcode project generation (`scripts/generate-xcodeproj.py`, 4 targets)
-- Unit test suite: 193 tests across 9 files (`Tests/spacemapTests/`)
+- Unit test suite: ~588 tests across 35 files (`Tests/spacemapTests/`)
+- Glyph strip: theme-driven menu-bar index+glyph strip (material/shape/glassAmount/tint gating, notch-aware positions + custom drag, session-only hotkey)
+- Space-name profiles with menu-bar switching; fn modifier preserved across hotkeys/drop-focus
+- Hardening: yabai 10s timeout + async pipe drain, socket mode 0600, release tag/appcast checks
 - GitHub Actions CI: swift test + build on push/PR
 - GitHub Actions Release: 3 DMG variants + checksums on tag push
 - Dependabot for GitHub Actions
@@ -237,4 +248,4 @@ See [TASKS.md](./TASKS.md) for planned features, bug fixes, and known issues.
 
 1. **Electron app?** It is pure Swift with SwiftUI
 2. **Accessibility of the config?** The TOML config is grouped to match the Settings categories and self-heals invalid fields.
-3. **Hotkey parsing limitations?** The hotkey parser only supports a subset of keys (see `Config.keyCodeFor`). Keys like F13-F20, media keys, etc., are not supported. Is this by design?
+3. **Hotkey parsing limitations?** The hotkey parser supports regular keys, F13–F20, media keys, and modifiers including fn (see `Hotkey.swift`). Unlisted keys are not supported. Is this by design?

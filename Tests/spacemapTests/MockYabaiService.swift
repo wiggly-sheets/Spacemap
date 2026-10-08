@@ -29,6 +29,15 @@ final class MockYabaiService: YabaiService {
     private(set) var focusSpaceIndexCallCount = 0
     private(set) var focusSpaceTargetCallCount = 0
     private(set) var focusSpaceAsyncCallCount = 0
+    private(set) var createSpaceCallCount = 0
+    private(set) var destroySpaceCallCount = 0
+    private(set) var lastDestroySpaceIndex: Int?
+    private(set) var moveWindowCallCount = 0
+    private(set) var lastMoveWindowIndex: Int?
+    private(set) var lastMovedWindowIDs: [Int] = []
+    private(set) var toggleFullscreenCallCount = 0
+    private(set) var toggleFloatCallCount = 0
+    private(set) var balanceWindowsCallCount = 0
     private(set) var showSpacemapCallCount = 0
     private(set) var moveWindowCreatingSpacesCallCount = 0
     private(set) var registerSignalsCallCount = 0
@@ -165,6 +174,30 @@ final class MockYabaiService: YabaiService {
     func focusSpaceAsync(_ index: Int) {
         focusSpaceAsyncCallCount += 1
     }
+
+    func createSpace() {
+        createSpaceCallCount += 1
+    }
+
+    func destroySpace(_ index: Int) {
+        destroySpaceCallCount += 1
+        lastDestroySpaceIndex = index
+    }
+
+    func moveFocusedWindow(toSpace index: Int) {
+        moveWindowCallCount += 1
+        lastMoveWindowIndex = index
+    }
+
+    func moveWindows(_ windowIDs: [Int], toSpace index: Int) {
+        moveWindowCallCount += 1
+        lastMoveWindowIndex = index
+        lastMovedWindowIDs = windowIDs
+    }
+
+    func toggleWindowFullscreen() { toggleFullscreenCallCount += 1 }
+    func toggleWindowFloat() { toggleFloatCallCount += 1 }
+    func balanceWindows() { balanceWindowsCallCount += 1 }
 
     func showSpacemap() {
         showSpacemapCallCount += 1

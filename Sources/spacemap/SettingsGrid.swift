@@ -25,7 +25,7 @@ struct SettingsGrid: View {
     }
 
     var body: some View {
-        Section(header: settingsSectionHeader("Grid")) {
+        Section(header: SettingsSectionHeader(title: "Grid")) {
             Picker("Max Spaces", selection: $maxSpaces) {
                 ForEach(maxSpacesOptions, id: \.self) { n in
                     Text("\(n)").tag(n)
@@ -103,7 +103,7 @@ struct SettingsGrid: View {
             .pickerStyle(.segmented)
             .onChange(of: cellStyle) { _ in onSave() }
 
-            Toggle("Show Space Numbers", isOn: $showSpaceNumbers)
+            Toggle(showSpaceNumbersTitle, isOn: $showSpaceNumbers)
                 .onChange(of: showSpaceNumbers) { _ in onSave() }
             Toggle("Show Icon Strip", isOn: $showIconStrip)
                 .onChange(of: showIconStrip) { _ in onSave() }
@@ -113,14 +113,6 @@ struct SettingsGrid: View {
                     .onChange(of: showMultiAppIcons) { _ in onSave() }
             }
         }
-    }
-
-    private func settingsSectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.title2.weight(.semibold))
-            .textCase(nil)
-            .foregroundStyle(.primary)
-            .padding(.bottom, 4)
     }
 
     private func findBestGridLayoutIndex() -> Int {

@@ -1,9 +1,9 @@
 extension GridConfig {
     var needsWorkspacePreviews: Bool {
-        !hideMenuBarIcon && menuBarDisplayMode != .icon
+        glyphStrip.enabled || (!hideMenuBarIcon && menuBarDisplayMode != .icon)
     }
 
     var needsWindowGeometryPreviews: Bool {
-        needsWorkspacePreviews && menuBarDisplayMode != .dots
+        glyphStrip.enabled || (needsWorkspacePreviews && menuBarDisplayMode != .dots)
     }
 }

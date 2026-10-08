@@ -33,6 +33,12 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Menu Bar Workspace Previews**: Current, nearby, all-space, and compact dot-grid modes with live yabai layout updates
 - **Reliable Menu Bar Dot Updates**: Signal registration bypasses stale launch-time yabai process checks
 
+### Glyph Strip & Profiles
+
+- **Menu-Bar Glyph Strip**: Theme-driven per-space index + sketchybar-app-font glyphs with notch-aware placement (`leftOfNotch`/`rightOfNotch`/`center`/`custom` drag-to-move), liquid-glass/solid/none materials, gated Settings controls, and session-only show/hide hotkey
+- **Space-Name Profiles**: Named name sets with active index, Settings editor section, and menu-bar switching
+- **Strip Hardening**: Full-slot hit tests with glyph-sized hover, real-index click targets, global-index order across displays, measured frame = drawn frame
+
 ### Hotkeys & Navigation
 
 - **Hotkey Rapid-Press Fix**: `isToggling` guard in `HUDWindowController`
@@ -49,6 +55,8 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Accessibility Permission Recovery**: Monitors permission and event-tap health, releases HUD keyboard capture on revocation, and restores input handling after re-grant
 - **Dynamic yabai Path**: Auto-detects ARM (`/opt/homebrew/bin/yabai`) or Intel (`/usr/local/bin/yabai`) via FileManager
 - **Menubar Improvements**: Hotkey symbols shown, Cmd+R restart, Screen Recording permissions link
+- **Command Hardening**: 10s yabai timeout (SIGTERM then SIGKILL) with async pipe drains; signal socket mode 0600 with non-blocking clients
+- **Release Hardening**: Tag/version mismatch rejection, appcast Unicode validation, duplicate-version entry preservation
 - **Legible Menu Bar Dot Grid**: Workspace dots expand horizontally and use more menu-bar height for readability
 
 ### Theming & Customization
@@ -91,7 +99,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Testing & CI/CD
 
-- **Unit Test Suite**: 210 tests across 13 files
+- **Unit Test Suite**: ~588 tests across 35 files (+ `MockYabaiService.swift`)
 - **GitHub Actions CI/CD**: CI (swift test + build), Release (3 DMGs + checksums), Dependabot
 - **Rendering Math Tests**: 8 unit tests for scale mapping (min/max/midpoint/monotonicity)
 
@@ -165,7 +173,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 | Task                               | Description                                                                                                             | Status  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- |
-| **Unit Tests**               | 193 tests across 9 files (CLISymlinkInstallerTests, HotkeyTests, ConfigTests, ThemeTests, ModelTests, CellViewGridViewTests, SpaceNavigatorTests, DeepLinkTests, ThumbnailCacheTests) | ✅ Done |
+| **Unit Tests**               | ~588 tests across 35 files (+ mock) | ✅ Done |
 | **GitHub Actions / CI**      | `ci.yml` (swift test + build on push/PR), `release.yml` (3 DMGs + checksums on tag), Dependabot                     | ✅ Done |
 | **Xcode Project**            | Generated from SPM, 4 targets (default, arm64, x86_64, universal) via`scripts/generate-xcodeproj.py`                  | ✅ Done |
 | **Architecture Builds**      | ARM64, x86_64, universal DMGs via`create-dmg`                                                                         | ✅ Done |

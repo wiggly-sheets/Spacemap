@@ -22,9 +22,11 @@ final class SpacemapServices {
         onCheckForUpdates: { [weak self] in self?.checkForUpdates() },
         onRestartApp: { [weak self] in self?.restartApp() },
         onGetConfig: { [weak self] in self?.currentConfig ?? GridConfig.default },
-        onSetLoginAtLogin: { [weak self] in self?.setLoginAtLogin(enabled: $0) }
+        onSetLoginAtLogin: { [weak self] in self?.setLoginAtLogin(enabled: $0) },
+        onChangeSpaceNameProfile: { [weak self] index in self?.changeSpaceNameProfile(index: index) }
     )
     lazy var settingsService: SettingsService = SettingsService(yabaiService: yabaiService, checkForUpdates: { [weak self] in self?.checkForUpdates() })
+    private(set) lazy var glyphStrip = GlyphStripPanelController(yabaiService: yabaiService)
     lazy var cliToolsService = CLIToolsService(
         onUpdateSparkleConfig: { [weak self] updateMode in self?.updateSparkleConfig(updateMode: updateMode) },
         sparkleController: core.sparkleController
@@ -37,7 +39,11 @@ final class SpacemapServices {
             showMenu: { [weak self] in self?.showMenubarMenu() }
         )
     }()
-    lazy var hotkeyService: HotkeyService = HotkeyService(hud: hud!, hotkeyMonitorFactory: core.hotkeyMonitorFactory)
+    lazy var hotkeyService: HotkeyService = HotkeyService(
+        hud: hud!,
+        glyphStrip: glyphStrip,
+        hotkeyMonitorFactory: core.hotkeyMonitorFactory
+    )
     var hud: HUDWindowController!
     init(
         yabaiService: YabaiService? = nil,
@@ -74,6 +80,8 @@ final class SpacemapServices {
     func showMenubarMenu() { menubarService.showMenubarMenu() }
     func applyMenubarVisibility(config: GridConfig) { menubarService.applyMenubarVisibility(config: config) }
     func refreshMenubarPreview(config: GridConfig? = nil) { menubarService.refreshMenubarPreview(config: config) }
+    func applyGlyphStrip(config: GridConfig) { glyphStrip.update(config: config) }
+    func refreshGlyphStrip() { glyphStrip.refresh() }
     func applyMenubarIcon(to item: NSStatusItem) { menubarService.applyMenubarIcon(to: item) }
     func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String { menubarService.hotkeyMenuString(hotkey) }
     func restartHotkeys(config: GridConfig) { hotkeyService.restartHotkeys(config: config) }
@@ -118,6 +126,16 @@ final class SpacemapServices {
     func isMRUSpacesEnabled() -> Bool { core.alertsService.isMRUSpacesEnabled() }
     func showMRUAlert() { core.alertsService.showMRUAlert() }
     func showSeparateSpacesAlert() { core.alertsService.showSeparateSpacesAlert() }
+    func changeSpaceNameProfile(index: Int) {
+        var config = currentConfig
+        guard (0..<config.spaceNameProfiles.count).contains(index) else { return }
+        config.activeSpaceNameProfileIndex = index
+        let profile = config.spaceNameProfiles[index]
+        config.spaceNames = profile.spaceNames
+        currentConfig = config
+        refreshMenubarPreview(config: config)
+        hud?.reloadConfig()
+    }
     func makeSocketListener(
         socketPath: String,
         healthInterval: Int,

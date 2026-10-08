@@ -1,8 +1,12 @@
 import AppKit
 import CoreGraphics
 
-enum InputAction {
+enum InputAction: Equatable {
     case navigate(direction: SpaceNavigationDirection)
+    case navigateFirst
+    case navigateLast
+    case closeHUD
+    case focusRecent
     case enterSpaceNumber(Int)
     case showSettings
     case none
@@ -10,6 +14,10 @@ enum InputAction {
 
 protocol HUDInputDelegate: AnyObject {
     func navigate(direction: SpaceNavigationDirection)
+    func navigateToFirst()
+    func navigateToLast()
+    func closeHUD()
+    func focusRecent()
     func showSettings()
 }
 
@@ -39,6 +47,7 @@ final class HUDInput {
     private var isVisible = false
     private var useArrowKeys = false
     private var useVimKeys = false
+    private var useExtendedKeys = false
     private var jumpToSpaceEnabled = false
     private var dragHandlerCellFrames: [(spaceIndex: Int, frame: CGRect)] = []
 
@@ -57,6 +66,7 @@ final class HUDInput {
     var onRefresh: (() -> Void)?
     var onAutoHide: (() -> Void)?
     var onNumberEntry: ((Int?) -> Void)?
+    var onFocusSpaceChanged: ((Int) -> Void)?
     var onPanelDragEnded: (() -> Void)?
     var onAccessibilityRevoked: (() -> Void)?
     private var didNotifyAccessibilityRevocation = false
@@ -78,9 +88,10 @@ final class HUDInput {
         isVisible = visible
     }
 
-    func updateConfig(useArrowKeys: Bool, useVimKeys: Bool, jumpToSpaceEnabled: Bool = false) {
+    func updateConfig(useArrowKeys: Bool, useVimKeys: Bool, useExtendedKeys: Bool = true, jumpToSpaceEnabled: Bool = false) {
         self.useArrowKeys = useArrowKeys
         self.useVimKeys = useVimKeys
+        self.useExtendedKeys = useExtendedKeys
         self.jumpToSpaceEnabled = jumpToSpaceEnabled
     }
 
@@ -190,7 +201,6 @@ final class HUDInput {
                     self.isPollingFocusedSpace = false
                     guard self.isVisible else { return }
                     if focused != self.lastFocusedSpaceIndex {
-                        NSLog("spacemap/HUD: poll detected change last=\(self.lastFocusedSpaceIndex ?? -1) current=\(focused ?? -1)")
                         self.onRefresh?()
                         self.resetAutoHideTimer()
                     }
@@ -230,7 +240,33 @@ final class HUDInput {
         focus(space: target)
     }
 
-    private func focus(space index: Int) {
+    func navigateToFirst() { navigateToEdge { $0.first } }
+    func navigateToLast() { navigateToEdge { $0.last } }
+
+    private func navigateToEdge(_ pick: ([Int]) -> Int?) {
+        guard let state = currentState else { return }
+        let visible: [Int]
+        switch state.config.multiMonitorHUDMode {
+        case .unified:
+            // Use actual active space indices from yabai, not HUD visible indices
+            let activeIndices = state.spaces.map(\.index).sorted()
+            if state.config.showMode == .active {
+                visible = activeIndices
+            } else {
+                // For "all" mode, still use actual active spaces for edge navigation
+                // to avoid jumping to non-existent placeholder spaces
+                visible = activeIndices
+            }
+        case .separate:
+            guard let currentIdx = lastFocusedSpaceIndex,
+                  let display = state.displayIndex(forSpace: currentIdx) else { return }
+            visible = state.spaces(forDisplay: display).map(\.index)
+        }
+        guard let target = pick(visible) else { return }
+        focus(space: target)
+    }
+
+    func focus(space index: Int) {
         yabaiService?.focusSpaceAsync(index)
         lastFocusedSpaceIndex = index
         if let optimistic = hudStateSync?.updateFocusedIndex(index) {
@@ -238,6 +274,7 @@ final class HUDInput {
             hudDisplay?.updateState(optimistic)
         }
         resetAutoHideTimer()
+        onFocusSpaceChanged?(index)
     }
 
     private func handleNumberEntry(_ number: Int) {
@@ -280,7 +317,7 @@ final class HUDInput {
         switch action {
         case .none:
             return false
-        case .navigate, .enterSpaceNumber, .showSettings:
+        case .navigate, .navigateFirst, .navigateLast, .closeHUD, .focusRecent, .enterSpaceNumber, .showSettings:
             return true
         }
     }
@@ -433,6 +470,13 @@ final class HUDInput {
         ) {
             return .navigate(direction: direction)
         }
+        if let action = Self.extendedKeyAction(
+            keyCode: keyCode,
+            flags: flags,
+            useExtendedKeys: useExtendedKeys
+        ) {
+            return action
+        }
         return .none
     }
 
@@ -441,6 +485,22 @@ final class HUDInput {
         case .navigate(let direction):
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.navigate(direction: direction)
+            }
+        case .navigateFirst:
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.navigateToFirst()
+            }
+        case .navigateLast:
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.navigateToLast()
+            }
+        case .closeHUD:
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.closeHUD()
+            }
+        case .focusRecent:
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.focusRecent()
             }
         case .showSettings:
             DispatchQueue.main.async { [weak self] in
@@ -487,6 +547,30 @@ final class HUDInput {
             }
         }
         return nil
+    }
+
+    /// n/p/f/e/r/esc/c — aliases for arrow navigation plus grid-edge jumps,
+    /// recent-space switch and close. `n`/`p` are plain aliases of the
+    /// left/right arrows.
+    static func extendedKeyAction(
+        keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        useExtendedKeys: Bool
+    ) -> InputAction? {
+        guard useExtendedKeys,
+              !flags.contains(.maskControl),
+              !flags.contains(.maskCommand),
+              !flags.contains(.maskAlternate) else { return nil }
+        switch keyCode {
+        case 45: return .navigate(direction: .right) // n
+        case 35: return .navigate(direction: .left)  // p
+        case 3: return .navigateFirst                // f
+        case 14: return .navigateLast                // e
+        case 15: return .focusRecent                 // r
+        case 53: return .closeHUD                    // esc
+        case 8: return .closeHUD                     // c
+        default: return nil
+        }
     }
 
     static func numberFromKeyCode(keyCode: CGKeyCode, flags: CGEventFlags) -> Int? {

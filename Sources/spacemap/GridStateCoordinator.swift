@@ -57,7 +57,7 @@ final class GridStateCoordinator {
             completion?()
             return
         }
-        guard let config else { return }
+        guard let config else { completion?(); return }
 
         inFlightWorkItem?.cancel()
         fetchGeneration += 1
@@ -79,7 +79,7 @@ final class GridStateCoordinator {
     }
 
     func refresh(completion: (() -> Void)? = nil) {
-        guard let config else { return }
+        guard let config else { completion?(); return }
 
         inFlightWorkItem?.cancel()
         fetchGeneration += 1

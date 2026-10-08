@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 final class SocketListener {
     private let socketPath: String
@@ -28,6 +29,7 @@ final class SocketListener {
 
     @discardableResult
     static func sendCommand(to socketPath: String, command: UInt8) -> Bool {
+        guard SpacemapCommand.validatedSocketPath(socketPath) != nil else { return false }
         let sock = socket(AF_UNIX, SOCK_STREAM, 0)
         guard sock >= 0 else { return false }
         var addr = sockaddr_un()
@@ -47,8 +49,11 @@ final class SocketListener {
             return false
         }
 
-        var byte = command
-        let wroteCommand = write(sock, &byte, 1) == 1
+        var frame = Data([command])
+        if let nonce = SpacemapCommand.currentNonceHex(for: socketPath) {
+            frame.append(contentsOf: (":" + nonce).utf8)
+        }
+        let wroteCommand = frame.withUnsafeBytes { write(sock, $0.baseAddress!, $0.count) } == frame.count
         close(sock)
         return wroteCommand
     }
@@ -71,6 +76,11 @@ final class SocketListener {
 
     private func start() {
         guard !isStopped else { return }
+        // Fail closed on a pre-existing symlink: never bind through a link
+        // another user planted. Unlink then bind fresh so we own the node.
+        if (try? FileManager.default.destinationOfSymbolicLink(atPath: socketPath)) != nil {
+            fputs("spacemap/SocketListener: refusing symlink at socket path — removing\n", stderr)
+        }
         unlink(socketPath)
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
@@ -101,6 +111,7 @@ final class SocketListener {
         }
 
         chmod(socketPath, 0o600)
+        rotateNonceFile()
         serverFd = fd
         let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: listenerQueue)
         src.setEventHandler { [weak self] in self?.accept() }
@@ -114,6 +125,45 @@ final class SocketListener {
         startHealthTimer()
     }
 
+    /// Per-bind 256-bit nonce for the programmatic send path. Same uid can
+    /// read it — it stops blind path-guessers, not same-user malware.
+    /// $TMPDIR perms (0700) + peer-uid check carry the cross-user case.
+    private func rotateNonceFile() {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+            fputs("spacemap/SocketListener: no entropy for nonce — programmatic send disabled\n", stderr)
+            try? FileManager.default.removeItem(atPath: socketPath + ".nonce")
+            return
+        }
+        let url = URL(fileURLWithPath: socketPath + ".nonce")
+        do {
+            try Data(bytes).write(to: url, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        } catch {
+            fputs("spacemap/SocketListener: nonce write failed\n", stderr)
+        }
+    }
+
+    /// Frame: <cmdByte> [":" <64 hex nonce>] with a lone trailing "\n"
+    /// tolerated for `echo N | nc` compat. Unknown shape or bad nonce = drop.
+    static func parseFrame(_ data: Data, nonce: String?) -> SpacemapCommand? {
+        guard let first = data.first else { return nil }
+        let rest = data.dropFirst()
+        if rest.isEmpty { return command(for: first) }
+        if rest.count == 1, rest.first == 0x0A { return command(for: first) }
+        guard rest.first == UInt8(ascii: ":") else { return nil }
+        let hex = String(bytes: rest.dropFirst(), encoding: .utf8) ?? ""
+        guard let nonce, hex == nonce else {
+            fputs("spacemap/SocketListener: nonce mismatch — dropping frame\n", stderr)
+            return nil
+        }
+        return command(for: first)
+    }
+
+    private static func currentNonceHex() -> String? {
+        SpacemapCommand.currentNonceHex()
+    }
+
     private func accept() {
         let clientFd = Darwin.accept(serverFd, nil, nil)
         guard clientFd >= 0 else {
@@ -123,17 +173,31 @@ final class SocketListener {
             scheduleRestart()
             return
         }
+        defer { close(clientFd) }
 
-        let flags = fcntl(clientFd, F_GETFL, 0)
-        if flags >= 0 { _ = fcntl(clientFd, F_SETFL, flags | O_NONBLOCK) }
+        // Cross-user connections share nothing here: same uid or drop.
+        var uid: uid_t = 0
+        var gid: gid_t = 0
+        guard getpeereid(clientFd, &uid, &gid) == 0, uid == getuid() else {
+            fputs("spacemap/SocketListener: foreign-uid connect — dropping\n", stderr)
+            return
+        }
 
-        var buf = [UInt8](repeating: 0, count: 1)
-        let bytesRead = read(clientFd, &buf, buf.count)
-        close(clientFd)
-        guard bytesRead == 1 else { return }
+        var buf = [UInt8](repeating: 0, count: 96)
+        let bytesRead: Int
+        do {
+            // Client fd must not block: a connected-but-silent peer would
+            // stall the whole listener queue (regression guard:
+            // testStalledClientDoesNotBlockCommandsOrShutdown).
+            let flags = fcntl(clientFd, F_GETFL, 0)
+            if flags >= 0 { _ = fcntl(clientFd, F_SETFL, flags | O_NONBLOCK) }
+            bytesRead = read(clientFd, &buf, buf.count)
+        }
+        let nonce = SpacemapCommand.currentNonceHex(for: socketPath)
+        guard bytesRead > 0, let cmd = Self.parseFrame(Data(buf.prefix(bytesRead)), nonce: nonce) else { return }
 
         DispatchQueue.main.async {
-            switch Self.command(for: buf[0]) {
+            switch cmd {
             case .show:
                 self.onShow()
             case .settings:
@@ -176,8 +240,13 @@ final class SocketListener {
     private func checkHealth() {
         let fdValid = serverFd >= 0 && fcntl(serverFd, F_GETFD) != -1
         let fileExists = FileManager.default.fileExists(atPath: socketPath)
-        guard fdValid && fileExists else {
-            fputs("spacemap/SocketListener: health check failed (fdValid=\(fdValid) fileExists=\(fileExists)) — restarting\n", stderr)
+        var ownedBySelf = false
+        var statBuf = stat()
+        if stat(socketPath, &statBuf) == 0 {
+            ownedBySelf = statBuf.st_uid == getuid() && (statBuf.st_mode & S_IFMT) == S_IFSOCK
+        }
+        guard fdValid && fileExists && ownedBySelf else {
+            fputs("spacemap/SocketListener: health check failed (fdValid=\(fdValid) fileExists=\(fileExists) ownedBySelf=\(ownedBySelf)) — restarting\n", stderr)
             scheduleRestart()
             return
         }

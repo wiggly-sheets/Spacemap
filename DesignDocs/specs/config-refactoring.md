@@ -1,6 +1,6 @@
 # Config Refactoring
 
-**Status:** Proposed
+**Status:** Done (`ConfigValues`/`TOMLParser`/`TOMLDocumentParser`/`TOMLConfigDecoder`/`ConfigLoader` exist, `Config.swift` is a thin facade, `ConfigValuesTests`/`TOMLParserTests`/`ConfigLoaderTests`/`ConfigFacadeTests` cover them)
 **Date:** 2026-08-04
 **Author:** Architecture Review
 

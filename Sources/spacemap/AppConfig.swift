@@ -29,8 +29,12 @@ final class AppConfig {
     }
 
     func parseConfig(_ text: String) -> GridConfig {
-        let values = (try? TOMLParser.parse(text)) ?? ConfigValues()
-        return values.gridConfig
+        do {
+            return try TOMLParser.parse(text).gridConfig
+        } catch {
+            if !silentMode { NSLog("spacemap/AppConfig: parse failed (\(error.localizedDescription)) — using defaults") }
+            return ConfigValues().gridConfig
+        }
     }
 
     func parseHotkey(_ value: String) -> HotkeyConfig? {

@@ -8,12 +8,13 @@ struct YabaiSpace: Decodable, Equatable {
     let hasFocus: Bool
     let isVisible: Bool?
     let label: String?
+    var type: String? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, index, display
         case hasFocus = "has-focus"
         case isVisible = "is-visible"
-        case label
+        case label, type
     }
 }
 
@@ -54,6 +55,8 @@ struct YabaiWindow: Decodable, Equatable {
     var hasAXReference: Bool? = nil
     var isVisible: Bool? = nil
     var isFloating: Bool? = nil
+    var opacity: Double? = nil
+    var isSticky: Bool? = nil
 
     struct WindowFrame: Decodable, Equatable {
         let x: CGFloat
@@ -71,11 +74,18 @@ struct YabaiWindow: Decodable, Equatable {
         case hasAXReference = "has-ax-reference"
         case isVisible = "is-visible"
         case isFloating = "is-floating"
+        case opacity
+        case isSticky = "is-sticky"
     }
 
     func shouldDisplay(showExtraWindows: Bool) -> Bool {
         guard !isHidden,
               !isMinimized,
+              // Sticky windows already follow the user to every space.
+              isSticky != true,
+              // Fully transparent windows are phantoms; partially dimmed
+              // inactive windows (~0.8) are legitimate.
+              (opacity ?? 1) > 0,
               id > 0,
               !app.isEmpty,
               space > 0,
@@ -92,6 +102,15 @@ struct YabaiWindow: Decodable, Equatable {
         if isStandardUserWindow { return true }
 
         return showExtraWindows
+    }
+
+    /// Left-to-right, then top-to-bottom, with id as a stable tiebreaker.
+    static func inReadingOrder(_ windows: [YabaiWindow]) -> [YabaiWindow] {
+        windows.sorted { lhs, rhs in
+            if lhs.frame.x != rhs.frame.x { return lhs.frame.x < rhs.frame.x }
+            if lhs.frame.y != rhs.frame.y { return lhs.frame.y < rhs.frame.y }
+            return lhs.id < rhs.id
+        }
     }
 
     var cgFrame: CGRect {

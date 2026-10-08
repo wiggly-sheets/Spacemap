@@ -12,7 +12,9 @@ enum MenuBarPreviewRenderer {
     ) -> [Int] {
         let active = spaces.map(\.index).sorted()
         guard !active.isEmpty else { return [] }
-        let focused = focusedIndex.flatMap { active.contains($0) ? $0 : nil } ?? active[0]
+        guard let focused = focusedIndex.flatMap({ active.contains($0) ? $0 : nil }) ?? active.first else {
+            return []
+        }
 
         switch mode {
         case .icon:

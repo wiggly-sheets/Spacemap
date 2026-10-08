@@ -3,8 +3,16 @@ import AppKit
 final class HotkeyService: HotkeyHandling {
     private let hotkeyHandler: HotkeyHandler
 
-    init(hud: HUDWindowController, hotkeyMonitorFactory: HotkeyMonitorBuilding) {
-        self.hotkeyHandler = HotkeyHandler(hud: hud, hotkeyMonitorFactory: hotkeyMonitorFactory)
+    init(
+        hud: HUDWindowController,
+        glyphStrip: GlyphStripPanelController,
+        hotkeyMonitorFactory: HotkeyMonitorBuilding
+    ) {
+        self.hotkeyHandler = HotkeyHandler(
+            hud: hud,
+            glyphStrip: glyphStrip,
+            hotkeyMonitorFactory: hotkeyMonitorFactory
+        )
     }
 
     func restartHotkeys(config: GridConfig) {

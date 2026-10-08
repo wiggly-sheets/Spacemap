@@ -13,7 +13,8 @@ struct RuntimeConfigChanges: Equatable {
         }
 
         hotkeys = !sameHotkey(previous?.hotkey, current.hotkey) ||
-            !sameHotkey(previous?.pinnedHotkey, current.pinnedHotkey)
+            !sameHotkey(previous?.pinnedHotkey, current.pinnedHotkey) ||
+            !sameHotkey(previous?.glyphStripHotkey, current.glyphStripHotkey)
         socketListener = previous?.socketHealthInterval != current.socketHealthInterval
         updater = previous?.updateMode != current.updateMode
         yabaiSignals =
@@ -108,6 +109,7 @@ final class ApplicationLifecycleService {
             self.services.restartHotkeys(config: config)
             self.services.applyMenubarVisibility(config: config)
             self.services.refreshMenubarPreview(config: config)
+            self.services.applyGlyphStrip(config: config)
             self.hud.onShowSettings = { [weak self] in self?.services.showSettingsWindow() }
             self.setupSocketListener(config: config)
             self.scheduleYabaiSignalRegistration(config: config)
@@ -115,6 +117,10 @@ final class ApplicationLifecycleService {
             self.setupSettingsObserver()
 
             self.services.configureSparkleUpdater(updateMode: config.updateMode)
+
+            if config.appFont.updateMode == .auto {
+                self.checkAppFontUpdate(config: config)
+            }
         }
 
         #if !DEBUG
@@ -125,6 +131,30 @@ final class ApplicationLifecycleService {
             self.services.showSettingsWindow()
         }
         #endif
+    }
+
+    /// Auto mode: at most one GitHub fetch per 24h (rate-limit guard across
+    /// restarts); downloads only when the release tag differs. Never blocks
+    /// launch — failures log and retry on the next launch (lastCheck stays put).
+    private func checkAppFontUpdate(config: GridConfig) {
+        let now = Int(Date().timeIntervalSince1970)
+        guard config.appFont.lastCheck == 0
+            || now - config.appFont.lastCheck >= Int(AppFontUpdater.checkInterval) else { return }
+
+        let installedTag = config.appFont.installedVersion
+        Task {
+            do {
+                switch try await AppFontUpdater.runCheck(installedTag: installedTag) {
+                case .upToDate:
+                    AppFontUpdater.recordCheck(installedTag: nil)
+                case .updated(let info):
+                    AppFontUpdater.recordCheck(installedTag: info.tag)
+                    NSLog("spacemap/AppFont: updated sketchybar-app-font to \(info.tag)")
+                }
+            } catch {
+                NSLog("spacemap/AppFont: update check failed — \(error.localizedDescription)")
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -145,6 +175,7 @@ final class ApplicationLifecycleService {
             healthInterval: config.socketHealthInterval,
             onRefresh: { [weak self] in
                 self?.hud.refresh()
+                self?.services.refreshGlyphStrip()
                 self?.services.refreshMenubarPreview()
             },
             onShow: { [weak self] in
@@ -179,6 +210,7 @@ final class ApplicationLifecycleService {
             }
             self.services.applyMenubarVisibility(config: config)
             self.services.refreshMenubarPreview(config: config)
+            self.services.applyGlyphStrip(config: config)
             if changes.yabaiSignals {
                 self.scheduleYabaiSignalRegistration(config: config)
             }

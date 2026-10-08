@@ -12,10 +12,10 @@ struct SettingsAppearanceView: View {
 
     let onSave: () -> Void
 
-    private let themeManager = ThemeManager()
+    private let themeManager = ThemeManager.shared
 
     var body: some View {
-        Section(header: settingsSectionHeader("Appearance")) {
+        Section(header: SettingsSectionHeader(title: "Appearance")) {
             Picker("Theme", selection: $theme) {
                 ForEach(themeManager.allNames(), id: \.self) { name in
                     Text(name.capitalized).tag(name)
@@ -67,14 +67,6 @@ struct SettingsAppearanceView: View {
                     .onChange(of: uiScale) { _ in onSave() }
             }
         }
-    }
-
-    private func settingsSectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.title2.weight(.semibold))
-            .textCase(nil)
-            .foregroundStyle(.primary)
-            .padding(.bottom, 4)
     }
 
     private var backgroundTransparencySteps: [Double] {

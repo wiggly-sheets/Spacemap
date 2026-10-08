@@ -63,8 +63,26 @@ final class CLIToolsService: CLIToolsHandling {
         let source = Bundle.main.bundleURL
         let destination = URL(fileURLWithPath: "/Applications").appendingPathComponent(source.lastPathComponent)
 
+        guard verifyBundleSignature(at: source) else {
+            let alert = NSAlert()
+            alert.alertStyle = .critical
+            alert.messageText = NSLocalizedString("Failed to move", comment: "")
+            alert.informativeText = NSLocalizedString("Spacemap could not verify its own code signature. The install was refused.", comment: "")
+            presentAlert(alert)
+            return
+        }
+
         do {
             if FileManager.default.fileExists(atPath: destination.path) {
+                // Never clobber a newer install (downgrade = attacker rollback).
+                if Self.compareVersions(installedVersion(at: destination), bundleVersion(at: source)) != .orderedAscending {
+                    let alert = NSAlert()
+                    alert.alertStyle = .informational
+                    alert.messageText = NSLocalizedString("Already up to date", comment: "")
+                    alert.informativeText = NSLocalizedString("The Applications copy is the same version or newer. Nothing was overwritten.", comment: "")
+                    presentAlert(alert)
+                    return
+                }
                 try FileManager.default.removeItem(at: destination)
             }
             try FileManager.default.copyItem(at: source, to: destination)
@@ -218,6 +236,9 @@ final class CLIToolsService: CLIToolsHandling {
         }
     }
 
+    /// Fixed allowlist script: mkdir/ln with absolute literal paths only, no
+    /// user input interpolated. Proper long-term path is a privileged helper
+    /// tool via SMJobBless; osascript admin prompt is the stopgap.
     func installCLISymlinkWithAuthorization() {
         let command = "/bin/mkdir -p /usr/local/bin /usr/local/share/man/man1; if [ -x /Applications/Spacemap.app/Contents/MacOS/Spacemap ] && [ ! -e /usr/local/bin/spacemap ] && [ ! -L /usr/local/bin/spacemap ]; then /bin/ln -s /Applications/Spacemap.app/Contents/MacOS/Spacemap /usr/local/bin/spacemap; fi; if [ -f /Applications/Spacemap.app/Contents/Resources/spacemap.1 ] && [ ! -e /usr/local/share/man/man1/spacemap.1 ] && [ ! -L /usr/local/share/man/man1/spacemap.1 ]; then /bin/ln -s /Applications/Spacemap.app/Contents/Resources/spacemap.1 /usr/local/share/man/man1/spacemap.1; fi"
         let source = "do shell script \"\(command)\" with administrator privileges"
@@ -272,18 +293,58 @@ final class CLIToolsService: CLIToolsHandling {
     }
 
     func restartApp() {
+        // No shell: fixed argv, bundle path passed as one arg (spaces safe).
+        // /bin/sleep holds the delay the old `sh -c "sleep 1 && open ..."`
+        // provided; the opener fires from its termination handler.
         let bundlePath = Bundle.main.bundleURL.path
-        let task = Process()
-        task.launchPath = "/bin/sh"
-        task.arguments = ["-c", "sleep 1 && open \"\(bundlePath)\" --args --restarting"]
-        task.standardOutput = FileHandle.nullDevice
-        task.standardError = FileHandle.nullDevice
-        try? task.run()
-        NSApp.terminate(nil)
+        let sleeper = Process()
+        sleeper.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        sleeper.arguments = ["1"]
+        sleeper.standardOutput = FileHandle.nullDevice
+        sleeper.standardError = FileHandle.nullDevice
+        sleeper.terminationHandler = { _ in
+            let opener = Process()
+            opener.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            opener.arguments = [bundlePath, "--args", "--restarting"]
+            opener.standardOutput = FileHandle.nullDevice
+            opener.standardError = FileHandle.nullDevice
+            try? opener.run()
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
+        do {
+            try sleeper.run()
+        } catch {
+            NSApp.terminate(nil)
+        }
     }
 
     func toggleLoginAtLogin() {
         setLoginAtLogin(enabled: SMAppService.mainApp.status != .enabled)
+    }
+
+    private static func compareVersions(_ installed: String?, _ source: String?) -> ComparisonResult {
+        (installed ?? "").compare(source ?? "", options: .numeric)
+    }
+
+    private func installedVersion(at url: URL) -> String? { bundleVersion(at: url) }
+
+    private func bundleVersion(at url: URL) -> String? {
+        Bundle(url: url)?.infoDictionary?["CFBundleShortVersionString"] as? String
+    }
+
+    private func verifyBundleSignature(at url: URL) -> Bool {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+        task.arguments = ["--verify", url.path]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        do {
+            try task.run()
+            task.waitUntilExit()
+            return task.terminationStatus == 0
+        } catch {
+            return false
+        }
     }
 
     func checkForUpdates() {

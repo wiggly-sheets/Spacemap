@@ -14,11 +14,32 @@ BUILD_X86_64 = .build/x86_64-apple-macosx/release
 # Sparkle public key for update verification (set via env or read from sparklesigner.pub)
 SPARKLE_PUBLIC_KEY ?= $(shell cat sparklesigner.pub 2>/dev/null | tr -d '\n')
 MAN_SOURCE = docs/spacemap.1.scd
+APP_FONT_SOURCE = ../sketchybar-app-font/dist/sketchybar-app-font.ttf
+APP_FONT_FALLBACK = $(HOME)/Library/Fonts/sketchybar-app-font.ttf
+APP_FONT_RESOURCE = Sources/spacemap/Resources/sketchybar-app-font.ttf
 MAN_PAGE = docs/spacemap.1
 LOCALIZATION_DIRS = $(wildcard Sources/spacemap/Resources/*.lproj)
 LOCALIZATION_NAMES = $(notdir $(LOCALIZATION_DIRS))
 
-.PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal verify-localizations generate-xcodeproj test release man
+.PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal verify-localizations generate-xcodeproj test release man update-app-font
+
+# The bundled ttf is committed; this target refreshes it from a local checkout
+# or an installed font. No network access.
+update-app-font:
+	@mkdir -p $(dir $(APP_FONT_RESOURCE))
+	@if [ -f "$(APP_FONT_SOURCE)" ]; then \
+		src="$(APP_FONT_SOURCE)"; \
+	elif [ -f "$(APP_FONT_FALLBACK)" ]; then \
+		src="$(APP_FONT_FALLBACK)"; \
+	else \
+		echo "ERROR: sketchybar-app-font.ttf not found at either:"; \
+		echo "  $(APP_FONT_SOURCE)"; \
+		echo "  $(APP_FONT_FALLBACK)"; \
+		echo "Clone https://github.com/Kevin-D3/sketrchybar-app-font or install the font first."; \
+		exit 1; \
+	fi; \
+	cp "$$src" "$(APP_FONT_RESOURCE)" && \
+	echo "Copied $$src -> $(APP_FONT_RESOURCE)"
 
 build:
 	swift build -c release --product $(BINARY_NAME)
@@ -70,6 +91,7 @@ app: build man
 	cp -R Assets.xcassets $(APP_CONTENTS)/Resources/
 	cp -R $(LOCALIZATION_DIRS) $(APP_CONTENTS)/Resources/
 	cp $(MAN_PAGE) $(APP_CONTENTS)/Resources/spacemap.1
+	cp $(APP_FONT_RESOURCE) $(APP_CONTENTS)/Resources/sketchybar-app-font.ttf
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_BUNDLE)
 
 app-arm64: build-arm64 man
@@ -93,6 +115,7 @@ app-arm64: build-arm64 man
 	cp -R Assets.xcassets $(APP_NAME)-arm64.app/Contents/Resources/
 	cp -R $(LOCALIZATION_DIRS) $(APP_NAME)-arm64.app/Contents/Resources/
 	cp $(MAN_PAGE) $(APP_NAME)-arm64.app/Contents/Resources/spacemap.1
+	cp $(APP_FONT_RESOURCE) $(APP_NAME)-arm64.app/Contents/Resources/sketchybar-app-font.ttf
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_NAME)-arm64.app
 	@echo "Built $(APP_NAME)-arm64.app (Apple Silicon)"
 
@@ -117,6 +140,7 @@ app-x86_64: build-x86_64 man
 	cp -R Assets.xcassets $(APP_NAME)-x86_64.app/Contents/Resources/
 	cp -R $(LOCALIZATION_DIRS) $(APP_NAME)-x86_64.app/Contents/Resources/
 	cp $(MAN_PAGE) $(APP_NAME)-x86_64.app/Contents/Resources/spacemap.1
+	cp $(APP_FONT_RESOURCE) $(APP_NAME)-x86_64.app/Contents/Resources/sketchybar-app-font.ttf
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_NAME)-x86_64.app
 	@echo "Built $(APP_NAME)-x86_64.app (Intel)"
 
@@ -141,6 +165,7 @@ app-universal: build-universal man
 	cp -R Assets.xcassets $(APP_BUNDLE)/Contents/Resources/
 	cp -R $(LOCALIZATION_DIRS) $(APP_BUNDLE)/Contents/Resources/
 	cp $(MAN_PAGE) $(APP_BUNDLE)/Contents/Resources/spacemap.1
+	cp $(APP_FONT_RESOURCE) $(APP_BUNDLE)/Contents/Resources/sketchybar-app-font.ttf
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_BUNDLE)
 	@echo "Built $(APP_BUNDLE) (Universal: arm64 + x86_64)"
 
@@ -222,6 +247,7 @@ install: app
 	cp -R Assets.xcassets $(INSTALL_PATH)/Contents/Resources/
 	cp -R $(APP_CONTENTS)/Resources/*.lproj $(INSTALL_PATH)/Contents/Resources/
 	cp $(MAN_PAGE) $(INSTALL_PATH)/Contents/Resources/spacemap.1
+	cp $(APP_FONT_RESOURCE) $(INSTALL_PATH)/Contents/Resources/sketchybar-app-font.ttf
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(INSTALL_PATH)
 	# Sign with Sparkle entitlements (ad-hoc for dev builds)
 	codesign --force --sign - --options runtime \

@@ -131,7 +131,8 @@ final class MenubarHandlerTests: XCTestCase {
             onCheckForUpdates: {},
             onRestartApp: {},
             onGetConfig: { GridConfig.default },
-            onSetLoginAtLogin: { _ in }
+            onSetLoginAtLogin: { _ in },
+            onChangeSpaceNameProfile: { _ in }
         )
     }
 

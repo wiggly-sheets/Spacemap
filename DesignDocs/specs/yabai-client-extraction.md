@@ -1,6 +1,6 @@
 # YabaiClient Extraction
 
-**Status:** Done
+**Status:** Done (facade since removed — `YabaiClient.swift` deleted, callers use `YabaiClientImpl`/`YabaiService` directly)
 **Date:** 2026-08-04
 **Author:** Architecture Review
 
@@ -83,7 +83,7 @@ protocol YabaiService {
 
 ### Facade (YabaiClient)
 
-**Done.** `YabaiClient` is now a 168-line deprecated facade that delegates all methods to a shared `YabaiClientImpl` instance, maintaining backward compatibility during migration.
+**Done at the time; superseded.** `YabaiClient` was a 168-line deprecated facade delegating to a shared `YabaiClientImpl`. It has since been deleted — all consumers inject `YabaiService` directly.
 
 ## Implementation Order
 

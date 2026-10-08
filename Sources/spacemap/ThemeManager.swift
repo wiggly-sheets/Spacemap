@@ -4,6 +4,10 @@ class ThemeManager {
 
     private var themes: [String: AppTheme] = [:]
 
+    /// Single shared instance; a fresh `ThemeManager()` re-reads the whole
+    /// themes directory on every construction.
+    static let shared = ThemeManager()
+
     init() {
         loadAll()
     }

@@ -4,7 +4,21 @@ enum ConfigLoader: ConfigLoaderProtocol {
 
     static let configPath = NSString(string: "~/.config/spacemap/config.toml").expandingTildeInPath
 
+    /// Fail-closed ceilings. Decode logic below is untouched; oversized input
+    /// never reaches it.
+    static let maxConfigBytes = 256 * 1024
+    static let maxLineBytes = 16 * 1024
+
+    static func isSymlink(at path: String) -> Bool {
+        (try? FileManager.default.attributesOfItem(atPath: path))?[.type] as? FileAttributeType == .typeSymbolicLink
+    }
+
     static func load(from path: String, silentMode: Bool) -> (values: ConfigValues, needsRepair: Bool) {
+        // O_NOFOLLOW equivalent: never read through a link someone else owns.
+        guard !isSymlink(at: path) else {
+            NSLog("spacemap/ConfigLoader: refusing to read symlinked config at \(path)")
+            return (ConfigValues(), true)
+        }
         let contents: String
         do {
             var raw = try String(contentsOfFile: path, encoding: .utf8)
@@ -17,7 +31,21 @@ enum ConfigLoader: ConfigLoaderProtocol {
             return (ConfigValues(), true)
         }
 
-        let values = (try? TOMLParser.parse(contents)) ?? ConfigValues()
+        // Fail closed on bombs: oversized file or absurd single line.
+        guard contents.utf8.count <= maxConfigBytes,
+              contents.split(separator: "\n", omittingEmptySubsequences: false).allSatisfy({ $0.utf8.count <= maxLineBytes }) else {
+            NSLog("spacemap/ConfigLoader: config at \(path) exceeds size ceilings — using defaults")
+            return (ConfigValues(), true)
+        }
+
+        let parsed: ConfigValues
+        do {
+            parsed = try TOMLParser.parse(contents)
+        } catch {
+            if !silentMode { NSLog("spacemap/ConfigLoader: parse failed (\(error.localizedDescription)) — using defaults") }
+            parsed = ConfigValues()
+        }
+        let values = sanitizeLabels(parsed)
         let (_, needsRepair) = values.toGridConfig()
         if needsRepair {
             save(values, to: path)
@@ -26,15 +54,16 @@ enum ConfigLoader: ConfigLoaderProtocol {
     }
 
     static func save(_ values: ConfigValues, to path: String) {
+        // EEXIST + O_NOFOLLOW: never write through a planted link or dir.
+        guard !isSymlink(at: path) else {
+            NSLog("spacemap/ConfigLoader: refusing to write through symlink at \(path)")
+            return
+        }
         let dir = (path as NSString).deletingLastPathComponent
-        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        secureDirectory(at: dir)
         backupConfig(at: path)
         let content = tomlConfigString(from: values, includeHeaderComments: true)
-        do {
-            try content.write(toFile: path, atomically: true, encoding: .utf8)
-        } catch {
-            print("spacemap: failed to save config to \(path): \(error)")
-        }
+        secureWrite(content, to: path)
     }
 
     static func save(_ config: GridConfig, to path: String) {
@@ -43,16 +72,75 @@ enum ConfigLoader: ConfigLoaderProtocol {
     }
 
     static func createDefaultConfigFile(at path: String) {
-        let dir = (path as NSString).deletingLastPathComponent
-        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        guard !isSymlink(at: path) else {
+            NSLog("spacemap/ConfigLoader: refusing to write through symlink at \(path)")
+            return
+        }
+        secureDirectory(at: (path as NSString).deletingLastPathComponent)
         backupConfig(at: path)
         let content = tomlConfigString(from: ConfigValues(), includeHeaderComments: true)
+        if secureWrite(content, to: path) {
+            NSLog("spacemap: default config created at \(path)")
+        }
+    }
+
+    /// Config dir 0700, files 0600. XDG config holds hotkeys/behavior — no
+    /// reason group/other ever reads it.
+    @discardableResult
+    static func secureWrite(_ content: String, to path: String) -> Bool {
         do {
             try content.write(toFile: path, atomically: true, encoding: .utf8)
-            print("spacemap: default config created at \(path)")
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+            return true
         } catch {
-            print("spacemap: failed to create default config at \(path): \(error)")
+            NSLog("spacemap: failed to save config to \(path): \(error)")
+            return false
         }
+    }
+
+    static func secureDirectory(at path: String) {
+        do {
+            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: path)
+        } catch {
+            NSLog("spacemap: failed to secure config dir at \(path): \(error)")
+        }
+    }
+
+    /// Label charset allowlist: Unicode letters/numbers/marks/punctuation/
+    /// symbols/space separators (emoji survive); control/format/private-use
+    /// rejected. Runs post-decode — decode logic itself is untouched.
+    static func sanitizeLabels(_ values: ConfigValues) -> ConfigValues {
+        var out = values
+        if let names = out.spaceNames {
+            out.spaceNames = Dictionary(uniqueKeysWithValues: names.map { ($0.key, sanitizeLabel($0.value)) })
+        }
+        if let profiles = out.spaceNameProfiles {
+            out.spaceNameProfiles = profiles.map { profile in
+                var copy = profile
+                copy.name = sanitizeLabel(profile.name)
+                copy.spaceNames = Dictionary(uniqueKeysWithValues: profile.spaceNames.map { ($0.key, sanitizeLabel($0.value)) })
+                return copy
+            }
+        }
+        return out
+    }
+
+    static func sanitizeLabel(_ label: String) -> String {
+        String(label.unicodeScalars.filter { scalar in
+            switch scalar.properties.generalCategory {
+            case .uppercaseLetter, .lowercaseLetter, .titlecaseLetter, .modifierLetter, .otherLetter,
+                 .nonspacingMark, .spacingMark, .enclosingMark,
+                 .decimalNumber, .letterNumber, .otherNumber,
+                 .connectorPunctuation, .dashPunctuation, .openPunctuation, .closePunctuation,
+                 .initialPunctuation, .finalPunctuation, .otherPunctuation,
+                 .mathSymbol, .currencySymbol, .modifierSymbol, .otherSymbol,
+                 .spaceSeparator, .lineSeparator, .paragraphSeparator:
+                return true
+            default:
+                return false
+            }
+        })
     }
 
 
@@ -107,6 +195,7 @@ enum ConfigLoader: ConfigLoaderProtocol {
             "displayNavigationWrap = \(tomlString((values.displayNavigationWrap ?? defaults.displayNavigationWrap).rawValue))",
             "useVimKeys = \(values.useVimKeys ?? defaults.useVimKeys)",
             "useArrowKeys = \(values.useArrowKeys ?? defaults.useArrowKeys)",
+            "useExtendedKeys = \(values.useExtendedKeys ?? defaults.useExtendedKeys)",
             "jumpToSpaceEnabled = \(values.jumpToSpaceEnabled ?? defaults.jumpToSpaceEnabled)",
             "customHUDX = \(values.customHUDX ?? defaults.customHUDX)",
             "customHUDY = \(values.customHUDY ?? defaults.customHUDY)",
@@ -120,6 +209,11 @@ enum ConfigLoader: ConfigLoaderProtocol {
         ]
         appendHotkey(values.hotkey ?? defaults.hotkey, section: "behavior.hotkey", to: &lines)
         appendHotkey(values.pinnedHotkey ?? defaults.pinnedHotkey, section: "behavior.pinnedHotkey", to: &lines)
+        appendHotkey(
+            values.glyphStripHotkey ?? defaults.glyphStripHotkey,
+            section: "behavior.glyphStripHotkey",
+            to: &lines
+        )
 
         lines += ["", "[behavior.hudPosition]"]
         switch values.hudPosition ?? defaults.hudPosition {
@@ -128,6 +222,78 @@ enum ConfigLoader: ConfigLoaderProtocol {
         case .bottom: lines.append("kind = \"bottom\"")
         case .custom(let x, let y):
             lines += ["kind = \"custom\"", "x = \(x)", "y = \(y)"]
+        }
+
+        lines += ["", "[glyphStrip]"]
+        let glyphStrip = values.glyphStrip ?? defaults.glyphStrip
+        lines += [
+            "enabled = \(glyphStrip.enabled)",
+            "theme = \(tomlString(glyphStrip.theme))",
+            "showSpaceNumbers = \(glyphStrip.showSpaceNumbers)",
+            "showLayoutSuffix = \(glyphStrip.showLayoutSuffix)",
+            "showAppIcons = \(glyphStrip.showAppIcons)",
+            "dedupeAppsPerSpace = \(glyphStrip.dedupeAppsPerSpace)",
+            "maxIconsPerSpace = \(glyphStrip.maxIconsPerSpace)",
+            "iconSize = \(glyphStrip.iconSize)",
+            "indexSize = \(glyphStrip.indexSize)",
+            "highlightCurrentSpace = \(glyphStrip.highlightCurrentSpace)",
+            "backgroundMaterial = \(tomlString(glyphStrip.backgroundMaterial.rawValue))",
+            "glassAmount = \(glyphStrip.glassAmount)",
+            "useThemeTint = \(glyphStrip.useThemeTint)",
+            "shape = \(tomlString(glyphStrip.shape.rawValue))",
+            "backgroundOpacity = \(glyphStrip.backgroundOpacity)",
+            "cornerRadius = \(glyphStrip.cornerRadius)",
+            "margin = \(glyphStrip.margin)",
+            "iconSpacing = \(glyphStrip.iconSpacing)",
+            "indexPadding = \(glyphStrip.indexPadding)",
+            "yOffset = \(glyphStrip.yOffset)",
+            "hoverPadding = \(glyphStrip.hoverPadding)",
+            "hoverCornerRadius = \(glyphStrip.hoverCornerRadius)",
+            "showDisplaySeparators = \(glyphStrip.showDisplaySeparators)",
+            "showAddSpaceButton = \(glyphStrip.showAddSpaceButton)",
+            "showPlaceholders = \(glyphStrip.showPlaceholders)",
+            "leftClickAction = \(tomlString(glyphStrip.leftClickAction.rawValue))",
+            "rightClickAction = \(tomlString(glyphStrip.rightClickAction.rawValue))",
+            "middleClickAction = \(tomlString(glyphStrip.middleClickAction.rawValue))",
+            "position = \(tomlString(glyphStrip.position.rawValue))",
+            "xOffset = \(glyphStrip.xOffset)",
+            "borderEnabled = \(glyphStrip.borderEnabled)"
+        ]
+
+        let appFont = values.appFont ?? defaults.appFont
+        lines += [
+            "",
+            "[appFont]",
+            "updateMode = \(tomlString(appFont.updateMode.rawValue))",
+            "installedVersion = \(tomlString(appFont.installedVersion))",
+            "lastCheck = \(appFont.lastCheck)"
+        ]
+
+        let profiles = values.spaceNameProfiles ?? defaults.spaceNameProfiles
+        let activeProfileIndex = values.activeSpaceNameProfileIndex ?? defaults.activeSpaceNameProfileIndex
+        let defaultProfile = SpaceNameProfile.default
+        let hasNonDefaultProfiles = profiles.count != 1 ||
+            profiles.first?.name != defaultProfile.name ||
+            !(profiles.first?.spaceNames.isEmpty ?? true)
+
+        if hasNonDefaultProfiles {
+            // Indexed-dotted tables only: the document parser supports flat
+            // `[a.b]` tables but neither `[[array]]` nor inline `{...}` maps,
+            // so profiles must be written in a form the reader parses back.
+            // Reader: TOMLConfigDecoder indexed-schema block. Active profile
+            // is the `activeIndex` int; out-of-range heals to 0 on load.
+            lines += ["", "[spaceNameProfiles]", "activeIndex = \(activeProfileIndex)"]
+            for (i, profile) in profiles.enumerated() {
+                lines += ["", "[spaceNameProfiles.\(i)]", "name = \(tomlString(profile.name))"]
+                if !profile.spaceNames.isEmpty {
+                    lines += ["", "[spaceNameProfiles.\(i).names]"]
+                    for key in profile.spaceNames.keys.sorted() {
+                        if let name = profile.spaceNames[key] {
+                            lines.append("\(tomlString(String(key))) = \(tomlString(name))")
+                        }
+                    }
+                }
+            }
         }
 
         lines += [
@@ -141,10 +307,11 @@ enum ConfigLoader: ConfigLoaderProtocol {
 
 
     private static func backupConfig(at path: String) {
-        guard FileManager.default.fileExists(atPath: path) else { return }
+        guard FileManager.default.fileExists(atPath: path), !isSymlink(at: path) else { return }
         let backupPath = path + ".bak"
         try? FileManager.default.removeItem(atPath: backupPath)
         try? FileManager.default.copyItem(atPath: path, toPath: backupPath)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: backupPath)
     }
 
 

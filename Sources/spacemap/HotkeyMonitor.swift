@@ -95,7 +95,8 @@ final class HotkeyMonitor {
             .maskControl,
             .maskCommand,
             .maskAlternate,
-            .maskShift
+            .maskShift,
+            .maskSecondaryFn
         ])
         guard relevantFlags == targetModifiers else { return .passThrough }
         return KeyEventDecision(shouldConsume: true, shouldTrigger: !isAutoRepeat)
@@ -250,7 +251,7 @@ final class HotkeyMonitor {
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         tapCreationFailureCount = 0
-        print("Spacemap: hotkey active")
+        NSLog("Spacemap/Hotkey: hotkey active")
     }
 
     private func createMediaKeyMonitor() {

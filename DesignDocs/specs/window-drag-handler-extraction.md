@@ -1,6 +1,6 @@
 # WindowDragHandler Extraction
 
-**Status:** Proposed
+**Status:** Done (`WindowDragHandler` + `WindowDragInput`/`WindowDragService` exist, `WindowDragHandlerTests` cover them)
 **Date:** 2026-08-04
 **Author:** Architecture Review
 
