@@ -223,23 +223,18 @@ struct SettingsBehavior: View {
         installedFontVersion = installedTag
         Task {
             let status: String
-            var updatedTag: String?
             do {
                 switch try await AppFontUpdater.runCheck(installedTag: installedTag) {
                 case .upToDate(let tag):
                     status = "Up to date (\(tag))"
                 case .updated(let info):
                     status = "Updated to \(info.tag)"
-                    updatedTag = info.tag
+                    installedFontVersion = info.tag
                 }
-                AppFontUpdater.recordCheck(installedTag: updatedTag)
             } catch {
                 status = "Update failed: \(error.localizedDescription)"
             }
             await MainActor.run {
-                if let updatedTag {
-                    installedFontVersion = updatedTag
-                }
                 fontStatus = status
                 isCheckingFont = false
             }
