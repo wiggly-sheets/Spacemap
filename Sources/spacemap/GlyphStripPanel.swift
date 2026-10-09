@@ -21,13 +21,41 @@ final class GlyphStripPanelController: NSObject {
     /// slow older yabai reply from overwriting newer state.
     private let coordinator: GridStateCoordinator
     private lazy var themeService = ThemeService()
-    private lazy var font: AppGlyphFont? = {
-        let loaded = AppGlyphFont.load()
-        if loaded == nil {
-            NSLog("spacemap/GlyphStrip: sketchybar-app-font unavailable; falling back to app initials")
+    /// Background work queue: font load (disk IO + parse) runs here. Only
+    /// the attributed-run apply, frame, and draw run on main.
+    private static let stripWorkQueue = DispatchQueue(label: "com.spacemap.glyphstrip", qos: .userInitiated)
+    /// Coalescing window for rapid space-change bursts: every refresh()
+    /// cancels the pending one, so a burst paints once.
+    private static let refreshCoalesceInterval: TimeInterval = 0.032
+    /// Generation so a stale background reply never overwrites newer state.
+    private var refreshGeneration = 0
+    private var pendingRefresh: DispatchWorkItem?
+    /// Serializes refresh bodies: a refresh landing mid-pass sets
+    /// `needsFollowupRefresh` for one bounded follow-up instead of recursing.
+    private var refreshInFlight = false
+    private var needsFollowupRefresh = false
+    /// Resolved per refresh on the work queue and passed through — never
+    /// held, since the updater invalidates the shared cache after install.
+    private var didLogMissingFont = false
+    /// Availability gate for an already-loaded font: metadata parses but the
+    /// face must resolve, else initials instead of tofu.
+    private func effectiveFont(from loaded: AppGlyphFont?) -> AppGlyphFont? {
+        guard let loaded else {
+            if !didLogMissingFont {
+                didLogMissingFont = true
+                NSLog("spacemap/GlyphStrip: sketchybar-app-font unavailable; falling back to app initials")
+            }
+            return nil
+        }
+        guard AppGlyphFont.isFontAvailable() else {
+            if !didLogMissingFont {
+                didLogMissingFont = true
+                NSLog("spacemap/GlyphStrip: sketchybar-app-font metadata parses but face unavailable; falling back to app initials")
+            }
+            return nil
         }
         return loaded
-    }()
+    }
 
     private var panel: NSPanel?
     /// Drawing layer, retained so refreshes can invalidate it directly.
@@ -41,6 +69,14 @@ final class GlyphStripPanelController: NSObject {
     /// Extra advance before each run, parallel to `attributedRuns`.
     private var runGaps: [[CGFloat]] = []
     private var segmentWidths: [CGFloat] = []
+    /// Memory-only native icons, parallel to `segments` runs (nil for
+    /// non-native runs and cache misses). One array drives measuring and
+    /// drawing, so the frame can never disagree with what is painted.
+    private var nativeIcons: [[NSImage?]] = []
+    /// Names with a background resolve already in flight. Stops a miss from
+    /// re-triggering a refresh loop when the app has no bundle at all.
+    private var nativeResolveInFlight = Set<String>()
+    private var settingsObserver: NSObjectProtocol?
     private var focusedSpaceIndex: Int?
     private var hoveredSegment: Int?
     private var screenObserver: NSObjectProtocol?
@@ -58,11 +94,24 @@ final class GlyphStripPanelController: NSObject {
         ) { [weak self] _ in
             self?.applyFrame()
         }
+        // Font installs land here right after the shared cache is dropped, so
+        // the next refresh re-reads disk instead of a stale face.
+        settingsObserver = NotificationCenter.default.addObserver(
+            forName: .settingsChanged,
+            object: nil,
+            queue: .main
+        ) { _ in
+            AppGlyphFont.invalidateCache()
+        }
     }
 
     deinit {
+        pendingRefresh?.cancel()
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
+        }
+        if let settingsObserver {
+            NotificationCenter.default.removeObserver(settingsObserver)
         }
     }
 
@@ -100,27 +149,121 @@ final class GlyphStripPanelController: NSObject {
     }
 
     /// Event-driven only — every yabai signal lands here via the shared refresh
-    /// path. No polling timer.
+    /// path. No polling timer. Debounced (~32ms): rapid space-change bursts
+    /// coalesce to one pass. Font IO + segment model build run on the work
+    /// queue; only the attributed-run apply + frame runs on main.
     func refresh() {
         guard config.glyphStrip.enabled, !hiddenByHotkey else { return }
+        refreshGeneration += 1
+        pendingRefresh?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.runRefresh() }
+        pendingRefresh = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.refreshCoalesceInterval, execute: work)
+    }
+
+    private func runRefresh() {
+        guard config.glyphStrip.enabled, !hiddenByHotkey else { return }
+        // Re-entrant guard: a refresh landing mid-pass (e.g. an icon resolve
+        // landing one) collapses to a single bounded follow-up.
+        guard !refreshInFlight else {
+            needsFollowupRefresh = true
+            return
+        }
+        refreshInFlight = true
+        let generation = refreshGeneration
+        // Single config snapshot for the whole render pass.
+        let strip = config.glyphStrip
+        let options = GlyphStrip.Options(strip)
         coordinator.refresh { [weak self] in
-            guard let self, let state = self.coordinator.state else { return }
-            // Single config snapshot for the whole render pass.
-            let strip = self.config.glyphStrip
-            self.segments = GlyphStrip.segments(
-                for: state,
-                options: GlyphStrip.Options(strip),
-                font: self.font
-            )
-            self.focusedSpaceIndex = state.focusedIndex
-            self.rebuildRuns(strip: strip)
-            self.present()
+            guard let self else { return }
+            guard generation == self.refreshGeneration,
+                  let state = self.coordinator.state else {
+                // Stale reply or no state: drop it, never paint over newer state.
+                self.finishRefresh()
+                return
+            }
+            let focused = state.focusedIndex
+            Self.stripWorkQueue.async { [weak self] in
+                // Disk IO + parse only; the gated face check and the pure
+                // segment build stay on main below.
+                let loaded = AppGlyphFont.load()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    guard generation == self.refreshGeneration else {
+                        self.finishRefresh()
+                        return
+                    }
+                    let font = self.effectiveFont(from: loaded)
+                    let resolved = GlyphStrip.segments(
+                        for: state,
+                        options: options,
+                        font: font
+                    )
+                    self.segments = resolved
+                    self.focusedSpaceIndex = focused
+                    // Watchdog: a non-empty state must never paint an empty
+                    // strip from a dropped pass — fall back to initials runs.
+                    if resolved.isEmpty && !state.spaces.isEmpty {
+                        NSLog("spacemap/GlyphStrip: empty segments for non-empty state; keeping last good frame")
+                        self.finishRefresh()
+                        return
+                    }
+                    self.rebuildRuns(strip: strip)
+                    self.present()
+                    self.preloadNativeIcons()
+                    self.finishRefresh()
+                }
+            }
+        }
+    }
+
+    /// Clears the in-flight flag and runs one collapsed follow-up when a
+    /// refresh landed mid-pass. Stale generations never trigger follow-ups.
+    private func finishRefresh() {
+        refreshInFlight = false
+        if needsFollowupRefresh {
+            needsFollowupRefresh = false
+            refresh()
+        }
+    }
+
+    /// Off-main miss resolution for native icons: cache hits paint this pass,
+    /// misses repaint via one follow-up refresh once the image lands.
+    /// In-flight names are skipped so an unresolvable app cannot loop.
+    private func preloadNativeIcons() {
+        guard config.glyphStrip.iconSource == .nativeIcons else { return }
+        for (segmentOffset, segment) in segments.enumerated() {
+            for (runOffset, run) in segment.runs.enumerated() {
+                guard case .nativeIcon(let app, _, _) = run,
+                      nativeIcons.indices.contains(segmentOffset),
+                      nativeIcons[segmentOffset].indices.contains(runOffset),
+                      nativeIcons[segmentOffset][runOffset] == nil,
+                      !nativeResolveInFlight.contains(app) else { continue }
+                nativeResolveInFlight.insert(app)
+                IconCache.shared.resolveInBackground(appName: app) { [weak self] image in
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        self.nativeResolveInFlight.remove(app)
+                        // Nil (no bundle anywhere) must not re-trigger: the
+                        // fallback glyph is the final answer for this launch.
+                        if image != nil { self.refresh() }
+                    }
+                }
+            }
         }
     }
 
     private func rebuildRuns(strip: GlyphStripConfig) {
         let theme = themeService.named(effectiveThemeName)
 
+        // Memory-only hits; misses keep nil and paint the fallback glyph
+        // until preloadNativeIcons lands them. Never blocks on icon(forFile:).
+        nativeIcons = segments.map { segment in
+            segment.runs.map { run in
+                guard case .nativeIcon(let app, _, _) = run else { return nil }
+                return IconCache.shared.cachedIcon(for: app)
+            }
+        }
         attributedRuns = segments.map { segment in
             let isCurrent = segment.spaceIndex != nil && segment.spaceIndex == focusedSpaceIndex
             return segment.runs.map { run in
@@ -141,8 +284,16 @@ final class GlyphStripPanelController: NSObject {
                 indexPadding: CGFloat(strip.indexPadding)
             )
         }
-        segmentWidths = zip(attributedRuns, runGaps).map { runs, gaps in
-            let glyphs = zip(runs, gaps).reduce(0) { $0 + $1.0.size().width + $1.1 }
+        segmentWidths = segments.indices.map { offset in
+            let runs = attributedRuns[offset]
+            let gaps = runGaps[offset]
+            // Resolved native icons fill their fallback's advance: the same
+            // cell an `.app` run measures at this iconSize, side bearings
+            // included. Hit and miss share one width, so resolving an icon
+            // never reflows the strip.
+            let glyphs = runs.indices.reduce(CGFloat(0)) { total, index in
+                total + runs[index].size().width + gaps[index]
+            }
             return glyphs + Self.segmentPadding * 2
         }
     }
@@ -246,13 +397,11 @@ final class GlyphStripPanelController: NSObject {
 
     /// Persists a finished drag so it survives refreshes and restarts. Same
     /// load-modify-save path `HUDDisplay.savePanelPosition` uses, so config
-    /// edits made elsewhere since the last save survive too. The frame the
-    /// saved config describes equals the panel's current frame, so the
-    /// notification-driven `applyFrame` that follows no-ops on the guard
-    /// above rather than looping.
+    /// edits made elsewhere since the last save survive too. Silent: no
+    /// .settingsChanged post (position-only change must not drop font cache
+    /// or reload theme); the frame is applied directly.
     fileprivate func persistDragPosition() {
         guard config.glyphStrip.enabled, !hiddenByHotkey, let panel else { return }
-        applyFrame(to: panel)
         let offsets = GlyphStrip.customOffsets(
             for: panel.frame,
             menuBarRow: Self.menuBarRow(on: Self.targetScreen())
@@ -264,7 +413,7 @@ final class GlyphStripPanelController: NSObject {
         strip.yOffset = offsets.yOffset
         saved.glyphStrip = strip.clamped()
         Config.saveConfig(saved)
-        NotificationCenter.default.post(name: .settingsChanged, object: nil)
+        applyFrame(to: panel)
     }
 
     /// `NSScreen.main` follows the key window, and Spacemap is usually never
@@ -410,7 +559,7 @@ final class GlyphStripPanelController: NSObject {
     fileprivate var gaps: [[CGFloat]] { runGaps }
 
     /// Per-run y lift over the shared baseline: `appGlyphLift` for icon-font
-    /// glyphs, zero for index/placeholder/overflow/separator/add.
+    /// and native-icon runs, zero for index/placeholder/overflow/separator/add.
     fileprivate func drawLift(segment offset: Int, run index: Int) -> CGFloat {
         guard segments.indices.contains(offset), segments[offset].runs.indices.contains(index) else { return 0 }
         return GlyphStrip.baselineLift(for: segments[offset].runs[index])
@@ -552,6 +701,7 @@ final class GlyphStripPanelController: NSObject {
         let highlighted = isCurrent && strip.highlightCurrentSpace
         var isAppGlyph = false
         if case .app = run { isAppGlyph = true }
+        if GlyphStrip.isNativeIcon(run) { isAppGlyph = true }
         // Only the highlighted (current) space keeps full-strength glyphs.
         let alpha: CGFloat = isAppGlyph && !highlighted ? 0.55 : 1.0
         let name: String
@@ -581,6 +731,11 @@ final class GlyphStripPanelController: NSObject {
         case .app(let value):
             text = value
             font = appFont(size: CGFloat(strip.iconSize))
+        case .nativeIcon(_, _, let fallback):
+            // The image (when resolved) blits at draw time; the fallback
+            // glyph carries the colour and line metrics for both paths.
+            text = fallback
+            font = appFont(size: CGFloat(strip.iconSize))
         case .overflow(let count):
             text = "+\(count)"
             font = .systemFont(ofSize: indexSize)
@@ -603,8 +758,26 @@ final class GlyphStripPanelController: NSObject {
 
     fileprivate static var horizontalPadding: CGFloat { segmentPadding }
 
+    private static var didLogUnresolvedFace = false
+
+    /// Render path must agree with metadata: an unregistered face falls back
+    /// to the system font (and the controller gates to initials), so a parsed
+    /// glyph never draws as tofu from the wrong face.
     fileprivate static func appFont(size: CGFloat) -> NSFont {
-        NSFont(name: "sketchybar-app-font", size: size) ?? .systemFont(ofSize: size)
+        if let face = NSFont(name: "sketchybar-app-font", size: size) { return face }
+        if !didLogUnresolvedFace {
+            didLogUnresolvedFace = true
+            NSLog("spacemap/GlyphStrip: sketchybar-app-font face not registered; falling back to system font")
+        }
+        return .systemFont(ofSize: size)
+    }
+
+    /// Resolved native icon for a run, or nil on a miss (fallback paints).
+    /// Non-native runs always read nil: only `rebuildRuns` writes images.
+    fileprivate func nativeIcon(segment offset: Int, run index: Int) -> NSImage? {
+        guard nativeIcons.indices.contains(offset),
+              nativeIcons[offset].indices.contains(index) else { return nil }
+        return nativeIcons[offset][index]
     }
 }
 
@@ -747,7 +920,6 @@ private final class GlyphStripContainerView: NSView {
         glyphs.frame = bounds
         // Alpha/material swaps alone do not always repaint, so force both
         // layers: otherwise the neutral slider looks dead until resize.
-        fallbackGlass.maskImage = nil
         fallbackGlass.needsDisplay = true
         glyphs.needsDisplay = true
     }
@@ -981,8 +1153,22 @@ private final class GlyphStripView: NSView {
             x += GlyphStripPanelController.horizontalPadding
             for (index, run) in runs.enumerated() {
                 if index > 0 { x += gaps[index] }
-                run.draw(at: NSPoint(x: x, y: baselineY - GlyphStripPanelController.glyphDrop + controller.drawLift(segment: offset, run: index)))
-                x += run.size().width
+                if let image = controller.nativeIcon(segment: offset, run: index) {
+                    // Native icon: square image filling the fallback advance,
+                    // the same width the measuring path charged, centred on the
+                    // content with the `.app` lift so it sits where a font
+                    // glyph would.
+                    // Fraction honors style() dimming (0.55 on resting runs).
+                    let advance = run.size().width
+                    let y = controller.contentY(in: bounds) + (controller.contentHeight - advance) / 2
+                        + controller.drawLift(segment: offset, run: index)
+                    let fraction = (run.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor)?.alphaComponent ?? 1.0
+                    image.draw(in: NSRect(x: x, y: y, width: advance, height: advance), from: NSRect(origin: .zero, size: image.size), operation: .sourceOver, fraction: fraction)
+                    x += advance
+                } else {
+                    run.draw(at: NSPoint(x: x, y: baselineY - GlyphStripPanelController.glyphDrop + controller.drawLift(segment: offset, run: index)))
+                    x += run.size().width
+                }
             }
             x += GlyphStripPanelController.horizontalPadding
         }

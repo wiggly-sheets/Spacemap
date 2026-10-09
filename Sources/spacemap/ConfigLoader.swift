@@ -232,6 +232,7 @@ enum ConfigLoader: ConfigLoaderProtocol {
             "showSpaceNumbers = \(glyphStrip.showSpaceNumbers)",
             "showLayoutSuffix = \(glyphStrip.showLayoutSuffix)",
             "showAppIcons = \(glyphStrip.showAppIcons)",
+            "iconSource = \(tomlString(glyphStrip.iconSource.rawValue))",
             "dedupeAppsPerSpace = \(glyphStrip.dedupeAppsPerSpace)",
             "maxIconsPerSpace = \(glyphStrip.maxIconsPerSpace)",
             "iconSize = \(glyphStrip.iconSize)",

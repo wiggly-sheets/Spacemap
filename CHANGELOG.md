@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional always-visible glyph strip in the menu bar row, showing each yabai space's index plus a sketchybar-app-font glyph per window. A new **Glyph Strip** settings pane and `[glyphStrip]` config table control contents (`showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`), appearance (`iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassAmount`, `useThemeTint`, `shape`, `backgroundOpacity` solid-only 0.01...1.0, `cornerRadius`, `margin`, `yOffset`), decoration (`showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `borderEnabled`, `theme`), click bindings (`leftClickAction`, `rightClickAction`, `middleClickAction`) and `position` (new `custom` value with `xOffset`). The former bare `[behavior] glyphStrip = true` boolean is still read and migrated on the next config repair.
 - Space-name profiles: named sets of space names with an active index, edited in a dedicated Settings section and switchable from Settings or the menu bar. Out-of-range indexes repair to 0; an empty list repairs to Default.
 - Session-only glyph-strip show/hide hotkey (`[behavior.glyphStripHotkey]`, default unbound). It flips an in-memory flag that starts visible every launch and is never written to config.
+- `iconSource` glyph-strip option (`sbarFont` default vs `native`): native paints each app's own icon via `IconCache` at `iconSize` with sbar-glyph-then-initials fallback, picked in Settings → Glyph Strip → Icon Source or `[glyphStrip] iconSource`.
 
 ### Changed
 - The glyph strip's palette is now theme-driven with no per-element colour keys: the current space, the add button and the hover highlight use the theme's `focused` role, resting glyphs use `text`, and the solid material fills with `cellBg`. Per-element colour keys (`currentSpaceColor`, `dimmedColor`, `indexColor`, `iconColor`, `hoverColor`, `backgroundColor`, `separatorColor`, `placeholderColor`, `addColor`) are removed; the legacy `backgroundStyle` key is migrated to `backgroundMaterial` + `shape` (none → none, pill → solid + pill, bar → solid + bar, roundedRect → solid + roundedRect, liquidGlass → liquidGlass + roundedRect).
@@ -58,6 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refresh full menu-bar previews for workspace topology changes and keep menu titles synchronized with hotkey changes.
 - Package every localization with valid Unicode text, and reject release tags that disagree with the app version.
 - Compare complete grid state instead of treating states with the same focused space as equal.
+- Harden sketchybar-app-font discovery/update/install: direct bundle probes replace the tree walk, newer release tag wins, ATS auto-activation plus CoreText registration on launch/install, downloads gate on a real APPM payload, fresh-install checks compare the bundled release, cache drops on install and settings change.
+- Match native icon sizing to the glyph advance it replaces so resolving an icon never reflows the strip; misses paint the sbar glyph or initials with 0.55 resting dim.
+- Harden the glyph strip against freezes: debounced refresh with generation guard and re-entrant follow-up, font IO off-main, main-only icon fetch with background resolve plus one follow-up repaint, lock-guarded font/icon caches, silent drag persist.
 
 ### Removed
 - Removed unused icon and thumbnail cache facade modules.

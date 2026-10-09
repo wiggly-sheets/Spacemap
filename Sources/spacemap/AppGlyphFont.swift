@@ -1,3 +1,5 @@
+import AppKit
+import CoreText
 import Foundation
 
 /// App-name to sketchybar-app-font glyph lookup.
@@ -27,10 +29,74 @@ final class AppGlyphFont {
     }
 
     static let resourceName = "sketchybar-app-font"
+    static let fontName = "sketchybar-app-font"
     static let defaultLigature = ":default:"
 
     private static let cacheLock = NSLock()
     private static var cachedFont: AppGlyphFont?
+
+    /// Drops the cached font so the next load() re-reads disk. Called on
+    /// .settingsChanged and after every install.
+    static func invalidateCache() {
+        cacheLock.lock()
+        cachedFont = nil
+        cacheLock.unlock()
+    }
+
+    /// True when CoreText can resolve the face for drawing. Metadata parsing
+    /// alone is not enough: an unactivated font parses fine but renders wrong.
+    static func isFontAvailable() -> Bool {
+        NSFont(name: fontName, size: 11) != nil
+    }
+
+    /// Registers the bundled copy with CoreText when lookup fails (fresh
+    /// install before the updater ever runs). No-op when already resolvable.
+    /// Returns whether the face resolves afterwards.
+    @discardableResult
+    static func ensureRegistered() -> Bool {
+        if isFontAvailable() { return true }
+        guard let url = bundledURL() else { return false }
+        var error: Unmanaged<CFError>?
+        CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error)
+        if let unmanaged = error {
+            let cfError = unmanaged.takeRetainedValue()
+            if CFErrorGetCode(cfError) != CTFontManagerError.alreadyRegistered.rawValue {
+                NSLog("spacemap/GlyphStrip: could not register %@ — code \(CFErrorGetCode(cfError))", url.path)
+            }
+        }
+        return isFontAvailable()
+    }
+
+    /// Direct bundle probe without the filesystem walk: the copy the app
+    /// ships (auto-activated via ATSApplicationFontsPath, fallback here).
+    static func bundledURL() -> URL? {
+        let name = "\(resourceName).ttf"
+        let fm = FileManager.default
+        var roots: [URL?] = [
+            Bundle.main.resourceURL,
+            Bundle(for: AppGlyphFont.self).resourceURL,
+            findModuleBundle()?.resourceURL,
+        ]
+        roots.append(contentsOf: ancestorDirs(of: Bundle.main.executableURL, depth: 2))
+        for case let root? in roots {
+            for candidate in [
+                root.appendingPathComponent(name),
+                root.appendingPathComponent("spacemap_spacemap.bundle").appendingPathComponent(name),
+            ] where fm.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+        }
+        return nil
+    }
+
+    /// Release tag of the bundled copy, if it parses. Lets a fresh install
+    /// skip a download it does not need.
+    static func bundledRelease() -> String? {
+        guard let url = bundledURL(),
+              let data = try? Data(contentsOf: url),
+              let font = parse(data: data) else { return nil }
+        return font.release
+    }
 
     let release: String
 
@@ -38,6 +104,7 @@ final class AppGlyphFont {
     private let prefixes: [(prefix: String, glyph: String)]
     private let defaultGlyph: String
     private let appNamesByLigature: [String: [String]]
+    private let instanceLock = NSLock()
     private var cache: [String: String] = [:]
 
     private init(metadata: Metadata) {
@@ -79,11 +146,18 @@ final class AppGlyphFont {
     /// Longest-prefix match beats exact match only when no exact entry exists,
     /// mirroring the sketchybarrc lookup order.
     func glyph(forApp app: String) -> String {
-        if let cached = cache[app] { return cached }
+        instanceLock.lock()
+        if let cached = cache[app] {
+            instanceLock.unlock()
+            return cached
+        }
+        instanceLock.unlock()
         let resolved = exact[app]
             ?? prefixes.first { app.hasPrefix($0.prefix) }?.glyph
             ?? defaultGlyph
+        instanceLock.lock()
         cache[app] = resolved
+        instanceLock.unlock()
         return resolved
     }
 
@@ -100,24 +174,63 @@ final class AppGlyphFont {
 
     /// User-installed copies first: the updater writes to `~/Library/Fonts`,
     /// so a newer downloaded font must beat the (possibly older) bundled one.
+    /// When both parse, the newer release tag wins instead of blindly taking
+    /// the first file. Thread-safe via cacheLock; file IO stays off-main
+    /// through prewarmInBackground.
     static func load() -> AppGlyphFont? {
         cacheLock.lock()
         let cached = cachedFont
         cacheLock.unlock()
         if let cached { return cached }
+        var best: AppGlyphFont?
         for url in candidateURLs() {
             guard let data = try? Data(contentsOf: url) else { continue }
-            if let font = parse(data: data) {
-                cacheLock.lock()
-                cachedFont = font
-                cacheLock.unlock()
-                return font
+            guard let font = parse(data: data) else {
+                // A font that exists but will not parse is a real fault, not a
+                // missing optional, so say so instead of falling through silently.
+                NSLog("spacemap/GlyphStrip: %@ has no readable APPM metadata", url.path)
+                continue
             }
-            // A font that exists but will not parse is a real fault, not a
-            // missing optional, so say so instead of falling through silently.
-            NSLog("spacemap/GlyphStrip: %@ has no readable APPM metadata", url.path)
+            if let current = best {
+                best = isNewerRelease(font.release, than: current.release) ? font : current
+            } else {
+                best = font
+            }
         }
-        return nil
+        if let best {
+            cacheLock.lock()
+            // Another load filled the cache during our IO: keep theirs, drop ours.
+            if let current = cachedFont {
+                cacheLock.unlock()
+                return current
+            }
+            cachedFont = best
+            cacheLock.unlock()
+        }
+        return best
+    }
+
+    /// "v3.0.5" > "v3.0.4": numeric per-component compare, non-numeric tails
+    /// compared lexically. Unparseable tags never displace a known best.
+    static func isNewerRelease(_ candidate: String, than current: String) -> Bool {
+        compareTags(candidate, current) == .orderedDescending
+    }
+
+    private static func compareTags(_ lhs: String, _ rhs: String) -> ComparisonResult {
+        if lhs == rhs { return .orderedSame }
+        let lParts = lhs.trimmingCharacters(in: .letters).split(separator: ".")
+        let rParts = rhs.trimmingCharacters(in: .letters).split(separator: ".")
+        for (l, r) in zip(lParts, rParts) {
+            if let li = Int(l), let ri = Int(r) {
+                if li != ri { return li < ri ? .orderedAscending : .orderedDescending }
+            } else if l != r {
+                return l.lexicographicallyPrecedes(r) ? .orderedAscending : .orderedDescending
+            }
+        }
+        if lParts.count != rParts.count {
+            return lParts.count < rParts.count ? .orderedAscending : .orderedDescending
+        }
+        return lhs.lexicographicallyPrecedes(rhs) ? .orderedAscending : .orderedDescending
     }
 
     /// Off-main warmup so first HUD/strip paint never blocks on font IO.
@@ -139,18 +252,17 @@ final class AppGlyphFont {
     /// `Bundle.module` is avoided by name: its generated accessor
     /// `fatalError`s when the SwiftPM resource bundle is absent, which is the
     /// case inside the hand-assembled `.app` where the ttf sits directly in
-    /// `Contents/Resources`. The ttf's real home varies by context — user
-    /// install, `swift test`'s xctest resource bundle, or the `.app` — so the
-    /// search is by filesystem walk rather than by guessing a path, which is
-    /// what let the CI runner slip through (its bundle layout differs from the
-    /// local one).
+    /// `Contents/Resources`. Direct probes only: user/system Fonts dirs plus
+    /// `bundledURL()` (no tree walk).
     static func candidateURLs() -> [URL] {
         let name = "\(resourceName).ttf"
         var urls: [URL] = [
             URL(fileURLWithPath: NSString(string: "~/Library/Fonts/\(name)").expandingTildeInPath),
             URL(fileURLWithPath: "/Library/Fonts/\(name)")
         ]
-        urls.append(contentsOf: walkForFont(named: name))
+        if let bundled = bundledURL(), !urls.contains(bundled) {
+            urls.append(bundled)
+        }
         return urls
     }
 
@@ -191,60 +303,6 @@ final class AppGlyphFont {
             current = current.deletingLastPathComponent()
         }
         return dirs
-    }
-
-    /// Walks the app and test bundle trees looking for the ttf by name. This
-    /// finds it whether it sits directly in `Contents/Resources` (the `.app`)
-    /// or inside the generated `spacemap_spacemap.bundle` (under `swift test`),
-    /// without depending on the generated `Bundle.module` accessor, which
-    /// `fatalError`s when the SwiftPM resource bundle is absent.
-    private static func walkForFont(named name: String) -> [URL] {
-        // Direct probe first: handles both the flat 5.9 bundle layout
-        // (`<dir>/spacemap_spacemap.bundle/<name>`) and the 6.4 layout
-        // (`<dir>/spacemap_spacemap.bundle/Contents/Resources/<name>`).
-        let fm = FileManager.default
-        var probeRoots: [URL] = [
-            Bundle.main.resourceURL,
-            Bundle.main.bundleURL,
-            Bundle(for: AppGlyphFont.self).resourceURL,
-            Bundle(for: AppGlyphFont.self).bundleURL,
-        ].compactMap { $0 }
-        probeRoots.append(contentsOf: ancestorDirs(of: Bundle.main.executableURL, depth: 5))
-        probeRoots.append(contentsOf: ancestorDirs(of: Bundle(for: AppGlyphFont.self).bundleURL, depth: 5))
-        var probed: [URL] = []
-        for dir in probeRoots {
-            for candidate in [
-                dir.appendingPathComponent("spacemap_spacemap.bundle").appendingPathComponent(name),
-                dir.appendingPathComponent("spacemap_spacemap.bundle")
-                    .appendingPathComponent("Contents/Resources").appendingPathComponent(name),
-                dir.appendingPathComponent(name),
-            ] where fm.fileExists(atPath: candidate.path) {
-                probed.append(candidate)
-            }
-        }
-        let exe = Bundle.main.executableURL
-        var roots: [URL?] = [
-            Bundle.main.resourceURL,
-            Bundle.main.bundleURL,
-            Bundle(for: AppGlyphFont.self).resourceURL,
-            Bundle(for: AppGlyphFont.self).bundleURL,
-            findModuleBundle()?.resourceURL,
-            findModuleBundle()?.bundleURL,
-            exe,
-        ]
-        roots.append(contentsOf: ancestorDirs(of: exe, depth: 5))
-        var seen = Set<URL>()
-        var found = probed
-        for case let root? in roots where !seen.contains(root) {
-            seen.insert(root)
-            guard let enumerator = fm.enumerator(at: root, includingPropertiesForKeys: nil) else { continue }
-            for case let url as URL in enumerator {
-                if url.lastPathComponent == name, !found.contains(url) {
-                    found.append(url)
-                }
-            }
-        }
-        return found
     }
 
     /// Reads the `APPM` record out of the font's `meta` table.

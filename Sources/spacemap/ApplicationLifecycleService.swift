@@ -92,6 +92,14 @@ final class ApplicationLifecycleService {
 
         services.checkApplicationLocation()
 
+        // Off-main font warmup + bundled-face registration: first strip paint
+        // never blocks on font IO, and a fresh install resolves NSFont before
+        // any refresh runs.
+        DispatchQueue.global(qos: .utility).async {
+            AppGlyphFont.ensureRegistered()
+            AppGlyphFont.prewarmInBackground()
+        }
+
         services.ensureCommandLineTools(allowAuthorizationPrompt: true)
 
         services.setupMenubar()

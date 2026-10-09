@@ -260,6 +260,8 @@ enum TOMLConfigDecoder {
         if let value = table["showSpaceNumbers"] as? Bool { config.showSpaceNumbers = value }
         if let value = table["showLayoutSuffix"] as? Bool { config.showLayoutSuffix = value }
         if let value = table["showAppIcons"] as? Bool { config.showAppIcons = value }
+        if let name = table["iconSource"] as? String,
+           let source = GlyphStripIconSource.iconSource(from: name) { config.iconSource = source }
         if let value = table["dedupeAppsPerSpace"] as? Bool { config.dedupeAppsPerSpace = value }
         if let value = number(table["maxIconsPerSpace"]) { config.maxIconsPerSpace = Int(value) }
         if let value = number(table["iconSize"]) { config.iconSize = value }
