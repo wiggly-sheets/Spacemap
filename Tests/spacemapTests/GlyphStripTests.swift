@@ -1,5 +1,6 @@
 import XCTest
 import CoreGraphics
+import CoreText
 @testable import spacemap
 
 final class AppGlyphFontTests: XCTestCase {
@@ -1339,6 +1340,12 @@ final class GlyphStripTests: XCTestCase {
     /// adjacent icons touch and why `iconSpacing` has to supply the tracking.
     func testAppGlyphAdvanceIsReadFromTheFontAndIsUniform() throws {
         let font = try XCTUnwrap(AppGlyphFont.load())
+        // The bundled ttf is a resource, not an installed font, so register it
+        // with the process font manager before NSFont(name:) can resolve it.
+        let fontURL = try XCTUnwrap(
+            Bundle.module.url(forResource: AppGlyphFont.resourceName, withExtension: "ttf")
+        )
+        CTFontManagerRegisterFontURLs([fontURL] as CFArray, .process, true, nil)
         let nsFont = try XCTUnwrap(NSFont(name: "sketchybar-app-font", size: 11))
         func advance(_ app: String) -> CGFloat {
             NSAttributedString(
