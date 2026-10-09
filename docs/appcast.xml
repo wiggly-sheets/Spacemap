@@ -6,11 +6,19 @@
     <description>Most recent changes with links to the binaries.</description>
     <language>en</language>
     <item>
+      <title>Version 1.1.0</title>
+      <sparkle:version>1.1.0</sparkle:version>
+      <sparkle:shortVersionString>1.1.0</sparkle:shortVersionString>
+      <sparkle:releaseNotesLink>https://github.com/wiggly-sheets/Spacemap/releases/tag/v1.1.0</sparkle:releaseNotesLink>
+      <enclosure url="https://github.com/wiggly-sheets/Spacemap/releases/download/v1.1.0/spacemap-1.1.0-universal.dmg" sparkle:edSignature="/RTLu6qcni1/3hqh06sERmu5abYJmnObYbStWe3pg/DQwVf8flg615E67kJypMC1NiLG/cqX2XF1arLchvrcBw==" length="8926449" type="application/octet-stream" sparkle:architecture="universal"/>
+    </item>
+<item>
       <title>Version 1.0.39</title>
       <sparkle:version>1.0.39</sparkle:version>
       <sparkle:shortVersionString>1.0.39</sparkle:shortVersionString>
       <sparkle:releaseNotesLink>https://github.com/wiggly-sheets/Spacemap/releases/tag/v1.0.39</sparkle:releaseNotesLink>
       <enclosure url="https://github.com/wiggly-sheets/Spacemap/releases/download/v1.0.39/spacemap-1.0.39-universal.dmg" sparkle:edSignature="m1k0r0Yi2785DaRBLDwnjyBIcDiGOwO4LHnVWpCmJgQmx9jSKSGkdtrbnM+QxwgHHqx/hzHS3ixkh3ZmkBIpAA==" length="8031532" type="application/octet-stream" sparkle:architecture="universal"/>
     </item>
+
   </channel>
 </rss>
