@@ -160,18 +160,37 @@ final class AppGlyphFont {
     /// `.app` layout where the ttf sits directly in `Contents/Resources`).
     private static func findModuleBundle() -> Bundle? {
         let bundleName = "spacemap_spacemap"
-        let candidates = [
+        var candidates = [
             Bundle.main.resourceURL,
             Bundle(for: AppGlyphFont.self).resourceURL,
             Bundle.main.bundleURL
         ].compactMap { $0 }
+        // ponytail: linear ancestor climb; SwiftPM puts the .bundle beside the
+        // xctest dir, 3+ levels above the test executable, and 5.9 does not
+        // copy it into Contents/Resources the way 6.4 does.
+        candidates.append(contentsOf: ancestorDirs(of: Bundle.main.executableURL, depth: 5))
+        candidates.append(contentsOf: ancestorDirs(of: Bundle(for: AppGlyphFont.self).bundleURL, depth: 5))
         for candidate in candidates {
             let bundlePath = candidate.appendingPathComponent(bundleName + ".bundle")
-            if let bundle = Bundle(url: bundlePath) {
+            if FileManager.default.fileExists(atPath: bundlePath.path),
+               let bundle = Bundle(url: bundlePath) {
                 return bundle
             }
         }
         return nil
+    }
+
+    /// Parent dirs of `url`, up to `depth` levels. Covers the Swift 5.9
+    /// `swift test` layout where `spacemap_spacemap.bundle` sits beside (not
+    /// inside) the `.xctest` dir, several levels above the test executable.
+    private static func ancestorDirs(of url: URL?, depth: Int) -> [URL] {
+        guard var current = url?.deletingLastPathComponent() else { return [] }
+        var dirs: [URL] = []
+        for _ in 0..<depth {
+            dirs.append(current)
+            current = current.deletingLastPathComponent()
+        }
+        return dirs
     }
 
     /// Walks the app and test bundle trees looking for the ttf by name. This
@@ -180,8 +199,31 @@ final class AppGlyphFont {
     /// without depending on the generated `Bundle.module` accessor, which
     /// `fatalError`s when the SwiftPM resource bundle is absent.
     private static func walkForFont(named name: String) -> [URL] {
+        // Direct probe first: handles both the flat 5.9 bundle layout
+        // (`<dir>/spacemap_spacemap.bundle/<name>`) and the 6.4 layout
+        // (`<dir>/spacemap_spacemap.bundle/Contents/Resources/<name>`).
+        let fm = FileManager.default
+        var probeRoots: [URL] = [
+            Bundle.main.resourceURL,
+            Bundle.main.bundleURL,
+            Bundle(for: AppGlyphFont.self).resourceURL,
+            Bundle(for: AppGlyphFont.self).bundleURL,
+        ].compactMap { $0 }
+        probeRoots.append(contentsOf: ancestorDirs(of: Bundle.main.executableURL, depth: 5))
+        probeRoots.append(contentsOf: ancestorDirs(of: Bundle(for: AppGlyphFont.self).bundleURL, depth: 5))
+        var probed: [URL] = []
+        for dir in probeRoots {
+            for candidate in [
+                dir.appendingPathComponent("spacemap_spacemap.bundle").appendingPathComponent(name),
+                dir.appendingPathComponent("spacemap_spacemap.bundle")
+                    .appendingPathComponent("Contents/Resources").appendingPathComponent(name),
+                dir.appendingPathComponent(name),
+            ] where fm.fileExists(atPath: candidate.path) {
+                probed.append(candidate)
+            }
+        }
         let exe = Bundle.main.executableURL
-        let roots: [URL?] = [
+        var roots: [URL?] = [
             Bundle.main.resourceURL,
             Bundle.main.bundleURL,
             Bundle(for: AppGlyphFont.self).resourceURL,
@@ -189,17 +231,15 @@ final class AppGlyphFont {
             findModuleBundle()?.resourceURL,
             findModuleBundle()?.bundleURL,
             exe,
-            exe?.deletingLastPathComponent(),
-            exe?.deletingLastPathComponent().deletingLastPathComponent()
         ]
+        roots.append(contentsOf: ancestorDirs(of: exe, depth: 5))
         var seen = Set<URL>()
-        var found: [URL] = []
-        let fm = FileManager.default
+        var found = probed
         for case let root? in roots where !seen.contains(root) {
             seen.insert(root)
             guard let enumerator = fm.enumerator(at: root, includingPropertiesForKeys: nil) else { continue }
             for case let url as URL in enumerator {
-                if url.lastPathComponent == name {
+                if url.lastPathComponent == name, !found.contains(url) {
                     found.append(url)
                 }
             }

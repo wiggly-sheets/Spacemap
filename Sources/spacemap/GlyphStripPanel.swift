@@ -712,9 +712,6 @@ private final class GlyphStripContainerView: NSView {
                 glass.tintColor = nil
             }
             glass.cornerRadius = backdrop.glassCornerRadius
-            if #available(macOS 27, *) {
-                glass.effectIsInteractive = false
-            }
             glass.frame = backdrop.rect
             glass.isHidden = false
             // Tint swaps alone do not always repaint the effect cache, so
