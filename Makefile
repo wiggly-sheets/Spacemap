@@ -35,7 +35,7 @@ update-app-font:
 		echo "ERROR: sketchybar-app-font.ttf not found at either:"; \
 		echo "  $(APP_FONT_SOURCE)"; \
 		echo "  $(APP_FONT_FALLBACK)"; \
-		echo "Clone https://github.com/Kevin-D3/sketrchybar-app-font or install the font first."; \
+		echo "Clone https://github.com/kvndrsslr/sketchybar-app-font or install the font first."; \
 		exit 1; \
 	fi; \
 	cp "$$src" "$(APP_FONT_RESOURCE)" && \

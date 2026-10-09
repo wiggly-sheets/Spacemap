@@ -162,6 +162,25 @@ enum GlyphStripPosition: String, CaseIterable, Identifiable, Equatable {
     var id: String { rawValue }
 }
 
+/// Where the strip's per-window icons come from. `sbarFont` draws
+/// sketchybar-app-font glyphs (current look, default); `native` draws the app's
+/// own icon via IconCache with sbar-glyph-then-initials fallback.
+enum GlyphStripIconSource: String, CaseIterable, Identifiable, Equatable {
+    case sbarFont = "sbarFont"
+    case nativeIcons = "native"
+
+    var id: String { rawValue }
+
+    /// Accepts both spellings users reach for: "sbarFont" and "native".
+    static func iconSource(from name: String) -> GlyphStripIconSource? {
+        switch name.lowercased() {
+        case "sbarfont", "sbar": return .sbarFont
+        case "native", "nativeicons": return .nativeIcons
+        default: return nil
+        }
+    }
+}
+
 /// Settings for the always-visible menu-bar glyph strip.
 ///
 /// Appearance is theme-driven. The strip resolves a fixed role palette against
@@ -178,6 +197,8 @@ struct GlyphStripConfig: Equatable {
     var showSpaceNumbers: Bool = true
     var showLayoutSuffix: Bool = true
     var showAppIcons: Bool = true
+    /// sbar glyphs (default) or native app icons with sbar fallback.
+    var iconSource: GlyphStripIconSource = .sbarFont
     var dedupeAppsPerSpace: Bool = true
     var maxIconsPerSpace: Int = 8
     var iconSize: Double = 11

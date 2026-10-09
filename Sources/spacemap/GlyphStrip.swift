@@ -24,6 +24,9 @@ enum GlyphStrip {
         /// glyphs use sketchybar-app-font.
         case index(String)
         case app(String)
+        /// Native app icon: `app` (+`pid` fast path) resolves the NSImage via
+        /// IconCache, `glyph` is the sbar fallback painted on a miss.
+        case nativeIcon(app: String, pid: Int32?, glyph: String)
         case overflow(Int)
         case placeholder
         case separator
@@ -308,12 +311,23 @@ enum GlyphStrip {
 
     /// Visual lift for icon-font glyphs. sketchybar-app-font ink sits low in
     /// its em box next to system-font digits on the same baseline, so `.app`
-    /// runs draw slightly higher. Every other run draws at the shared baseline.
+    /// and `.nativeIcon` runs draw slightly higher. Every other run draws at
+    /// the shared baseline.
     static let appGlyphLift: CGFloat = 1.5
 
     static func baselineLift(for run: Run) -> CGFloat {
-        if case .app = run { return appGlyphLift }
-        return 0
+        switch run {
+        case .app, .nativeIcon:
+            return appGlyphLift
+        default:
+            return 0
+        }
+    }
+
+    /// Native runs paint an image when resolved, else their fallback glyph.
+    static func isNativeIcon(_ run: Run) -> Bool {
+        if case .nativeIcon = run { return true }
+        return false
     }
 
     /// Native glass tint alpha for an amount: `nil` at/below the clear
@@ -416,6 +430,7 @@ enum GlyphStrip {
         var showSpaceNumbers = true
         var showLayoutSuffix = true
         var showAppIcons = true
+        var iconSource: GlyphStripIconSource = .sbarFont
         var dedupeAppsPerSpace = true
         var maxIconsPerSpace = 8
         var showDisplaySeparators = true
@@ -427,6 +442,7 @@ enum GlyphStrip {
             showSpaceNumbers = config.showSpaceNumbers
             showLayoutSuffix = config.showLayoutSuffix
             showAppIcons = config.showAppIcons
+            iconSource = config.iconSource
             dedupeAppsPerSpace = config.dedupeAppsPerSpace
             maxIconsPerSpace = max(0, config.maxIconsPerSpace)
             showDisplaySeparators = config.showDisplaySeparators
@@ -520,7 +536,7 @@ enum GlyphStrip {
                 return indexPadding
             case .overflow:
                 return iconSpacing
-            case .app, .index:
+            case .app, .index, .nativeIcon:
                 // Only the leading index run gets padded away from. A segment that starts
                 // with an icon has no index, so its first gap is plain iconSpacing.
                 if offset == 1, case .index = runs[0] { return indexPadding }
@@ -598,7 +614,21 @@ enum GlyphStrip {
         // maxIconsPerSpace == 0 means unlimited.
         let limit = options.maxIconsPerSpace == 0 ? shown.count : min(options.maxIconsPerSpace, shown.count)
         for window in shown.prefix(limit) {
-            if let glyph = font?.glyph(forApp: window.app), !glyph.isEmpty {
+            if options.iconSource == .nativeIcons {
+                // Native first, sbar glyph then initials as the painted
+                // fallback. The panel resolves the image at draw time.
+                let fallback: String
+                if let glyph = font?.glyph(forApp: window.app), !glyph.isEmpty {
+                    fallback = glyph
+                } else {
+                    fallback = AppGlyphFont.initials(forApp: window.app)
+                }
+                runs.append(.nativeIcon(
+                    app: window.app,
+                    pid: window.pid.flatMap { Int32(exactly: $0) },
+                    glyph: fallback
+                ))
+            } else if let glyph = font?.glyph(forApp: window.app), !glyph.isEmpty {
                 runs.append(.app(glyph))
             } else {
                 // The font is missing or has no ligature for this app; initials

@@ -60,6 +60,12 @@ struct SettingsGlyphStrip: View {
                 SettingsFootnote(text: "Floating spaces are marked f, stack spaces s, bsp spaces unmarked.")
                 Toggle("Show App Icons", isOn: $glyphStrip.showAppIcons)
                     .onChange(of: glyphStrip.showAppIcons) { _ in onSave() }
+                Picker("Icon Source", selection: $glyphStrip.iconSource) {
+                    Text("App Font").tag(GlyphStripIconSource.sbarFont)
+                    Text("Native Icons").tag(GlyphStripIconSource.nativeIcons)
+                }
+                .onChange(of: glyphStrip.iconSource) { _ in onSave() }
+                SettingsFootnote(text: "App Font draws sketchybar-app-font glyphs. Native Icons draws each app's own icon, falling back to the app-font glyph then initials when unavailable.")
                 Toggle("One Glyph Per App", isOn: $glyphStrip.dedupeAppsPerSpace)
                     .onChange(of: glyphStrip.dedupeAppsPerSpace) { _ in onSave() }
                 SettingsFootnote(text: "When on, an app with several windows on one space shows a single glyph.")

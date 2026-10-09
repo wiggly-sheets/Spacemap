@@ -157,6 +157,7 @@ Read from the `[glyphStrip]` table. A legacy bare `glyphStrip = true` boolean is
 | `showSpaceNumbers` | `Bool` | `true` |
 | `showLayoutSuffix` | `Bool` | `true` |
 | `showAppIcons` | `Bool` | `true` |
+| `iconSource` | `GlyphStripIconSource` | `sbarFont` (`sbarFont` = sketchybar-app-font glyphs; `native` = app's own icon via `IconCache`, sbar glyph then initials fallback) |
 | `dedupeAppsPerSpace` | `Bool` | `true` |
 | `maxIconsPerSpace` | `Int` | `8` (0 = unlimited, then a `+N` overflow indicator) |
 | `iconSize` | `Double` | `11.0`, clamped 6...24 |
@@ -186,6 +187,18 @@ Read from the `[glyphStrip]` table. A legacy bare `glyphStrip = true` boolean is
 | `theme` | `String` | `""` (follow main HUD) |
 
 The strip's show/hide hotkey (`[behavior.glyphStripHotkey]`, default unbound) is session-only: it flips an in-memory flag that starts visible every launch and is never written to config. A disabled strip stays hidden until re-enabled.
+
+`iconSource` selects the per-window icon renderer (Settings → Glyph Strip → Icon Source picker):
+
+```toml
+[glyphStrip]
+iconSource = "sbarFont"  # or "native"
+```
+
+- `sbarFont` (default): sketchybar-app-font ligature per app; missing font or missing ligature falls back to app initials.
+- `native`: the app's own icon via `IconCache` (running-app pid fast path → name map → persistent disk cache → background mdfind), painted at `iconSize` with `style()` dimming (0.55 on resting runs). Misses paint the sbar glyph, or initials when the font has no ligature; a background resolve triggers one follow-up refresh when the image lands.
+
+Font/cache paths: user font `~/Library/Fonts/sketchybar-app-font.ttf` (newer release tag wins over bundle copy); bundle-name map `~/Library/Caches/spacemap/appBundleURLs.json`.
 
 Appearance is theme-driven: the strip resolves a fixed role palette against its theme — the current space, the add button and the hover highlight use `focused`, resting glyphs use `text`, and the solid material fills with `cellBg`. There are no per-element colour keys, and legacy colour keys from older configs are dropped on the next repair.
 

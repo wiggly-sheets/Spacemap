@@ -226,12 +226,17 @@ struct SettingsBehavior: View {
             do {
                 switch try await AppFontUpdater.runCheck(installedTag: installedTag) {
                 case .upToDate(let tag):
+                    // Same persistence as the auto path: the check happened,
+                    // even though nothing installed.
+                    AppFontUpdater.recordCheck(installedTag: nil)
                     status = "Up to date (\(tag))"
                 case .updated(let info):
+                    AppFontUpdater.recordCheck(installedTag: info.tag)
                     status = "Updated to \(info.tag)"
                     installedFontVersion = info.tag
                 }
             } catch {
+                // Failures record nothing so the next check retries.
                 status = "Update failed: \(error.localizedDescription)"
             }
             await MainActor.run {
