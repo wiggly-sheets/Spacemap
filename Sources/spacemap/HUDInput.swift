@@ -7,6 +7,9 @@ enum InputAction: Equatable {
     case navigateLast
     case closeHUD
     case focusRecent
+    case createSpace
+    case createAndFocusNewestSpace
+    case destroyCurrentSpace
     case enterSpaceNumber(Int)
     case showSettings
     case none
@@ -18,6 +21,9 @@ protocol HUDInputDelegate: AnyObject {
     func navigateToLast()
     func closeHUD()
     func focusRecent()
+    func createSpace()
+    func createAndFocusNewestSpace()
+    func destroyCurrentSpace()
     func showSettings()
 }
 
@@ -317,7 +323,7 @@ final class HUDInput {
         switch action {
         case .none:
             return false
-        case .navigate, .navigateFirst, .navigateLast, .closeHUD, .focusRecent, .enterSpaceNumber, .showSettings:
+        case .navigate, .navigateFirst, .navigateLast, .closeHUD, .focusRecent, .createSpace, .createAndFocusNewestSpace, .destroyCurrentSpace, .enterSpaceNumber, .showSettings:
             return true
         }
     }
@@ -502,6 +508,18 @@ final class HUDInput {
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.focusRecent()
             }
+        case .createSpace:
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.createSpace()
+            }
+        case .createAndFocusNewestSpace:
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.createAndFocusNewestSpace()
+            }
+        case .destroyCurrentSpace:
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.destroyCurrentSpace()
+            }
         case .showSettings:
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.showSettings()
@@ -549,9 +567,9 @@ final class HUDInput {
         return nil
     }
 
-    /// n/p/f/e/r/esc/c — aliases for arrow navigation plus grid-edge jumps,
-    /// recent-space switch and close. `n`/`p` are plain aliases of the
-    /// left/right arrows.
+    /// n/p/f/e/r/esc/c/a/t/w — aliases for arrow navigation plus grid-edge jumps,
+    /// recent-space switch, close, and space add/focus/destroy. `n`/`p` are
+    /// plain aliases of the left/right arrows.
     static func extendedKeyAction(
         keyCode: CGKeyCode,
         flags: CGEventFlags,
@@ -569,6 +587,9 @@ final class HUDInput {
         case 15: return .focusRecent                 // r
         case 53: return .closeHUD                    // esc
         case 8: return .closeHUD                     // c
+        case 0: return .createSpace                  // a
+        case 17: return .createAndFocusNewestSpace   // t
+        case 13: return .destroyCurrentSpace         // w
         default: return nil
         }
     }
