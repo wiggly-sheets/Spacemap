@@ -221,6 +221,29 @@ extension HUDWindowController: HUDInputDelegate {
         guard let target = SpaceFocusTarget(argument: "recent") else { return }
         services.yabaiService.focusSpace(target)
     }
+    func createSpace() {
+        services.yabaiService.createSpace()
+        refresh()
+    }
+    func createAndFocusNewestSpace() {
+        services.yabaiService.createSpace()
+        refresh()
+        // shortcut: fixed delay instead of observing space-count change, upgrade if flaky on slow yabai.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self else { return }
+            self.services.yabaiService.runOnYabaiQueue { [weak self] in
+                guard let self else { return }
+                guard let newest = (try? self.services.yabaiService.querySpaces())?.map(\.index).max() else { return }
+                self.services.yabaiService.focusSpace(newest)
+                DispatchQueue.main.async { [weak self] in self?.refresh() }
+            }
+        }
+    }
+    func destroyCurrentSpace() {
+        guard let focused = currentState?.focusedIndex else { return }
+        services.yabaiService.destroySpace(focused)
+        refresh()
+    }
     func showSettings() { hide(); onShowSettings?() }
 }
 extension HUDWindowController: HUDDisplayDelegate {
