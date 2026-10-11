@@ -109,8 +109,28 @@ final class GridStateCoordinator {
     }
 
 
+    public func updateConfig(_ fresh: GridConfig) {
+        // Drop any in-flight fetch built from the old config: its completion
+        // must never overwrite the re-stamped state below.
+        inFlightWorkItem?.cancel()
+        inFlightWorkItem = nil
+        fetchGeneration += 1
+        config = fresh
+        if let latestState {
+            self.latestState = GridState(
+                config: fresh,
+                spaces: latestState.spaces,
+                windows: latestState.windows,
+                displayBounds: latestState.displayBounds,
+                focusedIndex: latestState.focusedIndex,
+                displays: latestState.displays
+            )
+        }
+        phase = latestState != nil ? .ready : .idle
+    }
+
     public func reloadConfig() {
-        config = Config.load()
+        updateConfig(Config.load())
     }
 
 

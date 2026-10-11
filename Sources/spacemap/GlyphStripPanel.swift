@@ -119,7 +119,7 @@ final class GlyphStripPanelController: NSObject {
 
     func update(config: GridConfig) {
         self.config = config
-        coordinator.config = config
+        coordinator.updateConfig(config)
         // Settings changes can carry a new `.smthemes` file or a new effective
         // theme name; reloading here (settings-save frequency, not per refresh)
         // is what keeps this controller's own ThemeService from going stale.
