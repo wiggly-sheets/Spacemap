@@ -226,17 +226,27 @@ extension HUDWindowController: HUDInputDelegate {
         refresh()
     }
     func createAndFocusNewestSpace() {
-        services.yabaiService.createSpace()
         refresh()
-        // shortcut: fixed delay instead of observing space-count change, upgrade if flaky on slow yabai.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+        services.yabaiService.runOnYabaiQueue { [weak self] in
             guard let self else { return }
-            self.services.yabaiService.runOnYabaiQueue { [weak self] in
-                guard let self else { return }
-                guard let newest = (try? self.services.yabaiService.querySpaces())?.map(\.index).max() else { return }
-                self.services.yabaiService.focusSpace(newest)
-                DispatchQueue.main.async { [weak self] in self?.refresh() }
+            let beforeMax = (try? self.services.yabaiService.querySpaces())?.map(\.index).max()
+            self.services.yabaiService.createSpace()
+            let deadline = Date().addingTimeInterval(2)
+            var newest: Int?
+            while Date() < deadline {
+                if let maxNow = (try? self.services.yabaiService.querySpaces())?.map(\.index).max(),
+                   beforeMax.map({ maxNow > $0 }) ?? true {
+                    newest = maxNow
+                    break
+                }
+                Thread.sleep(forTimeInterval: 0.1)
             }
+            if let newest {
+                self.services.yabaiService.focusSpace(newest)
+            } else {
+                NSLog("spacemap/HUD: createAndFocus timed out waiting for new space")
+            }
+            DispatchQueue.main.async { [weak self] in self?.refresh() }
         }
     }
     func destroyCurrentSpace() {
