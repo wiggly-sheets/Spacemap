@@ -59,6 +59,7 @@ Note: DEBUG builds (Xcode) skip CLI handling and always launch the HUD; `--versi
 | `[grid]` | `separateHUDVisibility` | `all` | In `separate` mode: `all` or `active` display |
 | `[grid]` | `displayNavigationWrap` | `within` | Keyboard navigation: `within` one display or `between` displays |
 | `[grid]` | `showSpaceNumbers` / `showSpaceNames` | true / true | HUD-cell labels (strip has its own `[glyphStrip]` key) |
+| `[grid]` | `showSpaceLayout` | false | Layout letter next to the index: float `f`, stack `s`, bsp `b` (bsp is bare in the strip); requires `showSpaceNumbers` |
 | `[grid]` | `showIconStrip` / `showMultiAppIcons` | true / false | Per-cell app icons; per-window (true) or per-app (false) |
 | `[appearance]` | `theme` / `mode` | `default` / `auto` | Color theme; `light`, `dark`, or `auto` |
 | `[appearance]` | `backgroundAlpha` | 0.3 | HUD transparency 0–1 |
@@ -114,6 +115,7 @@ Stores parsed configuration values.
 | `mode` | `ThemeMode` | `mode` |
 | `iconScale` | `Double` | `iconScale` |
 | `showSpaceNumbers` | `Bool` | `showSpaceNumbers` |
+| `showSpaceLayout` | `Bool` | `showSpaceLayout` |
 | `showSpaceNames` | `Bool` | `showSpaceNames` |
 | `showIconStrip` | `Bool` | `showIconStrip` |
 | `showMultiAppIcons` | `Bool` | `showMultiAppIcons` |

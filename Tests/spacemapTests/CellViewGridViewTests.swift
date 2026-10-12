@@ -581,6 +581,26 @@ final class CellViewGridViewTests: XCTestCase {
                       CGRect(x: 50, y: 50, width: 100, height: 100)]
         XCTAssertEqual(GridLayout.hitTest(point: CGPoint(x: 75, y: 75), in: frames), 0)
     }
+
+    func testSpaceLayoutBadgeMapping() {
+        XCTAssertEqual(CellView.spaceLayoutBadge(for: "float"), "f")
+        XCTAssertEqual(CellView.spaceLayoutBadge(for: "stack"), "s")
+        XCTAssertEqual(CellView.spaceLayoutBadge(for: "bsp"), "b")
+        XCTAssertEqual(CellView.spaceLayoutBadge(for: nil), "")
+        XCTAssertEqual(CellView.spaceLayoutBadge(for: "unknown"), "")
+    }
+
+    func testShowSpaceLayoutDefaultsOff() {
+        XCTAssertFalse(GridConfig.default.showSpaceLayout)
+    }
+
+    func testShowSpaceLayoutPlumbsThroughConfigValues() {
+        XCTAssertFalse(ConfigValues().toGridConfig().config.showSpaceLayout)
+        var values = ConfigValues()
+        values.showSpaceLayout = true
+        XCTAssertTrue(values.toGridConfig().config.showSpaceLayout)
+        XCTAssertTrue(ConfigValues(from: values.toGridConfig().config).showSpaceLayout ?? false)
+    }
 }
 
 

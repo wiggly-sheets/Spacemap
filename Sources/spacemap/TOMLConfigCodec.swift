@@ -227,7 +227,7 @@ enum TOMLConfigDecoder {
         flatten("grid", keys: [
             "cols", "rows", "cellStyle", "showMode", "multiMonitorHUDMode",
             "unifiedHUDVisibility", "separateHUDVisibility", "maxSpaces",
-            "showSpaceNumbers", "showIconStrip", "showMultiAppIcons"
+            "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons"
         ])
         flatten("appearance", keys: [
             "theme", "mode", "backgroundAlpha", "hudShadow", "iconScale", "uiScale"
@@ -319,6 +319,7 @@ enum TOMLConfigDecoder {
         }
         values.maxSpaces = positiveInt("maxSpaces")
         values.showSpaceNumbers = value("showSpaceNumbers")
+        values.showSpaceLayout = value("showSpaceLayout")
         values.showIconStrip = value("showIconStrip")
         values.showMultiAppIcons = value("showMultiAppIcons")
 

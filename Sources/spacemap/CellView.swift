@@ -12,6 +12,7 @@ struct CellView: View {
     let spaceIndex: Int
     let spaceLabel: String?
     let spaceName: String?
+    let spaceLayoutBadge: String
     let isFocused: Bool
     let isDropTarget: Bool
     let isActive: Bool
@@ -25,6 +26,7 @@ struct CellView: View {
     private let mode: ThemeMode
     private let iconScale: CGFloat
     private let showSpaceNumbers: Bool
+    private let showSpaceLayout: Bool
     private let showSpaceNames: Bool
     private let showIconStrip: Bool
     private let showMultiAppIcons: Bool
@@ -42,9 +44,25 @@ struct CellView: View {
         windows.filter { $0.shouldDisplay(showExtraWindows: showExtraWindows) }
     }
 
+    /// HUD badge for a space layout type: float->f, stack->s, bsp->b.
+    static func spaceLayoutBadge(for type: String?) -> String {
+        switch type {
+        case "float": return "f"
+        case "stack": return "s"
+        case "bsp": return "b"
+        default: return ""
+        }
+    }
+
+    private var spaceLayoutBadgeText: String {
+        guard showSpaceNumbers, showSpaceLayout else { return "" }
+        return spaceLayoutBadge
+    }
+
 init(spaceIndex: Int,
             spaceLabel: String? = nil,
             spaceName: String? = nil,
+            spaceLayoutBadge: String = "",
             isFocused: Bool,
             isDropTarget: Bool,
             isActive: Bool,
@@ -57,6 +75,7 @@ init(spaceIndex: Int,
              mode: ThemeMode = .auto,
              iconScale: CGFloat = 1.0,
              showSpaceNumbers: Bool = true,
+             showSpaceLayout: Bool = false,
              showSpaceNames: Bool = true,
              showIconStrip: Bool = true,
              showMultiAppIcons: Bool = false,
@@ -64,6 +83,7 @@ init(spaceIndex: Int,
         self.spaceIndex = spaceIndex
         self.spaceLabel = spaceLabel
         self.spaceName = spaceName
+        self.spaceLayoutBadge = spaceLayoutBadge
         self.isFocused = isFocused
         self.isDropTarget = isDropTarget
         self.isActive = isActive
@@ -76,6 +96,7 @@ init(spaceIndex: Int,
         self.mode = mode
         self.iconScale = iconScale
         self.showSpaceNumbers = showSpaceNumbers
+        self.showSpaceLayout = showSpaceLayout
         self.showSpaceNames = showSpaceNames
         self.showIconStrip = showIconStrip
         self.showMultiAppIcons = showMultiAppIcons
@@ -111,7 +132,7 @@ var body: some View {
             }
 
             if showSpaceNumbers {
-                Text("\(spaceIndex)")
+                Text("\(spaceIndex)\(spaceLayoutBadgeText)")
                     .font(.system(size: 12 * uiScale, weight: .bold))
                     .foregroundColor(textColor.opacity(0.7))
                     .position(GridLayout.spaceNumberPosition(for: uiScale))

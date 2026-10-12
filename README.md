@@ -233,6 +233,7 @@ maxSpaces = 16
 cellStyle = "rects"              # rects, hybrid, icons, thumbnails, simple
 multiMonitorHUDMode = "unified"  # unified or separate
 showSpaceNumbers = true
+showSpaceLayout = false          # layout letter next to index: float="f", stack="s", bsp="b" (strip uses bare for bsp); needs showSpaceNumbers
 showIconStrip = true
 
 [appearance]
@@ -320,7 +321,7 @@ theme = ""                        # follow main HUD theme; or a theme name
 
 | Table | Useful keys |
 |---|---|
-| `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showIconStrip`, `showMultiAppIcons` |
+| `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showSpaceLayout`, `showIconStrip`, `showMultiAppIcons` |
 | `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]` |
 | `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `hudShadow`, `uiScale`, `iconScale` |
 | `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `hideMenuBarIcon`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |

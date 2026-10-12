@@ -43,6 +43,7 @@ struct SettingsView: View {
     @State private var mode: ThemeMode = .auto
     @State private var iconScale: Double = 1.0
     @State private var showSpaceNumbers: Bool = true
+    @State private var showSpaceLayout: Bool = false
     @State private var showSpaceNames: Bool = true
     @State private var showIconStrip: Bool = true
     @State private var showMultiAppIcons: Bool = false
@@ -107,6 +108,7 @@ struct SettingsView: View {
         _mode = State(initialValue: config.mode)
         _iconScale = State(initialValue: config.iconScale)
         _showSpaceNumbers = State(initialValue: config.showSpaceNumbers)
+        _showSpaceLayout = State(initialValue: config.showSpaceLayout)
         _showSpaceNames = State(initialValue: config.showSpaceNames)
         _showIconStrip = State(initialValue: config.showIconStrip)
         _showMultiAppIcons = State(initialValue: config.showMultiAppIcons)
@@ -166,6 +168,7 @@ struct SettingsView: View {
             mode: mode,
             iconScale: iconScale,
             showSpaceNumbers: showSpaceNumbers,
+            showSpaceLayout: showSpaceLayout,
             showSpaceNames: showSpaceNames,
             showIconStrip: showIconStrip,
             showMultiAppIcons: showMultiAppIcons,
@@ -214,6 +217,7 @@ struct SettingsView: View {
                     separateHUDVisibility: $separateHUDVisibility,
                     cellStyle: $cellStyle,
                     showSpaceNumbers: $showSpaceNumbers,
+                    showSpaceLayout: $showSpaceLayout,
                     showIconStrip: $showIconStrip,
                     showMultiAppIcons: $showMultiAppIcons,
                     onSave: saveConfig

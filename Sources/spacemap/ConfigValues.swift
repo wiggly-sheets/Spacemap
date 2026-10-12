@@ -23,6 +23,7 @@ struct ConfigValues {
     var mode: ThemeMode?
     var iconScale: Double?
     var showSpaceNumbers: Bool?
+    var showSpaceLayout: Bool?
     var showSpaceNames: Bool?
     var showIconStrip: Bool?
     var showMultiAppIcons: Bool?
@@ -74,6 +75,7 @@ struct ConfigValues {
         self.mode = config.mode
         self.iconScale = config.iconScale
         self.showSpaceNumbers = config.showSpaceNumbers
+        self.showSpaceLayout = config.showSpaceLayout
         self.showSpaceNames = config.showSpaceNames
         self.showIconStrip = config.showIconStrip
         self.showMultiAppIcons = config.showMultiAppIcons
@@ -196,6 +198,7 @@ struct ConfigValues {
             mode: resolvedThemeMode,
             iconScale: valid(iconScale, defaults.iconScale) { (0...1).contains($0) },
             showSpaceNumbers: orDefault(showSpaceNumbers, defaults.showSpaceNumbers),
+            showSpaceLayout: orDefault(showSpaceLayout, defaults.showSpaceLayout),
             showSpaceNames: orDefault(showSpaceNames, defaults.showSpaceNames),
             showIconStrip: orDefault(showIconStrip, defaults.showIconStrip),
             showMultiAppIcons: orDefault(showMultiAppIcons, defaults.showMultiAppIcons),

@@ -24,6 +24,7 @@ struct GridView: View {
     private let _visibleSpaceIndices: [Int]
     private let activeSpaceIndices: Set<Int>
     private let labelBySpaceIndex: [Int: String]
+    private let typeBySpaceIndex: [Int: String]
     private let displayIndexBySpace: [Int: Int]
     private let boundsByDisplayIndex: [Int: CGRect]
 
@@ -138,6 +139,7 @@ struct GridView: View {
             spaceIndex: cellSpaceIndex,
             spaceLabel: cellSpaceLabel,
             spaceName: cellSpaceName,
+            spaceLayoutBadge: typeBySpaceIndex[spaceIndex].map(CellView.spaceLayoutBadge(for:)) ?? "",
             isFocused: cellIsFocused,
             isDropTarget: cellIsDropTarget,
             isActive: cellIsActive,
@@ -150,6 +152,7 @@ struct GridView: View {
             mode: state.config.mode,
             iconScale: 0.2 + CGFloat(state.config.iconScale) * 0.8,
             showSpaceNumbers: state.config.showSpaceNumbers,
+            showSpaceLayout: state.config.showSpaceLayout,
             showSpaceNames: state.config.showSpaceNames,
             showIconStrip: state.config.showIconStrip,
             showMultiAppIcons: state.config.showMultiAppIcons,
@@ -200,6 +203,11 @@ struct GridView: View {
         self.labelBySpaceIndex = Dictionary(
             uniqueKeysWithValues: state.spaces.compactMap { space in
                 space.label.map { (space.index, $0) }
+            }
+        )
+        self.typeBySpaceIndex = Dictionary(
+            uniqueKeysWithValues: state.spaces.compactMap { space in
+                space.type.map { (space.index, $0) }
             }
         )
         self.displayIndexBySpace = Dictionary(
