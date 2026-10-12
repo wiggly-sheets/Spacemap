@@ -11,6 +11,7 @@ struct SettingsGrid: View {
     @Binding var separateHUDVisibility: SeparateHUDVisibility
     @Binding var cellStyle: CellStyle
     @Binding var showSpaceNumbers: Bool
+    @Binding var showSpaceLayout: Bool
     @Binding var showIconStrip: Bool
     @Binding var showMultiAppIcons: Bool
 
@@ -105,6 +106,9 @@ struct SettingsGrid: View {
 
             Toggle(showSpaceNumbersTitle, isOn: $showSpaceNumbers)
                 .onChange(of: showSpaceNumbers) { _ in onSave() }
+            Toggle("Show Space Layout", isOn: $showSpaceLayout)
+                .disabled(!showSpaceNumbers)
+                .onChange(of: showSpaceLayout) { _ in onSave() }
             Toggle("Show Icon Strip", isOn: $showIconStrip)
                 .onChange(of: showIconStrip) { _ in onSave() }
 

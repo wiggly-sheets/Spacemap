@@ -393,6 +393,7 @@ struct GridConfig: Equatable {
     /// HUD cells' space-index toggle. The strip reads
     /// `GlyphStripConfig.showSpaceNumbers` under `[glyphStrip]`.
     var showSpaceNumbers: Bool
+    var showSpaceLayout: Bool = false
     var showSpaceNames: Bool
     var showIconStrip: Bool
     var showMultiAppIcons: Bool

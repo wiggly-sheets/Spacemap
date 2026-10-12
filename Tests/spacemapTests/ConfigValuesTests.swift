@@ -23,6 +23,7 @@ final class ConfigValuesTests: XCTestCase {
         values.socketHealthInterval = 30
         values.showExtraWindows = true
         values.showSpaceNumbers = false
+        values.showSpaceLayout = true
         values.showIconStrip = false
         values.showMultiAppIcons = true
         values.showSpaceNames = true
@@ -70,6 +71,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.socketHealthInterval, 30)
         XCTAssertTrue(config.showExtraWindows)
         XCTAssertFalse(config.showSpaceNumbers)
+        XCTAssertTrue(config.showSpaceLayout)
         XCTAssertFalse(config.showIconStrip)
         XCTAssertTrue(config.showMultiAppIcons)
         XCTAssertTrue(config.showSpaceNames)
@@ -123,6 +125,7 @@ final class ConfigValuesTests: XCTestCase {
         values.mode = .auto
         values.iconScale = 0.5
         values.showSpaceNumbers = true
+        values.showSpaceLayout = false
         values.showSpaceNames = true
         values.showIconStrip = true
         values.showMultiAppIcons = false
@@ -308,6 +311,7 @@ final class ConfigValuesTests: XCTestCase {
         values.hudShadow = true
         values.iconScale = 0.6
         values.showSpaceNumbers = true
+        values.showSpaceLayout = true
         values.showSpaceNames = false
         values.showIconStrip = true
         values.showMultiAppIcons = false
@@ -350,6 +354,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertTrue(config.hudShadow)
         XCTAssertEqual(config.iconScale, 0.6, accuracy: 0.001)
         XCTAssertTrue(config.showSpaceNumbers)
+        XCTAssertTrue(config.showSpaceLayout)
         XCTAssertFalse(config.showSpaceNames)
         XCTAssertTrue(config.showIconStrip)
         XCTAssertFalse(config.showMultiAppIcons)

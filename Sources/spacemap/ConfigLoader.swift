@@ -195,6 +195,7 @@ enum ConfigLoader {
             "separateHUDVisibility = \(tomlString((values.separateHUDVisibility ?? defaults.separateHUDVisibility).rawValue))",
             "maxSpaces = \(values.maxSpaces ?? defaults.maxSpaces)",
             "showSpaceNumbers = \(values.showSpaceNumbers ?? defaults.showSpaceNumbers)",
+            "showSpaceLayout = \(values.showSpaceLayout ?? defaults.showSpaceLayout)",
             "showIconStrip = \(values.showIconStrip ?? defaults.showIconStrip)",
             "showMultiAppIcons = \(values.showMultiAppIcons ?? defaults.showMultiAppIcons)",
             "",

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- `[grid] showSpaceLayout` (default `false`): layout letter next to the space index (`f` float / `s` stack / `b` bsp; bsp is bare in the glyph strip). Requires `showSpaceNumbers`.
+
 ## [1.1.1]
 
 ### Fixed
