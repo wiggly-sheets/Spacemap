@@ -28,6 +28,10 @@ final class IconCache {
     /// Negative cache: miss timestamps stop repeat mdfind for unknown apps.
     private var unresolvedUntil: [String: TimeInterval] = [:]
 
+    /// Posted on main after `store()` caches a new image. Cell views observe
+    /// it and repaint their cached-only reads. One post per stored image;
+    /// cache hits never post, so observers cannot loop.
+    static let didChange = Notification.Name("com.spacemap.iconsDidChange")
     /// Cap for `cache`. Running-app count bounds the lookup map; only the
     /// image map needs eviction.
     static let maxEntries = 200
@@ -110,7 +114,12 @@ final class IconCache {
         let known = bundlePathByName[appName] != nil || cache[appName] != nil
         if known {
             lock.unlock()
-            DispatchQueue.main.async { completion?(self.icon(for: appName)) }
+            // Always evaluate icon(for:): the optional chain alone would skip
+            // the store when completion is nil, leaving preloads uncached.
+            DispatchQueue.main.async {
+                let image = self.icon(for: appName)
+                completion?(image)
+            }
             return
         }
         if inFlight.contains(appName) {
@@ -121,7 +130,9 @@ final class IconCache {
         if let until = unresolvedUntil[appName],
            ProcessInfo.processInfo.systemUptime < until {
             lock.unlock()
-            DispatchQueue.main.async { completion?(nil) }
+            if let completion {
+                DispatchQueue.main.async { completion(nil) }
+            }
             return
         }
         inFlight.insert(appName)
@@ -203,6 +214,11 @@ final class IconCache {
     // MARK: - Lookup
 
     private func rebuildLookup() {
+        // runningApplications is main-only: hop there, never read off-main.
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.rebuildLookup() }
+            return
+        }
         var lookup: [String: String] = [:]
         for app in workspace.runningApplications {
             guard let url = app.bundleURL else { continue }
@@ -241,6 +257,11 @@ final class IconCache {
             cache.removeValue(forKey: victim)
         }
         lock.unlock()
+        // Async so a store landing mid-render never re-enters the cache, and
+        // off-main test callers never post off-main. Hits never reach here.
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: Self.didChange, object: nil)
+        }
         return icon
     }
 
