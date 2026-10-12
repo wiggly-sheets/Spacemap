@@ -102,7 +102,7 @@ struct SettingsBehavior: View {
                 .onChange(of: useArrowKeys) { _ in onSave() }
             Toggle("Navigate with Vim Keys (hjkl)", isOn: $useVimKeys)
                 .onChange(of: useVimKeys) { _ in onSave() }
-            Toggle("Use Extended Keys (n/p/f/e/r/a/t/w/b/s/u, esc/c)", isOn: $useExtendedKeys)
+            Toggle("Navigate with Extended Keys", isOn: $useExtendedKeys)
                 .onChange(of: useExtendedKeys) { _ in onSave() }
             SettingsFootnote(text: "n/p = previous/next space, f/e = first/last space, r = recent space, a/t/w = create/create+focus/destroy space, b/s/u = bsp/stack/float layout, esc/c = close the HUD.")
             Toggle("Jump to Space with Number Keys", isOn: $jumpToSpaceEnabled)
