@@ -84,7 +84,7 @@ struct SettingsView: View {
     private let yabaiService: YabaiService
     private let diagnosticsTimer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
-    init(yabaiService: YabaiService, config: GridConfig = Config.load()) {
+    init(yabaiService: YabaiService, config: GridConfig = AppConfig.load()) {
         self.yabaiService = yabaiService
         _cols = State(initialValue: config.cols)
         _rows = State(initialValue: config.rows)
@@ -142,15 +142,15 @@ struct SettingsView: View {
         // disk, so re-read those here and only take the mode from UI state —
         // a settings save must not clobber a newer install recorded since the
         // window opened.
-        var appFont = Config.load().appFont
+        var appFont = AppConfig.load().appFont
         appFont.updateMode = appFontUpdateMode
         let config = GridConfig(
             cols: cols,
             rows: rows,
             cellStyle: cellStyle,
-            hotkey: Config.parseHotkey(hotkeyString) ?? GridConfig.default.hotkey,
-            pinnedHotkey: Config.parseHotkey(pinnedHotkeyString) ?? GridConfig.default.pinnedHotkey,
-            glyphStripHotkey: Config.parseHotkey(glyphStripHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
+            hotkey: AppConfig.parseHotkey(hotkeyString) ?? GridConfig.default.hotkey,
+            pinnedHotkey: AppConfig.parseHotkey(pinnedHotkeyString) ?? GridConfig.default.pinnedHotkey,
+            glyphStripHotkey: AppConfig.parseHotkey(glyphStripHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
             socketHealthInterval: socketHealthInterval,
             uiScale: uiScale,
             autoHideTimeout: autoHideTimeout,
@@ -190,7 +190,7 @@ struct SettingsView: View {
             spaceNameProfiles: spaceNameProfiles,
             activeSpaceNameProfileIndex: activeSpaceNameProfileIndex
         )
-        Config.saveConfig(config)
+        AppConfig.saveConfig(config)
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
@@ -288,7 +288,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onReceive(NotificationCenter.default.publisher(for: .settingsChanged)) { _ in
-            let config = Config.load()
+            let config = AppConfig.load()
             lastCustomHUDX = config.customHUDX
             lastCustomHUDY = config.customHUDY
             // External writers (the strip's own drag) change the config under
@@ -310,7 +310,7 @@ struct SettingsView: View {
     private func refreshDiagnostics() {
         guard !isRefreshingDiagnostics else { return }
         isRefreshingDiagnostics = true
-        let socketPath = "/tmp/spacemap_\(NSUserName()).socket"
+        let socketPath = SpacemapCommand.socketPath
         yabaiService.runOnYabaiQueue {
             let yabaiHealthy = yabaiService.isYabaiRunning(forceRefresh: true)
             let socketHealthy = SocketListener.sendCommand(to: socketPath, command: 5)

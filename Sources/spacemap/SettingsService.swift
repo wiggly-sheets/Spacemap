@@ -1,6 +1,6 @@
 import AppKit
 
-final class SettingsService: SettingsHandling {
+final class SettingsService {
     let yabaiService: YabaiService
     let checkForUpdates: () -> Void
     private var settingsWindowController: SettingsWindowController?

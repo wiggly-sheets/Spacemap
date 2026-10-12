@@ -4,7 +4,7 @@ import SwiftUI
 class HUDWindowController {
     private var dragHandler: WindowDragHandler
     private var hoveredCell: Int? = nil
-    private var currentState: GridState? = nil
+    private var state: GridState? = nil
     private(set) var focusedWindowIDAtOpen: Int? = nil
     private var presentationGeneration = 0
     var isVisible = false
@@ -13,19 +13,22 @@ class HUDWindowController {
         set { hudInput.isPinned = newValue }
     }
     var isToggling = false
+    // App-lifetime intent: AppDelegate owns SpacemapServices for process
+    // lifetime and services owns hud. Both die together at termination,
+    // so this strong back-ref never leaks in practice.
     private let services: SpacemapServices
     private var _config: GridConfig? = nil
+    private var lastConfigMtime: Date?
+    private var didCheckConfigMtime = false
     private var config: GridConfig { get { _config ?? services.appConfig.load() } set { _config = newValue } }
     var onShowSettings: (() -> Void)?
     private let hudInput: HUDInput
     private let hudDisplay: HUDDisplay
-    private let hudStateSync: HUDStateSync
+    private let coordinator: GridStateCoordinator
 
-    init(services: SpacemapServices, hudStateSync: HUDStateSync? = nil) {
+    init(services: SpacemapServices, coordinator: GridStateCoordinator? = nil) {
         self.services = services
-        self.hudStateSync = hudStateSync ?? DefaultHUDStateSync(
-            coordinator: GridStateCoordinator(yabaiService: services.yabaiService)
-        )
+        self.coordinator = coordinator ?? GridStateCoordinator(yabaiService: services.yabaiService)
         self.hudDisplay = HUDDisplay(
             yabaiService: services.yabaiService,
             themeService: services.themeService
@@ -40,7 +43,7 @@ class HUDWindowController {
         hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, useExtendedKeys: config.useExtendedKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
         hudInput.yabaiService = services.yabaiService
         hudInput.config = config
-        hudInput.hudStateSync = hudStateSync
+        hudInput.hudStateSync = coordinator
         hudInput.hudDisplay = hudDisplay
         hudInput.onRefresh = { [weak self] in self?.refresh() }
         hudInput.onAutoHide = { [weak self] in self?.hide() }
@@ -48,7 +51,7 @@ class HUDWindowController {
         hudInput.onPanelDragEnded = { [weak self] in self?.hudDisplay.savePanelPosition() }
         hudInput.onAccessibilityRevoked = { [weak self] in self?.hide() }
         dragHandler.onHoverCell = { [weak self] cell in
-            guard let self, self.isVisible, let state = self.currentState else { return }
+            guard let self, self.isVisible, let state = self.state else { return }
             self.hoveredCell = cell
             self.hudDisplay.updateHoveredCell(cell)
             self.hudDisplay.refreshAndRender(state: state, force: false)
@@ -95,33 +98,40 @@ class HUDWindowController {
     }
 
     func toggle() {
-        guard !isToggling else { return }
-        isToggling = true
-        isPinned = false
-        isVisible ? hide() : show()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.isToggling = false }
+        debouncedToggle { [weak self] in
+            guard let self else { return }
+            self.isPinned = false
+            self.isVisible ? self.hide() : self.show()
+        }
     }
     func togglePinned() {
-        guard !isToggling else { return }
-        isToggling = true
-        if isVisible, isPinned { hide() }
-        else { isPinned = true; isVisible ? hudInput.resetAutoHideTimer() : show() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.isToggling = false }
+        debouncedToggle { [weak self] in
+            guard let self else { return }
+            if self.isVisible, self.isPinned { self.hide() }
+            else { self.isPinned = true; self.isVisible ? self.hudInput.resetAutoHideTimer() : self.show() }
+        }
     }
     func pin() {
-        guard !isToggling, !(isVisible && isPinned) else { return }
+        guard !(isVisible && isPinned) else { return }
+        debouncedToggle { [weak self] in
+            guard let self else { return }
+            self.isPinned = true
+            self.isVisible ? self.hudInput.resetAutoHideTimer() : self.show()
+        }
+    }
+    private func debouncedToggle(_ action: @escaping () -> Void) {
+        guard !isToggling else { return }
         isToggling = true
-        isPinned = true
-        isVisible ? hudInput.resetAutoHideTimer() : show()
+        action()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.isToggling = false }
     }
     func show() {
         guard !isVisible else { return }
-        hudDisplay.hide(); reloadConfig()
+        hudDisplay.hide(); reloadConfigIfChanged()
         presentationGeneration += 1
         isVisible = true
         hudInput.updateVisibility(true)
-        if let state = hudStateSync.currentState {
+        if let state = coordinator.state {
             hudDisplay.updateState(state)
             hudInput.currentState = state
         } else if config.multiMonitorHUDMode == .unified {
@@ -132,21 +142,21 @@ class HUDWindowController {
         hudInput.startPollTimer()
         hudInput.start()
         if config.multiMonitorHUDMode == .unified, config.unifiedHUDVisibility == .active, case .custom = config.hudPosition { hudInput.startPanelDragMonitor() }
-        hudStateSync.fetch { [weak self] in self?.renderRefreshedState(force: true, refreshFocusedWindow: true) }
+        coordinator.fetch { [weak self] in self?.renderRefreshedState(force: true, refreshFocusedWindow: true) }
     }
     func prewarmState() {
-        hudStateSync.fetch { [weak self] in
-            guard let self, let state = self.hudStateSync.currentState else { return }
+        coordinator.fetch { [weak self] in
+            guard let self, let state = self.coordinator.state else { return }
             self.hudDisplay.prewarm(state: state)
-            if self.isVisible, self.currentState == nil { self.hudDisplay.updateState(state) }
+            if self.isVisible, self.state == nil { self.hudDisplay.updateState(state) }
         }
     }
     func startPollTimer() {
         hudInput.startPollTimer()
     }
     private func renderRefreshedState(force: Bool, refreshFocusedWindow: Bool = false) {
-        guard isVisible, let state = hudStateSync.currentState else { return }
-        currentState = state
+        guard isVisible, let state = coordinator.state else { return }
+        self.state = state
         hudInput.currentState = state
         hudDisplay.refreshAndRender(state: state, force: force)
         hudInput.lastFocusedSpaceIndex = state.focusedIndex
@@ -173,28 +183,28 @@ class HUDWindowController {
         isPinned = false; dragHandler.stop()
         hudInput.stop()
         hudDisplay.hide()
-        hoveredCell = nil; currentState = nil; hudInput.currentState = nil
+        hoveredCell = nil; self.state = nil; hudInput.currentState = nil
         focusedWindowIDAtOpen = nil
         hudInput.isPollingFocusedSpace = false
         hudInput.lastFocusedSpaceIndex = nil
-        hudStateSync.clearPendingFocus(); hudStateSync.cancelPendingFetch()
+        coordinator.clearPendingFocus(); coordinator.cancelPendingFetch()
         dragHandler.updateInput(WindowDragInput(cellFrames: [], cachedWindows: [], focusedWindowIDAtOpen: nil))
     }
     func refresh() {
         guard isVisible else {
-            guard hudStateSync.currentState != nil else { prewarmState(); return }
+            guard coordinator.state != nil else { prewarmState(); return }
             services.yabaiService.runOnYabaiQueue { [weak self] in
                 guard let self = self else { return }
                 let focusedIndex = services.yabaiService.queryFocusedSpaceIndex()
                 DispatchQueue.main.async { [weak self] in
                     guard let self = self, !self.isVisible, let focusedIndex = focusedIndex else { return }
-                    self.hudStateSync.fetch { _ = self.hudStateSync.updateFocusedIndex(focusedIndex) }
+                    self.coordinator.fetch { _ = self.coordinator.updateFocusedIndex(focusedIndex) }
                 }
             }
             return
         }
         hudInput.resetAutoHideTimer()
-        hudStateSync.refresh { [weak self] in self?.renderRefreshedState(force: false) }
+        coordinator.refresh { [weak self] in self?.renderRefreshedState(force: false) }
     }
     func reloadConfig() {
         _config = nil
@@ -202,7 +212,14 @@ class HUDWindowController {
         hudInput.config = config
         hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, useExtendedKeys: config.useExtendedKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
         hudDisplay.updateConfig(config)
-        hudStateSync.reloadConfig()
+        coordinator.reloadConfig()
+    }
+    private func reloadConfigIfChanged() {
+        let mtime: Date? = (try? FileManager.default.attributesOfItem(atPath: services.appConfig.configPath))?[.modificationDate] as? Date
+        guard !didCheckConfigMtime || mtime != lastConfigMtime else { return }
+        didCheckConfigMtime = true
+        lastConfigMtime = mtime
+        reloadConfig()
     }
     private func resetAutoHideTimer() {
         hudInput.resetAutoHideTimer()
@@ -219,38 +236,59 @@ extension HUDWindowController: HUDInputDelegate {
     func focusRecent() {
         // "recent" is a named selector; SpaceFocusTarget never fails for it.
         guard let target = SpaceFocusTarget(argument: "recent") else { return }
-        services.yabaiService.focusSpace(target)
+        _ = services.yabaiService.focusSpace(target)
     }
     func createSpace() {
-        services.yabaiService.createSpace()
-        refresh()
+        // Chain the refresh after the create lands: poll for the new max
+        // index instead of refreshing against the pre-create snapshot.
+        // Plain create never steals focus — only createAndFocus does.
+        // beforeMax is captured synchronously before the create is enqueued:
+        // createSpace() runs async on focusQueue, so reading inside the
+        // yabaiQueue block would race it. Pre-capture keeps snapshot pre-create.
+        let generation = presentationGeneration
+        let beforeMax = (try? services.yabaiService.querySpaces())?.map(\.index).max()
+        services.yabaiService.runOnYabaiQueue { [weak self] in
+            guard let self else { return }
+            self.services.yabaiService.createSpace()
+            self.pollForNewestSpace(beforeMax: beforeMax, generation: generation, attempts: 0, shouldFocus: false)
+        }
     }
     func createAndFocusNewestSpace() {
         refresh()
+        let generation = presentationGeneration
+        let beforeMax = (try? services.yabaiService.querySpaces())?.map(\.index).max()
         services.yabaiService.runOnYabaiQueue { [weak self] in
             guard let self else { return }
-            let beforeMax = (try? self.services.yabaiService.querySpaces())?.map(\.index).max()
             self.services.yabaiService.createSpace()
-            let deadline = Date().addingTimeInterval(2)
-            var newest: Int?
-            while Date() < deadline {
+            self.pollForNewestSpace(beforeMax: beforeMax, generation: generation, attempts: 0)
+        }
+    }
+    private func pollForNewestSpace(beforeMax: Int?, generation: Int, attempts: Int, shouldFocus: Bool = true) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self, self.presentationGeneration == generation else { return }
+            self.services.yabaiService.runOnYabaiQueue { [weak self] in
+                guard let self else { return }
                 if let maxNow = (try? self.services.yabaiService.querySpaces())?.map(\.index).max(),
                    beforeMax.map({ maxNow > $0 }) ?? true {
-                    newest = maxNow
-                    break
+                    // Async: sync focus blocks yabai queue up to 10s.
+                    // Same focusQueue as createSpace keeps focus ordered after create.
+                    if shouldFocus { self.services.yabaiService.focusSpaceAsync(maxNow) }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.presentationGeneration == generation else { return }
+                        self.refresh()
+                    }
+                    return
                 }
-                Thread.sleep(forTimeInterval: 0.1)
+                guard attempts + 1 < 20 else {
+                    NSLog("spacemap/HUD: createAndFocus timed out waiting for new space")
+                    return
+                }
+                self.pollForNewestSpace(beforeMax: beforeMax, generation: generation, attempts: attempts + 1, shouldFocus: shouldFocus)
             }
-            if let newest {
-                self.services.yabaiService.focusSpace(newest)
-            } else {
-                NSLog("spacemap/HUD: createAndFocus timed out waiting for new space")
-            }
-            DispatchQueue.main.async { [weak self] in self?.refresh() }
         }
     }
     func destroyCurrentSpace() {
-        guard let focused = currentState?.focusedIndex else { return }
+        guard let focused = state?.focusedIndex else { return }
         services.yabaiService.destroySpace(focused)
         refresh()
     }

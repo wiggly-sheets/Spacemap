@@ -42,7 +42,10 @@ class YabaiClientImpl: YabaiService {
 
     init() {
         yabaiProcessCheck = { [unowned self] in self.defaultYabaiProcessCheck() }
-        Self.warnIfYabaiUntrusted(path: yabaiPath)
+        let path = yabaiPath
+        DispatchQueue.global(qos: .utility).async {
+            Self.warnIfYabaiUntrusted(path: path)
+        }
     }
 
     /// Warn-only trust check: yabai runs with elevated scripting privileges,
@@ -89,15 +92,21 @@ class YabaiClientImpl: YabaiService {
 
     func isYabaiRunning(forceRefresh: Bool = false) -> Bool {
         cacheLock.lock()
-        defer { cacheLock.unlock() }
         let now = ProcessInfo.processInfo.systemUptime
         if !forceRefresh,
            let cached = _yabaiRunningCache,
            now - cached.checkedAt < yabaiCacheTTL {
-            return cached.result
+            let result = cached.result
+            cacheLock.unlock()
+            return result
         }
-        let result = yabaiProcessCheck()
-        _yabaiRunningCache = (result, now)
+        let check = yabaiProcessCheck
+        cacheLock.unlock()
+        // pgrep outside lock: never hold cacheLock across process spawn.
+        let result = check()
+        cacheLock.lock()
+        _yabaiRunningCache = (result, ProcessInfo.processInfo.systemUptime)
+        cacheLock.unlock()
         return result
     }
 
@@ -392,37 +401,40 @@ class YabaiClientImpl: YabaiService {
 
 
     func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
-        // Avoid the stale availability cache when constructing the grid.
-        guard (try? shell("/usr/bin/pgrep", "yabai")).flatMap({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }) ?? false else {
+        // Callers already run off-main (yabai queue / utility queue), so query
+        // directly instead of fanning out and blocking on group.wait.
+        guard isYabaiRunning() else {
             let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
             return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
         }
-        var spaces: [YabaiSpace] = []
-        var displays: [YabaiDisplay] = []
-        var windows: [YabaiWindow] = []
-        let group = DispatchGroup()
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { group.leave(); return }
-            spaces = (try? self.querySpacesRaw()) ?? []
-            group.leave()
-        }
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { group.leave(); return }
-            displays = (try? self.queryDisplaysRaw()) ?? []
-            group.leave()
-        }
-        group.enter()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { group.leave(); return }
-            windows = (try? self.queryWindowsRaw()) ?? []
-            group.leave()
-        }
-        group.wait()
+        let spaces = (try? querySpacesRaw()) ?? []
+        let displays = cachedDisplays()
+        let windows = (try? queryWindowsRaw()) ?? []
         let resolvedFocus = focusedIndex ?? spaces.first { $0.hasFocus }?.index
         let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
         return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus, displays: displays)
+    }
+
+    private var _displaysCache: (displays: [YabaiDisplay], cachedAt: TimeInterval)?
+    private let displaysCacheTTL: TimeInterval = 5.0
+
+    private func cachedDisplays() -> [YabaiDisplay] {
+        cacheLock.lock()
+        let cached = _displaysCache
+        cacheLock.unlock()
+        let now = ProcessInfo.processInfo.systemUptime
+        if let cached, now - cached.cachedAt < displaysCacheTTL { return cached.displays }
+        // Cache only non-empty results: a failed query yields [] and must not
+        // evict the last good snapshot for a full TTL, or multi-monitor blanks.
+        // On failure return last good (or [] if none) without touching cache,
+        // so the next call retries instead of serving stale emptiness.
+        guard let fresh = try? queryDisplaysRaw(), !fresh.isEmpty else {
+            return cached?.displays ?? []
+        }
+        cacheLock.lock()
+        _displaysCache = (fresh, now)
+        cacheLock.unlock()
+        return fresh
     }
 
 

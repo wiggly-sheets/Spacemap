@@ -16,10 +16,10 @@ struct SettingsGlyphStrip: View {
 
     let onSave: () -> Void
 
-    /// Built once and reused: a fresh `ThemeService()` per render re-reads the
+    /// Built once and reused: a fresh `.shared` per render re-reads the
     /// whole themes directory on every keystroke. Reloaded when the pane opens
     /// so `.smthemes` edits show up without rebuilding the view.
-    private static let themeService = ThemeService()
+    private static let themeService = ThemeManager.shared
 
     /// The strip's own theme, or the main HUD's when it follows it.
     private var effectiveThemeName: String {

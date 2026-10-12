@@ -101,11 +101,13 @@ final class ThumbnailCache {
     }
 
     private func run(_ job: RefreshJob) {
+        // Off-screen windows only matter when some request keeps unmanaged ones.
+        let onScreenOnly = !job.requests.contains(where: \.includeUnmanagedOnScreenWindows)
         Task {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(
                     true,
-                    onScreenWindowsOnly: false
+                    onScreenWindowsOnly: onScreenOnly
                 )
                 var shareableWindows: [CGWindowID: SCWindow] = [:]
                 for window in content.windows {

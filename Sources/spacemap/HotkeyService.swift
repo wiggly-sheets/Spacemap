@@ -1,17 +1,15 @@
 import AppKit
 
-final class HotkeyService: HotkeyHandling {
+final class HotkeyService {
     private let hotkeyHandler: HotkeyHandler
 
     init(
         hud: HUDWindowController,
-        glyphStrip: GlyphStripPanelController,
-        hotkeyMonitorFactory: HotkeyMonitorBuilding
+        glyphStrip: GlyphStripPanelController
     ) {
         self.hotkeyHandler = HotkeyHandler(
             hud: hud,
-            glyphStrip: glyphStrip,
-            hotkeyMonitorFactory: hotkeyMonitorFactory
+            glyphStrip: glyphStrip
         )
     }
 

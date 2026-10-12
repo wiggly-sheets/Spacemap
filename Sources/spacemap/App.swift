@@ -43,8 +43,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 @main
 struct SpacemapEntry {
     static func main() {
+        // DEBUG builds skip CLI handling so Xcode runs always launch the HUD;
+        // release builds exit early for --version/--trigger/--space/--config.
         #if !DEBUG
-        Config.silentMode = true
+        AppConfig.silentMode = true
         if let status = CLI(yabaiService: YabaiClientImpl()).runIfRequested(arguments: CommandLine.arguments) {
             exit(status)
         }

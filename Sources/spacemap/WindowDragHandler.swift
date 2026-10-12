@@ -225,10 +225,6 @@ class WindowDragHandler: WindowDragService {
         return nil
     }
 
-    private func cgToAX(_ cgPoint: CGPoint) -> CGPoint {
-        cgPoint
-    }
-
     func findDraggedWindowID(atCG cgPoint: CGPoint) -> Int? {
         guard let appName = frontmostAppAtMouseDown else {
             return focusedWindowIDAtOpen
@@ -245,10 +241,9 @@ class WindowDragHandler: WindowDragService {
         }
 
         // AX and CGEvent coordinates share Quartz's top-left origin.
-        let axPoint = cgToAX(cgPoint)
         return candidates.min {
-            hypot($0.cgFrame.minX - axPoint.x, $0.cgFrame.minY - axPoint.y) <
-            hypot($1.cgFrame.minX - axPoint.x, $1.cgFrame.minY - axPoint.y)
+            hypot($0.cgFrame.minX - cgPoint.x, $0.cgFrame.minY - cgPoint.y) <
+            hypot($1.cgFrame.minX - cgPoint.x, $1.cgFrame.minY - cgPoint.y)
         }?.id
     }
 }

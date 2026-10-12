@@ -2,7 +2,7 @@ import AppKit
 import ServiceManagement
 import Sparkle
 
-final class CLIToolsService: CLIToolsHandling {
+final class CLIToolsService {
     private let cliSymlinkPath = "/usr/local/bin/spacemap"
     private let cliExecutablePath = "/Applications/Spacemap.app/Contents/MacOS/Spacemap"
     private let manPageSymlinkPath = "/usr/local/share/man/man1/spacemap.1"
@@ -135,9 +135,9 @@ final class CLIToolsService: CLIToolsHandling {
             updateMode = .off
         }
 
-        var config = Config.load()
+        var config = AppConfig.load()
         config.updateMode = updateMode
-        Config.saveConfig(config)
+        AppConfig.saveConfig(config)
         onUpdateSparkleConfig(updateMode)
     }
 

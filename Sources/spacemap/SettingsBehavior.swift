@@ -211,7 +211,7 @@ struct SettingsBehavior: View {
             }
         }
         .onAppear {
-            installedFontVersion = Config.load().appFont.installedVersion
+            installedFontVersion = AppConfig.load().appFont.installedVersion
         }
     }
 
@@ -219,7 +219,7 @@ struct SettingsBehavior: View {
     private func checkForFontUpdate() {
         isCheckingFont = true
         fontStatus = "Checking for updates…"
-        let installedTag = Config.load().appFont.installedVersion
+        let installedTag = AppConfig.load().appFont.installedVersion
         installedFontVersion = installedTag
         Task {
             let status: String

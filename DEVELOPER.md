@@ -16,12 +16,12 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | File | Responsibility |
 |------|----------------|
 | `App.swift` + `ApplicationLifecycleService.swift` | Entry point, menubar, settings window, yabai/accessibility checks |
-| `HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`HUDStateSync` | NSPanel lifecycle, auto-hide timer, state management |
+| `HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`GridStateCoordinator` | NSPanel lifecycle, auto-hide timer, state management |
 | `GridView.swift` | SwiftUI grid container, cell layout, theme application |
 | `CellView.swift` | Per-cell rendering (rects/icons/thumbnails), space names display |
 | `GridLayout.swift` | Pure geometry (cell/gap/padding, slot frames, hit-test); guards: `cols > 0`, spaces clamped 0–16, zero-size frames return nil/empty |
 | `YabaiClientImpl.swift` + `YabaiService.swift` | yabai CLI wrapper, signal management, space/window queries (10s timeout, async pipe drain) |
-| `Config.swift` (facade) + `ConfigLoader`/`TOMLParser`/`ConfigValues` | Grouped TOML load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup |
+| `AppConfig.swift` + `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues` | Grouped TOML load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup |
 | `HotkeyMonitor.swift` + `HotkeyService`/`HotkeyHandler` | Global CGEventTap for normal/pinned/glyph-strip hotkeys; fails open on Accessibility revocation |
 | `SocketListener.swift` | Unix domain socket server for yabai signals (mode 0600, non-blocking clients) |
 | `WindowDragHandler.swift` + `WindowDragService` | Drag-and-drop detection via CGEventTap |
@@ -153,8 +153,9 @@ class SettingsWindowController: NSWindowController {
 ## Signal Integration
 
 ### Socket Protocol
-- Unix domain socket at `/tmp/spacemap_<username>.socket` (created mode 0600, clients set non-blocking, cancel handler closes fd)
-- Commands: 0=refresh, 1=show, 2=hide, 3=settings
+- Unix domain socket at `$TMPDIR/spacemap_<username>.socket` (`NSTemporaryDirectory()`, created mode 0600, clients set non-blocking, cancel handler closes fd)
+- Commands: 1=refresh, 2=show, 3=settings, 4=toggle, 5=health
+- Frames are `<cmdByte>` optionally followed by `:<nonce>`; a lone trailing newline is tolerated for `echo N | nc` compat, and unknown shapes or bad nonces are dropped
 - yabai emits `spacemap_space_changed:1` on space change
 - SocketListener routes to `onRefresh`/`onShow`/`onSettings` callbacks
 

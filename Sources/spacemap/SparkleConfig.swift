@@ -9,11 +9,7 @@ enum SparkleConfig {
             NSLog("spacemap/Sparkle: refusing non-https feed URL: \(feed)")
             return
         }
-        print("Spacemap: Configuring Sparkle updater with mode: \(updateMode)")
         let updater = controller.updater
-        print("Spacemap: Updater feed URL: \(String(describing: updater.feedURL))")
-        print("Spacemap: Current auto-check setting: \(updater.automaticallyChecksForUpdates)")
-        print("Spacemap: Current auto-download setting: \(updater.automaticallyDownloadsUpdates)")
 
         switch updateMode {
         case .auto:
@@ -26,7 +22,7 @@ enum SparkleConfig {
             updater.automaticallyChecksForUpdates = false
         }
 
-        print("Spacemap: After config - auto-check: \(updater.automaticallyChecksForUpdates), auto-download: \(updater.automaticallyDownloadsUpdates)")
+        NSLog("spacemap/Sparkle: configured updater mode \(updateMode)")
 
         if updateMode != .off {
             controller.startUpdater()

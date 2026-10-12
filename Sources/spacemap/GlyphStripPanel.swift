@@ -20,7 +20,7 @@ final class GlyphStripPanelController: NSObject {
     /// `GridStateCoordinator` already carries the generation guard that stops a
     /// slow older yabai reply from overwriting newer state.
     private let coordinator: GridStateCoordinator
-    private lazy var themeService = ThemeService()
+    private lazy var themeService = ThemeManager.shared
     /// Background work queue: font load (disk IO + parse) runs here. Only
     /// the attributed-run apply, frame, and draw run on main.
     private static let stripWorkQueue = DispatchQueue(label: "com.spacemap.glyphstrip", qos: .userInitiated)
@@ -122,7 +122,7 @@ final class GlyphStripPanelController: NSObject {
         coordinator.updateConfig(config)
         // Settings changes can carry a new `.smthemes` file or a new effective
         // theme name; reloading here (settings-save frequency, not per refresh)
-        // is what keeps this controller's own ThemeService from going stale.
+        // is what keeps this controller's own ThemeManager from going stale.
         themeService.reload()
         guard config.glyphStrip.enabled, !hiddenByHotkey else {
             hide()
@@ -406,13 +406,13 @@ final class GlyphStripPanelController: NSObject {
             for: panel.frame,
             menuBarRow: Self.menuBarRow(on: Self.targetScreen())
         )
-        var saved = Config.load()
+        var saved = AppConfig.load()
         var strip = saved.glyphStrip
         strip.position = .custom
         strip.xOffset = offsets.xOffset
         strip.yOffset = offsets.yOffset
         saved.glyphStrip = strip.clamped()
-        Config.saveConfig(saved)
+        AppConfig.saveConfig(saved)
         applyFrame(to: panel)
     }
 
@@ -822,7 +822,10 @@ private final class GlyphStripContainerView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+    required init?(coder: NSCoder) {
+        NSLog("spacemap/GlyphStripContainerView: init(coder:) unsupported")
+        return nil
+    }
 
     /// Native glass whenever the OS has it, except under Reduce Transparency
     /// where the masked `NSVisualEffectView` stays legible. Also requires a
@@ -991,7 +994,10 @@ private final class GlyphStripView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+    required init?(coder: NSCoder) {
+        NSLog("spacemap/GlyphStripView: init(coder:) unsupported")
+        return nil
+    }
 
     /// The panel is normally never key, so the first click must not be swallowed.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }

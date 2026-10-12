@@ -84,7 +84,7 @@ final class ThemeTests: XCTestCase {
         text=cccccc
         dropTarget=dddddd
         cellBg=eeeeee
-        cellBgFocused=ffffffff
+        cellBgFocused=ffffff
 
         """
         let theme = try XCTUnwrap(ThemeManager.parseThemeContent(content))

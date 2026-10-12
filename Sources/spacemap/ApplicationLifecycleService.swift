@@ -109,7 +109,7 @@ final class ApplicationLifecycleService {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self = self else { return }
-            Config.silentMode = true
+            AppConfig.silentMode = true
             let config = self.services.currentConfig
             self.currentConfig = config
             self.hud.reloadConfig()
@@ -202,7 +202,7 @@ final class ApplicationLifecycleService {
             queue: .main
         ) { [weak self] _ in
             guard let self = self else { return }
-            Config.silentMode = true
+            AppConfig.silentMode = true
             let config = self.services.currentConfig
             let changes = RuntimeConfigChanges(previous: self.currentConfig, current: config)
             self.currentConfig = config

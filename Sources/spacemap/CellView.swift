@@ -91,8 +91,6 @@ var body: some View {
             case .hybrid:
                 ForEach(filteredWindows, id: \.id) { window in
                     windowRect(window)
-                }
-                ForEach(filteredWindows, id: \.id) { window in
                     hybridWindowIcon(window)
                 }
             case .icons:
@@ -132,38 +130,57 @@ var body: some View {
         .onTapGesture { onSelect(spaceIndex) }
     }
     
+    private enum CellOpacity {
+        static let dropTargetDark: CGFloat = 0.35
+        static let dropTargetLight: CGFloat = 0.5
+        static let focusedBgDark: CGFloat = 0.55
+        static let focusedBgLight: CGFloat = 0.2
+        static let cellBgDark: CGFloat = 0.25
+        static let cellBgLight: CGFloat = 0.8
+        static let inactive: CGFloat = 0.35
+        static let textDim: CGFloat = 0.7
+        static let textDarkDim: CGFloat = 0.4
+        static let borderDark: CGFloat = 0.15
+        static let borderLight: CGFloat = 0.3
+    }
+
+    private enum CellBorder {
+        static let emphasized: CGFloat = 2.5
+        static let normal: CGFloat = 0.5
+    }
+
     private var backgroundColor: Color {
         let t = resolvedTheme
         let baseColor: Color
-        if isDropTarget { baseColor = Color(hex: t.dropTarget).opacity(isDarkMode ? 0.35 : 0.5) }
+        if isDropTarget { baseColor = Color(hex: t.dropTarget).opacity(isDarkMode ? CellOpacity.dropTargetDark : CellOpacity.dropTargetLight) }
         else if isFocused {
-            if isDarkMode { baseColor = Color(hex: t.cellBgFocused).opacity(0.55) }
-            else { baseColor = Color(hex: t.focused).opacity(0.2) }
+            if isDarkMode { baseColor = Color(hex: t.cellBgFocused).opacity(CellOpacity.focusedBgDark) }
+            else { baseColor = Color(hex: t.focused).opacity(CellOpacity.focusedBgLight) }
         }
-        else if isDarkMode { baseColor = Color(hex: t.cellBg).opacity(0.25) }
-        else { baseColor = Color.white.opacity(0.8) }
-        
-        if !isActive { return baseColor.opacity(0.35) }
+        else if isDarkMode { baseColor = Color(hex: t.cellBg).opacity(CellOpacity.cellBgDark) }
+        else { baseColor = Color.white.opacity(CellOpacity.cellBgLight) }
+
+        if !isActive { return baseColor.opacity(CellOpacity.inactive) }
         return baseColor
     }
-    
+
     private var textColor: Color {
         let t = resolvedTheme
         if isFocused { return Color(hex: t.focused) }
-        if isDarkMode { return Color(hex: t.text).opacity(0.4) }
-        return Color(hex: 0x333333).opacity(0.7)
+        if isDarkMode { return Color(hex: t.text).opacity(CellOpacity.textDarkDim) }
+        return Color(hex: 0x333333).opacity(CellOpacity.textDim)
     }
-    
+
     private var borderColor: Color {
         let t = resolvedTheme
         if isDropTarget { return Color(hex: t.dropTarget) }
         if isFocused { return Color(hex: t.focused) }
-        if isDarkMode { return Color(hex: t.text).opacity(0.15) }
-        return Color(hex: 0x999999).opacity(0.3)
+        if isDarkMode { return Color(hex: t.text).opacity(CellOpacity.borderDark) }
+        return Color(hex: 0x999999).opacity(CellOpacity.borderLight)
     }
-    
+
     private var borderWidth: CGFloat {
-        isDropTarget || isFocused ? 2.5 : 0.5
+        isDropTarget || isFocused ? CellBorder.emphasized : CellBorder.normal
     }
     
     @ViewBuilder
@@ -277,7 +294,9 @@ var body: some View {
     }
     
     private func appIcon(for appName: String) -> NSImage? {
-        IconCache.shared.icon(for: appName)
+        if let cached = IconCache.shared.cachedIcon(for: appName) { return cached }
+        IconCache.shared.resolveInBackground(appName: appName)
+        return nil
     }
     
     private func thumbnailImage(_ spaceIndex: Int) -> some View {
@@ -294,46 +313,12 @@ var body: some View {
     }
     
     private func appColor(_ name: String) -> Color {
-        Self.appColor(name, theme: resolvedTheme, windowCount: windows.count)
+        Self.appColor(name, theme: resolvedTheme)
     }
 
-    static func appColor(_ name: String, theme: AppTheme, windowCount: Int) -> Color {
-        let t = theme
-        let rects = [t.rect1, t.rect2, t.rect3]
-        let variation = appColorVariation(for: name)
-        let base = rects[variation.paletteIndex]
-        if windowCount <= 3 {
-            return Color(hex: base)
-        }
-        let r = Double((base >> 16) & 0xFF) / 255.0
-        let g = Double((base >> 8) & 0xFF) / 255.0
-        let b = Double(base & 0xFF) / 255.0
-        let maxC = max(r, g, b)
-        let minC = min(r, g, b)
-        let d = maxC - minC
-        var h: Double = 0
-        if d != 0 {
-            if maxC == r { h = ((g - b) / d).truncatingRemainder(dividingBy: 6) }
-            else if maxC == g { h = (b - r) / d + 2 }
-            else { h = (r - g) / d + 4 }
-            h /= 6
-            if h < 0 { h += 1 }
-        }
-        let sat = variation.saturation
-        let lit = variation.lightness
-        let c = (1 - abs(2 * lit - 1)) * sat
-        let x = c * (1 - abs((h * 6).truncatingRemainder(dividingBy: 2) - 1))
-        let m = lit - c / 2
-        var rr: Double = 0, gg: Double = 0, bb: Double = 0
-        switch Int(h * 6) % 6 {
-        case 0: (rr, gg, bb) = (c, x, 0)
-        case 1: (rr, gg, bb) = (x, c, 0)
-        case 2: (rr, gg, bb) = (0, c, x)
-        case 3: (rr, gg, bb) = (0, x, c)
-        case 4: (rr, gg, bb) = (x, 0, c)
-        default: (rr, gg, bb) = (c, 0, x)
-        }
-        return Color(red: rr + m, green: gg + m, blue: bb + m)
+    static func appColor(_ name: String, theme: AppTheme) -> Color {
+        let rects = [theme.rect1, theme.rect2, theme.rect3]
+        return Color(hex: rects[Int(stableAppHash(name) % UInt64(rects.count))])
     }
 
     static func stableAppHash(_ name: String) -> UInt64 {

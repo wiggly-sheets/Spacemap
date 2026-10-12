@@ -42,21 +42,10 @@ final class GridStateCoordinator {
     }
 
 
-    func fetch(completion: (() -> Void)? = nil, replacingFocusedIndex: Int? = nil) {
-        if let replacingFocusedIndex, let latestState {
-            let updated = GridState(
-                config: latestState.config,
-                spaces: latestState.spaces,
-                windows: latestState.windows,
-                displayBounds: latestState.displayBounds,
-                focusedIndex: replacingFocusedIndex,
-                displays: latestState.displays
-            )
-            self.latestState = updated
-            phase = .ready
-            completion?()
-            return
-        }
+    /// Full snapshot for show/prewarm. Drops pending focus on purpose: opening
+    /// the HUD must show live truth, not a stale focus intent from before open.
+    /// Callers doing a live update while visible want refresh() instead.
+    func fetch(completion: (() -> Void)? = nil) {
         guard let config else { completion?(); return }
 
         inFlightWorkItem?.cancel()
@@ -78,6 +67,10 @@ final class GridStateCoordinator {
         yabaiService.runOnYabaiQueue(work)
     }
 
+    /// Live update while HUD is visible. Preserves pending focus on purpose: a
+    /// focus change is still in flight, so keep showing intent until yabai
+    /// confirms it (or the 1s deadline expires) instead of flickering back.
+    /// Callers showing fresh UI (show/prewarm) want fetch() instead.
     func refresh(completion: (() -> Void)? = nil) {
         guard let config else { completion?(); return }
 
@@ -130,7 +123,7 @@ final class GridStateCoordinator {
     }
 
     public func reloadConfig() {
-        updateConfig(Config.load())
+        updateConfig(AppConfig.load())
     }
 
 

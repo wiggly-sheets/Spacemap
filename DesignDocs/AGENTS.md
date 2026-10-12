@@ -19,8 +19,8 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
 - **Sparkle updater**: `App.swift` initializes `SPUStandardUpdaterController` with `startingUpdater: false`; `start()` called after config load. Keys generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`.
 - **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
-- **Data**: `YabaiClientImpl.swift` (+ `YabaiService.swift` protocol) – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows, 10s command timeout with async pipe drain; `Config.swift` facade (+ `ConfigLoader`/`TOMLParser`/`ConfigValues`) – reads `~/.config/spacemap/config.toml`.
-- **Themes**: `ThemeService.swift` (+ `ThemeManager.swift`) – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
+- **Data**: `YabaiClientImpl.swift` (+ `YabaiService.swift` protocol) – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows, 10s command timeout with async pipe drain; `AppConfig.swift` (+ `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues`) – reads `~/.config/spacemap/config.toml`.
+- **Themes**: `ThemeManager.swift` – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
 - **Hotkey**: `HotkeyMonitor.swift` (+ `HotkeyService`/`HotkeyHandler`) – global CGEventTap for normal, pinned, and glyph-strip bindings; fails open on revocation; fn preserved.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
 - **Signals**: `SocketListener.swift` – Unix domain socket (mode 0600) for yabai `space_changed` events.
@@ -51,7 +51,7 @@ Sources/spacemap/
 ├── CellView.swift         # Individual cell rendering (rects/icons/thumbnails)
 ├── YabaiClientImpl.swift   # Shells out to yabai binary for data/manipulation
 ├── YabaiService.swift       # Protocol seam for yabai access (mockable)
-├── Config.swift     # Thin facade over ConfigLoader/TOMLParser/ConfigValues
+├── AppConfig.swift     # Config entry point over ConfigLoader/TOMLConfigCodec/ConfigValues
 ├── HotkeyMonitor.swift   # Global CGEventTap for normal/pinned/glyph-strip hotkeys
 ├── WindowDragHandler.swift # Detects window drag-and-drop over HUD
 ├── SocketListener.swift   # Unix domain socket server for yabai signals

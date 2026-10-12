@@ -96,7 +96,7 @@ struct AppTheme: Equatable {
     )
 
     static func named(_ name: String) -> AppTheme {
-        let themeService = ThemeService()
+        let themeService = ThemeManager.shared
         return themeService.named(name)
     }
 }

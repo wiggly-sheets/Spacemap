@@ -41,7 +41,7 @@
 | `~/.config/spacemap/config.toml` | User configuration (reloads on HUD open; Settings applies hotkeys immediately) |
 | `/Applications/Spacemap.app` | Installed application bundle |
 | `/usr/local/bin/spacemap` | CLI symlink (if installed) |
-| `/tmp/spacemap_<username>.socket` | Unix domain socket for yabai signals |
+| `$TMPDIR/spacemap_<username>.socket` (`NSTemporaryDirectory()`) | Unix domain socket for yabai signals |
 | `Console.app` | View logs (filter by "spacemap") |
 
 ## Config Keys Reference (TOML tables in `~/.config/spacemap/config.toml`)
@@ -243,12 +243,12 @@ The strip is theme-driven: every layer resolves to one of the theme's colours (`
 | File | Key Types | Responsibility |
 |------|-----------|----------------|
 | `App.swift` + `ApplicationLifecycleService.swift` | `spacemapApp` | Entry point, menubar, settings window, launch checks |
-| `HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`HUDStateSync` | `HUDWindowController` | NSPanel lifecycle, show/hide, auto-hide timer, state refresh |
+| `HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`GridStateCoordinator` | `HUDWindowController` | NSPanel lifecycle, show/hide, auto-hide timer, state refresh |
 | `GridView.swift` | `GridView` | SwiftUI grid container, cell layout, theme |
 | `CellView.swift` | `CellView` | Per-cell rendering (rects/icons/thumbnails), space names |
 | `GridLayout.swift` | `GridLayout` | Pure geometry: cell/gap/padding math, slot frames, hit-test, window→cell transforms (guarded: `cols > 0`, spaces clamped 0–16, zero-size frames return nil/empty) |
 | `YabaiClientImpl.swift` + `YabaiService.swift` | `YabaiClientImpl` | yabai CLI wrapper, space/window queries, signal management (10s command timeout, async pipe drain) |
-| `Config.swift` (facade) + `ConfigLoader`/`TOMLParser`/`ConfigValues` | `Config` | Config load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup |
+| `AppConfig.swift` + `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues` | `AppConfig` | Config load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup |
 | `HotkeyMonitor.swift` + `HotkeyService`/`HotkeyHandler` | `HotkeyMonitor` | Global CGEventTap for hotkey capture (normal, pinned, glyph-strip bindings) |
 | `SocketListener.swift` | `SocketListener` | Unix domain socket server for yabai signals (mode 0600, non-blocking clients) |
 | `WindowDragHandler.swift` + `WindowDragService` | `WindowDragHandler` | Drag-and-drop detection via CGEventTap |
@@ -258,7 +258,7 @@ The strip is theme-driven: every layer resolves to one of the theme's colours (`
 | `SettingsWindowController.swift` | `SettingsWindowController` | AppKit window wrapper for SettingsView |
 | `ThumbnailCache.swift` + `ThumbnailCompositor`/`ThumbnailRequestBuilder` | `ThumbnailCache` | ScreenCaptureKit capture, per-space caching (macOS 14+) |
 | `IconCache.swift` | `IconCache` | App icon cache to avoid repeated NSWorkspace lookups |
-| `ThemeManager.swift` + `ThemeService` | `ThemeService` | Loads `.smthemes` files, seeds built-in themes on first launch |
+| `ThemeManager.swift` | `ThemeManager` | Loads `.smthemes` files, seeds built-in themes on first launch |
 
 ## Yabai Integration (`YabaiClientImpl.swift`)
 
@@ -293,8 +293,9 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 - Polls every 2s until Accessibility permission granted
 
 ### `SocketListener.swift`
-- Unix domain server at `/tmp/spacemap_<username>.socket` (created mode 0600, clients non-blocking)
-- Listens for yabai signal commands: `0` (refresh), `1` (show), `2` (hide), `3` (settings)
+- Unix domain server at `$TMPDIR/spacemap_<username>.socket` (`NSTemporaryDirectory()`, created mode 0600, clients non-blocking)
+- Listens for yabai signal commands: `1` (refresh), `2` (show), `3` (settings), `4` (toggle), `5` (health)
+- Frames are `<cmdByte>` optionally followed by `:<nonce>`; a lone trailing newline is tolerated for `echo N | nc` compat, and unknown shapes or bad nonces are dropped
 - Periodic health check via `fcntl(fd, F_GETFD)` + file existence
 
 ### `WindowDragHandler.swift`
@@ -311,7 +312,7 @@ Available themes: `default`, `tokyonight`, `catppuccin`, `monokai-dark`, `monoka
 
 ## Signal Integration
 
-- Commands: `0`=refresh, `1`=show, `2`=hide, `3`=settings
+- Commands: `1`=refresh, `2`=show, `3`=settings, `4`=toggle, `5`=health
 - yabai emits `spacemap_space_changed:1` via signal on space change
 
 ## UI Scaling
