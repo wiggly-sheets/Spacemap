@@ -33,12 +33,17 @@ final class GridStateCoordinator {
 
     private let yabaiService: YabaiService
 
+    /// Production loader (services.appConfig); nil falls back to shared.
+    private let configLoader: (() -> GridConfig)?
+
     init(
         config: GridConfig? = nil,
-        yabaiService: YabaiService
+        yabaiService: YabaiService,
+        configLoader: (() -> GridConfig)? = nil
     ) {
         self.config = config
         self.yabaiService = yabaiService
+        self.configLoader = configLoader
     }
 
 
@@ -46,7 +51,7 @@ final class GridStateCoordinator {
     /// the HUD must show live truth, not a stale focus intent from before open.
     /// Callers doing a live update while visible want refresh() instead.
     func fetch(completion: (() -> Void)? = nil) {
-        guard let config else { completion?(); return }
+        guard let config = ensureConfig() else { completion?(); return }
 
         inFlightWorkItem?.cancel()
         fetchGeneration += 1
@@ -72,7 +77,7 @@ final class GridStateCoordinator {
     /// confirms it (or the 1s deadline expires) instead of flickering back.
     /// Callers showing fresh UI (show/prewarm) want fetch() instead.
     func refresh(completion: (() -> Void)? = nil) {
-        guard let config else { completion?(); return }
+        guard let config = ensureConfig() else { completion?(); return }
 
         inFlightWorkItem?.cancel()
         fetchGeneration += 1
@@ -123,7 +128,7 @@ final class GridStateCoordinator {
     }
 
     public func reloadConfig() {
-        updateConfig(AppConfig.load())
+        updateConfig(configLoader?() ?? AppConfig.load())
     }
 
 
@@ -164,6 +169,13 @@ final class GridStateCoordinator {
         )
     }
 
+
+    private func ensureConfig() -> GridConfig? {
+        // Prefer injected config/loader (services.appConfig in production);
+        // shared fallback only for standalone use (tests, previews).
+        if config == nil { config = configLoader?() ?? AppConfig.shared.load() }
+        return config
+    }
 
     private func statePreservingPendingFocus(_ state: GridState) -> GridState {
         guard let pending = pendingFocusedSpaceIndex else { return state }

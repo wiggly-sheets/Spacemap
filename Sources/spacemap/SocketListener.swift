@@ -149,7 +149,12 @@ final class SocketListener {
     /// Per-bind 256-bit nonce for the programmatic send path. Same uid can
     /// read it — it stops blind path-guessers, not same-user malware.
     /// $TMPDIR perms (0700) + peer-uid check carry the cross-user case.
+    /// Kept across restarts: yabai signals embed it at registration, so a
+    /// rotation without re-registering would drop space_changed frames.
     private func rotateNonceFile() {
+        let path = socketPath + ".nonce"
+        if let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+           data.count == 32 { return }
         var bytes = [UInt8](repeating: 0, count: 32)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
             fputs("spacemap/SocketListener: no entropy for nonce — programmatic send disabled\n", stderr)
@@ -170,8 +175,14 @@ final class SocketListener {
     static func parseFrame(_ data: Data, nonce: String?) -> SpacemapCommand? {
         guard let first = data.first else { return nil }
         let rest = data.dropFirst()
-        if rest.isEmpty { return command(for: first) }
-        if rest.count == 1, rest.first == 0x0A { return command(for: first) }
+        if rest.isEmpty || (rest.count == 1 && rest.first == 0x0A) {
+            // Nonce configured: bare frames prove no nonce, drop them.
+            guard nonce == nil else {
+                fputs("spacemap/SocketListener: bare frame without nonce — dropping\n", stderr)
+                return nil
+            }
+            return command(for: first)
+        }
         guard rest.first == UInt8(ascii: ":") else { return nil }
         var hexData = rest.dropFirst()
         if hexData.last == 0x0A { hexData = hexData.dropLast() }
@@ -288,7 +299,6 @@ final class SocketListener {
         healthTimer?.cancel(); healthTimer = nil
         source?.cancel(); source = nil
         unlinkIfOwned(socketPath)
-        unlinkIfOwned(socketPath + ".nonce")
     }
 
     /// unlink() never follows symlinks; uid gate stops foreign-planted link removal.
@@ -332,6 +342,7 @@ final class SocketListener {
                 self.tearDownSocket()
             }
         }
+        unlinkIfOwned(socketPath + ".nonce")
     }
 
     deinit { stop() }

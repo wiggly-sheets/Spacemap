@@ -232,6 +232,10 @@ enum TOMLConfigDecoder {
         flatten("appearance", keys: [
             "theme", "mode", "backgroundAlpha", "hudShadow", "iconScale", "uiScale"
         ])
+        // Legacy fallback: pre-[advanced] files keep showExtraWindows under
+        // [behavior]. Capture before flatten drops the section; [advanced]
+        // and top level win when present.
+        let legacyShowExtra = (result["behavior"] as? [String: Any])?["showExtraWindows"]
         flatten("behavior", keys: [
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
             "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange",
@@ -239,6 +243,9 @@ enum TOMLConfigDecoder {
             "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode"
         ])
         flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows"])
+        if result["showExtraWindows"] == nil, let legacyShowExtra {
+            result["showExtraWindows"] = legacyShowExtra
+        }
 
         if let section = result["spaceNames"] as? [String: Any],
            section["showSpaceNames"] != nil {
