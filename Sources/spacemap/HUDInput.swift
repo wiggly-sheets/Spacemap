@@ -10,6 +10,7 @@ enum InputAction: Equatable {
     case createSpace
     case createAndFocusNewestSpace
     case destroyCurrentSpace
+    case setSpaceLayout(SpaceLayout)
     case enterSpaceNumber(Int)
     case showSettings
     case none
@@ -24,6 +25,7 @@ protocol HUDInputDelegate: AnyObject {
     func createSpace()
     func createAndFocusNewestSpace()
     func destroyCurrentSpace()
+    func setSpaceLayout(_ layout: SpaceLayout)
     func showSettings()
 }
 
@@ -318,7 +320,7 @@ final class HUDInput {
         switch action {
         case .none:
             return false
-        case .navigate, .navigateFirst, .navigateLast, .closeHUD, .focusRecent, .createSpace, .createAndFocusNewestSpace, .destroyCurrentSpace, .enterSpaceNumber, .showSettings:
+        case .navigate, .navigateFirst, .navigateLast, .closeHUD, .focusRecent, .createSpace, .createAndFocusNewestSpace, .destroyCurrentSpace, .setSpaceLayout, .enterSpaceNumber, .showSettings:
             return true
         }
     }
@@ -515,6 +517,10 @@ final class HUDInput {
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.destroyCurrentSpace()
             }
+        case .setSpaceLayout(let layout):
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.setSpaceLayout(layout)
+            }
         case .showSettings:
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.showSettings()
@@ -562,9 +568,9 @@ final class HUDInput {
         return nil
     }
 
-    /// n/p/f/e/r/esc/c/a/t/w — aliases for arrow navigation plus grid-edge jumps,
-    /// recent-space switch, close, and space add/focus/destroy. `n`/`p` are
-    /// plain aliases of the left/right arrows.
+    /// n/p/f/e/r/esc/c/a/t/w/b/s/u — aliases for arrow navigation plus grid-edge jumps,
+    /// recent-space switch, close, space add/focus/destroy, and current-space layout.
+    /// `n`/`p` are plain aliases of the left/right arrows.
     static func extendedKeyAction(
         keyCode: CGKeyCode,
         flags: CGEventFlags,
@@ -585,6 +591,9 @@ final class HUDInput {
         case 0: return .createSpace                  // a
         case 17: return .createAndFocusNewestSpace   // t
         case 13: return .destroyCurrentSpace         // w
+        case 11: return .setSpaceLayout(.bsp)        // b
+        case 1: return .setSpaceLayout(.stack)       // s
+        case 32: return .setSpaceLayout(.float)      // u
         default: return nil
         }
     }

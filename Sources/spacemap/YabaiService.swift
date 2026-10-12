@@ -1,6 +1,12 @@
 import Foundation
 import AppKit
 
+enum SpaceLayout: String {
+    case bsp
+    case stack
+    case float
+}
+
 protocol YabaiService {
     var yabaiProcessCheck: () -> Bool { get set }
 
@@ -34,6 +40,7 @@ protocol YabaiService {
     func toggleWindowFullscreen()
     func toggleWindowFloat()
     func balanceWindows()
+    func setSpaceLayout(_ layout: SpaceLayout)
 
     func showSpacemap()
 

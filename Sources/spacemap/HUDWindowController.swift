@@ -301,6 +301,10 @@ extension HUDWindowController: HUDInputDelegate {
         services.yabaiService.destroySpace(focused)
         refresh()
     }
+    func setSpaceLayout(_ layout: SpaceLayout) {
+        services.yabaiService.setSpaceLayout(layout)
+        refresh()
+    }
     func showSettings() { hide(); onShowSettings?() }
 }
 extension HUDWindowController: HUDDisplayDelegate {
