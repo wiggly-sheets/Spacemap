@@ -71,7 +71,11 @@ final class HUDDisplay {
             }
         } else {
             render(state: state)
+            return
         }
+        // Mouse hit-test frames must follow every state update, not just
+        // full renders, or clicks land on stale cells after focus changes.
+        updateCellFrames(state: state)
     }
 
     func render(state: GridState) {
@@ -122,7 +126,18 @@ final class HUDDisplay {
         let visibleWindows = state.windows.filter {
             $0.shouldDisplay(showExtraWindows: currentConfig.showExtraWindows)
         }
-        IconCache.shared.preloadInBackground(appNames: visibleWindows.map(\.app))
+        // Misses repaint via one follow-up updateState once the image lands,
+        // same pattern as the strip's preloadNativeIcons. Hits skip, nils
+        // (no bundle anywhere) never re-trigger, and updateState never
+        // preloads, so this terminates after one follow-up per resolved app.
+        for name in Set(visibleWindows.map(\.app)) {
+            guard IconCache.shared.cachedIcon(for: name) == nil else { continue }
+            IconCache.shared.resolveInBackground(appName: name) { [weak self] image in
+                guard let self, image != nil, let current = self.renderedState else { return }
+                guard self.hostingView != nil || !self.displayHostingViews.isEmpty else { return }
+                self.updateState(current)
+            }
+        }
     }
 
     static func shouldPreloadIcons(config: GridConfig) -> Bool {
@@ -180,8 +195,8 @@ final class HUDDisplay {
     func refreshAndRender(state: GridState, force: Bool) {
         preloadIcons(for: state)
         refreshThumbnails(state: state, force: force)
+        // render() already ends with updateCellFrames; no explicit call here.
         render(state: state)
-        updateCellFrames(state: state)
     }
 
 
@@ -197,7 +212,9 @@ final class HUDDisplay {
                 hostingView = nil
             }
 
-            let displayIndices = state.populatedDisplayIndices
+            // Empty spaces (pre-fetch placeholder) yield no indices: fall
+            // back to one main-screen panel so the HUD still paints.
+            let displayIndices = state.populatedDisplayIndices.isEmpty ? [1] : state.populatedDisplayIndices
             let staleIndices = Set(displayPanels.keys).subtracting(displayIndices)
             for index in staleIndices {
                 displayPanels[index]?.orderOut(nil)
@@ -266,7 +283,7 @@ final class HUDDisplay {
             hostingView = nil
         }
 
-        let displayIndices: [Int]
+        var displayIndices: [Int]
         if currentConfig.separateHUDVisibility == .active,
            let focusedIndex = state.focusedIndex,
            let focusedDisplayIndex = state.displayIndex(forSpace: focusedIndex) {
@@ -274,6 +291,9 @@ final class HUDDisplay {
         } else {
             displayIndices = state.populatedDisplayIndices
         }
+        // Empty spaces (pre-fetch placeholder) yield no indices: fall back
+        // to one main-screen panel so the HUD still paints.
+        if displayIndices.isEmpty { displayIndices = [1] }
         let staleIndices = Set(displayPanels.keys).subtracting(displayIndices)
         for index in staleIndices {
             displayPanels[index]?.orderOut(nil)
@@ -284,7 +304,9 @@ final class HUDDisplay {
 
         for displayIndex in displayIndices {
             let spaces = state.spaces(forDisplay: displayIndex).map(\.index)
-            guard !spaces.isEmpty else { continue }
+            // Empty-state placeholder: nil paints showMode-derived cells so
+            // the fallback main-screen panel appears instead of zero panels.
+            if spaces.isEmpty, !state.spaces.isEmpty { continue }
             guard let screen = screen(forDisplay: displayIndex, in: state) else { continue }
 
             let panel: NSPanel
@@ -295,7 +317,7 @@ final class HUDDisplay {
                 displayPanels[displayIndex] = panel
             }
 
-            let gridView = makeGridView(state: state, hoveredCell: hoveredCell, spaceIndices: spaces)
+            let gridView = makeGridView(state: state, hoveredCell: hoveredCell, spaceIndices: spaces.isEmpty ? nil : spaces)
             let size = gridView.idealSize
             if let existing = displayHostingViews[displayIndex] {
                 existing.rootView = AnyView(gridView)

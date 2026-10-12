@@ -2,6 +2,34 @@ import Foundation
 import AppKit
 
 class YabaiClientImpl: YabaiService {
+    /// Skips one bad array entry instead of failing the whole query.
+    /// One malformed space/window (version skew) must not blank the HUD.
+    private struct Failable<T: Decodable>: Decodable {
+        let value: T?
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            value = try? container.decode(T.self)
+        }
+    }
+
+    /// Last dropped count per label: persistent skew logs once per count,
+    /// not once per refresh.
+    private static var lastDropCounts: [String: Int] = [:]
+    private static let dropLock = NSLock()
+
+    private func decodeTolerant<T: Decodable>(_ type: T.Type, from output: String, label: String) throws -> [T] {
+        let decoded = try JSONDecoder().decode([Failable<T>].self, from: Data(output.utf8))
+        let dropped = decoded.filter { $0.value == nil }.count
+        if dropped > 0 {
+            Self.dropLock.lock()
+            let last = Self.lastDropCounts[label]
+            Self.lastDropCounts[label] = dropped
+            Self.dropLock.unlock()
+            if last != dropped { NSLog("spacemap/yabai: dropped %d malformed %@ entries", dropped, label) }
+        }
+        return decoded.compactMap(\.value)
+    }
+
     private enum YabaiError: LocalizedError {
         case commandFailed(arguments: [String], status: Int32, message: String)
         case commandTimedOut(arguments: [String], timeout: TimeInterval)
@@ -140,19 +168,19 @@ class YabaiClientImpl: YabaiService {
     private func querySpacesRaw() throws -> [YabaiSpace] {
         guard FileManager.default.isExecutableFile(atPath: yabaiPath) else { return [] }
         let output = try shell(yabaiPath, "-m", "query", "--spaces")
-        return try JSONDecoder().decode([YabaiSpace].self, from: Data(output.utf8))
+        return try decodeTolerant(YabaiSpace.self, from: output, label: "space")
     }
 
     private func queryDisplaysRaw() throws -> [YabaiDisplay] {
         guard FileManager.default.isExecutableFile(atPath: yabaiPath) else { return [] }
         let output = try shell(yabaiPath, "-m", "query", "--displays")
-        return try JSONDecoder().decode([YabaiDisplay].self, from: Data(output.utf8))
+        return try decodeTolerant(YabaiDisplay.self, from: output, label: "display")
     }
 
     private func queryWindowsRaw() throws -> [YabaiWindow] {
         guard FileManager.default.isExecutableFile(atPath: yabaiPath) else { return [] }
         let output = try shell(yabaiPath, "-m", "query", "--windows")
-        return try JSONDecoder().decode([YabaiWindow].self, from: Data(output.utf8))
+        return try decodeTolerant(YabaiWindow.self, from: output, label: "window")
     }
 
     func queryFocusedWindow() throws -> Int? {

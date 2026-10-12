@@ -28,7 +28,8 @@ class HUDWindowController {
 
     init(services: SpacemapServices, coordinator: GridStateCoordinator? = nil) {
         self.services = services
-        self.coordinator = coordinator ?? GridStateCoordinator(yabaiService: services.yabaiService)
+        let appConfig = services.appConfig
+        self.coordinator = coordinator ?? GridStateCoordinator(yabaiService: services.yabaiService, configLoader: { appConfig.load() })
         self.hudDisplay = HUDDisplay(
             yabaiService: services.yabaiService,
             themeService: services.themeService
@@ -134,8 +135,16 @@ class HUDWindowController {
         if let state = coordinator.state {
             hudDisplay.updateState(state)
             hudInput.currentState = state
-        } else if config.multiMonitorHUDMode == .unified {
-            hudDisplay.render(state: GridState(config: config, spaces: [], windows: [], displayBounds: NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440), focusedIndex: nil))
+        } else {
+            // Fail-usable placeholder: empty grid still paints cells and
+            // seeds input state, so navigation works once fetch lands.
+            // Placeholder forces .all: active mode with no spaces paints
+            // nothing (GridLayout filters on active indices).
+            var placeholderConfig = config
+            placeholderConfig.showMode = .all
+            let placeholder = GridState(config: placeholderConfig, spaces: [], windows: [], displayBounds: NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440), focusedIndex: nil)
+            hudDisplay.updateState(placeholder)
+            hudInput.currentState = placeholder
         }
         hudInput.autoHideTimeout = TimeInterval(config.autoHideTimeout)
         hudInput.resetAutoHideTimer()
