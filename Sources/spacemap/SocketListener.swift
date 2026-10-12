@@ -103,6 +103,10 @@ final class SocketListener {
             unlink(socketPath)
         }
 
+        // Nonce precedes bind: any client that connects already sees the
+        // nonce the sender read, so no bare-frame window exists.
+        rotateNonceFile()
+
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else {
             fputs("spacemap/SocketListener: socket() failed\n", stderr)
@@ -132,7 +136,6 @@ final class SocketListener {
         }
 
         chmod(socketPath, 0o600)
-        rotateNonceFile()
         serverFd = fd
         let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: listenerQueue)
         src.setEventHandler { [weak self] in self?.accept() }
