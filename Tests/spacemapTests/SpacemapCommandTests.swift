@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 @testable import spacemap
 
@@ -12,7 +13,8 @@ final class SpacemapCommandTests: XCTestCase {
 
     func testSocketPathFormat() {
         let path = SpacemapCommand.socketPath
-        // Per-user temp dir ($TMPDIR), never the shared /tmp stencil.
+        // Per-user temp dir ($TMPDIR), never shared /tmp.
+        XCTAssertTrue(path.hasPrefix(NSTemporaryDirectory()))
         XCTAssertFalse(path.hasPrefix("/tmp/"))
         XCTAssertTrue(path.contains("spacemap_"))
         XCTAssertTrue(path.hasSuffix(".socket"))

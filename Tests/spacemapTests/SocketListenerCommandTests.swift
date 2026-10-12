@@ -50,7 +50,8 @@ final class SocketListenerCommandTests: XCTestCase {
     }
 
     func testSendCommandReturnsFalseForZeroCommand() {
-        let result = SocketListener.sendCommand(to: "/tmp/nonexistent_socket", command: 0)
+        let path = (NSTemporaryDirectory() as NSString).appendingPathComponent("nonexistent_socket")
+        let result = SocketListener.sendCommand(to: path, command: 0)
         XCTAssertFalse(result)
     }
 }

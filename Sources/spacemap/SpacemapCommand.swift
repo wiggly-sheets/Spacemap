@@ -11,7 +11,13 @@ enum SpacemapCommand: UInt8, Equatable {
     /// Predictable /tmp paths let another user pre-create the socket.
     static var socketPath: String {
         (NSTemporaryDirectory() as NSString)
-            .appendingPathComponent("spacemap_\(NSUserName()).socket")
+            .appendingPathComponent("spacemap_\(sanitizedUserName()).socket")
+    }
+
+    private static func sanitizedUserName() -> String {
+        let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
+        let sanitized = NSUserName().unicodeScalars.filter({ allowed.contains($0) }).map(String.init).joined()
+        return sanitized.isEmpty ? String(getuid()) : sanitized
     }
 
     static var noncePath: String { noncePath(for: socketPath) }
@@ -20,10 +26,14 @@ enum SpacemapCommand: UInt8, Equatable {
 
     /// Allowlist for paths interpolated into yabai signal shell actions.
     /// Anything outside fails closed (nil) — never quote-and-hope.
+    /// Confined to the per-user temp dir, capped to 103 bytes (sun_path is
+    /// 104 incl. NUL — longer would silently truncate at bind/connect).
     static func validatedSocketPath(_ path: String) -> String? {
-        guard !path.isEmpty, path.utf8.count < 256 else { return nil }
+        guard !path.isEmpty, path.utf8.count <= 103 else { return nil }
         let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_./-")
         guard path.unicodeScalars.allSatisfy({ allowed.contains($0) }) else { return nil }
+        guard !path.contains("..") else { return nil }
+        guard path.hasPrefix(NSTemporaryDirectory()) else { return nil }
         return path
     }
 
@@ -90,7 +100,10 @@ enum SpacemapCommand: UInt8, Equatable {
         if let nonce = Self.currentNonceHex() {
             frame.append(contentsOf: (":" + nonce).utf8)
         }
-        let wroteCommand = frame.withUnsafeBytes { write(sock, $0.baseAddress!, $0.count) } == frame.count
+        let wroteCommand: Bool = frame.withUnsafeBytes { ptr in
+            guard let base = ptr.baseAddress else { return false }
+            return write(sock, base, ptr.count) == frame.count
+        }
         close(sock)
         guard wroteCommand else { throw SendError.writeFailed }
     }
