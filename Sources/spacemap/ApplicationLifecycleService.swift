@@ -182,16 +182,20 @@ final class ApplicationLifecycleService {
             socketPath: SpacemapCommand.socketPath,
             healthInterval: config.socketHealthInterval,
             onRefresh: { [weak self] in
-                self?.hud.refresh()
-                self?.services.refreshGlyphStrip()
-                self?.services.refreshMenubarPreview()
+                DispatchQueue.main.async {
+                    self?.hud.refresh()
+                    self?.services.refreshGlyphStrip()
+                    self?.services.refreshMenubarPreview()
+                }
             },
             onShow: { [weak self] in
-                self?.hud.show()
-                self?.services.refreshMenubarPreview()
+                DispatchQueue.main.async {
+                    self?.hud.show()
+                    self?.services.refreshMenubarPreview()
+                }
             },
-            onToggle: { [weak self] in self?.hud.toggle() },
-            onSettings: { [weak self] in self?.services.showSettingsWindow() }
+            onToggle: { [weak self] in DispatchQueue.main.async { self?.hud.toggle() } },
+            onSettings: { [weak self] in DispatchQueue.main.async { self?.services.showSettingsWindow() } }
         )
     }
 
