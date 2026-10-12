@@ -112,6 +112,10 @@ final class SocketListener {
             fputs("spacemap/SocketListener: socket() failed\n", stderr)
             return
         }
+        // Nonblocking accept: drain() loops until EAGAIN instead of
+        // blocking with no pending client.
+        let listenFlags = fcntl(fd, F_GETFL, 0)
+        if listenFlags >= 0 { _ = fcntl(fd, F_SETFL, listenFlags | O_NONBLOCK) }
 
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
@@ -138,7 +142,7 @@ final class SocketListener {
         chmod(socketPath, 0o600)
         serverFd = fd
         let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: listenerQueue)
-        src.setEventHandler { [weak self] in self?.accept() }
+        src.setEventHandler { [weak self] in self?.drain() }
         src.setCancelHandler { [weak self] in
             close(fd)
             self?.serverFd = -1
@@ -219,15 +223,26 @@ final class SocketListener {
         SpacemapCommand.currentNonceHex()
     }
 
-    private func accept() {
-        let clientFd = Darwin.accept(serverFd, nil, nil)
-        guard clientFd >= 0 else {
-            let err = errno
-            if err == EINTR || err == EAGAIN { return }
-            fputs("spacemap/SocketListener: accept() failed: \(String(cString: strerror(err))) — restarting\n", stderr)
-            scheduleRestart()
-            return
+    /// One readiness event can queue several connects. Drain every
+    /// pending client: handling one per event strands the rest with
+    /// no later event to wake them (regression guard:
+    /// testStalledClientDoesNotBlockCommandsOrShutdown).
+    private func drain() {
+        while !isStopped {
+            let clientFd = Darwin.accept(serverFd, nil, nil)
+            if clientFd < 0 {
+                let err = errno
+                if err == EINTR { continue }
+                if err == EAGAIN || err == EWOULDBLOCK { break }
+                fputs("spacemap/SocketListener: accept() failed: \(String(cString: strerror(err))) — restarting\n", stderr)
+                scheduleRestart()
+                break
+            }
+            handleClient(clientFd)
         }
+    }
+
+    private func handleClient(_ clientFd: Int32) {
         defer { close(clientFd) }
 
         // Cross-user connections share nothing here: same uid or drop.
@@ -245,7 +260,7 @@ final class SocketListener {
         if flags >= 0 { _ = fcntl(clientFd, F_SETFL, flags | O_NONBLOCK) }
         // One write() can arrive split: accumulate until a complete frame,
         // a hard invalid shape, the cap, or a short deadline. A silent peer
-        // returns on the first EAGAIN with no wait.
+        // costs only the grace retries (~20ms).
         var frame = Data()
         frame.reserveCapacity(96)
         var buf = [UInt8](repeating: 0, count: 96)
@@ -262,7 +277,9 @@ final class SocketListener {
             let err = errno
             if err == EINTR { continue }
             guard err == EAGAIN || err == EWOULDBLOCK else { break }
-            if frame.isEmpty { break }
+            // Empty frame with EAGAIN means the peer connected but has
+            // not written yet — not proof of a silent peer. Retry within
+            // the deadline; a truly silent peer only costs ~20ms.
             if Self.isCompleteFrame(frame) || Self.isInvalidPrefix(frame) { break }
             grace += 1
             if grace > 2 || ProcessInfo.processInfo.systemUptime >= deadline { break }
