@@ -106,10 +106,9 @@ struct SettingsGrid: View {
 
             Toggle(showSpaceNumbersTitle, isOn: $showSpaceNumbers)
                 .onChange(of: showSpaceNumbers) { _ in onSave() }
-            if showSpaceNumbers {
-                Toggle("Show Space Layout", isOn: $showSpaceLayout)
-                    .onChange(of: showSpaceLayout) { _ in onSave() }
-            }
+            Toggle("Show Space Layout", isOn: $showSpaceLayout)
+                .disabled(!showSpaceNumbers)
+                .onChange(of: showSpaceLayout) { _ in onSave() }
             Toggle("Show Icon Strip", isOn: $showIconStrip)
                 .onChange(of: showIconStrip) { _ in onSave() }
 
