@@ -38,6 +38,8 @@ final class MockYabaiService: YabaiService {
     private(set) var toggleFullscreenCallCount = 0
     private(set) var toggleFloatCallCount = 0
     private(set) var balanceWindowsCallCount = 0
+    private(set) var setSpaceLayoutCallCount = 0
+    private(set) var lastSpaceLayout: SpaceLayout?
     private(set) var showSpacemapCallCount = 0
     private(set) var moveWindowCreatingSpacesCallCount = 0
     private(set) var registerSignalsCallCount = 0
@@ -198,6 +200,10 @@ final class MockYabaiService: YabaiService {
     func toggleWindowFullscreen() { toggleFullscreenCallCount += 1 }
     func toggleWindowFloat() { toggleFloatCallCount += 1 }
     func balanceWindows() { balanceWindowsCallCount += 1 }
+    func setSpaceLayout(_ layout: SpaceLayout) {
+        setSpaceLayoutCallCount += 1
+        lastSpaceLayout = layout
+    }
 
     func showSpacemap() {
         showSpacemapCallCount += 1

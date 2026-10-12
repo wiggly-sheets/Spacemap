@@ -370,6 +370,17 @@ class YabaiClientImpl: YabaiService {
         }
     }
 
+    func setSpaceLayout(_ layout: SpaceLayout) {
+        // yabaiQueue, not focusQueue: refresh() fetches state on yabaiQueue,
+        // so the layout command must be enqueued ahead of that fetch on the
+        // same serial queue. On focusQueue the two orderings race and the
+        // HUD re-renders the pre-layout snapshot.
+        yabaiQueue.async { [weak self] in
+            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            self.runIgnoringFailure(["-m", "space", "--layout", layout.rawValue], "setSpaceLayout(\(layout.rawValue))")
+        }
+    }
+
     /// Fire-and-forget yabai command. The result is discarded, but a failure is
     /// logged rather than swallowed: these are driven by menu-bar clicks, so a
     /// silent no-op is indistinguishable from a broken action otherwise.
