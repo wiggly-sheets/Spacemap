@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.1]
+
+### Fixed
+- Reject socket paths outside the per-user temp-dir allowlist before binding, failing closed on invalid input.
+- Serialize Spotlight icon lookups on a dedicated queue so a wedged Spotlight cannot pin shared workers; mdfind now times out on a monotonic clock, reaps the child, drops stderr, caps output, and rejects quote/control chars in app names.
+- Clear pending icon resolutions on cache clear so stale lookups cannot repopulate it.
+- Document the sanitized socket username (non-alphanumerics stripped, empty falls back to uid) in the man page.
+
 ## [1.1.0]
 
 ### Added
