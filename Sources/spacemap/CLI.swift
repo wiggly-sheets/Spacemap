@@ -30,8 +30,6 @@ final class CLI {
       --space SELECTOR   Focus a yabai space and show the HUD
                          SELECTOR: 1-16, prev, next, first, last,
                                    recent, mouse, or a space label
-      --show-menu        Show the menu bar dropdown (app continues running)
-      --settings         Open the settings window directly (app continues running)
       --config           Open the config file in the default editor and exit
       --help             Print this help and exit
 
@@ -45,6 +43,7 @@ final class CLI {
         if let optionIndex = arguments.firstIndex(of: "--space") {
             let selectorIndex = arguments.index(after: optionIndex)
             guard selectorIndex < arguments.endIndex,
+                  !arguments[selectorIndex].hasPrefix("--"),
                   let target = SpaceFocusTarget(argument: arguments[selectorIndex]) else {
                 return .error("--space requires next, prev, first, last, recent, mouse, a label, or an index from 1 to 16")
             }
@@ -69,14 +68,13 @@ final class CLI {
             print(CLI.help)
             return 0
         case .command(.config):
-            _ = Config.load()
+            _ = AppConfig.load()
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-            process.arguments = [Config.configPath]
+            process.arguments = [AppConfig.configPath]
             do {
                 try process.run()
-                process.waitUntilExit()
-                return process.terminationStatus
+                return 0
             } catch {
                 fputs("spacemap: failed to open config: \(error.localizedDescription)\n", stderr)
                 return 1

@@ -1,8 +1,34 @@
 import Foundation
 
 final class AppConfig {
+    static let shared = AppConfig()
 
-    var silentMode: Bool = false
+    private let silentModeLock = NSLock()
+    private var _silentMode = false
+
+    static var silentMode: Bool {
+        get { shared.silentMode }
+        set { shared.silentMode = newValue }
+    }
+
+    static var configPath: String { shared.configPath }
+
+    static func load() -> GridConfig { shared.load() }
+
+    static func load(from path: String) -> GridConfig { shared.load(from: path) }
+
+    static func saveConfig(_ config: GridConfig) { shared.save(config) }
+
+    static func saveConfig(_ config: GridConfig, to path: String) { shared.save(config, to: path) }
+
+    static func parseConfig(_ text: String) -> GridConfig { shared.parseConfig(text) }
+
+    static func parseHotkey(_ value: String) -> HotkeyConfig? { shared.parseHotkey(value) }
+
+    var silentMode: Bool {
+        get { silentModeLock.lock(); defer { silentModeLock.unlock() }; return _silentMode }
+        set { silentModeLock.lock(); defer { silentModeLock.unlock() }; _silentMode = newValue }
+    }
     let configPath: String = NSString(
         string: "~/.config/spacemap/config.toml"
     ).expandingTildeInPath

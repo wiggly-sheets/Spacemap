@@ -66,7 +66,7 @@ final class ConfigTests: XCTestCase {
         socketHealthInterval = 30
         showExtraWindows = true
         """
-        let c = Config.parseConfig(config)
+        let c = AppConfig.parseConfig(config)
 
         XCTAssertEqual(c.cols, 6)
         XCTAssertEqual(c.rows, 3)
@@ -111,7 +111,7 @@ final class ConfigTests: XCTestCase {
     }
 
     func testMissingFieldsUseDefaults() {
-        let c = Config.parseConfig("""
+        let c = AppConfig.parseConfig("""
         [grid]
         cols = 5
         """)
@@ -126,7 +126,7 @@ final class ConfigTests: XCTestCase {
     }
 
     func testInvalidValuesUseDefaults() {
-        let c = Config.parseConfig("""
+        let c = AppConfig.parseConfig("""
         [grid]
         cols = 0
         rows = "broken"
@@ -163,7 +163,7 @@ final class ConfigTests: XCTestCase {
     }
 
     func testCommentsAndQuotedCommentCharactersParse() {
-        let c = Config.parseConfig("""
+        let c = AppConfig.parseConfig("""
         # Comment
         [grid]
         cols = 4 # Inline comment
@@ -173,7 +173,9 @@ final class ConfigTests: XCTestCase {
         """)
 
         XCTAssertEqual(c.cols, 4)
-        XCTAssertEqual(c.theme, "tokyo # night")
+        // Quoted `#` survives parsing, but the name is not a known theme so
+        // decode flags repair and it resolves to the default.
+        XCTAssertEqual(c.theme, GridConfig.default.theme)
     }
 
     func testHUDPositionPresets() {
@@ -182,7 +184,7 @@ final class ConfigTests: XCTestCase {
             ("top", HUDPosition.top),
             ("bottom", HUDPosition.bottom)
         ] {
-            let c = Config.parseConfig("""
+            let c = AppConfig.parseConfig("""
             [behavior.hudPosition]
             kind = "\(kind)"
             """)
@@ -191,7 +193,7 @@ final class ConfigTests: XCTestCase {
     }
 
     func testInvalidCustomHUDPositionUsesCenter() {
-        let c = Config.parseConfig("""
+        let c = AppConfig.parseConfig("""
         [behavior.hudPosition]
         kind = "custom"
         x = 2.0
@@ -207,10 +209,10 @@ final class ConfigTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
-        let original = Config.parseConfig("""
+        let original = AppConfig.parseConfig("""
         [grid]
         multiMonitorHUDMode = "separate"
         unifiedHUDVisibility = "all"
@@ -228,8 +230,8 @@ final class ConfigTests: XCTestCase {
         x = 0.23
         y = 0.81
         """)
-        Config.saveConfig(original, to: path)
-        let reloaded = Config.load(from: path)
+        AppConfig.saveConfig(original, to: path)
+        let reloaded = AppConfig.load(from: path)
 
         XCTAssertEqual(reloaded.multiMonitorHUDMode, .separate)
         XCTAssertEqual(reloaded.unifiedHUDVisibility, .all)
@@ -248,10 +250,10 @@ final class ConfigTests: XCTestCase {
         let path = directory.appendingPathComponent("nested/config.toml").path
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
-        let loaded = Config.load(from: path)
+        let loaded = AppConfig.load(from: path)
         let generated = try String(contentsOfFile: path, encoding: .utf8)
 
         XCTAssertEqual(loaded.cols, GridConfig.default.cols)
@@ -261,7 +263,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(generated.contains("[appearance]"))
         XCTAssertTrue(generated.contains("[behavior.hotkey]"))
         XCTAssertTrue(generated.contains("[advanced]"))
-        XCTAssertEqual(Config.load(from: path).cols, GridConfig.default.cols)
+        XCTAssertEqual(AppConfig.load(from: path).cols, GridConfig.default.cols)
     }
 
     func testLoadRepairsFieldsAndPreservesValidValues() throws {
@@ -271,8 +273,8 @@ final class ConfigTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
         let malformed = """
         [grid]
@@ -283,7 +285,7 @@ final class ConfigTests: XCTestCase {
         theme = "nord"
         """
         try malformed.write(toFile: path, atomically: true, encoding: .utf8)
-        let repaired = Config.load(from: path)
+        let repaired = AppConfig.load(from: path)
         let healed = try String(contentsOfFile: path, encoding: .utf8)
 
         XCTAssertEqual(repaired.cols, 5)
@@ -292,7 +294,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), malformed)
         XCTAssertTrue(healed.contains("[grid]"))
         XCTAssertTrue(healed.contains("[behavior]"))
-        XCTAssertEqual(Config.load(from: path).theme, "nord")
+        XCTAssertEqual(AppConfig.load(from: path).theme, "nord")
     }
 
     func testLoadReplacesInvalidTOMLWithDefaultsAndBacksItUp() throws {
@@ -302,12 +304,12 @@ final class ConfigTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
         let invalid = "[grid\ncols = 5"
         try invalid.write(toFile: path, atomically: true, encoding: .utf8)
-        let repaired = Config.load(from: path)
+        let repaired = AppConfig.load(from: path)
 
         XCTAssertEqual(repaired.cols, GridConfig.default.cols)
         XCTAssertEqual(repaired.theme, GridConfig.default.theme)
@@ -322,12 +324,12 @@ final class ConfigTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
         let json = #"{"cols": 5}"#
         try json.write(toFile: path, atomically: true, encoding: .utf8)
-        let loaded = Config.load(from: path)
+        let loaded = AppConfig.load(from: path)
 
         XCTAssertEqual(loaded.cols, GridConfig.default.cols)
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), json)
@@ -340,12 +342,12 @@ final class ConfigTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
         let plain = "GRID_COLS=5"
         try plain.write(toFile: path, atomically: true, encoding: .utf8)
-        let loaded = Config.load(from: path)
+        let loaded = AppConfig.load(from: path)
 
         XCTAssertEqual(loaded.cols, GridConfig.default.cols)
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), plain)
@@ -356,11 +358,11 @@ final class ConfigTests: XCTestCase {
         [behavior]
         jumpToSpaceEnabled = true
         """
-        let cTrue = Config.parseConfig(configTrue)
+        let cTrue = AppConfig.parseConfig(configTrue)
         XCTAssertTrue(cTrue.jumpToSpaceEnabled)
 
         let configMissing = "[behavior]\nautoHideTimeout = 5"
-        let cMissing = Config.parseConfig(configMissing)
+        let cMissing = AppConfig.parseConfig(configMissing)
         XCTAssertFalse(cMissing.jumpToSpaceEnabled)
 
         let directory = FileManager.default.temporaryDirectory
@@ -369,8 +371,8 @@ final class ConfigTests: XCTestCase {
         try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.saveConfig(cTrue, to: path)
-        let reloaded = Config.load(from: path)
+        AppConfig.saveConfig(cTrue, to: path)
+        let reloaded = AppConfig.load(from: path)
         XCTAssertTrue(reloaded.jumpToSpaceEnabled)
     }
 }

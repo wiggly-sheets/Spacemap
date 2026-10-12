@@ -65,7 +65,7 @@ final class HUDInput {
     var currentState: GridState?
     var config: GridConfig?
     var yabaiService: YabaiService?
-    var hudStateSync: HUDStateSync?
+    var hudStateSync: GridStateCoordinator?
     weak var hudDisplay: HUDDisplay?
     var isPollingFocusedSpace = false
     private var pollTimer: Timer?
@@ -195,9 +195,8 @@ final class HUDInput {
 
     func startPollTimer() {
         pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             guard let self, self.isVisible else { return }
-            self.reconcileSettingsKeyMonitor()
             guard !self.isPollingFocusedSpace else { return }
             self.isPollingFocusedSpace = true
             self.yabaiService?.runOnYabaiQueue { [weak self] in
@@ -254,15 +253,11 @@ final class HUDInput {
         let visible: [Int]
         switch state.config.multiMonitorHUDMode {
         case .unified:
-            // Use actual active space indices from yabai, not HUD visible indices
-            let activeIndices = state.spaces.map(\.index).sorted()
-            if state.config.showMode == .active {
-                visible = activeIndices
-            } else {
-                // For "all" mode, still use actual active spaces for edge navigation
-                // to avoid jumping to non-existent placeholder spaces
-                visible = activeIndices
-            }
+            visible = GridLayout.visibleSpaceIndices(
+                maxSpaces: state.config.maxSpaces,
+                showMode: state.config.showMode,
+                activeIndices: Set(state.spaces.map(\.index))
+            )
         case .separate:
             guard let currentIdx = lastFocusedSpaceIndex,
                   let display = state.displayIndex(forSpace: currentIdx) else { return }

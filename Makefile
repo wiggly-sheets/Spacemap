@@ -13,6 +13,9 @@ BUILD_ARM64 = .build/arm64-apple-macosx/release
 BUILD_X86_64 = .build/x86_64-apple-macosx/release
 # Sparkle public key for update verification (set via env or read from sparklesigner.pub)
 SPARKLE_PUBLIC_KEY ?= $(shell cat sparklesigner.pub 2>/dev/null | tr -d '\n')
+# Deferred (=, not :=): the xcframework slice triplet changes with the toolchain,
+# and the directory only exists after the build prerequisite fetches artifacts.
+SPARKLE_FRAMEWORK = $(firstword $(wildcard .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-*/Sparkle.framework))
 MAN_SOURCE = docs/spacemap.1.scd
 APP_FONT_SOURCE = ../sketchybar-app-font/dist/sketchybar-app-font.ttf
 APP_FONT_FALLBACK = $(HOME)/Library/Fonts/sketchybar-app-font.ttf
@@ -70,104 +73,61 @@ build-universal: build-arm64 build-x86_64
 	@echo "Universal binary: .build/universal/release/$(BINARY_NAME)"
 	@lipo -info .build/universal/release/$(BINARY_NAME)
 
+app: BUNDLE = $(APP_BUNDLE)
+app: BIN_SRC = $(BUILD_DIR)/$(BINARY_NAME)
+app: DONE_MSG = Built $(APP_BUNDLE)
 app: build man
-	mkdir -p $(APP_CONTENTS)/MacOS
-	mkdir -p $(APP_CONTENTS)/Frameworks
-	mkdir -p $(APP_CONTENTS)/Resources
-	rm -f $(APP_CONTENTS)/MacOS/$(APP_NAME)
-	cp $(BUILD_DIR)/$(BINARY_NAME) $(APP_CONTENTS)/MacOS/
-	cp Sources/spacemap/Info.plist $(APP_CONTENTS)/
-	sed -i '' "s/$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/')/$(VERSION)/g" $(APP_CONTENTS)/Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
-	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_CONTENTS)/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
-	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_CONTENTS)/Info.plist 2>/dev/null || true
-	# Copy Sparkle framework (extract from xcframework structure)
-	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_CONTENTS)/Frameworks/
-	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
-	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_CONTENTS)/MacOS/$(BINARY_NAME)
-	cp Sources/spacemap/spacemap.icns $(APP_CONTENTS)/Resources/spacemap.icns
-	cp Sources/spacemap/AppIcon.icns $(APP_CONTENTS)/Resources/AppIcon.icns
-	cp Assets/AppIcon/Assets.car $(APP_CONTENTS)/Resources/Assets.car
-	cp -R Assets.xcassets $(APP_CONTENTS)/Resources/
-	cp -R $(LOCALIZATION_DIRS) $(APP_CONTENTS)/Resources/
-	cp $(MAN_PAGE) $(APP_CONTENTS)/Resources/spacemap.1
-	cp $(APP_FONT_RESOURCE) $(APP_CONTENTS)/Resources/sketchybar-app-font.ttf
-	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_BUNDLE)
+	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)"
+	@echo "$(DONE_MSG)"
 
+app-arm64: BUNDLE = $(APP_NAME)-arm64.app
+app-arm64: BIN_SRC = $(BUILD_ARM64)/$(BINARY_NAME)
+app-arm64: DONE_MSG = Built $(APP_NAME)-arm64.app (Apple Silicon)
 app-arm64: build-arm64 man
-	mkdir -p $(APP_NAME)-arm64.app/Contents/MacOS
-	mkdir -p $(APP_NAME)-arm64.app/Contents/Frameworks
-	mkdir -p $(APP_NAME)-arm64.app/Contents/Resources
-	rm -f $(APP_NAME)-arm64.app/Contents/MacOS/$(APP_NAME)
-	cp $(BUILD_ARM64)/$(BINARY_NAME) $(APP_NAME)-arm64.app/Contents/MacOS/
-	cp Sources/spacemap/Info.plist $(APP_NAME)-arm64.app/Contents/
-	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-arm64.app/Contents/Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
-	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
-	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-arm64.app/Contents/Info.plist 2>/dev/null || true
-	# Copy Sparkle framework (extract from xcframework structure)
-	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-arm64.app/Contents/Frameworks/
-	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
-	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME)-arm64.app/Contents/MacOS/$(BINARY_NAME)
-	cp Sources/spacemap/spacemap.icns $(APP_NAME)-arm64.app/Contents/Resources/spacemap.icns
-	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-arm64.app/Contents/Resources/AppIcon.icns
-	cp Assets/AppIcon/Assets.car $(APP_NAME)-arm64.app/Contents/Resources/Assets.car
-	cp -R Assets.xcassets $(APP_NAME)-arm64.app/Contents/Resources/
-	cp -R $(LOCALIZATION_DIRS) $(APP_NAME)-arm64.app/Contents/Resources/
-	cp $(MAN_PAGE) $(APP_NAME)-arm64.app/Contents/Resources/spacemap.1
-	cp $(APP_FONT_RESOURCE) $(APP_NAME)-arm64.app/Contents/Resources/sketchybar-app-font.ttf
-	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_NAME)-arm64.app
-	@echo "Built $(APP_NAME)-arm64.app (Apple Silicon)"
+	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)"
+	@echo "$(DONE_MSG)"
 
+app-x86_64: BUNDLE = $(APP_NAME)-x86_64.app
+app-x86_64: BIN_SRC = $(BUILD_X86_64)/$(BINARY_NAME)
+app-x86_64: DONE_MSG = Built $(APP_NAME)-x86_64.app (Intel)
 app-x86_64: build-x86_64 man
-	mkdir -p $(APP_NAME)-x86_64.app/Contents/MacOS
-	mkdir -p $(APP_NAME)-x86_64.app/Contents/Frameworks
-	mkdir -p $(APP_NAME)-x86_64.app/Contents/Resources
-	rm -f $(APP_NAME)-x86_64.app/Contents/MacOS/$(APP_NAME)
-	cp $(BUILD_X86_64)/$(BINARY_NAME) $(APP_NAME)-x86_64.app/Contents/MacOS/
-	cp Sources/spacemap/Info.plist $(APP_NAME)-x86_64.app/Contents/
-	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_NAME)-x86_64.app/Contents/Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
-	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
-	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_NAME)-x86_64.app/Contents/Info.plist 2>/dev/null || true
-	# Copy Sparkle framework (extract from xcframework structure)
-	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_NAME)-x86_64.app/Contents/Frameworks/
-	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
-	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_NAME)-x86_64.app/Contents/MacOS/$(BINARY_NAME)
-	cp Sources/spacemap/spacemap.icns $(APP_NAME)-x86_64.app/Contents/Resources/spacemap.icns
-	cp Sources/spacemap/AppIcon.icns $(APP_NAME)-x86_64.app/Contents/Resources/AppIcon.icns
-	cp Assets/AppIcon/Assets.car $(APP_NAME)-x86_64.app/Contents/Resources/Assets.car
-	cp -R Assets.xcassets $(APP_NAME)-x86_64.app/Contents/Resources/
-	cp -R $(LOCALIZATION_DIRS) $(APP_NAME)-x86_64.app/Contents/Resources/
-	cp $(MAN_PAGE) $(APP_NAME)-x86_64.app/Contents/Resources/spacemap.1
-	cp $(APP_FONT_RESOURCE) $(APP_NAME)-x86_64.app/Contents/Resources/sketchybar-app-font.ttf
-	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_NAME)-x86_64.app
-	@echo "Built $(APP_NAME)-x86_64.app (Intel)"
+	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)"
+	@echo "$(DONE_MSG)"
 
+app-universal: BUNDLE = $(APP_BUNDLE)
+app-universal: BIN_SRC = .build/universal/release/$(BINARY_NAME)
+app-universal: DONE_MSG = Built $(APP_BUNDLE) (Universal: arm64 + x86_64)
 app-universal: build-universal man
-	mkdir -p $(APP_BUNDLE)/Contents/MacOS
-	mkdir -p $(APP_BUNDLE)/Contents/Frameworks
-	mkdir -p $(APP_BUNDLE)/Contents/Resources
-	rm -f $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
-	cp .build/universal/release/$(BINARY_NAME) $(APP_BUNDLE)/Contents/MacOS/
-	cp Sources/spacemap/Info.plist $(APP_BUNDLE)/Contents/
-	CURRENT_VERSION=$$(grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/') && sed -i '' "s/$$CURRENT_VERSION/$(VERSION)/g" $(APP_BUNDLE)/Contents/Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
-	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
-	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(APP_BUNDLE)/Contents/Info.plist 2>/dev/null || true
+	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)"
+	@echo "$(DONE_MSG)"
+
+_assemble:
+	@test -n "$(BUNDLE)" || { echo "BUNDLE is required"; exit 1; }
+	@test -n "$(BIN_SRC)" || { echo "BIN_SRC is required"; exit 1; }
+	mkdir -p $(BUNDLE)/Contents/MacOS
+	mkdir -p $(BUNDLE)/Contents/Frameworks
+	mkdir -p $(BUNDLE)/Contents/Resources
+	rm -f $(BUNDLE)/Contents/MacOS/$(APP_NAME)
+	cp $(BIN_SRC) $(BUNDLE)/Contents/MacOS/
+	cp Sources/spacemap/Info.plist $(BUNDLE)/Contents/
+	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" $(BUNDLE)/Contents/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
-	cp -R .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework $(APP_BUNDLE)/Contents/Frameworks/
-	# Add ../Frameworks to rpath so @rpath/Sparkle.framework resolves correctly at runtime
-	install_name_tool -add_rpath "@executable_path/../Frameworks" $(APP_BUNDLE)/Contents/MacOS/$(BINARY_NAME)
-	cp Sources/spacemap/spacemap.icns $(APP_BUNDLE)/Contents/Resources/spacemap.icns
-	cp Sources/spacemap/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
-	cp Assets/AppIcon/Assets.car $(APP_BUNDLE)/Contents/Resources/Assets.car
-	cp -R Assets.xcassets $(APP_BUNDLE)/Contents/Resources/
-	cp -R $(LOCALIZATION_DIRS) $(APP_BUNDLE)/Contents/Resources/
-	cp $(MAN_PAGE) $(APP_BUNDLE)/Contents/Resources/spacemap.1
-	cp $(APP_FONT_RESOURCE) $(APP_BUNDLE)/Contents/Resources/sketchybar-app-font.ttf
-	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(APP_BUNDLE)
-	@echo "Built $(APP_BUNDLE) (Universal: arm64 + x86_64)"
+	@test -n "$(SPARKLE_FRAMEWORK)" || { echo "Sparkle.framework not found under .build/artifacts/sparkle/Sparkle/Sparkle.xcframework"; exit 1; }
+	cp -R "$(SPARKLE_FRAMEWORK)" $(BUNDLE)/Contents/Frameworks/
+	# Delete-first so rebuilds never fail on a duplicate rpath or accumulate copies.
+	install_name_tool -delete_rpath "@executable_path/../Frameworks" $(BUNDLE)/Contents/MacOS/$(BINARY_NAME) 2>/dev/null || true
+	install_name_tool -add_rpath "@executable_path/../Frameworks" $(BUNDLE)/Contents/MacOS/$(BINARY_NAME)
+	cp Sources/spacemap/spacemap.icns $(BUNDLE)/Contents/Resources/spacemap.icns
+	cp Sources/spacemap/AppIcon.icns $(BUNDLE)/Contents/Resources/AppIcon.icns
+	cp Assets/AppIcon/Assets.car $(BUNDLE)/Contents/Resources/Assets.car
+	cp -R $(LOCALIZATION_DIRS) $(BUNDLE)/Contents/Resources/
+	cp $(MAN_PAGE) $(BUNDLE)/Contents/Resources/spacemap.1
+	cp $(APP_FONT_RESOURCE) $(BUNDLE)/Contents/Resources/sketchybar-app-font.ttf
+	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(BUNDLE)
+
 
 verify-localizations:
 	@test -n "$(BUNDLE)" || { echo "BUNDLE is required"; exit 1; }
@@ -244,7 +204,6 @@ install: app
 	cp Sources/spacemap/spacemap.icns $(INSTALL_PATH)/Contents/Resources/spacemap.icns
 	cp Sources/spacemap/AppIcon.icns $(INSTALL_PATH)/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(INSTALL_PATH)/Contents/Resources/Assets.car
-	cp -R Assets.xcassets $(INSTALL_PATH)/Contents/Resources/
 	cp -R $(APP_CONTENTS)/Resources/*.lproj $(INSTALL_PATH)/Contents/Resources/
 	cp $(MAN_PAGE) $(INSTALL_PATH)/Contents/Resources/spacemap.1
 	cp $(APP_FONT_RESOURCE) $(INSTALL_PATH)/Contents/Resources/sketchybar-app-font.ttf
@@ -271,6 +230,7 @@ uninstall:
 install-cli: install
 	@echo "Installing CLI symlink to /usr/local/bin/spacemap..."
 	@mkdir -p /usr/local/bin
+	# -f replaces the existing symlink so reinstalls stay idempotent.
 	@ln -sf $(INSTALL_PATH)/Contents/MacOS/$(BINARY_NAME) /usr/local/bin/spacemap
 	@mkdir -p /usr/local/share/man/man1
 	@ln -sf $(INSTALL_PATH)/Contents/Resources/spacemap.1 /usr/local/share/man/man1/spacemap.1

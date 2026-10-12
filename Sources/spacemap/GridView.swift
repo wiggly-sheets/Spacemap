@@ -22,6 +22,10 @@ struct GridView: View {
     }
     
     private let _visibleSpaceIndices: [Int]
+    private let activeSpaceIndices: Set<Int>
+    private let labelBySpaceIndex: [Int: String]
+    private let displayIndexBySpace: [Int: Int]
+    private let boundsByDisplayIndex: [Int: CGRect]
 
     private struct DisplayBoundary: Identifiable {
         let offset: Int
@@ -63,7 +67,7 @@ struct GridView: View {
     }
     
     private func spaceLabel(for index: Int) -> String? {
-        state.spaces.first { $0.index == index }?.label
+        labelBySpaceIndex[index]
     }
     
     var visibleSpaceIndices: [Int] {
@@ -77,7 +81,7 @@ struct GridView: View {
         var boundaries: [DisplayBoundary] = []
         var previousDisplayIndex: Int?
         for (offset, spaceIndex) in visibleSpaceIndices.enumerated() {
-            guard let displayIndex = state.displayIndex(forSpace: spaceIndex) else { continue }
+            guard let displayIndex = displayIndexBySpace[spaceIndex] else { continue }
             if let previousDisplayIndex, previousDisplayIndex != displayIndex {
                 boundaries.append(DisplayBoundary(offset: offset, displayIndex: displayIndex))
             }
@@ -126,9 +130,9 @@ struct GridView: View {
         let cellIsFocused = spaceIndex == state.focusedIndex
         let cellIsDropTarget = spaceIndex == hoveredCell
         let cellWindows = state.windows(forSpace: spaceIndex)
-        let cellDisplayBounds = state.displayBounds(forSpace: spaceIndex)
+        let cellDisplayBounds = displayIndexBySpace[spaceIndex].flatMap { boundsByDisplayIndex[$0] } ?? state.displayBounds
         let cellStyle = state.config.cellStyle
-        let cellIsActive = state.spaces.contains { $0.index == spaceIndex }
+        let cellIsActive = activeSpaceIndices.contains(spaceIndex)
 
         return CellView(
             spaceIndex: cellSpaceIndex,
@@ -153,9 +157,6 @@ struct GridView: View {
         )
     }
     
-    static func effectiveScale(for uiScale: Double) -> CGFloat { GridLayout.effectiveScale(for: uiScale) }
-    static func effectiveIconScale(for iconScale: Double) -> CGFloat { GridLayout.effectiveIconScale(for: iconScale) }
-
     private var effectiveScale: CGFloat { GridLayout.effectiveScale(for: uiScale) }
     var effectiveCellWidth: CGFloat { GridLayout.cellSize(for: uiScale).width }
     var effectiveCellHeight: CGFloat { GridLayout.cellSize(for: uiScale).height }
@@ -195,5 +196,17 @@ struct GridView: View {
                 activeIndices: activeSet
             )
         }
+        self.activeSpaceIndices = Set(state.spaces.map(\.index))
+        self.labelBySpaceIndex = Dictionary(
+            uniqueKeysWithValues: state.spaces.compactMap { space in
+                space.label.map { (space.index, $0) }
+            }
+        )
+        self.displayIndexBySpace = Dictionary(
+            uniqueKeysWithValues: state.spaces.map { ($0.index, $0.display) }
+        )
+        self.boundsByDisplayIndex = Dictionary(
+            uniqueKeysWithValues: state.displays.map { ($0.index, $0.frame.cgFrame) }
+        )
     }
 }

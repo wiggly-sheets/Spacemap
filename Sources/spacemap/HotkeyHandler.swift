@@ -7,17 +7,16 @@ class HotkeyHandler {
     private let onToggle: () -> Void
     private let onTogglePinned: () -> Void
     private let onToggleGlyphStrip: () -> Void
-    private let hotkeyMonitorFactory: HotkeyMonitorBuilding
+    private let hotkeyMonitorFactory: HotkeyMonitorBuilding?
 
     init(
         hud: HUDWindowController,
-        glyphStrip: GlyphStripPanelController? = nil,
-        hotkeyMonitorFactory: HotkeyMonitorBuilding = HotkeyMonitorFactory()
+        glyphStrip: GlyphStripPanelController? = nil
     ) {
         self.onToggle = { [weak hud] in hud?.toggle() }
         self.onTogglePinned = { [weak hud] in hud?.togglePinned() }
         self.onToggleGlyphStrip = { [weak glyphStrip] in glyphStrip?.toggleVisibilityByHotkey() }
-        self.hotkeyMonitorFactory = hotkeyMonitorFactory
+        self.hotkeyMonitorFactory = nil
     }
 
     init(
@@ -48,9 +47,14 @@ class HotkeyHandler {
         glyphStripHotkey = nil
     }
 
+    private func makeMonitor(config: HotkeyConfig, onTrigger: @escaping () -> Void) -> HotkeyMonitoring {
+        hotkeyMonitorFactory?.makeHotkeyMonitor(config: config, onTrigger: onTrigger)
+            ?? HotkeyMonitor(config: config, onTrigger: onTrigger)
+    }
+
     private func startHotkey(config: GridConfig) {
         guard !config.hotkey.isDisabled else { return }
-        let monitor = hotkeyMonitorFactory.makeHotkeyMonitor(config: config.hotkey, onTrigger: onToggle)
+        let monitor = makeMonitor(config: config.hotkey, onTrigger: onToggle)
         monitor.start()
         hotkey = monitor
     }
@@ -61,7 +65,7 @@ class HotkeyHandler {
             NSLog("Spacemap: pinned HUD hotkey matches the normal hotkey; pinned binding ignored")
             return
         }
-        let monitor = hotkeyMonitorFactory.makeHotkeyMonitor(config: config.pinnedHotkey, onTrigger: onTogglePinned)
+        let monitor = makeMonitor(config: config.pinnedHotkey, onTrigger: onTogglePinned)
         monitor.start()
         pinnedHotkey = monitor
     }
@@ -74,7 +78,7 @@ class HotkeyHandler {
             NSLog("Spacemap: glyph strip hotkey matches another binding; strip binding ignored")
             return
         }
-        let monitor = hotkeyMonitorFactory.makeHotkeyMonitor(
+        let monitor = makeMonitor(
             config: config.glyphStripHotkey,
             onTrigger: onToggleGlyphStrip
         )

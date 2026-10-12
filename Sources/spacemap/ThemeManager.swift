@@ -26,10 +26,13 @@ class ThemeManager {
     }
 
     static func themesDir() -> URL {
-        let dir = URL(fileURLWithPath: NSString(string: "~/.config/spacemap/themes").expandingTildeInPath)
-        if !FileManager.default.fileExists(atPath: dir.path) {
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        }
+        URL(fileURLWithPath: NSString(string: "~/.config/spacemap/themes").expandingTildeInPath)
+    }
+
+    @discardableResult
+    static func ensureThemesDir() -> URL {
+        let dir = themesDir()
+        ConfigLoader.secureDirectory(at: dir.path)
         return dir
     }
 
@@ -37,7 +40,7 @@ class ThemeManager {
     private func loadAll() {
         themes.removeAll()
         seedDefaultsIfNeeded()
-        let dir = Self.themesDir()
+        let dir = Self.ensureThemesDir()
         guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return }
         for file in files where file.pathExtension == "smthemes" {
             let name = file.deletingPathExtension().lastPathComponent
@@ -68,7 +71,7 @@ class ThemeManager {
             let key = String(parts[0]).trimmingCharacters(in: .whitespaces).lowercased()
             let hex = String(parts[1]).trimmingCharacters(in: .whitespaces)
                 .replacingOccurrences(of: "#", with: "")
-            guard let val = UInt32(hex, radix: 16) else { continue }
+            guard hex.count == 6, let val = UInt32(hex, radix: 16) else { continue }
             vals[key] = val
         }
         guard let bg = vals["background"],
@@ -88,7 +91,7 @@ class ThemeManager {
     }
 
     private func seedDefaultsIfNeeded() {
-        let dir = Self.themesDir()
+        let dir = Self.ensureThemesDir()
         let fm = FileManager.default
         if let existing = try? fm.contentsOfDirectory(atPath: dir.path),
            existing.contains(where: { $0.hasSuffix(".smthemes") }) {
@@ -109,7 +112,7 @@ class ThemeManager {
             rect2=\(Self.hex(theme.rect2))
             rect3=\(Self.hex(theme.rect3))
             """
-            try? content.write(to: file, atomically: true, encoding: .utf8)
+            _ = ConfigLoader.secureWrite(content, to: file.path)
         }
     }
 
@@ -131,7 +134,7 @@ class ThemeManager {
     }
 
     static func hex(_ value: UInt32) -> String {
-        let s = String(value, radix: 16)
+        let s = String(value & 0xFFFFFF, radix: 16)
         return String(repeating: "0", count: max(0, 6 - s.count)) + s
     }
 }

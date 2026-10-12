@@ -181,16 +181,8 @@ enum GlyphStripIconSource: String, CaseIterable, Identifiable, Equatable {
     }
 }
 
-/// Settings for the always-visible menu-bar glyph strip.
-///
-/// Appearance is theme-driven. The strip resolves a fixed role palette against
-/// its theme (or the main HUD's when `theme` is empty): the current space, the
-/// add button and the hover highlight use `focused`, resting glyphs use `text`,
-/// and the solid material fills with `cellBg`. There are no per-element colour
-/// keys.
-/// `[glyphStrip]` table: the always-visible menu-bar strip. Scoped to the
-/// strip only — `GridConfig.showSpaceNumbers` is the separate HUD-cells key
-/// with the same TOML name under `[grid]`; the two do not interact.
+/// Settings for the always-visible menu-bar glyph strip (theme-driven colors).
+/// `[glyphStrip]` table, strip only; HUD cells use `GridConfig.showSpaceNumbers`.
 struct GlyphStripConfig: Equatable {
     var enabled: Bool = false
     /// Strip's own space-index toggle. HUD cells read `GridConfig.showSpaceNumbers`.
@@ -204,37 +196,26 @@ struct GlyphStripConfig: Equatable {
     var iconSize: Double = 11
     var indexSize: Double = 11
     var highlightCurrentSpace: Bool = true
-    /// What sits behind the glyphs: nothing, a flat `cellBg` fill, or the
-    /// native glass layer.
+    /// What sits behind the glyphs: nothing, a flat `cellBg` fill, or native glass.
     var backgroundMaterial: GlyphStripBackgroundMaterial = .none
-    /// Continuous glass tint, 0 = ultraclear, 1 = opaque/tinted. Only read
-    /// when `backgroundMaterial == .liquidGlass`. Mirrors the System
-    /// Settings > Appearance > Liquid Glass slider (centre default).
+    /// Glass tint 0 (ultraclear) to 1 (opaque). Only read for `.liquidGlass`.
     var glassAmount: Double = 0.5
-    /// When true the glass tints with the theme/backdrop color; when false
-    /// the glass stays neutral (no hue, frost only). Only read when
-    /// `backgroundMaterial == .liquidGlass`.
+    /// Tint the glass with the theme color. Only read for `.liquidGlass`.
     var useThemeTint: Bool = true
     /// Outline the material is drawn in. With material `.none` it shapes the border.
     var shape: GlyphStripShape = .none
-    /// HUD translucency 0...1 for the grid overlay. The strip's own fill key
-    /// is `GlyphStripConfig.backgroundOpacity` (solid material only) — the
-    /// names differ because the scopes differ.
+    /// Strip fill opacity 0...1 (solid material only). HUD uses `backgroundAlpha`.
     var backgroundOpacity: Double = 0.35
     var cornerRadius: Double = 20
     /// Gap between the strip and the notch edge it hugs, in points.
     var margin: Double = 6
-    /// Vertical nudge in screen-reading terms: positive moves the strip DOWN into
-    /// the screen interior, away from the menu bar's top edge.
+    /// Vertical nudge in points; positive moves the strip down, away from the top edge.
     var yOffset: Double = 0
     /// Gap grown around the hovered segment's glyphs, on both axes, in points.
     var hoverPadding: Double = 1
-    /// Corner radius of the hover highlight. Separate from `cornerRadius`, which
-    /// shapes the background.
+    /// Corner radius of the hover highlight (not the background `cornerRadius`).
     var hoverCornerRadius: Double = 4
-    /// Extra advance inserted between two adjacent app glyphs and before the
-    /// +N overflow. Not applied around separators, nor between the space
-    /// index and the first glyph — that gap is `indexPadding`.
+    /// Gap between adjacent app glyphs and before the +N overflow (not around separators).
     var iconSpacing: Double = 3
     /// Gap between a space's index number and its first app glyph or placeholder.
     var indexPadding: Double = 6
@@ -245,20 +226,16 @@ struct GlyphStripConfig: Equatable {
     var rightClickAction: GlyphStripAction = .destroySpace
     var middleClickAction: GlyphStripAction = .none
     var position: GlyphStripPosition = .leftOfNotch
-    /// Horizontal offset in points from the menu bar row's left edge, used only
-    /// when `position == .custom`.
+    /// Horizontal offset from the menu bar row's left edge; only for `.custom`.
     var xOffset: Int = 0
-    /// Draw the hairline border around the strip. Independent of the
-    /// background: with no background it follows the selected shape; shape `.none` = no outline.
+    /// Hairline border around the strip; shape `.none` with no background means no outline.
     var borderEnabled: Bool = true
-    /// Theme for the strip's own colours, or `""` to follow the main HUD's
-    /// `GridConfig.theme`.
+    /// Strip theme name, or `""` to follow the main HUD's `GridConfig.theme`.
     var theme: String = ""
 
     static let `default` = GlyphStripConfig()
 
-    /// Numeric ranges are enforced here so a hand-edited TOML cannot push the
-    /// panel into a degenerate layout, independent of what the UI allows.
+    /// Clamp numerics so a hand-edited TOML cannot produce a degenerate layout.
     func clamped() -> GlyphStripConfig {
         var copy = self
         copy.maxIconsPerSpace = min(max(maxIconsPerSpace, 0), 16)
@@ -271,8 +248,7 @@ struct GlyphStripConfig: Equatable {
         copy.iconSpacing = min(max(iconSpacing, 0), 20)
         copy.indexPadding = min(max(indexPadding, 0), 20)
         copy.yOffset = min(max(yOffset, -10), 10)
-        // Only meaningful once the frame clamp pins the strip inside the row,
-        // but bounded so a hand-edited config cannot hold a silly number.
+        // Bounded so a hand-edited config cannot hold a silly number.
         copy.xOffset = min(max(xOffset, -4000), 4000)
         copy.hoverPadding = min(max(hoverPadding, 0), 12)
         copy.hoverCornerRadius = min(max(hoverCornerRadius, 0), 20)

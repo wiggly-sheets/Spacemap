@@ -20,15 +20,13 @@ final class ConfigFacadeTests: XCTestCase {
     }
 
 
-    func testTOMLParserConformsToProtocol() {
-        let parser: TOMLParserProtocol.Type = TOMLParser.self
-        let values = try! parser.parse("[grid]\ncols = 5\n")
+    func testTOMLParserConformsToProtocol() throws {
+        let values = try TOMLConfigCodec.parse("[grid]\ncols = 5\n")
         XCTAssertEqual(values.cols, 5)
     }
 
 
     func testConfigLoaderConformsToProtocol() {
-        let loader: ConfigLoaderProtocol.Type = ConfigLoader.self
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("spacemap-protocol-test-\(UUID().uuidString)")
         let path = directory.appendingPathComponent("config.toml").path
@@ -36,7 +34,7 @@ final class ConfigFacadeTests: XCTestCase {
 
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        let (values, needsRepair) = loader.load(from: path, silentMode: true)
+        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         assertConformsToConfigValuesProtocol(values)
         XCTAssertTrue(needsRepair)
         XCTAssertTrue(FileManager.default.fileExists(atPath: path))
@@ -58,10 +56,10 @@ final class ConfigFacadeTests: XCTestCase {
         """
         try toml.write(toFile: path, atomically: true, encoding: .utf8)
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
-        let facadeResult = Config.load(from: path)
+        let facadeResult = AppConfig.load(from: path)
         let directResult = ConfigLoader.load(from: path, silentMode: true)
             .values.gridConfig
 
@@ -70,7 +68,7 @@ final class ConfigFacadeTests: XCTestCase {
         XCTAssertEqual(facadeResult.cellStyle, directResult.cellStyle)
     }
 
-    func testParseConfigDelegatesToTOMLParser() {
+    func testParseConfigDelegatesToTOMLParser() throws {
         let toml = """
         [grid]
         cols = 8
@@ -82,8 +80,8 @@ final class ConfigFacadeTests: XCTestCase {
         modifiers = ["cmd"]
         """
 
-        let facadeResult = Config.parseConfig(toml)
-        let directResult = try! TOMLParser.parse(toml).gridConfig
+        let facadeResult = AppConfig.parseConfig(toml)
+        let directResult = try TOMLParser.parse(toml).gridConfig
 
         XCTAssertEqual(facadeResult.cols, directResult.cols)
         XCTAssertEqual(facadeResult.rows, directResult.rows)
@@ -98,8 +96,8 @@ final class ConfigFacadeTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
         var values = ConfigValues()
         values.cols = 10
@@ -107,7 +105,7 @@ final class ConfigFacadeTests: XCTestCase {
         values.theme = "nord"
         let config = values.gridConfig
 
-        Config.saveConfig(config, to: path)
+        AppConfig.saveConfig(config, to: path)
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: path))
         let content = try String(contentsOfFile: path, encoding: .utf8)
@@ -122,10 +120,10 @@ final class ConfigFacadeTests: XCTestCase {
         let path = directory.appendingPathComponent("config.toml").path
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
-        let result = Config.load(from: path)
+        let result = AppConfig.load(from: path)
 
         XCTAssertEqual(result.cols, GridConfig.default.cols)
         XCTAssertEqual(result.theme, GridConfig.default.theme)
@@ -138,10 +136,10 @@ final class ConfigFacadeTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
-        let original = Config.parseConfig("""
+        let original = AppConfig.parseConfig("""
         [grid]
         cols = 7
         rows = 4
@@ -153,8 +151,8 @@ final class ConfigFacadeTests: XCTestCase {
         modifiers = ["ctrl"]
         """)
 
-        Config.saveConfig(original, to: path)
-        let reloaded = Config.load(from: path)
+        AppConfig.saveConfig(original, to: path)
+        let reloaded = AppConfig.load(from: path)
 
         XCTAssertEqual(reloaded.cols, original.cols)
         XCTAssertEqual(reloaded.rows, original.rows)
@@ -170,15 +168,15 @@ final class ConfigFacadeTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        Config.silentMode = true
-        defer { Config.silentMode = false }
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
 
-        let result = Config.load(from: path)
+        let result = AppConfig.load(from: path)
         XCTAssertEqual(result.cols, GridConfig.default.cols)
     }
 
 
-    private func assertConformsToConfigValuesProtocol(_ values: ConfigValuesProtocol) {
+    private func assertConformsToConfigValuesProtocol(_ values: ConfigValues) {
         _ = values.cols
         _ = values.rows
         _ = values.cellStyle

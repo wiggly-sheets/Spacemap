@@ -18,7 +18,7 @@
 | `make dmg-universal` | Build universal DMG |
 | `make test` | Run unit tests via swift test |
 | `make release RELEASE=x.y.z` | Bump version, commit, tag, push (triggers release) |
-| `make install-cli` | Install CLI symlink to `/usr/local/bin/spacemap` |
+| `make install-cli` | Install CLI symlink to `/usr/local/bin/spacemap` (`ln -sf`, idempotent — safe to re-run) |
 | `make uninstall-cli` | Remove CLI symlink |
 | `make permissions` | Show instructions for fixing Accessibility permission |
 
@@ -34,6 +34,8 @@
 | `spacemap --show-menu` | Show menu bar dropdown (app continues running) |
 | `spacemap --settings` | Open settings window directly (app continues running) |
 
+Note: DEBUG builds (Xcode) skip CLI handling and always launch the HUD; `--version`/`--trigger`/etc. exit early in release builds only.
+
 ## Key File Locations
 
 | File | Purpose |
@@ -41,7 +43,7 @@
 | `~/.config/spacemap/config.toml` | User configuration (reloads on HUD open; Settings applies hotkeys immediately) |
 | `/Applications/Spacemap.app` | Installed application bundle |
 | `/usr/local/bin/spacemap` | CLI symlink (if installed) |
-| `/tmp/spacemap_<username>.socket` | Unix domain socket for yabai signals |
+| `$TMPDIR/spacemap_<username>.socket` (`NSTemporaryDirectory()`) | Unix domain socket for yabai signals |
 | `Console.app` | View logs (filter by "spacemap") |
 
 ## Config Keys Reference (TOML tables in `~/.config/spacemap/config.toml`)
@@ -196,9 +198,9 @@ iconSource = "sbarFont"  # or "native"
 ```
 
 - `sbarFont` (default): sketchybar-app-font ligature per app; missing font or missing ligature falls back to app initials.
-- `native`: the app's own icon via `IconCache` (running-app pid fast path → name map → persistent disk cache → background mdfind), painted at `iconSize` with `style()` dimming (0.55 on resting runs). Misses paint the sbar glyph, or initials when the font has no ligature; a background resolve triggers one follow-up refresh when the image lands.
+- `native`: the app's own icon via `IconCache` (running-app pid fast path → in-memory name map → background mdfind), painted at `iconSize` with `style()` dimming (0.55 on resting runs). Misses paint the sbar glyph, or initials when the font has no ligature; a background resolve triggers one follow-up refresh when the image lands.
 
-Font/cache paths: user font `~/Library/Fonts/sketchybar-app-font.ttf` (newer release tag wins over bundle copy); bundle-name map `~/Library/Caches/spacemap/appBundleURLs.json`.
+Font/cache paths: user font `~/Library/Fonts/sketchybar-app-font.ttf` (newer release tag wins over bundle copy). `IconCache` is memory-only with no disk cache: the name map rebuilds on app launch/terminate (evicting stale entries) and misses resolve via one background mdfind (Spotlight) call.
 
 Appearance is theme-driven: the strip resolves a fixed role palette against its theme — the current space, the add button and the hover highlight use `focused`, resting glyphs use `text`, and the solid material fills with `cellBg`. There are no per-element colour keys, and legacy colour keys from older configs are dropped on the next repair.
 
@@ -261,7 +263,7 @@ The strip is theme-driven: every layer resolves to one of the theme's colours (`
 | `CellView.swift` | `CellView` | Per-cell rendering (rects/icons/thumbnails), space names |
 | `GridLayout.swift` | `GridLayout` | Pure geometry: cell/gap/padding math, slot frames, hit-test, window→cell transforms (guarded: `cols > 0`, spaces clamped 0–16, zero-size frames return nil/empty) |
 | `YabaiClientImpl.swift` + `YabaiService.swift` | `YabaiClientImpl` | yabai CLI wrapper, space/window queries, signal management (10s command timeout, async pipe drain) |
-| `Config.swift` (facade) + `ConfigLoader`/`TOMLParser`/`ConfigValues` | `Config` | Config load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup |
+| `AppConfig.swift` + `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues` | `AppConfig` | Config load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup |
 | `HotkeyMonitor.swift` + `HotkeyService`/`HotkeyHandler` | `HotkeyMonitor` | Global CGEventTap for hotkey capture (normal, pinned, glyph-strip bindings) |
 | `SocketListener.swift` | `SocketListener` | Unix domain socket server for yabai signals (mode 0600, non-blocking clients) |
 | `WindowDragHandler.swift` + `WindowDragService` | `WindowDragHandler` | Drag-and-drop detection via CGEventTap |
@@ -271,7 +273,7 @@ The strip is theme-driven: every layer resolves to one of the theme's colours (`
 | `SettingsWindowController.swift` | `SettingsWindowController` | AppKit window wrapper for SettingsView |
 | `ThumbnailCache.swift` + `ThumbnailCompositor`/`ThumbnailRequestBuilder` | `ThumbnailCache` | ScreenCaptureKit capture, per-space caching (macOS 14+) |
 | `IconCache.swift` | `IconCache` | App icon cache to avoid repeated NSWorkspace lookups |
-| `ThemeManager.swift` + `ThemeService` | `ThemeService` | Loads `.smthemes` files, seeds built-in themes on first launch |
+| `ThemeManager.swift` | `ThemeManager` | Loads `.smthemes` files, seeds built-in themes on first launch |
 
 ## Yabai Integration (`YabaiClientImpl.swift`)
 
@@ -306,8 +308,9 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 - Polls every 2s until Accessibility permission granted
 
 ### `SocketListener.swift`
-- Unix domain server at `/tmp/spacemap_<username>.socket` (created mode 0600, clients non-blocking)
-- Listens for yabai signal commands: `0` (refresh), `1` (show), `2` (hide), `3` (settings)
+- Unix domain server at `$TMPDIR/spacemap_<username>.socket` (`NSTemporaryDirectory()`, created mode 0600, clients non-blocking)
+- Listens for yabai signal commands: `1` (refresh), `2` (show), `3` (settings), `4` (toggle), `5` (health)
+- Frames are `<cmdByte>` optionally followed by `:<nonce>`; a lone trailing newline is tolerated for `echo N | nc` compat, and unknown shapes or bad nonces are dropped
 - Periodic health check via `fcntl(fd, F_GETFD)` + file existence
 
 ### `WindowDragHandler.swift`
@@ -324,7 +327,7 @@ Available themes: `default`, `tokyonight`, `catppuccin`, `monokai-dark`, `monoka
 
 ## Signal Integration
 
-- Commands: `0`=refresh, `1`=show, `2`=hide, `3`=settings
+- Commands: `1`=refresh, `2`=show, `3`=settings, `4`=toggle, `5`=health
 - yabai emits `spacemap_space_changed:1` via signal on space change
 
 ## UI Scaling

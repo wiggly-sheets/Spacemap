@@ -26,6 +26,14 @@ public enum Hotkey {
         32: "u", 34: "i", 35: "p", 37: "l", 38: "j", 40: "k", 45: "n", 46: "m"
     ]
 
+    private static let namedReverse: [CGKeyCode: String] = Dictionary(
+        uniqueKeysWithValues: named.map { ($1, $0) }
+    )
+
+    private static let alphanumReverse: [String: CGKeyCode] = Dictionary(
+        uniqueKeysWithValues: alphanum.map { ($1, $0) }
+    )
+
     private static let punctuation: [CGKeyCode: String] = [
         24: "=", 27: "-", 30: "]", 33: "[", 39: "'", 41: ";",
         42: "backslash", 43: ",", 44: "/", 47: ".", 50: "`",
@@ -36,6 +44,10 @@ public enum Hotkey {
         87: "keypad-5", 88: "keypad-6", 89: "keypad-7", 91: "keypad-8",
         92: "keypad-9"
     ]
+
+    private static let punctuationReverse: [String: CGKeyCode] = Dictionary(
+        uniqueKeysWithValues: punctuation.map { ($1, $0) }
+    )
 
     static var supportedKeyNames: [String] {
         Array(named.keys) + Array(alphanum.values) + Array(punctuation.values)
@@ -121,46 +133,7 @@ public enum Hotkey {
         return modString
     }
 static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
-        switch keyCode {
-        case 49: return "space"
-        case 48: return "tab"
-        case 36: return "return"
-        case 53: return "escape"
-        case 51: return "delete"
-        case 76: return "keypad-enter"
-        case 121: return "pgdn"
-        case 116: return "pgup"
-        case 115: return "home"
-        case 119: return "end"
-        case 114: return "help"
-        case 117: return "forward-delete"
-        case 123: return "left"
-        case 124: return "right"
-        case 125: return "down"
-        case 126: return "up"
-        case 122: return "f1"
-        case 120: return "f2"
-        case 99:  return "f3"
-        case 118: return "f4"
-        case 96:  return "f5"
-        case 97:  return "f6"
-        case 98:  return "f7"
-        case 100: return "f8"
-        case 101: return "f9"
-        case 109: return "f10"
-        case 103: return "f11"
-        case 111: return "f12"
-        case 105: return "f13"
-        case 107: return "f14"
-        case 113: return "f15"
-        case 106: return "f16"
-        case 64:  return "f17"
-        case 79:  return "f18"
-        case 80:  return "f19"
-        case 90:  return "f20"
-        default:
-            return alphanum[keyCode] ?? punctuation[keyCode] ?? "unknown"
-        }
+        namedReverse[keyCode] ?? alphanum[keyCode] ?? punctuation[keyCode] ?? "unknown"
     }
 
     static func hotkeyToString(keyCode: CGKeyCode, modifiers: CGEventFlags) -> String {
@@ -212,18 +185,9 @@ static func keyCodeToSymbolicString(_ keyCode: CGKeyCode) -> String {
 
     static func keyCodeFor(_ token: String) -> CGKeyCode? {
         if let code = named[token] { return code }
-
-        let alphanumReverse: [String: CGKeyCode] = [
-            "a": 0,  "s": 1,  "d": 2,  "f": 3,  "h": 4,  "g": 5,
-            "z": 6,  "x": 7,  "c": 8,  "v": 9,  "b": 11, "q": 12,
-            "w": 13, "e": 14, "r": 15, "y": 16, "t": 17, "1": 18,
-            "2": 19, "3": 20, "4": 21, "6": 22, "5": 23, "=": 24,
-            "9": 25, "7": 26, "-": 27, "8": 28, "0": 29, "o": 31,
-            "u": 32, "i": 34, "p": 35, "l": 37, "j": 38, "k": 40,
-            "n": 45, "m": 46,
-        ]
         if let keyCode = alphanumReverse[token] { return keyCode }
-        return punctuation.first { $0.value == token }?.key
+        if let keyCode = punctuationReverse[token] { return keyCode }
+        return nil
     }
 
     static func mediaKeyFor(_ token: String) -> MediaKey? {

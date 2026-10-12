@@ -73,7 +73,7 @@ final class GridStateCoordinatorTests: XCTestCase {
     }
 
 
-    func testReplacingFocusedIndexPreservesOtherFields() throws {
+    func testUpdateFocusedIndexPreservesOtherFields() throws {
         let base = cannedState(focusedIndex: 1, spaces: [
             YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
             YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: true, label: nil),
@@ -86,9 +86,7 @@ final class GridStateCoordinatorTests: XCTestCase {
         coordinator.fetch { primeExp.fulfill() }
         waitForExpectations(timeout: 1.0)
 
-        let updateExp = expectation(description: "focused index update")
-        coordinator.fetch(completion: { updateExp.fulfill() }, replacingFocusedIndex: 2)
-        waitForExpectations(timeout: 1.0)
+        _ = coordinator.updateFocusedIndex(2)
 
         let updated = coordinator.latestState
         XCTAssertEqual(updated?.focusedIndex, 2, "focusedIndex should be updated")
@@ -147,8 +145,8 @@ final class GridStateCoordinatorTests: XCTestCase {
 
         Thread.sleep(forTimeInterval: 0.1)
 
-        let fetch2Exp = expectation(description: "fetch 2 (authoritative)")
-        asyncCoordinator.fetch { fetch2Exp.fulfill() }
+        let fetch2Exp = expectation(description: "refresh (authoritative)")
+        asyncCoordinator.refresh { fetch2Exp.fulfill() }
 
         waitForExpectations(timeout: 3.0)
         XCTAssertEqual(asyncCoordinator.latestState?.focusedIndex, 2,

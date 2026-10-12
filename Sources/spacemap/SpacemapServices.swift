@@ -4,18 +4,17 @@ import ServiceManagement
 import Sparkle
 
 final class SpacemapServices {
-    private let core: SpacemapCoreServices
-    var yabaiService: YabaiService { core.yabaiService }
-    var appConfig: AppConfig { core.appConfig }
-    var themeService: ThemeService { core.themeService }
-    var sparkleController: SPUStandardUpdaterController { core.sparkleController }
-    var fileManager: FileManagerProtocol { core.fileManager }
-    var process: ProcessProtocol { core.process }
-    var workspace: WorkspaceProtocol { core.workspace }
-    var alertsService: AlertsService { core.alertsService }
+    let yabaiService: YabaiService
+    let appConfig: AppConfig
+    let themeService: ThemeManager
+    let sparkleController: SPUStandardUpdaterController
+    let fileManager: FileManagerProtocol
+    let process: ProcessProtocol
+    let workspace: WorkspaceProtocol
+    let alertsService: AlertsService
     lazy var menubarService: MenubarHandler = MenubarHandler(
         yabaiService: yabaiService,
-        onToggleHUD: { [weak self] in self?.hud?.toggle() },
+        onToggleHUD: { [weak self] in self?.hud.toggle() },
         onShowAbout: { [weak self] in self?.showAboutWindow() },
         onShowSettings: { [weak self] in self?.showSettingsWindow() },
         onInstallCLI: { [weak self] in self?.installCommandLineTools() },
@@ -29,53 +28,49 @@ final class SpacemapServices {
     private(set) lazy var glyphStrip = GlyphStripPanelController(yabaiService: yabaiService)
     lazy var cliToolsService = CLIToolsService(
         onUpdateSparkleConfig: { [weak self] updateMode in self?.updateSparkleConfig(updateMode: updateMode) },
-        sparkleController: core.sparkleController
+        sparkleController: sparkleController
     )
     lazy var deepLinkService: DeepLinkService = {
         DeepLinkService(
-            hud: hud!,
+            hud: hud,
             themeService: themeService,
             showSettings: { [weak self] in self?.showSettingsWindow() },
             showMenu: { [weak self] in self?.showMenubarMenu() }
         )
     }()
     lazy var hotkeyService: HotkeyService = HotkeyService(
-        hud: hud!,
-        glyphStrip: glyphStrip,
-        hotkeyMonitorFactory: core.hotkeyMonitorFactory
+        hud: hud,
+        glyphStrip: glyphStrip
     )
-    var hud: HUDWindowController!
+    private(set) lazy var hud: HUDWindowController = HUDWindowController(services: self)
     init(
         yabaiService: YabaiService? = nil,
         appConfig: AppConfig? = nil,
-        themeService: ThemeService? = nil,
+        themeService: ThemeManager? = nil,
         sparkleController: SPUStandardUpdaterController? = nil,
         fileManager: FileManagerProtocol? = nil,
         process: ProcessProtocol? = nil,
         workspace: WorkspaceProtocol? = nil,
-        socketListenerFactory: SocketListenerFactory? = nil,
-        hotkeyMonitorFactory: HotkeyMonitorBuilding? = nil,
         alertsService: AlertsService? = nil
     ) {
-        self.core = SpacemapCoreServices(
-            yabaiService: yabaiService,
-            appConfig: appConfig,
-            themeService: themeService,
-            sparkleController: sparkleController,
-            fileManager: fileManager,
-            process: process,
-            workspace: workspace,
-            socketListenerFactory: socketListenerFactory,
-            hotkeyMonitorFactory: hotkeyMonitorFactory,
-            alertsService: alertsService
+        self.yabaiService = yabaiService ?? YabaiClientImpl()
+        self.appConfig = appConfig ?? AppConfig()
+        self.themeService = themeService ?? ThemeManager.shared
+        self.sparkleController = sparkleController ?? SPUStandardUpdaterController(
+            startingUpdater: false,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
         )
-        self.hud = HUDWindowController(services: self)
+        self.fileManager = fileManager ?? FileManager.default
+        self.process = process ?? Process()
+        self.workspace = workspace ?? (NSWorkspace.shared as WorkspaceProtocol)
+        self.alertsService = alertsService ?? AlertsServiceImpl()
     }
     var currentConfig: GridConfig {
-        get { core.appConfig.load() }
-        set { core.appConfig.save(newValue) }
+        get { appConfig.load() }
+        set { appConfig.save(newValue) }
     }
-    var configPath: String { core.appConfig.configPath }
+    var configPath: String { appConfig.configPath }
     func setupMenubar() { menubarService.setupMenubar() }
     func showMenubarMenu() { menubarService.showMenubarMenu() }
     func applyMenubarVisibility(config: GridConfig) { menubarService.applyMenubarVisibility(config: config) }
@@ -119,13 +114,13 @@ final class SpacemapServices {
     func setDeepLinksReady() { deepLinkService.setReady(true) }
     func handlePendingDeepLinks() { deepLinkService.handlePendingDeepLinks() }
     func configureSparkleUpdater(updateMode: UpdateMode) {
-        SparkleConfig.configureSparkleUpdater(controller: core.sparkleController, updateMode: updateMode)
+        SparkleConfig.configureSparkleUpdater(controller: sparkleController, updateMode: updateMode)
     }
     func updateSparkleConfig(updateMode: UpdateMode) { configureSparkleUpdater(updateMode: updateMode) }
-    func showYabaiAlert() { core.alertsService.showYabaiAlert() }
-    func isMRUSpacesEnabled() -> Bool { core.alertsService.isMRUSpacesEnabled() }
-    func showMRUAlert() { core.alertsService.showMRUAlert() }
-    func showSeparateSpacesAlert() { core.alertsService.showSeparateSpacesAlert() }
+    func showYabaiAlert() { alertsService.showYabaiAlert() }
+    func isMRUSpacesEnabled() -> Bool { alertsService.isMRUSpacesEnabled() }
+    func showMRUAlert() { alertsService.showMRUAlert() }
+    func showSeparateSpacesAlert() { alertsService.showSeparateSpacesAlert() }
     func changeSpaceNameProfile(index: Int) {
         var config = currentConfig
         guard (0..<config.spaceNameProfiles.count).contains(index) else { return }
@@ -134,7 +129,7 @@ final class SpacemapServices {
         config.spaceNames = profile.spaceNames
         currentConfig = config
         refreshMenubarPreview(config: config)
-        hud?.reloadConfig()
+        hud.reloadConfig()
     }
     func makeSocketListener(
         socketPath: String,
@@ -144,7 +139,7 @@ final class SpacemapServices {
         onToggle: @escaping () -> Void,
         onSettings: @escaping () -> Void
     ) -> SocketListener {
-        core.socketListenerFactory.makeSocketListener(
+        SocketListener(
             socketPath: socketPath,
             healthInterval: healthInterval,
             onRefresh: onRefresh,

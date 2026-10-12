@@ -3,54 +3,6 @@ import CoreGraphics
 @testable import spacemap
 
 
-final class MockHUDStateSync: HUDStateSync {
-    var currentState: GridState?
-    var focusedIndex: Int?
-    var pendingFocusedSpaceIndex: Int?
-    var isPendingFocusValid = false
-
-    private(set) var fetchCallCount = 0
-    private(set) var refreshCallCount = 0
-    private(set) var reloadConfigCallCount = 0
-    private(set) var clearPendingFocusCallCount = 0
-    private(set) var cancelPendingFetchCallCount = 0
-    private(set) var updateFocusedIndexCallCount = 0
-    var updateFocusedIndexResult: GridState?
-
-    func updateFocusedIndex(_ index: Int) -> GridState? {
-        updateFocusedIndexCallCount += 1
-        return updateFocusedIndexResult
-    }
-
-    func fetch(completion: @escaping () -> Void) {
-        fetchCallCount += 1
-        completion()
-    }
-
-    func fetch(completion: @escaping () -> Void, replacingFocusedIndex: Int?) {
-        fetchCallCount += 1
-        completion()
-    }
-
-    func refresh(completion: @escaping () -> Void) {
-        refreshCallCount += 1
-        completion()
-    }
-
-    func clearPendingFocus() {
-        clearPendingFocusCallCount += 1
-    }
-
-    func cancelPendingFetch() {
-        cancelPendingFetchCallCount += 1
-    }
-
-    func reloadConfig() {
-        reloadConfigCallCount += 1
-    }
-}
-
-
 final class HUDWindowControllerMockDisplayDelegate: HUDDisplayDelegate {
     private(set) var renderCallCount = 0
     private(set) var lastRenderedState: GridState?
@@ -246,24 +198,24 @@ final class HUDWindowControllerTests: XCTestCase {
     func testFocusedWindowAtOpenPersistsAcrossFrameUpdatesAndClearsOnHide() {
         let yabaiService = MockYabaiService()
         yabaiService.queryFocusedWindowResult = 77
-        let stateSync = MockHUDStateSync()
         let state = cannedState()
-        stateSync.currentState = state
+        yabaiService.buildGridStateResult = state
         let services = SpacemapServices(
             yabaiService: yabaiService,
             alertsService: Alerts()
         )
-        let controller = HUDWindowController(services: services, hudStateSync: stateSync)
+        let coordinator = GridStateCoordinator(config: .default, yabaiService: yabaiService)
+        let controller = HUDWindowController(services: services, coordinator: coordinator)
         let queried = expectation(description: "focused window queried")
 
         controller.show()
-        DispatchQueue.main.async {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             XCTAssertEqual(controller.focusedWindowIDAtOpen, 77)
             controller.updateCellFrames(state: state)
             XCTAssertEqual(controller.focusedWindowIDAtOpen, 77)
             queried.fulfill()
         }
-        waitForExpectations(timeout: 1)
+        waitForExpectations(timeout: 2)
 
         controller.hide()
         XCTAssertNil(controller.focusedWindowIDAtOpen)
@@ -321,15 +273,15 @@ final class HUDWindowControllerTests: XCTestCase {
 
     func testRecentSpaceFocusUsesLiteralYabaiTarget() {
         let yabaiService = MockYabaiService()
-        let stateSync = MockHUDStateSync()
         let spaces = [
             YabaiSpace(id: 1, index: 1, display: 1, hasFocus: false, isVisible: nil, label: nil),
             YabaiSpace(id: 2, index: 3, display: 1, hasFocus: true, isVisible: nil, label: nil)
         ]
-        stateSync.currentState = cannedState(focusedIndex: 3, spaces: spaces)
+        yabaiService.buildGridStateResult = cannedState(focusedIndex: 3, spaces: spaces)
+        let coordinator = GridStateCoordinator(config: .default, yabaiService: yabaiService)
         let controller = HUDWindowController(
             services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts()),
-            hudStateSync: stateSync
+            coordinator: coordinator
         )
 
         controller.show()

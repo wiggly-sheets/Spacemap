@@ -20,11 +20,11 @@ final class HUDDisplay {
     private var displayNumber: Int?
     private var renderedState: GridState?
     private var yabaiService: YabaiService
-    private let themeService: ThemeService
+    private let themeService: ThemeManager
 
     var unifiedPanel: NSPanel? { panel }
 
-    init(yabaiService: YabaiService, themeService: ThemeService = ThemeService()) {
+    init(yabaiService: YabaiService, themeService: ThemeManager = .shared) {
         self.yabaiService = yabaiService
         self.themeService = themeService
     }
@@ -122,7 +122,7 @@ final class HUDDisplay {
         let visibleWindows = state.windows.filter {
             $0.shouldDisplay(showExtraWindows: currentConfig.showExtraWindows)
         }
-        IconCache.shared.preload(appNames: visibleWindows.map(\.app))
+        IconCache.shared.preloadInBackground(appNames: visibleWindows.map(\.app))
     }
 
     static func shouldPreloadIcons(config: GridConfig) -> Bool {
@@ -162,11 +162,11 @@ final class HUDDisplay {
         let panelFrame = panel.frame
         let x = Double((panelFrame.midX - screenFrame.minX) / screenFrame.width)
         let y = Double((panelFrame.midY - screenFrame.minY) / screenFrame.height)
-        var config = Config.load()
+        var config = AppConfig.load()
         config.hudPosition = .custom(x: x, y: y)
         config.customHUDX = x
         config.customHUDY = y
-        Config.saveConfig(config)
+        AppConfig.saveConfig(config)
         NSLog("spacemap/HUDDisplay: saved custom position x=%.2f y=%.2f", x, y)
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
@@ -216,10 +216,16 @@ final class HUDDisplay {
                     displayPanels[displayIndex] = panel
                 }
 
-                let hostingView = NSHostingView(rootView: AnyView(gridView))
-                hostingView.frame = NSRect(origin: .zero, size: size)
-                panel.contentView = hostingView
-                displayHostingViews[displayIndex] = hostingView
+                if let existing = displayHostingViews[displayIndex] {
+                    existing.rootView = AnyView(gridView)
+                    existing.frame = NSRect(origin: .zero, size: size)
+                    panel.contentView = existing
+                } else {
+                    let hostingView = NSHostingView(rootView: AnyView(gridView))
+                    hostingView.frame = NSRect(origin: .zero, size: size)
+                    panel.contentView = hostingView
+                    displayHostingViews[displayIndex] = hostingView
+                }
                 panel.setContentSize(size)
                 panel.setFrameOrigin(currentConfig.hudPosition.point(for: size, screen: screen.frame))
                 panel.orderFrontRegardless()
@@ -231,10 +237,16 @@ final class HUDDisplay {
         if panel == nil { panel = makePanel() }
         guard let panel else { return }
 
-        let hostingView = NSHostingView(rootView: AnyView(gridView))
-        hostingView.frame = NSRect(origin: .zero, size: size)
-        panel.contentView = hostingView
-        self.hostingView = hostingView
+        if let hostingView {
+            hostingView.rootView = AnyView(gridView)
+            hostingView.frame = NSRect(origin: .zero, size: size)
+            panel.contentView = hostingView
+        } else {
+            let hostingView = NSHostingView(rootView: AnyView(gridView))
+            hostingView.frame = NSRect(origin: .zero, size: size)
+            panel.contentView = hostingView
+            self.hostingView = hostingView
+        }
 
         panel.setContentSize(size)
         let focusedScreen = state.focusedIndex
@@ -285,10 +297,16 @@ final class HUDDisplay {
 
             let gridView = makeGridView(state: state, hoveredCell: hoveredCell, spaceIndices: spaces)
             let size = gridView.idealSize
-            let hostingView = NSHostingView(rootView: AnyView(gridView))
-            hostingView.frame = NSRect(origin: .zero, size: size)
-            panel.contentView = hostingView
-            displayHostingViews[displayIndex] = hostingView
+            if let existing = displayHostingViews[displayIndex] {
+                existing.rootView = AnyView(gridView)
+                existing.frame = NSRect(origin: .zero, size: size)
+                panel.contentView = existing
+            } else {
+                let hostingView = NSHostingView(rootView: AnyView(gridView))
+                hostingView.frame = NSRect(origin: .zero, size: size)
+                panel.contentView = hostingView
+                displayHostingViews[displayIndex] = hostingView
+            }
             panel.setContentSize(size)
             panel.setFrameOrigin(currentConfig.hudPosition.point(for: size, screen: screen.frame))
             panel.orderFrontRegardless()

@@ -1,7 +1,7 @@
 import Foundation
 import CoreGraphics
 
-struct ConfigValues: ConfigValuesProtocol {
+struct ConfigValues {
     var cols: Int?
     var rows: Int?
     var cellStyle: CellStyle?
@@ -181,7 +181,7 @@ struct ConfigValues: ConfigValuesProtocol {
             hotkey: resolvedHotkey,
             pinnedHotkey: resolvedPinnedHotkey,
             glyphStripHotkey: resolvedGlyphStripHotkey,
-            socketHealthInterval: valid(socketHealthInterval, defaults.socketHealthInterval) { $0 > 0 },
+            socketHealthInterval: oversizeClamped(socketHealthInterval, defaults.socketHealthInterval, in: 1...3600),
             uiScale: valid(uiScale, defaults.uiScale) { (0...1).contains($0) },
             autoHideTimeout: valid(autoHideTimeout, defaults.autoHideTimeout) { $0 >= 0 },
             theme: orDefault(theme, defaults.theme),

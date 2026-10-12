@@ -1,6 +1,6 @@
 import Foundation
 
-enum ConfigLoader: ConfigLoaderProtocol {
+enum ConfigLoader {
 
     static let configPath = NSString(string: "~/.config/spacemap/config.toml").expandingTildeInPath
 
@@ -14,22 +14,22 @@ enum ConfigLoader: ConfigLoaderProtocol {
     }
 
     static func load(from path: String, silentMode: Bool) -> (values: ConfigValues, needsRepair: Bool) {
-        // O_NOFOLLOW equivalent: never read through a link someone else owns.
-        guard !isSymlink(at: path) else {
+        if isSymlink(at: path) {
             NSLog("spacemap/ConfigLoader: refusing to read symlinked config at \(path)")
             return (ConfigValues(), true)
         }
-        let contents: String
-        do {
-            var raw = try String(contentsOfFile: path, encoding: .utf8)
-            if raw.hasPrefix("\u{FEFF}") { raw = String(raw.dropFirst()) }
-            contents = raw
-            if !silentMode { NSLog("spacemap/ConfigLoader: successfully read config from \(path)") }
-        } catch {
-            if !silentMode { NSLog("spacemap/ConfigLoader: failed to read config at \(path) — error: \(error)") }
+        // O_NOFOLLOW open: a link swapped in after the check above still
+        // fails here instead of being followed (TOCTOU). Nil also covers
+        // missing/unreadable files.
+        guard let rawContents = nofollowContents(at: path) else {
+            if !silentMode { NSLog("spacemap/ConfigLoader: failed to read config at \(path)") }
             createDefaultConfigFile(at: path)
             return (ConfigValues(), true)
         }
+        var raw = rawContents
+        if raw.hasPrefix("\u{FEFF}") { raw = String(raw.dropFirst()) }
+        let contents = raw
+        if !silentMode { NSLog("spacemap/ConfigLoader: successfully read config from \(path)") }
 
         // Fail closed on bombs: oversized file or absurd single line.
         guard contents.utf8.count <= maxConfigBytes,
@@ -51,6 +51,18 @@ enum ConfigLoader: ConfigLoaderProtocol {
             save(values, to: path)
         }
         return (values, needsRepair)
+    }
+
+    /// O_NOFOLLOW read of a regular file. Returns nil for symlinks (even
+    /// ones planted after `isSymlink`), directories, and read failures.
+    private static func nofollowContents(at path: String) -> String? {
+        let fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        var statBuf = stat()
+        guard fstat(fd, &statBuf) == 0, (statBuf.st_mode & S_IFMT) == S_IFREG else { return nil }
+        let data = FileHandle(fileDescriptor: fd, closeOnDealloc: false).readDataToEndOfFile()
+        return String(data: data, encoding: .utf8)
     }
 
     static func save(_ values: ConfigValues, to path: String) {
@@ -86,16 +98,34 @@ enum ConfigLoader: ConfigLoaderProtocol {
 
     /// Config dir 0700, files 0600. XDG config holds hotkeys/behavior — no
     /// reason group/other ever reads it.
+    /// Temp file born 0600, then renamed: no world-readable window
+    /// between create and chmod. Rename over symlink replaces link itself.
     @discardableResult
     static func secureWrite(_ content: String, to path: String) -> Bool {
-        do {
-            try content.write(toFile: path, atomically: true, encoding: .utf8)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
-            return true
-        } catch {
-            NSLog("spacemap: failed to save config to \(path): \(error)")
+        guard let data = content.data(using: .utf8) else { return false }
+        let dir = (path as NSString).deletingLastPathComponent
+        let tmpPath = (dir as NSString).appendingPathComponent(
+            ".spacemap.\(ProcessInfo.processInfo.processIdentifier).\(UUID().uuidString).tmp")
+        let fd = open(tmpPath, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        guard fd >= 0 else {
+            NSLog("spacemap: failed to save config to \(path): cannot create temp file")
             return false
         }
+        defer { close(fd) }
+        let bytes = data.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+        // write() on blocking fd writes all or fails; short write = failure.
+        guard bytes == data.count else {
+            unlink(tmpPath)
+            NSLog("spacemap: failed to save config to \(path): short write")
+            return false
+        }
+        _ = fchmod(fd, mode_t(0o600))
+        guard rename(tmpPath, path) == 0 else {
+            unlink(tmpPath)
+            NSLog("spacemap: failed to save config to \(path): rename failed")
+            return false
+        }
+        return true
     }
 
     static func secureDirectory(at path: String) {
@@ -308,11 +338,41 @@ enum ConfigLoader: ConfigLoaderProtocol {
 
 
     private static func backupConfig(at path: String) {
-        guard FileManager.default.fileExists(atPath: path), !isSymlink(at: path) else { return }
+        // Pin source with O_NOFOLLOW fd: link swapped in after isSymlink
+        // check fails open() instead of being followed (TOCTOU).
+        guard !isSymlink(at: path) else { return }
+        let srcFd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard srcFd >= 0 else { return }
+        defer { close(srcFd) }
+        var srcStat = stat()
+        guard fstat(srcFd, &srcStat) == 0, (srcStat.st_mode & S_IFMT) == S_IFREG else { return }
+        let data = FileHandle(fileDescriptor: srcFd, closeOnDealloc: false).readDataToEndOfFile()
         let backupPath = path + ".bak"
-        try? FileManager.default.removeItem(atPath: backupPath)
-        try? FileManager.default.copyItem(atPath: path, toPath: backupPath)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: backupPath)
+        let rotatedPath = path + ".bak.1"
+        // unlink() never follows: removes planted link itself, not target.
+        unlink(rotatedPath)
+        var backupStat = stat()
+        if lstat(backupPath, &backupStat) == 0 {
+            if (backupStat.st_mode & S_IFMT) == S_IFLNK || (backupStat.st_mode & S_IFMT) != S_IFREG {
+                unlink(backupPath)
+            } else if rename(backupPath, rotatedPath) == 0 {
+                // rename moves link itself; lstat gate stops chmod through link.
+                var rotStat = stat()
+                if lstat(rotatedPath, &rotStat) == 0, (rotStat.st_mode & S_IFMT) == S_IFREG {
+                    try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: rotatedPath)
+                }
+            }
+        }
+        // O_EXCL|O_NOFOLLOW: fail closed if link planted after rotation.
+        let dstFd = open(backupPath, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        guard dstFd >= 0 else { return }
+        defer { close(dstFd) }
+        let written = data.withUnsafeBytes { write(dstFd, $0.baseAddress, $0.count) }
+        guard written == data.count else {
+            unlink(backupPath)
+            return
+        }
+        _ = fchmod(dstFd, mode_t(0o600))
     }
 
 
