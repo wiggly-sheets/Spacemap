@@ -47,9 +47,10 @@ _$HOME/.config/spacemap/config.toml_
 _$HOME/.config/spacemap/themes/_
 	Directory containing custom *.smthemes* theme files.
 
-_/tmp/spacemap_USERNAME.socket_
+_$TMPDIR/spacemap_USERNAME.socket_
 	Unix domain socket used by the CLI and yabai signals to notify the running
-	application.
+	application (per-user temp dir via NSTemporaryDirectory()). USERNAME is
+	NSUserName() with other characters stripped, falling back to uid.
 
 # EXAMPLES
 
