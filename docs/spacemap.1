@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "SPACEMAP" "1" "2026\-08\-01"
+.TH "SPACEMAP" "1" "2026\-10\-12"
 .PP
 .SH NAME
 .PP
@@ -72,10 +72,11 @@ changes require the running application to restart.\&
 Directory containing custom \fB.\&smthemes\fR theme files.\&
 .PP
 .RE
-\fI/tmp/spacemap_USERNAME.\&socket\fR
+\fI$TMPDIR/spacemap_USERNAME.\&socket\fR
 .RS 4
 Unix domain socket used by the CLI and yabai signals to notify the running
-application.\&
+application (per\-user temp dir via NSTemporaryDirectory()).\& USERNAME is
+NSUserName() with other characters stripped, falling back to uid.\&
 .PP
 .RE
 .SH EXAMPLES
