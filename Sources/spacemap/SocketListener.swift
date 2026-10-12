@@ -14,6 +14,7 @@ final class SocketListener {
     private var isStopped = false
     private var restartScheduled = false
     private let listenerQueue = DispatchQueue(label: "com.spacemap.socketlistener")
+    private let clientQueue = DispatchQueue(label: "com.spacemap.socketlistener.client", attributes: .concurrent)
     private let queueKey = DispatchSpecificKey<Void>()
 
     init(socketPath: String, healthInterval: Int = 60, onRefresh: @escaping () -> Void, onShow: @escaping () -> Void, onToggle: @escaping () -> Void, onSettings: @escaping () -> Void) {
@@ -226,7 +227,9 @@ final class SocketListener {
     /// One readiness event can queue several connects. Drain every
     /// pending client: handling one per event strands the rest with
     /// no later event to wake them (regression guard:
-    /// testStalledClientDoesNotBlockCommandsOrShutdown).
+    /// testStalledClientDoesNotBlockCommandsOrShutdown). Accept stays
+    /// lightweight on listenerQueue; each client reads on clientQueue so
+    /// grace waits never block the next accept.
     private func drain() {
         while !isStopped {
             let clientFd = Darwin.accept(serverFd, nil, nil)
@@ -238,7 +241,11 @@ final class SocketListener {
                 scheduleRestart()
                 break
             }
-            handleClient(clientFd)
+            let acceptedFd = clientFd
+            clientQueue.async { [weak self] in
+                guard let self else { close(acceptedFd); return }
+                self.handleClient(acceptedFd)
+            }
         }
     }
 
