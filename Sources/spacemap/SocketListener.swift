@@ -267,12 +267,12 @@ final class SocketListener {
         if flags >= 0 { _ = fcntl(clientFd, F_SETFL, flags | O_NONBLOCK) }
         // One write() can arrive split: accumulate until a complete frame,
         // a hard invalid shape, the cap, or a short deadline. A silent peer
-        // costs only the grace retries (~20ms).
+        // waits in poll() on this worker only — listenerQueue keeps
+        // draining, stop() never joins workers.
         var frame = Data()
         frame.reserveCapacity(96)
         var buf = [UInt8](repeating: 0, count: 96)
         let deadline = ProcessInfo.processInfo.systemUptime + 0.2
-        var grace = 0
         while frame.count < buf.count {
             let n = read(clientFd, &buf, buf.count - frame.count)
             if n > 0 {
@@ -285,29 +285,34 @@ final class SocketListener {
             if err == EINTR { continue }
             guard err == EAGAIN || err == EWOULDBLOCK else { break }
             // Empty frame with EAGAIN means the peer connected but has
-            // not written yet — not proof of a silent peer. Retry within
-            // the deadline; a truly silent peer only costs ~20ms.
+            // not written yet — not proof of a silent peer. Wait for
+            // readability bounded by the deadline; a truly silent peer
+            // costs one worker in poll(), nothing else.
             if Self.isCompleteFrame(frame) || Self.isInvalidPrefix(frame) { break }
-            grace += 1
-            if grace > 2 || ProcessInfo.processInfo.systemUptime >= deadline { break }
-            Thread.sleep(forTimeInterval: 0.01)
+            let remaining = deadline - ProcessInfo.processInfo.systemUptime
+            guard remaining > 0 else { break }
+            var pfd = pollfd(fd: clientFd, events: Int16(POLLIN), revents: 0)
+            guard Darwin.poll(&pfd, 1, Int32(min(remaining * 1000, 200))) > 0 else { break }
         }
         let nonce = SpacemapCommand.currentNonceHex(for: socketPath)
         guard !frame.isEmpty, let cmd = Self.parseFrame(frame, nonce: nonce) else { return }
 
-        DispatchQueue.main.async {
-            switch cmd {
-            case .show:
-                self.onShow()
-            case .settings:
-                self.onSettings()
-            case .toggle:
-                self.onToggle()
-            case .refresh:
-                self.onRefresh()
-            case .health:
-                break
-            }
+        // Inline delivery on this worker, never main.async: a waiter with
+        // no pumped main runloop (swift test, CLI) still observes the
+        // command (regression guard:
+        // testStalledClientDoesNotBlockCommandsOrShutdown). UI callers
+        // hop to the main queue themselves.
+        switch cmd {
+        case .show:
+            self.onShow()
+        case .settings:
+            self.onSettings()
+        case .toggle:
+            self.onToggle()
+        case .refresh:
+            self.onRefresh()
+        case .health:
+            break
         }
     }
 
