@@ -149,7 +149,8 @@ final class SocketListenerTests: XCTestCase {
     }
 
     private func temporarySocketPath() -> String {
-        "/private/tmp/spacemap-tests-\(UUID().uuidString).socket"
+        // Short name: the full path must stay within sun_path (103 bytes).
+        (NSTemporaryDirectory() as NSString).appendingPathComponent("sp-t-\(UUID().uuidString.prefix(8)).socket")
     }
 
     private func waitForSocket(at path: String, timeout: TimeInterval = 1) -> Bool {

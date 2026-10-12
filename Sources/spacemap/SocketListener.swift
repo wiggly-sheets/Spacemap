@@ -24,6 +24,10 @@ final class SocketListener {
         self.onToggle = onToggle
         self.onSettings = onSettings
         listenerQueue.setSpecific(key: queueKey, value: ())
+        guard SpacemapCommand.validatedSocketPath(socketPath) != nil else {
+            fputs("spacemap/SocketListener: refusing invalid socket path\n", stderr)
+            return
+        }
         listenerQueue.async { self.start() }
     }
 
@@ -37,7 +41,8 @@ final class SocketListener {
         let pathBytes = socketPath.utf8CString
         withUnsafeMutableBytes(of: &addr.sun_path) { dest in
             pathBytes.withUnsafeBytes { src in
-                dest.copyMemory(from: UnsafeRawBufferPointer(start: src.baseAddress,
+                guard let base = src.baseAddress else { return }
+                dest.copyMemory(from: UnsafeRawBufferPointer(start: base,
                                                                  count: min(src.count, dest.count - 1)))
             }
         }
@@ -53,7 +58,10 @@ final class SocketListener {
         if let nonce = SpacemapCommand.currentNonceHex(for: socketPath) {
             frame.append(contentsOf: (":" + nonce).utf8)
         }
-        let wroteCommand = frame.withUnsafeBytes { write(sock, $0.baseAddress!, $0.count) } == frame.count
+        let wroteCommand: Bool = frame.withUnsafeBytes { ptr in
+            guard let base = ptr.baseAddress else { return false }
+            return write(sock, base, ptr.count) == frame.count
+        }
         close(sock)
         return wroteCommand
     }
@@ -76,12 +84,24 @@ final class SocketListener {
 
     private func start() {
         guard !isStopped else { return }
-        // Fail closed on a pre-existing symlink: never bind through a link
-        // another user planted. Unlink then bind fresh so we own the node.
-        if (try? FileManager.default.destinationOfSymbolicLink(atPath: socketPath)) != nil {
-            fputs("spacemap/SocketListener: refusing symlink at socket path — removing\n", stderr)
+        guard SpacemapCommand.validatedSocketPath(socketPath) != nil else {
+            fputs("spacemap/SocketListener: refusing invalid socket path\n", stderr)
+            return
         }
-        unlink(socketPath)
+        // Fail closed on a pre-existing symlink: never bind through a link
+        // another user planted. Refuse; operator removes it.
+        var existing = stat()
+        if lstat(socketPath, &existing) == 0 {
+            if (existing.st_mode & S_IFMT) == S_IFLNK {
+                fputs("spacemap/SocketListener: refusing symlink at socket path\n", stderr)
+                return
+            }
+            guard existing.st_uid == getuid() else {
+                fputs("spacemap/SocketListener: refusing foreign-owned socket path\n", stderr)
+                return
+            }
+            unlink(socketPath)
+        }
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else {
@@ -94,7 +114,8 @@ final class SocketListener {
         let pathBytes = socketPath.utf8CString
         withUnsafeMutableBytes(of: &addr.sun_path) { dest in
             pathBytes.withUnsafeBytes { src in
-                dest.copyMemory(from: UnsafeRawBufferPointer(start: src.baseAddress,
+                guard let base = src.baseAddress else { return }
+                dest.copyMemory(from: UnsafeRawBufferPointer(start: base,
                                                                  count: min(src.count, dest.count - 1)))
             }
         }
@@ -152,12 +173,32 @@ final class SocketListener {
         if rest.isEmpty { return command(for: first) }
         if rest.count == 1, rest.first == 0x0A { return command(for: first) }
         guard rest.first == UInt8(ascii: ":") else { return nil }
-        let hex = String(bytes: rest.dropFirst(), encoding: .utf8) ?? ""
+        var hexData = rest.dropFirst()
+        if hexData.last == 0x0A { hexData = hexData.dropLast() }
+        let hex = String(bytes: hexData, encoding: .utf8) ?? ""
         guard let nonce, hex == nonce else {
             fputs("spacemap/SocketListener: nonce mismatch — dropping frame\n", stderr)
             return nil
         }
         return command(for: first)
+    }
+
+    /// Frame shapes from parseFrame: lone byte, byte + "\n", or
+    /// byte + ":" + 64 hex nonce (67 max with trailing newline).
+    private static func isCompleteFrame(_ frame: Data) -> Bool {
+        guard !frame.isEmpty else { return false }
+        if frame.count == 1 { return true }
+        if frame.count == 2, frame[frame.index(after: frame.startIndex)] == 0x0A { return true }
+        return frame.count >= 66
+    }
+
+    /// No valid frame starts this way: more waiting cannot fix it.
+    private static func isInvalidPrefix(_ frame: Data) -> Bool {
+        guard frame.count >= 2 else { return false }
+        let second = frame[frame.index(after: frame.startIndex)]
+        if second == UInt8(ascii: ":") { return false }
+        if frame.count == 2, second == 0x0A { return false }
+        return true
     }
 
     private static func currentNonceHex() -> String? {
@@ -183,18 +224,38 @@ final class SocketListener {
             return
         }
 
+        // Client fd must not block: a connected-but-silent peer would
+        // stall the whole listener queue (regression guard:
+        // testStalledClientDoesNotBlockCommandsOrShutdown).
+        let flags = fcntl(clientFd, F_GETFL, 0)
+        if flags >= 0 { _ = fcntl(clientFd, F_SETFL, flags | O_NONBLOCK) }
+        // One write() can arrive split: accumulate until a complete frame,
+        // a hard invalid shape, the cap, or a short deadline. A silent peer
+        // returns on the first EAGAIN with no wait.
+        var frame = Data()
+        frame.reserveCapacity(96)
         var buf = [UInt8](repeating: 0, count: 96)
-        let bytesRead: Int
-        do {
-            // Client fd must not block: a connected-but-silent peer would
-            // stall the whole listener queue (regression guard:
-            // testStalledClientDoesNotBlockCommandsOrShutdown).
-            let flags = fcntl(clientFd, F_GETFL, 0)
-            if flags >= 0 { _ = fcntl(clientFd, F_SETFL, flags | O_NONBLOCK) }
-            bytesRead = read(clientFd, &buf, buf.count)
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.2
+        var grace = 0
+        while frame.count < buf.count {
+            let n = read(clientFd, &buf, buf.count - frame.count)
+            if n > 0 {
+                frame.append(contentsOf: buf.prefix(n))
+                if Self.isCompleteFrame(frame) { break }
+                continue
+            }
+            if n == 0 { break }
+            let err = errno
+            if err == EINTR { continue }
+            guard err == EAGAIN || err == EWOULDBLOCK else { break }
+            if frame.isEmpty { break }
+            if Self.isCompleteFrame(frame) || Self.isInvalidPrefix(frame) { break }
+            grace += 1
+            if grace > 2 || ProcessInfo.processInfo.systemUptime >= deadline { break }
+            Thread.sleep(forTimeInterval: 0.01)
         }
         let nonce = SpacemapCommand.currentNonceHex(for: socketPath)
-        guard bytesRead > 0, let cmd = Self.parseFrame(Data(buf.prefix(bytesRead)), nonce: nonce) else { return }
+        guard !frame.isEmpty, let cmd = Self.parseFrame(frame, nonce: nonce) else { return }
 
         DispatchQueue.main.async {
             switch cmd {
@@ -226,7 +287,16 @@ final class SocketListener {
     private func tearDownSocket() {
         healthTimer?.cancel(); healthTimer = nil
         source?.cancel(); source = nil
-        unlink(socketPath)
+        unlinkIfOwned(socketPath)
+        unlinkIfOwned(socketPath + ".nonce")
+    }
+
+    /// unlink() never follows symlinks; uid gate stops foreign-planted link removal.
+    private func unlinkIfOwned(_ path: String) {
+        var st = stat()
+        guard lstat(path, &st) == 0 else { return }
+        guard st.st_uid == getuid() else { return }
+        unlink(path)
     }
 
     private func startHealthTimer() {
@@ -242,7 +312,7 @@ final class SocketListener {
         let fileExists = FileManager.default.fileExists(atPath: socketPath)
         var ownedBySelf = false
         var statBuf = stat()
-        if stat(socketPath, &statBuf) == 0 {
+        if lstat(socketPath, &statBuf) == 0 {
             ownedBySelf = statBuf.st_uid == getuid() && (statBuf.st_mode & S_IFMT) == S_IFSOCK
         }
         guard fdValid && fileExists && ownedBySelf else {
