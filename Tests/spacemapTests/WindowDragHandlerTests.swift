@@ -260,8 +260,10 @@ final class WindowDragHandlerTests: XCTestCase {
 
         handler.handleMouseDown(at: CGPoint(x: 10, y: 10))
         handler.handleDrag(at: CGPoint(x: 30, y: 30))
-        handler.handleMouseUp(at: CGPoint(x: 30, y: 30), modifiers: [])
+        // Delivery is synchronous, so a stop must precede the mouse-up to
+        // cancel the drop: the stopped handler holds no drag state.
         handler.stop()
+        handler.handleMouseUp(at: CGPoint(x: 30, y: 30), modifiers: [])
 
         wait(for: [dropped], timeout: 0.1)
     }

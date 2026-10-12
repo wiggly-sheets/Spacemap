@@ -196,26 +196,32 @@ class WindowDragHandler: WindowDragService {
         let cell = cellSpaceIndex(forCG: cgPoint)
         if cell != lastHoveredCell {
             lastHoveredCell = cell
-            DispatchQueue.main.async { [weak self] in self?.onHoverCell?(cell) }
+            // Inline delivery, never main.async: a waiter with no pumped
+            // main runloop (swift test) still observes the hover
+            // (stall guards: testHandleDragCallsOnHoverCell). Event-tap
+            // callers already run on the main thread.
+            onHoverCell?(cell)
         }
     }
 
     func handleMouseUp(at cgPoint: CGPoint, modifiers: CGEventFlags) {
-        let deliveryGeneration = eventTapGeneration
         defer { reset() }
         guard isDragging,
               let cell = cellSpaceIndex(forCG: cgPoint),
               let windowID = draggedWindowID else {
             if lastHoveredCell != nil {
-                DispatchQueue.main.async { [weak self] in self?.onHoverCell?(nil) }
+                // Inline hover-clear for the same reason as handleDrag.
+                onHoverCell?(nil)
             }
             return
         }
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.eventTapGeneration == deliveryGeneration else { return }
-            self.onHoverCell?(nil)
-            self.onDropInCell?(windowID, cell, modifiers)
-        }
+        // Inline drop delivery: the event tap fires on the main thread,
+        // so UI observers need no hop, and swift-test waiters observe the
+        // drop without a pumped main runloop (stall guard:
+        // testHandleMouseUpTriggersOnDropInCell). A stop() before mouse-up
+        // already clears isDragging, so no stale drop can deliver.
+        onHoverCell?(nil)
+        onDropInCell?(windowID, cell, modifiers)
     }
 
     func cellSpaceIndex(forCG cgPoint: CGPoint) -> Int? {
