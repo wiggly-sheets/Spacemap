@@ -1,8 +1,13 @@
 import SwiftUI
 import AppKit
+import Combine
 
 struct CellView: View {
     @ObservedObject private var thumbnailStore = ThumbnailStore.shared
+    /// Bumped on every IconCache.didChange so async resolves repaint the
+    /// cached-only icon reads below. Never read directly: the write alone
+    /// invalidates the view.
+    @State private var iconGeneration = 0
 
     let spaceIndex: Int
     let spaceLabel: String?
@@ -128,6 +133,9 @@ var body: some View {
         )
         .frame(width: GridLayout.cellSize(forEffectiveScale: uiScale).width, height: GridLayout.cellSize(forEffectiveScale: uiScale).height)
         .onTapGesture { onSelect(spaceIndex) }
+        .onReceive(NotificationCenter.default.publisher(for: IconCache.didChange)) { _ in
+            iconGeneration += 1
+        }
     }
     
     private enum CellOpacity {
@@ -294,6 +302,8 @@ var body: some View {
     }
     
     private func appIcon(for appName: String) -> NSImage? {
+        // Reads iconGeneration so didChange bumps repaint this view.
+        _ = iconGeneration
         if let cached = IconCache.shared.cachedIcon(for: appName) { return cached }
         IconCache.shared.resolveInBackground(appName: appName)
         return nil
