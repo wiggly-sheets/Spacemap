@@ -251,13 +251,13 @@ extension HUDWindowController: HUDInputDelegate {
         // Chain the refresh after the create lands: poll for the new max
         // index instead of refreshing against the pre-create snapshot.
         // Plain create never steals focus — only createAndFocus does.
-        // beforeMax is captured synchronously before the create is enqueued:
-        // createSpace() runs async on focusQueue, so reading inside the
-        // yabaiQueue block would race it. Pre-capture keeps snapshot pre-create.
+        // beforeMax is read on yabaiQueue before the create is enqueued:
+        // createSpace() runs async on focusQueue, so the snapshot is still
+        // pre-create without blocking the main thread on a yabai query.
         let generation = presentationGeneration
-        let beforeMax = (try? services.yabaiService.querySpaces())?.map(\.index).max()
         services.yabaiService.runOnYabaiQueue { [weak self] in
             guard let self else { return }
+            let beforeMax = (try? self.services.yabaiService.querySpaces())?.map(\.index).max()
             self.services.yabaiService.createSpace()
             self.pollForNewestSpace(beforeMax: beforeMax, generation: generation, attempts: 0, shouldFocus: false)
         }
@@ -265,9 +265,9 @@ extension HUDWindowController: HUDInputDelegate {
     func createAndFocusNewestSpace() {
         refresh()
         let generation = presentationGeneration
-        let beforeMax = (try? services.yabaiService.querySpaces())?.map(\.index).max()
         services.yabaiService.runOnYabaiQueue { [weak self] in
             guard let self else { return }
+            let beforeMax = (try? self.services.yabaiService.querySpaces())?.map(\.index).max()
             self.services.yabaiService.createSpace()
             self.pollForNewestSpace(beforeMax: beforeMax, generation: generation, attempts: 0)
         }

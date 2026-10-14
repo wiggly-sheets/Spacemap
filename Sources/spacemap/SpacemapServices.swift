@@ -118,6 +118,7 @@ final class SpacemapServices {
     }
     func updateSparkleConfig(updateMode: UpdateMode) { configureSparkleUpdater(updateMode: updateMode) }
     func showYabaiAlert() { alertsService.showYabaiAlert() }
+    func showYabaiUntrustedAlert(detail: String, refusing: Bool) { alertsService.showYabaiUntrustedAlert(detail: detail, refusing: refusing) }
     func isMRUSpacesEnabled() -> Bool { alertsService.isMRUSpacesEnabled() }
     func showMRUAlert() { alertsService.showMRUAlert() }
     func showSeparateSpacesAlert() { alertsService.showSeparateSpacesAlert() }

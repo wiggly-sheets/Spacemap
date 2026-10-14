@@ -47,4 +47,12 @@ protocol YabaiService {
     func moveWindowCreatingSpacesIfNeeded(_ windowID: Int, toSpace targetIndex: Int, focusDestination: Bool, completion: @escaping (Result<Void, Error>) -> Void)
 
     func buildGridState(config: GridConfig, focusedIndex: Int?) -> GridState
+
+    /// Ownership/signature trust failure for the yabai binary, or nil when
+    /// trusted. Default nil so test doubles stay conforming.
+    func yabaiTrustIssue() -> String?
+}
+
+extension YabaiService {
+    func yabaiTrustIssue() -> String? { nil }
 }
