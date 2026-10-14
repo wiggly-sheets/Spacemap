@@ -147,6 +147,14 @@ trap 'rm -rf "$work_directory"' EXIT
 existing_appcast_path="${work_directory}/existing.xml"
 generated_appcast_path="${work_directory}/generated.xml"
 
+case "$APPCAST_URL" in
+    https://*) ;;
+    *)
+        echo "APPCAST_URL must use https" >&2
+        exit 1
+        ;;
+esac
+
 if curl -fL --silent --show-error --max-time 30 "$APPCAST_URL" --output "$existing_appcast_path"; then
     validate_appcast "$existing_appcast_path"
     generate_appcast "$existing_appcast_path" > "$generated_appcast_path"

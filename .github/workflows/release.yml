@@ -202,6 +202,12 @@ jobs:
           shasum -a 256 spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg > checksums.txt
           cat checksums.txt
 
+      - name: Verify Sparkle dependency pin
+        run: |
+          test "$(jq -r '.pins[] | select(.identity == "sparkle") | .state.version' Package.resolved)" = "2.9.5" || { echo "::error::Package.resolved Sparkle version is not 2.9.5"; exit 1; }
+          test "$(jq -r '.pins[] | select(.identity == "sparkle") | .state.revision' Package.resolved)" = "79bc9e872948e47877e76f194cb0c8e0412b0b90" || { echo "::error::Package.resolved Sparkle revision mismatch"; exit 1; }
+          grep -q 'exact: "2.9.5"' Package.swift || { echo "::error::Package.swift must pin Sparkle exact 2.9.5"; exit 1; }
+
       - name: Generate Sparkle appcast + signature
         env:
           VERSION: ${{ steps.version.outputs.tag }}
@@ -210,12 +216,14 @@ jobs:
           RELEASES_URL: https://github.com/wiggly-sheets/Spacemap/releases/download/v${{ steps.version.outputs.tag }}
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           MAX_ITEMS: ${{ env.APPCAST_MAX_ITEMS }}
+          SPARKLE_VERSION: "2.9.5"
+          SPARKLE_SHA256: "015336b601493e05c237964954bff6191370003d94edefe663724c88840d73cc"
         run: |
           export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
-          # Download Sparkle's sign_update tool. The key pair was validated
-          # before the build, so the resulting signature matches the public
-          # key embedded in the app bundle.
-          curl -sL "https://github.com/sparkle-project/Sparkle/releases/download/2.9.4/Sparkle-2.9.4.tar.xz" | tar -xJ
+          # Pinned Sparkle sign_update tool: version + SHA256 checked before unpack.
+          curl -sSL --fail "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" -o /tmp/Sparkle.tar.xz
+          echo "${SPARKLE_SHA256}  /tmp/Sparkle.tar.xz" | shasum -a 256 -c -
+          tar -xJ -f /tmp/Sparkle.tar.xz
           printf '%s' "$SPARKLE_PRIVATE_KEY" | ./bin/sign_update --ed-key-file - -p "spacemap-$VERSION-universal.dmg" > sig.txt
           export ED_SIGNATURE=$(tr -d '\r\n' < sig.txt)
           test -n "$ED_SIGNATURE"
