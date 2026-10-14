@@ -113,6 +113,7 @@ _assemble:
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" $(BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
+	@test -n "$(SPARKLE_PUBLIC_KEY)" || { echo "SPARKLE_PUBLIC_KEY is empty — set env or sparklesigner.pub"; exit 1; }
 	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	# Copy Sparkle framework (extract from xcframework structure)
 	@test -n "$(SPARKLE_FRAMEWORK)" || { echo "Sparkle.framework not found under .build/artifacts/sparkle/Sparkle/Sparkle.xcframework"; exit 1; }
