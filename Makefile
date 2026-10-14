@@ -13,6 +13,9 @@ BUILD_ARM64 = .build/arm64-apple-macosx/release
 BUILD_X86_64 = .build/x86_64-apple-macosx/release
 # Sparkle public key for update verification (set via env or read from sparklesigner.pub)
 SPARKLE_PUBLIC_KEY ?= $(shell cat sparklesigner.pub 2>/dev/null | tr -d '\n')
+# Release builds must embed SUPublicEDKey; dev/CI builds warn and skip it.
+# Release entry points (archive, dmg*, release workflow) set REQUIRE_SPARKLE_KEY=1.
+REQUIRE_SPARKLE_KEY ?= 0
 # Deferred (=, not :=): the xcframework slice triplet changes with the toolchain,
 # and the directory only exists after the build prerequisite fetches artifacts.
 SPARKLE_FRAMEWORK = $(firstword $(wildcard .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-*/Sparkle.framework))
@@ -77,28 +80,28 @@ app: BUNDLE = $(APP_BUNDLE)
 app: BIN_SRC = $(BUILD_DIR)/$(BINARY_NAME)
 app: DONE_MSG = Built $(APP_BUNDLE)
 app: build man
-	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)"
+	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)" REQUIRE_SPARKLE_KEY=$(REQUIRE_SPARKLE_KEY)
 	@echo "$(DONE_MSG)"
 
 app-arm64: BUNDLE = $(APP_NAME)-arm64.app
 app-arm64: BIN_SRC = $(BUILD_ARM64)/$(BINARY_NAME)
 app-arm64: DONE_MSG = Built $(APP_NAME)-arm64.app (Apple Silicon)
 app-arm64: build-arm64 man
-	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)"
+	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)" REQUIRE_SPARKLE_KEY=$(REQUIRE_SPARKLE_KEY)
 	@echo "$(DONE_MSG)"
 
 app-x86_64: BUNDLE = $(APP_NAME)-x86_64.app
 app-x86_64: BIN_SRC = $(BUILD_X86_64)/$(BINARY_NAME)
 app-x86_64: DONE_MSG = Built $(APP_NAME)-x86_64.app (Intel)
 app-x86_64: build-x86_64 man
-	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)"
+	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)" REQUIRE_SPARKLE_KEY=$(REQUIRE_SPARKLE_KEY)
 	@echo "$(DONE_MSG)"
 
 app-universal: BUNDLE = $(APP_BUNDLE)
 app-universal: BIN_SRC = .build/universal/release/$(BINARY_NAME)
 app-universal: DONE_MSG = Built $(APP_BUNDLE) (Universal: arm64 + x86_64)
 app-universal: build-universal man
-	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)"
+	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)" REQUIRE_SPARKLE_KEY=$(REQUIRE_SPARKLE_KEY)
 	@echo "$(DONE_MSG)"
 
 _assemble:
@@ -113,8 +116,13 @@ _assemble:
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" $(BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
-	@test -n "$(SPARKLE_PUBLIC_KEY)" || { echo "SPARKLE_PUBLIC_KEY is empty — set env or sparklesigner.pub"; exit 1; }
-	/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
+	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
+		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true; \
+	elif [ "$(REQUIRE_SPARKLE_KEY)" = "1" ] || echo " $(MAKECMDGOALS) " | grep -Eq ' (release|archive|dmg|dmg-arm64|dmg-x86_64|dmg-universal)( |$$)'; then \
+		echo "ERROR: SPARKLE_PUBLIC_KEY is empty — set env or sparklesigner.pub (required for release builds)"; exit 1; \
+	else \
+		echo "warning: SPARKLE_PUBLIC_KEY is empty — skipping SUPublicEDKey (dev build only; release builds require it)"; \
+	fi
 	# Copy Sparkle framework (extract from xcframework structure)
 	@test -n "$(SPARKLE_FRAMEWORK)" || { echo "Sparkle.framework not found under .build/artifacts/sparkle/Sparkle/Sparkle.xcframework"; exit 1; }
 	cp -R "$(SPARKLE_FRAMEWORK)" $(BUNDLE)/Contents/Frameworks/
@@ -146,6 +154,10 @@ verify-localizations:
 		fi; \
 	done
 	@echo "Verified $(words $(LOCALIZATION_NAMES)) localizations in $(BUNDLE)"
+
+# Release entry points require the Sparkle key. The value reaches _assemble
+# via prerequisite inheritance plus explicit forwarding in app-* recipes.
+archive dmg dmg-arm64 dmg-x86_64 dmg-universal: REQUIRE_SPARKLE_KEY = 1
 
 archive: app
 	rm -rf $(STAGE) $(ARCHIVE)
@@ -271,6 +283,7 @@ permissions:
 
 release:
 	@test -n "$(RELEASE)" || (echo "Usage: make release RELEASE=x.y.z" && exit 1)
+	@test -n "$(SPARKLE_PUBLIC_KEY)" || (echo "ERROR: SPARKLE_PUBLIC_KEY is empty — set env or sparklesigner.pub (required for release builds)" && exit 1)
 	@# Auto-generate changelog entry from git diff
 	@chmod +x scripts/generate-changelog.sh
 	@scripts/generate-changelog.sh "$(RELEASE)"

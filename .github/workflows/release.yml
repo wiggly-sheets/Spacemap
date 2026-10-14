@@ -86,17 +86,17 @@ jobs:
       - name: Build app bundle (ARM64)
         run: |
           rm -rf .build
-          make app-arm64
+          make app-arm64 REQUIRE_SPARKLE_KEY=1
 
       - name: Build app bundle (x86_64)
         run: |
           rm -rf .build
-          make app-x86_64
+          make app-x86_64 REQUIRE_SPARKLE_KEY=1
 
       - name: Build app bundle (universal)
         run: |
           rm -rf .build
-          make app-universal
+          make app-universal REQUIRE_SPARKLE_KEY=1
 
       - name: Verify bundled versions and localizations
         run: |
