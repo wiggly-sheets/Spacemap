@@ -159,10 +159,14 @@ final class IconCache {
                 return
             }
             self.lock.lock()
-            let stale = gen != self.generation
+            if gen != self.generation {
+                self.lock.unlock()
+                return
+            }
+            self.bundlePathByName[appName] = path
             self.lock.unlock()
-            if !stale { self.remember(path: path, for: appName) }
             DispatchQueue.main.async {
+                let icon = self.workspace.icon(forFile: path)
                 self.lock.lock()
                 // Post-clear lookup must not store into the fresh state.
                 // clear() already fired these completions with nil, and a
@@ -171,7 +175,19 @@ final class IconCache {
                     self.lock.unlock()
                     return
                 }
-                let image = self.store(self.workspace.icon(forFile: path), for: appName)
+                self.lock.unlock()
+                let image = self.store(icon, for: appName)
+                self.lock.lock()
+                // Recheck under lock after store: store released the lock,
+                // so clear() may have run mid-store and this entry resurrects stale.
+                if gen != self.generation {
+                    self.cache.removeValue(forKey: appName)
+                    if let index = self.order.firstIndex(of: appName) { self.order.remove(at: index) }
+                    self.inFlight.remove(appName)
+                    self.pendingCompletions.removeValue(forKey: appName)
+                    self.lock.unlock()
+                    return
+                }
                 self.inFlight.remove(appName)
                 self.unresolvedUntil.removeValue(forKey: appName)
                 let completions = self.pendingCompletions.removeValue(forKey: appName) ?? []
@@ -247,6 +263,10 @@ final class IconCache {
     @discardableResult
     // Internal for the LRU test; production callers use icon/cachedIcon.
     func store(_ icon: NSImage, for appName: String) -> NSImage {
+        // Main-only: NSImage sizing races draw off-main. Callers hop via
+        // main.async (icon() guards, resolveInBackground dispatches).
+        // Never main.sync here: main waiting on cache lock deadlocks.
+        assert(Thread.isMainThread)
         icon.size = NSSize(width: 64, height: 64)
         lock.lock()
         cache[appName] = icon
@@ -274,9 +294,12 @@ final class IconCache {
     /// Last resort for apps that are neither running nor cached: one mdfind by
     /// display name, validated to a real .app bundle. Slow — background only.
     private static func pathViaSpotlight(appName: String) -> String? {
-        // Fail closed: quote/control chars never reach the predicate.
+        // Fail closed: quote/control chars never reach the predicate, and
+        // glob metacharacters (*?[]) never reach mdfind's wildcard match.
         guard appName.rangeOfCharacter(from: .controlCharacters) == nil,
-              !appName.contains("'"), !appName.contains("\"") else { return nil }
+              !appName.contains("'"), !appName.contains("\""),
+              !appName.contains("*"), !appName.contains("?"),
+              !appName.contains("["), !appName.contains("]") else { return nil }
         let escaped = appName.replacingOccurrences(of: "\\", with: "\\\\")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/mdfind")

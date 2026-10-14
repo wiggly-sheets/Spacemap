@@ -1,3 +1,4 @@
+import Carbon
 import CoreGraphics
 import Foundation
 
@@ -63,6 +64,8 @@ enum ThumbnailRequestBuilder {
         knownYabaiWindowIDs: Set<CGWindowID>,
         currentPID: pid_t
     ) -> Bool {
+        // Secure input (password field): skip unmanaged windows entirely.
+        guard !IsSecureEventInputEnabled() else { return false }
         guard isOnScreen, windowLayer >= 0,
               let ownerPID, ownerPID != currentPID,
               !knownYabaiWindowIDs.contains(windowID),

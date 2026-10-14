@@ -415,6 +415,9 @@ struct GridConfig: Equatable {
     var showHUDOnSpaceChange: Bool = false
     var updateMode: UpdateMode
     var appFont: AppFontConfig = .default
+    /// Refuse to execute a yabai binary that fails the ownership/signature
+    /// trust check. Default false: warn-only so legit installs never brick.
+    var refuseUntrustedYabai: Bool = false
 
     /// Space name profiles — each stores a set of space names and a glyph strip config.
     var spaceNameProfiles: [SpaceNameProfile] = [SpaceNameProfile.default]

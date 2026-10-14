@@ -310,31 +310,30 @@ final class AppGlyphFont {
     /// Table records are 16 bytes (tag, checksum, offset, length); the `meta`
     /// table's own records are 12 bytes with the same field order.
     static func appMetadataPayload(in data: Data) -> Data? {
-        let bytes = [UInt8](data)
-
         func uint16(at offset: Int) -> Int? {
-            guard offset >= 0, offset + 2 <= bytes.count else { return nil }
-            return Int(bytes[offset]) << 8 | Int(bytes[offset + 1])
+            guard offset >= 0, offset + 2 <= data.count else { return nil }
+            return Int(data[offset]) << 8 | Int(data[offset + 1])
         }
         func uint32(at offset: Int) -> Int? {
-            guard offset >= 0, offset + 4 <= bytes.count else { return nil }
-            return Int(bytes[offset]) << 24 | Int(bytes[offset + 1]) << 16
-                | Int(bytes[offset + 2]) << 8 | Int(bytes[offset + 3])
+            guard offset >= 0, offset + 4 <= data.count else { return nil }
+            return Int(data[offset]) << 24 | Int(data[offset + 1]) << 16
+                | Int(data[offset + 2]) << 8 | Int(data[offset + 3])
         }
         func tag(at offset: Int) -> String? {
-            guard offset >= 0, offset + 4 <= bytes.count else { return nil }
-            return String(bytes: bytes[offset..<(offset + 4)], encoding: .isoLatin1)
+            guard offset >= 0, offset + 4 <= data.count else { return nil }
+            return String(data: data[offset..<(offset + 4)], encoding: .isoLatin1)
         }
 
-        guard let tableCount = uint16(at: 4) else { return nil }
+        guard let tableCount = uint16(at: 4), tableCount <= 64 else { return nil }
 
         for index in 0..<tableCount {
             let record = 12 + index * 16
             guard tag(at: record) == "meta",
                   let tableOffset = uint32(at: record + 8),
                   let tableLength = uint32(at: record + 12),
-                  tableOffset + tableLength <= bytes.count,
-                  let recordCount = uint32(at: tableOffset + 12) else { continue }
+                  tableOffset + tableLength <= data.count,
+                  let recordCount = uint32(at: tableOffset + 12),
+                  recordCount <= 4096 else { continue }
 
             for entry in 0..<recordCount {
                 let metaRecord = tableOffset + 16 + entry * 12
@@ -343,7 +342,7 @@ final class AppGlyphFont {
                       let payloadLength = uint32(at: metaRecord + 8),
                       payloadOffset + payloadLength <= tableLength else { continue }
                 let start = tableOffset + payloadOffset
-                return Data(bytes[start..<(start + payloadLength)])
+                return Data(data[start..<(start + payloadLength)])
             }
         }
         return nil

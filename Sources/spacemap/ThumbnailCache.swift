@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Carbon
 import Combine
 import CoreGraphics
 import ScreenCaptureKit
@@ -101,8 +102,10 @@ final class ThumbnailCache {
     }
 
     private func run(_ job: RefreshJob) {
-        // Off-screen windows only matter when some request keeps unmanaged ones.
-        let onScreenOnly = !job.requests.contains(where: \.includeUnmanagedOnScreenWindows)
+        // Secure input gate before any fetch: never expand unmanaged windows,
+        // and force on-screen-only so the fetch itself stays narrow.
+        let secureInput = IsSecureEventInputEnabled()
+        let onScreenOnly = secureInput || !job.requests.contains(where: \.includeUnmanagedOnScreenWindows)
         Task {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(
@@ -119,7 +122,7 @@ final class ThumbnailCache {
                 )
                 let currentPID = getpid()
                 let effectiveRequests = job.requests.map { request in
-                    guard request.includeUnmanagedOnScreenWindows else { return request }
+                    guard request.includeUnmanagedOnScreenWindows, !secureInput else { return request }
                     let unmanagedWindows = content.windows.compactMap { window -> CaptureWindow? in
                         guard Self.shouldIncludeUnmanagedWindow(
                             windowID: window.windowID,
