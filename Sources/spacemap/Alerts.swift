@@ -2,6 +2,7 @@ import AppKit
 
 protocol AlertsService {
     func showYabaiAlert()
+    func showYabaiUntrustedAlert(detail: String, refusing: Bool)
     func isMRUSpacesEnabled() -> Bool
     func showMRUAlert()
     func showSeparateSpacesAlert()
@@ -35,6 +36,28 @@ final class AlertsServiceImpl: AlertsService {
             }
         }
         NSApp.terminate(nil)
+    }
+
+    func showYabaiUntrustedAlert(detail: String, refusing: Bool) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = NSLocalizedString("yabai binary is untrusted", comment: "")
+        let action = refusing
+            ? "Spacemap is refusing to run it (refuseUntrustedYabai is set)."
+            : "Spacemap will still run it, but verify your install source."
+        alert.informativeText = "\(detail). \(action)"
+        alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Open yabai", comment: ""))
+        let response = alert.runModal()
+        if response == .alertSecondButtonReturn {
+            if let url = URL(string: "https://github.com/koekeishiya/yabai"),
+               url.scheme == "https", url.host == "github.com" {
+                _ = workspace.open(url)
+            }
+        }
+        NSApp.setActivationPolicy(.prohibited)
     }
 
     func isMRUSpacesEnabled() -> Bool {

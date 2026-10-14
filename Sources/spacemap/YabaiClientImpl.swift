@@ -22,9 +22,9 @@ class YabaiClientImpl: YabaiService {
         let dropped = decoded.filter { $0.value == nil }.count
         if dropped > 0 {
             Self.dropLock.lock()
+            defer { Self.dropLock.unlock() }
             let last = Self.lastDropCounts[label]
             Self.lastDropCounts[label] = dropped
-            Self.dropLock.unlock()
             if last != dropped { NSLog("spacemap/yabai: dropped %d malformed %@ entries", dropped, label) }
         }
         return decoded.compactMap(\.value)
@@ -69,37 +69,76 @@ class YabaiClientImpl: YabaiService {
     var yabaiProcessCheck: () -> Bool = { false }
 
     init() {
-        yabaiProcessCheck = { [unowned self] in self.defaultYabaiProcessCheck() }
+        yabaiProcessCheck = { [weak self] in guard let self else { return false }; return self.defaultYabaiProcessCheck() }
         let path = yabaiPath
         DispatchQueue.global(qos: .utility).async {
             Self.warnIfYabaiUntrusted(path: path)
         }
     }
 
-    /// Warn-only trust check: yabai runs with elevated scripting privileges,
-    /// so a binary owned by someone else (or with a broken signature) is
-    /// worth shouting about. Refusing would brick legit installs.
-    private static func warnIfYabaiUntrusted(path: String) {
+    /// Refuse to execute the yabai binary when the trust check fails.
+    /// Set from GridConfig.refuseUntrustedYabai at launch; default false
+    /// (warn-only) so legit installs never brick.
+    static var refuseUntrustedBinaries = false
+
+    private static let trustLock = NSLock()
+    private static var trustCache: (path: String, issue: String?, checkedAt: TimeInterval)?
+    private static let trustCacheTTL: TimeInterval = 30
+
+    /// Cached trust check: codesign per shell() is a process spawn per query.
+    static func cachedTrustIssue(path: String) -> String? {
+        trustLock.lock()
+        let cached = trustCache
+        trustLock.unlock()
+        let now = ProcessInfo.processInfo.systemUptime
+        if let cached, cached.path == path, now - cached.checkedAt < trustCacheTTL {
+            return cached.issue
+        }
+        let issue = trustIssue(path: path)
+        trustLock.lock()
+        trustCache = (path, issue, ProcessInfo.processInfo.systemUptime)
+        trustLock.unlock()
+        return issue
+    }
+
+    func yabaiTrustIssue() -> String? {
+        Self.trustIssue(path: yabaiPath)
+    }
+
+    /// Pure trust check: owner is root/self plus a valid codesign. Nil when
+    /// trusted, human-readable detail otherwise. warnIfYabaiUntrusted logs it;
+    /// the lifecycle surfaces it in the yabai alert UI.
+    static func trustIssue(path: String) -> String? {
         var statBuf = stat()
         if stat(path, &statBuf) == 0 {
             let ownerOK = statBuf.st_uid == 0 || statBuf.st_uid == getuid()
             if !ownerOK {
-                NSLog("spacemap/yabai: untrusted owner (uid \(statBuf.st_uid)) on \(path) — expected root or self")
+                return "untrusted owner (uid \(statBuf.st_uid)) on \(path) — expected root or self"
             }
         }
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        task.arguments = ["-v", path]
+        task.arguments = ["-v", "--strict", path]
         task.standardOutput = FileHandle.nullDevice
         task.standardError = Pipe()
         do {
             try task.run()
             task.waitUntilExit()
             if task.terminationStatus != 0 {
-                NSLog("spacemap/yabai: codesign verify failed for \(path) — check your install source")
+                return "codesign verify failed for \(path) — check your install source"
             }
         } catch {
-            NSLog("spacemap/yabai: could not verify signature for \(path): \(error)")
+            return "could not verify signature for \(path): \(error)"
+        }
+        return nil
+    }
+
+    /// Warn-only trust check: yabai runs with elevated scripting privileges,
+    /// so a binary owned by someone else (or with a broken signature) is
+    /// worth shouting about. Refusing would brick legit installs.
+    private static func warnIfYabaiUntrusted(path: String) {
+        if let issue = trustIssue(path: path) {
+            NSLog("spacemap/yabai: \(issue)")
         }
     }
 
@@ -145,7 +184,7 @@ class YabaiClientImpl: YabaiService {
     }
 
     func resetYabaiProcessCheck() {
-        yabaiProcessCheck = { [unowned self] in self.defaultYabaiProcessCheck() }
+        yabaiProcessCheck = { [weak self] in guard let self else { return false }; return self.defaultYabaiProcessCheck() }
         resetYabaiRunningCache()
     }
 
@@ -411,7 +450,12 @@ class YabaiClientImpl: YabaiService {
                 }
 
                 var spaces = try self.querySpacesRaw()
+                var attempts = 0
                 while !spaces.contains(where: { $0.index == targetIndex }) {
+                    guard attempts < 16 else {
+                        throw YabaiError.spaceCreationMadeNoProgress(target: targetIndex)
+                    }
+                    attempts += 1
                     let previousIndices = Set(spaces.map(\.index))
                     guard FileManager.default.isExecutableFile(atPath: self.yabaiPath) else {
                         throw YabaiError.commandFailed(arguments: ["space", "--create"], status: -1, message: "yabai not found")
@@ -440,38 +484,85 @@ class YabaiClientImpl: YabaiService {
 
 
     func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
+        // NSScreen.main is main-only: capture on main, pass in.
+        let displayBounds = Self.mainDisplayBounds()
         // Callers already run off-main (yabai queue / utility queue), so query
         // directly instead of fanning out and blocking on group.wait.
         guard isYabaiRunning() else {
-            let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
             return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
         }
         let spaces = (try? querySpacesRaw()) ?? []
         let displays = cachedDisplays()
         let windows = (try? queryWindowsRaw()) ?? []
         let resolvedFocus = focusedIndex ?? spaces.first { $0.hasFocus }?.index
-        let displayBounds = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440)
         return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus, displays: displays)
+    }
+
+    private static let boundsLock = NSLock()
+    private static var cachedMainBounds = CGRect(x: 0, y: 0, width: 2560, height: 1440)
+
+    private static func mainDisplayBounds() -> CGRect {
+        let fallback = CGRect(x: 0, y: 0, width: 2560, height: 1440)
+        if Thread.isMainThread {
+            let bounds = NSScreen.main?.frame ?? fallback
+            boundsLock.lock()
+            cachedMainBounds = bounds
+            boundsLock.unlock()
+            return bounds
+        }
+        // Never main.sync: buildGridState runs off-main and main may wait
+        // on it. Refresh cache async, return last known bounds now.
+        DispatchQueue.main.async {
+            let bounds = NSScreen.main?.frame ?? fallback
+            boundsLock.lock()
+            cachedMainBounds = bounds
+            boundsLock.unlock()
+        }
+        boundsLock.lock()
+        defer { boundsLock.unlock() }
+        return cachedMainBounds
     }
 
     private var _displaysCache: (displays: [YabaiDisplay], cachedAt: TimeInterval)?
     private let displaysCacheTTL: TimeInterval = 5.0
+    private var displaysFetchInFlight = false
 
     private func cachedDisplays() -> [YabaiDisplay] {
         cacheLock.lock()
         let cached = _displaysCache
-        cacheLock.unlock()
         let now = ProcessInfo.processInfo.systemUptime
-        if let cached, now - cached.cachedAt < displaysCacheTTL { return cached.displays }
+        if let cached, now - cached.cachedAt < displaysCacheTTL {
+            cacheLock.unlock()
+            return cached.displays
+        }
+        // Single-flight: a concurrent miss serves stale instead of a second spawn.
+        if displaysFetchInFlight {
+            let stale = cached?.displays ?? []
+            cacheLock.unlock()
+            return stale
+        }
+        displaysFetchInFlight = true
+        cacheLock.unlock()
         // Cache only non-empty results: a failed query yields [] and must not
         // evict the last good snapshot for a full TTL, or multi-monitor blanks.
         // On failure return last good (or [] if none) without touching cache,
         // so the next call retries instead of serving stale emptiness.
-        guard let fresh = try? queryDisplaysRaw(), !fresh.isEmpty else {
-            return cached?.displays ?? []
-        }
+        let fresh = try? queryDisplaysRaw()
         cacheLock.lock()
-        _displaysCache = (fresh, now)
+        displaysFetchInFlight = false
+        // Recheck under lock: a concurrent fill may have landed while querying.
+        if let cachedNow = _displaysCache,
+           ProcessInfo.processInfo.systemUptime - cachedNow.cachedAt < displaysCacheTTL {
+            let displays = cachedNow.displays
+            cacheLock.unlock()
+            return displays
+        }
+        guard let fresh, !fresh.isEmpty else {
+            let stale = _displaysCache?.displays ?? cached?.displays ?? []
+            cacheLock.unlock()
+            return stale
+        }
+        _displaysCache = (fresh, ProcessInfo.processInfo.systemUptime)
         cacheLock.unlock()
         return fresh
     }
@@ -486,14 +577,17 @@ class YabaiClientImpl: YabaiService {
     /// callers that build their argument list dynamically use this instead.
     private func shell(_ args: [String]) throws -> String {
         guard let executable = args.first else { throw YabaiError.commandFailed(arguments: [], status: -1, message: "empty command") }
-        return try Self.runProcess(
+        if executable == yabaiPath, Self.refuseUntrustedBinaries, let issue = Self.cachedTrustIssue(path: yabaiPath) {
+            throw YabaiError.commandFailed(arguments: Array(args.dropFirst()), status: -1, message: "refusing untrusted yabai binary: \(issue)")
+        }
+        return try Self.runProcessImpl(
             executable: executable,
             arguments: Array(args.dropFirst()),
             timeout: Self.commandTimeout
         )
     }
 
-    static func runProcess(
+    private static func runProcessImpl(
         executable: String,
         arguments: [String],
         timeout: TimeInterval
@@ -507,7 +601,16 @@ class YabaiClientImpl: YabaiService {
         process.standardError = errorPipe
         let termination = DispatchSemaphore(value: 0)
         process.terminationHandler = { _ in termination.signal() }
-        try process.run()
+        do {
+            try process.run()
+        } catch {
+            // Close pipes on throw: no readers were dispatched, no child runs.
+            try? outputPipe.fileHandleForWriting.close()
+            try? errorPipe.fileHandleForWriting.close()
+            try? outputPipe.fileHandleForReading.close()
+            try? errorPipe.fileHandleForReading.close()
+            throw error
+        }
         outputPipe.fileHandleForWriting.closeFile()
         errorPipe.fileHandleForWriting.closeFile()
 
@@ -546,10 +649,14 @@ class YabaiClientImpl: YabaiService {
                 _ = termination.wait(timeout: .now() + 1)
             }
             readers.wait()
+            outputHandle.closeFile()
+            errorHandle.closeFile()
             throw YabaiError.commandTimedOut(arguments: arguments, timeout: timeout)
         }
         // The child is dead, so both pipes have hit EOF; the readers are guaranteed to finish.
         readers.wait()
+        outputHandle.closeFile()
+        errorHandle.closeFile()
         guard process.terminationStatus == 0 else {
             let message = String(data: errorData, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -561,4 +668,11 @@ class YabaiClientImpl: YabaiService {
         }
         return String(data: outputData, encoding: .utf8) ?? ""
     }
+
+#if DEBUG
+    // Test seam: production path is runProcessImpl (private).
+    static func runProcess(executable: String, arguments: [String], timeout: TimeInterval) throws -> String {
+        try runProcessImpl(executable: executable, arguments: arguments, timeout: timeout)
+    }
+#endif
 }

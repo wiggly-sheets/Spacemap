@@ -9,7 +9,7 @@ struct SpaceFocusTarget: Equatable {
 
     init?(argument: String) {
         let value = argument.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty, !value.hasPrefix("-") else { return nil }
+        guard !value.isEmpty, !value.hasPrefix("-"), value.count <= 64 else { return nil }
 
         if let index = Int(value) {
             guard (1...16).contains(index) else { return nil }
