@@ -12,8 +12,13 @@
   </p>
 
   <p>
+    <div align="center">
+<a href="https://github.com/wiggly-sheets/Spacemap/releases/latest"><img src="https://img.shields.io/badge/download-Spacemap-2EA043?style=flat&logo=apple&logoColor=white" alt="Download Spacemap" /></a>
+</div>
     <a href="https://github.com/wiggly-sheets/Spacemap/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wiggly-sheets/Spacemap/ci.yml?branch=main&label=build" alt="Build status" /></a>
     <a href="https://github.com/wiggly-sheets/Spacemap/releases/latest"><img src="https://img.shields.io/github/v/release/wiggly-sheets/Spacemap?label=latest&color=red" alt="Latest release" /></a>
+        <div align="center">
+        </div>
     <a href="LICENSE"><img src="https://img.shields.io/github/license/wiggly-sheets/Spacemap?color=blue" alt="MIT License" /></a>
     <a href="https://github.com/wiggly-sheets/Spacemap"><img src="https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey" alt="macOS 13 or later" /></a>
     <a href="https://swift.org"><img src="https://img.shields.io/badge/swift-5.9-orange" alt="Swift 5.9" /></a>
@@ -74,16 +79,6 @@ Drag a real window over any HUD cell and drop it there. Spacemap highlights the 
 - Optional menu-bar workspace dots or miniature window-layout previews
 - ScreenCaptureKit thumbnails on macOS 14+
 - Sparkle updates: automatic, notify-only, or off
-
----
-
-## Download
-
-<div align="center">
-
-<a href="https://github.com/wiggly-sheets/Spacemap/releases/latest"><img src="https://img.shields.io/badge/download-Spacemap-2EA043?style=flat&logo=apple&logoColor=white" alt="Download Spacemap" /></a>
-
-</div>
 
 ---
 
