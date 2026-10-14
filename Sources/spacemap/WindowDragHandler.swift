@@ -12,6 +12,7 @@ class WindowDragHandler: WindowDragService {
     private let frontmostApplicationName: () -> String?
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private var tapContext: UnsafeMutableRawPointer?
     private var wantsEventTap = false
     private var eventTapGeneration = 0
     private var dragSnapshotGeneration = 0
@@ -66,6 +67,7 @@ class WindowDragHandler: WindowDragService {
             (1 << CGEventType.leftMouseDown.rawValue)
         )
 
+        if tapContext == nil { tapContext = Unmanaged.passRetained(self).toOpaque() }
         let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .tailAppendEventTap,
@@ -89,12 +91,16 @@ class WindowDragHandler: WindowDragService {
                 }
                 return Unmanaged.passUnretained(event)
             },
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
+            userInfo: tapContext
         )
 
-        guard let tap else { return }
+        guard let tap else {
+            if let ctx = tapContext { Unmanaged<WindowDragHandler>.fromOpaque(ctx).release(); tapContext = nil }
+            return
+        }
         guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
             CFMachPortInvalidate(tap)
+            if let ctx = tapContext { Unmanaged<WindowDragHandler>.fromOpaque(ctx).release(); tapContext = nil }
             return
         }
         eventTap = tap
@@ -139,6 +145,7 @@ class WindowDragHandler: WindowDragService {
         }
         eventTap = nil
         runLoopSource = nil
+        if let ctx = tapContext { Unmanaged<WindowDragHandler>.fromOpaque(ctx).release(); tapContext = nil }
     }
 
     func reset() {

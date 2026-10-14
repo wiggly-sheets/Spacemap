@@ -33,6 +33,7 @@ final class HotkeyMonitor {
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private var tapContext: UnsafeMutableRawPointer?
     private var mediaKeyMonitor: Any?
     private var healthTimer: Timer?
     private let onTrigger: () -> Void
@@ -194,6 +195,9 @@ final class HotkeyMonitor {
         guard wantsMonitoring, case .keyCode = targetKey else { return }
 
         let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        // Retain self for the tap lifetime: passUnretained UAFs when the
+        // monitor deallocs while the tap still fires. Released in teardown.
+        if tapContext == nil { tapContext = Unmanaged.passRetained(self).toOpaque() }
         let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
@@ -240,10 +244,11 @@ final class HotkeyMonitor {
 
                 return Unmanaged.passUnretained(event)
             },
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
+            userInfo: tapContext
         )
 
         guard let tap else {
+            if let ctx = tapContext { Unmanaged<HotkeyMonitor>.fromOpaque(ctx).release(); tapContext = nil }
             tapCreationFailureCount += 1
             if tapCreationFailureCount == 1 || tapCreationFailureCount.isMultiple(of: 30) {
                 NSLog("Spacemap/Hotkey: event tap creation failed; will retry")
@@ -253,6 +258,7 @@ final class HotkeyMonitor {
 
         guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
             CFMachPortInvalidate(tap)
+            if let ctx = tapContext { Unmanaged<HotkeyMonitor>.fromOpaque(ctx).release(); tapContext = nil }
             tapCreationFailureCount += 1
             return
         }
@@ -293,6 +299,7 @@ final class HotkeyMonitor {
         }
         runLoopSource = nil
         eventTap = nil
+        if let ctx = tapContext { Unmanaged<HotkeyMonitor>.fromOpaque(ctx).release(); tapContext = nil }
     }
 
     private func tearDownMediaKeyMonitor() {

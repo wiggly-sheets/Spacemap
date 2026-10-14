@@ -37,19 +37,30 @@ final class CLI {
     """
 
     static func parse(arguments: [String]) -> CLIParseResult {
-        if arguments.contains("--version") { return .command(.version) }
-        if arguments.contains("--help") { return .command(.help) }
-        if arguments.contains("--config") { return .command(.config) }
-        if let optionIndex = arguments.firstIndex(of: "--space") {
-            let selectorIndex = arguments.index(after: optionIndex)
-            guard selectorIndex < arguments.endIndex,
-                  !arguments[selectorIndex].hasPrefix("--"),
-                  let target = SpaceFocusTarget(argument: arguments[selectorIndex]) else {
-                return .error("--space requires next, prev, first, last, recent, mouse, a label, or an index from 1 to 16")
+        // Positional scan: the first flag in argv order wins. --space is
+        // handled inline so a missing value errors even when another flag
+        // follows (SpaceFocusTarget rejects "-"-prefixed values).
+        for (index, arg) in arguments.enumerated() {
+            switch arg {
+            case "--space":
+                let next = index + 1
+                guard next < arguments.endIndex,
+                      let target = SpaceFocusTarget(argument: arguments[next]) else {
+                    return .error("--space requires next, prev, first, last, recent, mouse, a label, or an index from 1 to 16")
+                }
+                return .command(.focusSpace(target))
+            case "--version":
+                return .command(.version)
+            case "--help":
+                return .command(.help)
+            case "--config":
+                return .command(.config)
+            case "--trigger":
+                return .command(.trigger)
+            default:
+                continue
             }
-            return .command(.focusSpace(target))
         }
-        if arguments.contains("--trigger") { return .command(.trigger) }
         return .none
     }
 

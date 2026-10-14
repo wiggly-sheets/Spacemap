@@ -47,15 +47,21 @@ final class DeepLinkService {
         actions.forEach { handleDeepLink($0) }
     }
 
+    private static let maxPendingActions = 16
+
     func open(urls: [URL]) {
         for url in urls {
             guard let action = DeepLinkAction(url: url) else {
-                NSLog("Spacemap: ignored unsupported deep link \(url.absoluteString)")
+                NSLog("Spacemap: ignored unsupported deep link scheme=%@ len=%d", url.scheme ?? "nil", url.absoluteString.count)
                 continue
             }
             if isReady {
                 handleDeepLink(action)
             } else {
+                if pendingActions.count >= Self.maxPendingActions {
+                    pendingActions.removeFirst()
+                    NSLog("Spacemap: deep link queue full, dropped oldest")
+                }
                 pendingActions.append(action)
             }
         }
