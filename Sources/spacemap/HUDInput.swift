@@ -45,6 +45,7 @@ final class HUDInput {
 
     private var keyboardEventTap: CFMachPort?
     private var keyboardRunLoopSource: CFRunLoopSource?
+    private var keyboardTapContext: UnsafeMutableRawPointer?
     private var panelDragMonitor: Any?
     private var panelDragStart: CGPoint?
     private var panelDragOrigin: CGPoint?
@@ -345,6 +346,8 @@ final class HUDInput {
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.keyUp.rawValue)
         )
+        // Retain self for tap lifetime; released in stopSettingsKeyMonitor.
+        if keyboardTapContext == nil { keyboardTapContext = Unmanaged.passRetained(self).toOpaque() }
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .tailAppendEventTap,
@@ -384,13 +387,15 @@ final class HUDInput {
                 )
                 return shouldConsume ? nil : Unmanaged.passUnretained(event)
             },
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
+            userInfo: keyboardTapContext
         ) else {
+            if let ctx = keyboardTapContext { Unmanaged<HUDInput>.fromOpaque(ctx).release(); keyboardTapContext = nil }
             NSLog("spacemap/HUDInput: keyboard capture event tap creation failed")
             return
         }
         guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
             CFMachPortInvalidate(tap)
+            if let ctx = keyboardTapContext { Unmanaged<HUDInput>.fromOpaque(ctx).release(); keyboardTapContext = nil }
             return
         }
         keyboardEventTap = tap
@@ -454,6 +459,7 @@ final class HUDInput {
         }
         keyboardRunLoopSource = nil
         keyboardEventTap = nil
+        if let ctx = keyboardTapContext { Unmanaged<HUDInput>.fromOpaque(ctx).release(); keyboardTapContext = nil }
     }
 
     func handleHUDKeyDown(_ event: CGEvent) -> InputAction {

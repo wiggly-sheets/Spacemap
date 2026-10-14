@@ -167,12 +167,14 @@ final class SocketListener {
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
             fputs("spacemap/SocketListener: no entropy for nonce — programmatic send disabled\n", stderr)
             try? FileManager.default.removeItem(atPath: socketPath + ".nonce")
+            SpacemapCommand.invalidateNonceCache()
             return
         }
         let url = URL(fileURLWithPath: socketPath + ".nonce")
         do {
             try Data(bytes).write(to: url, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            SpacemapCommand.invalidateNonceCache()
         } catch {
             fputs("spacemap/SocketListener: nonce write failed\n", stderr)
         }
@@ -368,14 +370,24 @@ final class SocketListener {
         if DispatchQueue.getSpecific(key: queueKey) != nil {
             isStopped = true
             tearDownSocket()
+            unlinkIfOwned(socketPath + ".nonce")
         } else {
             listenerQueue.sync {
                 self.isStopped = true
                 self.tearDownSocket()
+                self.unlinkIfOwned(self.socketPath + ".nonce")
             }
         }
-        unlinkIfOwned(socketPath + ".nonce")
+        SpacemapCommand.invalidateNonceCache()
     }
 
-    deinit { stop() }
+    deinit {
+        // Never listenerQueue.sync here: deinit may run while the queue holds
+        // the last ref (or blocks on it) — sync deadlocks. Flag + cancel are
+        // thread-safe; the cancel handler closes the fd.
+        isStopped = true
+        let src = source
+        let timer = healthTimer
+        listenerQueue.async { src?.cancel(); timer?.cancel() }
+    }
 }

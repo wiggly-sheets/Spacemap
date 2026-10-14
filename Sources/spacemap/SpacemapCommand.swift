@@ -47,14 +47,37 @@ enum SpacemapCommand: UInt8, Equatable {
     /// Hex nonce written by the listener beside the socket (mode 0600).
     /// Same-uid processes can read it; it stops blind writes from processes
     /// that only guess the path (yabai actions embed it at registration).
+    /// Cached in memory: senders read it per command, disk only on miss or
+    /// after invalidateNonceCache (rotate/stop).
+    private static let nonceLock = NSLock()
+    private static var cachedNonceHex: String?
+    private static var cachedNoncePath: String?
+
     static func currentNonceHex() -> String? {
         currentNonceHex(for: socketPath)
     }
 
     static func currentNonceHex(for path: String) -> String? {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: noncePath(for: path))),
+        let nonceFile = noncePath(for: path)
+        nonceLock.lock()
+        let cached = (cachedNonceHex != nil && cachedNoncePath == nonceFile) ? cachedNonceHex : nil
+        nonceLock.unlock()
+        if let cached { return cached }
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: nonceFile)),
               data.count == 32 else { return nil }
-        return data.map { String(format: "%02x", $0) }.joined()
+        let hex = data.map { String(format: "%02x", $0) }.joined()
+        nonceLock.lock()
+        cachedNonceHex = hex
+        cachedNoncePath = nonceFile
+        nonceLock.unlock()
+        return hex
+    }
+
+    static func invalidateNonceCache() {
+        nonceLock.lock()
+        defer { nonceLock.unlock() }
+        cachedNonceHex = nil
+        cachedNoncePath = nil
     }
 
     enum SendError: Error, CustomStringConvertible {
