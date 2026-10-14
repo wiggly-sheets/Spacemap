@@ -242,7 +242,7 @@ enum TOMLConfigDecoder {
             "focusSpaceOnWindowDropModifier", "hideMenuBarIcon",
             "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode"
         ])
-        flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows"])
+        flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows", "refuseUntrustedYabai"])
         if result["showExtraWindows"] == nil, let legacyShowExtra {
             result["showExtraWindows"] = legacyShowExtra
         }
@@ -405,6 +405,7 @@ enum TOMLConfigDecoder {
 
         values.socketHealthInterval = positiveInt("socketHealthInterval")
         values.showExtraWindows = value("showExtraWindows")
+        values.refuseUntrustedYabai = value("refuseUntrustedYabai")
 
         // Indexed-dotted schema written by ConfigLoader (`[spaceNameProfiles]`
         // + `[spaceNameProfiles.N]` + `[spaceNameProfiles.N.names]`).

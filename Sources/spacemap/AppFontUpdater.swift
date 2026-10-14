@@ -25,6 +25,10 @@ struct AppFontUpdater {
         case assetMissing
         case notAFont
         case hashMismatch
+        case tooLarge
+        case untrustedHost
+        case symlinkRefused
+        case installFailed
 
         var errorDescription: String? {
             switch self {
@@ -35,6 +39,10 @@ struct AppFontUpdater {
             case .assetMissing: return "release has no ttf asset"
             case .notAFont: return "downloaded file is not a font"
             case .hashMismatch: return "download hash does not match release digest"
+            case .tooLarge: return "download exceeds size limit"
+            case .untrustedHost: return "download host is not trusted"
+            case .symlinkRefused: return "refusing symlinked font destination"
+            case .installFailed: return "font install failed"
             }
         }
     }
@@ -51,6 +59,8 @@ struct AppFontUpdater {
     /// Releases ship daily-ish; auto mode must not hammer the unauthenticated
     /// API across restarts.
     static let checkInterval: TimeInterval = 24 * 60 * 60
+    static let maxDownloadBytes = 20 * 1024 * 1024
+    static let downloadTimeout: TimeInterval = 30
 
     static var installURL: URL {
         URL(fileURLWithPath: NSString(string: "~/Library/Fonts/\(assetName)").expandingTildeInPath)
@@ -120,13 +130,19 @@ struct AppFontUpdater {
         return AppGlyphFont.appMetadataPayload(in: data) != nil
     }
 
+    static func isTrustedDownloadHost(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return host == "github.com" || host.hasSuffix(".githubusercontent.com")
+    }
+
     // MARK: - I/O
 
     static func latestRelease() async throws -> ReleaseInfo {
-        var request = URLRequest(url: latestReleaseURL)
+        var request = URLRequest(url: latestReleaseURL, timeoutInterval: downloadTimeout)
         request.setValue("spacemap", forHTTPHeaderField: "User-Agent")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let session = URLSession(configuration: .ephemeral, delegate: RedirectGuard(), delegateQueue: nil)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw UpdateError.httpStatus((response as? HTTPURLResponse)?.statusCode ?? -1)
         }
@@ -134,10 +150,15 @@ struct AppFontUpdater {
     }
 
     static func downloadAndInstall(_ info: ReleaseInfo) async throws {
-        let (data, response) = try await URLSession.shared.data(from: info.downloadURL)
+        guard isTrustedDownloadHost(info.downloadURL) else { throw UpdateError.untrustedHost }
+        guard info.size <= maxDownloadBytes else { throw UpdateError.tooLarge }
+        let request = URLRequest(url: info.downloadURL, timeoutInterval: downloadTimeout)
+        let session = URLSession(configuration: .ephemeral, delegate: RedirectGuard(), delegateQueue: nil)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw UpdateError.httpStatus((response as? HTTPURLResponse)?.statusCode ?? -1)
         }
+        guard data.count <= maxDownloadBytes else { throw UpdateError.tooLarge }
         guard isValidFontData(data) else { throw UpdateError.notAFont }
         guard AppGlyphFont.appMetadataPayload(in: data) != nil else { throw UpdateError.notAFont }
         // Verify before anything touches disk when the release pins a digest.
@@ -146,11 +167,15 @@ struct AppFontUpdater {
         }
 
         let destination = installURL
+        // Fail closed on a planted link: rename() below replaces the link
+        // itself, but a pre-existing symlink still means someone staged the
+        // path — refuse instead of installing through it.
+        guard !ConfigLoader.isSymlink(at: destination.path) else { throw UpdateError.symlinkRefused }
         try FileManager.default.createDirectory(
             at: destination.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try data.write(to: destination, options: .atomic)
+        try secureWriteData(data, to: destination)
 
         var error: Unmanaged<CFError>?
         if !CTFontManagerRegisterFontsForURL(destination as CFURL, .process, &error),
@@ -169,6 +194,29 @@ struct AppFontUpdater {
         AppGlyphFont.invalidateCache()
         AppGlyphFont.ensureRegistered()
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
+    }
+
+    /// Binary mirror of ConfigLoader.secureWrite: temp file born 0600 via
+    /// O_NOFOLLOW, then renamed. Rename over a symlink replaces the link
+    /// itself, and the pre-write isSymlink gate above refuses planted links.
+    private static func secureWriteData(_ data: Data, to destination: URL) throws {
+        guard !ConfigLoader.isSymlink(at: destination.path) else { throw UpdateError.symlinkRefused }
+        let dir = destination.deletingLastPathComponent().path
+        let tmpPath = (dir as NSString).appendingPathComponent(
+            ".spacemap.font.\(ProcessInfo.processInfo.processIdentifier).\(UUID().uuidString).tmp")
+        let fd = open(tmpPath, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        guard fd >= 0 else { throw UpdateError.installFailed }
+        defer { close(fd) }
+        let written = data.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+        guard written == data.count else {
+            unlink(tmpPath)
+            throw UpdateError.installFailed
+        }
+        _ = fchmod(fd, mode_t(0o600))
+        guard rename(tmpPath, destination.path) == 0 else {
+            unlink(tmpPath)
+            throw UpdateError.installFailed
+        }
     }
 
     /// One check: fetch latest, download only when the tag differs. A fresh
@@ -195,5 +243,24 @@ struct AppFontUpdater {
         }
         config.appFont.lastCheck = Int(Date().timeIntervalSince1970)
         AppConfig.saveConfig(config)
+    }
+
+    /// Deny redirects off the download allowlist. Same-host API redirects
+    /// (api.github.com) stay allowed; everything else must be a trusted host.
+    private final class RedirectGuard: NSObject, URLSessionTaskDelegate {
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest,
+            completionHandler: @escaping (URLRequest?) -> Void
+        ) {
+            guard let url = request.url,
+                  isTrustedDownloadHost(url) || url.host?.lowercased() == "api.github.com" else {
+                completionHandler(nil)
+                return
+            }
+            completionHandler(request)
+        }
     }
 }

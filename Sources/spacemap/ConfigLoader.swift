@@ -106,7 +106,7 @@ enum ConfigLoader {
         let dir = (path as NSString).deletingLastPathComponent
         let tmpPath = (dir as NSString).appendingPathComponent(
             ".spacemap.\(ProcessInfo.processInfo.processIdentifier).\(UUID().uuidString).tmp")
-        let fd = open(tmpPath, O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        let fd = open(tmpPath, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
         guard fd >= 0 else {
             NSLog("spacemap: failed to save config to \(path): cannot create temp file")
             return false
@@ -143,21 +143,29 @@ enum ConfigLoader {
     static func sanitizeLabels(_ values: ConfigValues) -> ConfigValues {
         var out = values
         if let names = out.spaceNames {
-            out.spaceNames = Dictionary(uniqueKeysWithValues: names.map { ($0.key, sanitizeLabel($0.value)) })
+            let sanitized = Dictionary(uniqueKeysWithValues: names.map { ($0.key, sanitizeLabel($0.value)) })
+            if sanitized != names { out.hasInvalidSpaceNames = true }
+            out.spaceNames = sanitized
         }
         if let profiles = out.spaceNameProfiles {
             out.spaceNameProfiles = profiles.map { profile in
                 var copy = profile
-                copy.name = sanitizeLabel(profile.name)
-                copy.spaceNames = Dictionary(uniqueKeysWithValues: profile.spaceNames.map { ($0.key, sanitizeLabel($0.value)) })
+                let name = sanitizeLabel(profile.name)
+                if name != profile.name { out.hasInvalidSpaceNames = true }
+                copy.name = name
+                let spaceNames = Dictionary(uniqueKeysWithValues: profile.spaceNames.map { ($0.key, sanitizeLabel($0.value)) })
+                if spaceNames != profile.spaceNames { out.hasInvalidSpaceNames = true }
+                copy.spaceNames = spaceNames
                 return copy
             }
         }
         return out
     }
 
+    static let maxLabelChars = 64
+
     static func sanitizeLabel(_ label: String) -> String {
-        String(label.unicodeScalars.filter { scalar in
+        let filtered = String(label.unicodeScalars.filter { scalar in
             switch scalar.properties.generalCategory {
             case .uppercaseLetter, .lowercaseLetter, .titlecaseLetter, .modifierLetter, .otherLetter,
                  .nonspacingMark, .spacingMark, .enclosingMark,
@@ -171,6 +179,7 @@ enum ConfigLoader {
                 return false
             }
         })
+        return String(filtered.prefix(maxLabelChars))
     }
 
 
@@ -332,7 +341,8 @@ enum ConfigLoader {
             "",
             "[advanced]",
             "socketHealthInterval = \(values.socketHealthInterval ?? defaults.socketHealthInterval)",
-            "showExtraWindows = \(values.showExtraWindows ?? defaults.showExtraWindows)"
+            "showExtraWindows = \(values.showExtraWindows ?? defaults.showExtraWindows)",
+            "refuseUntrustedYabai = \(values.refuseUntrustedYabai ?? defaults.refuseUntrustedYabai)"
         ]
         return lines.joined(separator: "\n") + "\n"
     }

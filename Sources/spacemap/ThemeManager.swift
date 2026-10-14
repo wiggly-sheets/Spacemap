@@ -42,7 +42,10 @@ class ThemeManager {
         seedDefaultsIfNeeded()
         let dir = Self.ensureThemesDir()
         guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return }
-        for file in files where file.pathExtension == "smthemes" {
+        if files.count > 64 {
+            NSLog("spacemap/ThemeManager: dropped %d theme files beyond 64", files.count - 64)
+        }
+        for file in files.prefix(64) where file.pathExtension == "smthemes" {
             let name = file.deletingPathExtension().lastPathComponent
                 .replacingOccurrences(of: "-", with: " ")
             if let theme = parseTheme(from: file) {
@@ -57,15 +60,26 @@ class ThemeManager {
     }
 
     private func parseTheme(from url: URL) -> AppTheme? {
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        // Same fail-closed read as ConfigLoader: refuse symlinks, cap size,
+        // O_NOFOLLOW open so a link swapped in after the check still fails.
+        guard !ConfigLoader.isSymlink(at: url.path) else { return nil }
+        let fd = open(url.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        var statBuf = stat()
+        guard fstat(fd, &statBuf) == 0, (statBuf.st_mode & S_IFMT) == S_IFREG else { return nil }
+        guard statBuf.st_size <= ConfigLoader.maxConfigBytes else { return nil }
+        let data = FileHandle(fileDescriptor: fd, closeOnDealloc: false).readDataToEndOfFile()
+        guard data.count <= ConfigLoader.maxConfigBytes,
+              let content = String(data: data, encoding: .utf8) else { return nil }
         return Self.parseThemeContent(content)
     }
 
     static func parseThemeContent(_ content: String) -> AppTheme? {
         var vals: [String: UInt32] = [:]
-        for line in content.components(separatedBy: .newlines) {
+        for line in content.components(separatedBy: .newlines).prefix(512) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else { continue }
+            guard !trimmed.isEmpty, !trimmed.hasPrefix("#"), trimmed.count <= 1024 else { continue }
             let parts = trimmed.split(separator: "=", maxSplits: 1)
             guard parts.count == 2 else { continue }
             let key = String(parts[0]).trimmingCharacters(in: .whitespaces).lowercased()

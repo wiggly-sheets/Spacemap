@@ -45,6 +45,7 @@ struct ConfigValues {
     var showHUDOnSpaceChange: Bool?
     var updateMode: UpdateMode?
     var appFont: AppFontConfig?
+    var refuseUntrustedYabai: Bool?
     var hasInvalidSpaceNames = false
 
     /// Space name profiles
@@ -97,6 +98,7 @@ struct ConfigValues {
         self.showHUDOnSpaceChange = config.showHUDOnSpaceChange
         self.updateMode = config.updateMode
         self.appFont = config.appFont
+        self.refuseUntrustedYabai = config.refuseUntrustedYabai
         self.spaceNameProfiles = config.spaceNameProfiles
         self.activeSpaceNameProfileIndex = config.activeSpaceNameProfileIndex
     }
@@ -220,6 +222,9 @@ struct ConfigValues {
             showHUDOnSpaceChange: orDefault(showHUDOnSpaceChange, defaults.showHUDOnSpaceChange),
             updateMode: resolvedUpdateMode,
             appFont: orDefault(appFont, defaults.appFont),
+            // New flag: absent in old files heals silently without forcing a
+            // config rewrite (keeps all-fields-set tests repair-free).
+            refuseUntrustedYabai: refuseUntrustedYabai ?? defaults.refuseUntrustedYabai,
             spaceNameProfiles: resolvedSpaceNameProfiles,
             activeSpaceNameProfileIndex: resolvedActiveProfileIndex
         )
