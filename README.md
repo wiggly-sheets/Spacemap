@@ -89,13 +89,15 @@ Install with Homebrew, or download a signed and notarized DMG from the [latest r
 ### Install with Homebrew
 
 ```bash
-brew install wiggly-sheets/spacemap/spacemap
+brew tap wiggly-sheets/homebrew-tap
+brew trust wiggly-sheets/homebrew-tap
+brew install --cask spacemap
 ```
 
 Update later with:
 
 ```bash
-brew update && brew upgrade wiggly-sheets/spacemap/spacemap
+brew upgrade --cask spacemap
 ```
 
 ### Install manually
@@ -344,7 +346,7 @@ Spacemap uses Sparkle for in-app update checks. Choose **Auto**, **Notify**, or 
 Homebrew users can update with:
 
 ```bash
-brew update && brew upgrade wiggly-sheets/spacemap/spacemap
+brew upgrade --cask spacemap
 ```
 
 Manual installs can download the newest DMG from [Releases](https://github.com/wiggly-sheets/Spacemap/releases/latest), drag it over the old copy in Applications, and choose **Replace**. Your configuration stays in `~/.config/spacemap/`.
