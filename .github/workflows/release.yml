@@ -284,7 +284,7 @@ jobs:
           ARM64_SHA=$(shasum -a 256 spacemap-*-arm64.dmg | awk '{print $1}')
           X86_SHA=$(shasum -a 256 spacemap-*-x86_64.dmg | awk '{print $1}')
 
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/wiggly-sheets/homebrew-spacemap.git" tap-repo
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/wiggly-sheets/homebrew-tap.git" tap-repo
           cd tap-repo
 
           cat > Casks/spacemap.rb << 'CASK_EOF'
