@@ -93,7 +93,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Architecture-specific Builds**: ARM64, x86_64, universal DMGs via `create-dmg`
 - **CI DMG Verification**: Release workflow mounts each DMG and verifies architecture with `lipo -archs`
 - **Info.plist Version Injection**: Makefile sed replaces hardcoded 1.0.0 with VERSION file at build time
-- **Homebrew Tap**: `wiggly-sheets/homebrew-spacemap` with arch-conditional cask, auto-updated on release
+- **Homebrew Tap**: `wiggly-sheets/homebrew-tap` with an arch-conditional cask rendered from the tap's own template, following the latest stable release
 - **scdoc Manual**: Generated `spacemap(1)` page bundled with the app and installed alongside the CLI
 - **DMG Fix**: Arch DMGs always contain `Spacemap.app` regardless of arch
 
@@ -177,7 +177,7 @@ A living list of planned features, known bugs, and future improvements for the p
 | **GitHub Actions / CI**      | `ci.yml` (swift test + build on push/PR), `release.yml` (3 DMGs + checksums on tag), Dependabot                     | ✅ Done |
 | **Xcode Project**            | Generated from SPM, 4 targets (default, arm64, x86_64, universal) via`scripts/generate-xcodeproj.py`                  | ✅ Done |
 | **Architecture Builds**      | ARM64, x86_64, universal DMGs via`create-dmg`                                                                         | ✅ Done |
-| **Homebrew Formula Updates** | Homebrew tap with arch-conditional cask, auto-updated on release                                                        | ✅ Done |
+| **Homebrew Formula Updates** | Consolidated tap renders its own arch-conditional cask and follows the latest stable release                          | ✅ Done |
 
 ---
 

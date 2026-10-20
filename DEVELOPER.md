@@ -253,6 +253,7 @@ First-launch prompt asks the user to choose. Setting is stored in `~/.config/spa
 5. `generate-appcast.sh` creates `appcast.xml` with enclosure signature
 6. Pushes to `docs/` branch → GitHub Pages serves it
 7. `softprops/action-gh-release` creates GitHub release with DMGs
+8. The consolidated `wiggly-sheets/homebrew-tap` renders its own cask from a template and follows the latest stable release, so a release needs no manual copy into the tap
 
 ### Development Notes
 - Sparkle requires `com.apple.security.cs.disable-library-validation` entitlement for ad-hoc signed development builds
