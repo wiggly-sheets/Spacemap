@@ -170,11 +170,11 @@ archive: app
 	@echo "Artifact: $(ARCHIVE)"
 	@echo "SHA-256:  $$(shasum -a 256 $(ARCHIVE) | awk '{print $$1}')"
 	@echo ""
-	@echo "Next: go to https://github.com/jsheffie/spacemap/releases/new"
+	@echo "Next: go to https://github.com/wiggly-sheets/Spacemap/releases/new"
 	@echo "  1. Tag: v$(VERSION)"
 	@echo "  2. Click 'Generate release notes'"
 	@echo "  3. Attach $(ARCHIVE)"
-	@echo "  4. Copy the SHA-256 above into Formula/spacemap.rb in homebrew-tap"
+	@echo "  4. No Homebrew step: wiggly-sheets/homebrew-tap renders its own cask from a template and follows the latest stable release"
 
 dmg: app
 	@$(MAKE) _dmg INPUT=$(APP_BUNDLE) OUTPUT=$(DMG)
