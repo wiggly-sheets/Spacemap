@@ -141,8 +141,11 @@ Before `make release`:
 
 ### Build Commands
 ```bash
+make help       # List every target (default)
 make build       # swift build -c release
-make app         # Build and assemble .app bundle
+make app         # Build and assemble the universal .app bundle
+make app-arm     # Build and assemble the arm64 .app bundle
+make app-intel   # Build and assemble the x86_64 .app bundle
 make install     # Install to /Applications
 make run         # Install and launch
 make dev1        # Uninstall (then remove Accessibility in System Settings)
@@ -152,10 +155,12 @@ make config      # Create default config
 make permissions # Show permission fix instructions
 make clean       # Remove build artifacts
 make archive     # Build signed archive for release
-make dmg         # Build universal DMG
-make dmg-arm64   # Build ARM64 DMG
-make dmg-x86_64  # Build Intel DMG
-make release RELEASE=x.y.z  # Bump version, commit, tag, push (triggers GitHub Actions release)
+make dmg         # Build the arm64 and the x86_64 DMG
+make dmg-arm     # Build ARM64 DMG
+make dmg-intel   # Build Intel DMG
+make dmg-universal # Build universal DMG
+make release-artifacts # Build the DMGs and write checksums.txt
+make release VERSION=x.y.z  # Bump version, commit, tag locally, print the push command (no push)
 ```
 
 ### Xcode Project

@@ -369,8 +369,8 @@ cd Spacemap
 
 make run       # build, install, launch
 make test      # unit tests
-make app       # assemble Spacemap.app
-make dmg       # universal DMG
+make app       # assemble Spacemap.app (universal)
+make dmg       # arm64 and x86_64 DMGs
 ```
 
 For an Xcode project:
@@ -383,8 +383,8 @@ open spacemap.xcodeproj
 Architecture-specific bundles:
 
 ```bash
-make app-arm64
-make app-x86_64
+make app-arm
+make app-intel
 make app-universal
 ```
 
