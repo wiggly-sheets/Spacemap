@@ -4,23 +4,30 @@
 
 | Command | Description |
 |---------|-------------|
+| `make help` | List every target (default) |
 | `make run` | Build, install, and launch the app |
 | `make dev1` | Uninstall the app (use before code changes) |
 | `make dev2` | Reinstall and launch after code changes |
 | `make build` | Build release binary only |
-| `make app` | Build and assemble .app bundle |
+| `make app` | Build and assemble the universal .app bundle |
+| `make app-arm` | Build and assemble the arm64 .app bundle |
+| `make app-intel` | Build and assemble the x86_64 .app bundle |
+| `make app-universal` | Build and assemble the universal .app bundle |
 | `make clean` | Remove build artifacts |
 | `make config` | Create default config file if missing |
 | `make distconfig` | Overwrite config with defaults |
-| `make dmg` | Build DMG installer (universal) |
-| `make dmg-arm64` | Build ARM64 DMG |
-| `make dmg-x86_64` | Build Intel DMG |
+| `make dmg` | Build the arm64 and the x86_64 DMG |
+| `make dmg-arm` | Build ARM64 DMG |
+| `make dmg-intel` | Build Intel DMG |
 | `make dmg-universal` | Build universal DMG |
 | `make test` | Run unit tests via swift test |
-| `make release RELEASE=x.y.z` | Bump version, commit, tag, push (triggers release) |
+| `make release-artifacts` | Build the DMGs and write `checksums.txt` |
+| `make release VERSION=x.y.z` | Bump version, commit, tag locally, print the push command (no push) |
 | `make install-cli` | Install CLI symlink to `/usr/local/bin/spacemap` |
 | `make uninstall-cli` | Remove CLI symlink |
 | `make permissions` | Show instructions for fixing Accessibility permission |
+
+The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work.
 
 ## CLI Usage (after `make install-cli`)
 

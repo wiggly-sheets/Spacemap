@@ -246,8 +246,8 @@ First-launch prompt asks the user to choose. Setting is stored in `~/.config/spa
 | `SUPublicEDKey` | EdDSA public key (base64) |
 
 ### Release Workflow
-1. Run `make release RELEASE=x.y.z` — bumps Info.plist + VERSION, commits, tags, pushes
-2. Tag pushed → `release.yml` runs
+1. Run `make release VERSION=x.y.z` — bumps Info.plist + VERSION, commits, tags locally and prints the command that pushes the commit and the tag. The target never pushes: the push is the release.
+2. Push the commit and the tag → `release.yml` runs
 3. Builds 3 DMG variants (ARM64, x86_64, universal)
 4. Signs universal DMG with EdDSA key from GitHub Secret
 5. `generate-appcast.sh` creates `appcast.xml` with enclosure signature
@@ -266,23 +266,31 @@ First-launch prompt asks the user to choose. Setting is stored in `~/.config/spa
 ### Make Targets
 | Target | Description |
 |--------|-------------|
+| `make help` | List every target (default) |
 | `make build` | Build release binary |
-| `make app` | Build and assemble .app bundle |
+| `make test` | Run unit tests via swift test |
+| `make app` | Build and assemble the universal .app bundle |
+| `make app-arm` | Build and assemble the arm64 .app bundle |
+| `make app-intel` | Build and assemble the x86_64 .app bundle |
+| `make app-universal` | Build and assemble the universal .app bundle |
 | `make install` | Install to /Applications |
 | `make run` | Install and launch |
-| `make test` | Run unit tests via swift test |
 | `make dev1` | Uninstall (remove from /Applications) |
 | `make dev2` | Reinstall and relaunch |
 | `make clean` | Remove build artifacts |
 | `make config` | Create default config |
 | `make distconfig` | Overwrite config with defaults |
-| `make dmg` | Build universal DMG |
-| `make dmg-arm64` | Build ARM64 DMG |
-| `make dmg-x86_64` | Build Intel DMG |
+| `make dmg` | Build the arm64 and the x86_64 DMG |
+| `make dmg-arm` | Build ARM64 DMG |
+| `make dmg-intel` | Build Intel DMG |
+| `make dmg-universal` | Build universal DMG |
 | `make build-arm64` | Build for Apple Silicon only |
 | `make build-x86_64` | Build for Intel only |
 | `make build-universal` | Build universal binary |
-| `make release RELEASE=x.y.z` | Bump version, commit, tag, push (triggers release) |
+| `make release-artifacts` | Build the DMGs and write checksums.txt |
+| `make release VERSION=x.y.z` | Bump version, commit, tag locally, print the push command (no push) |
+
+The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work.
 
 ### Xcode Project
 ```bash

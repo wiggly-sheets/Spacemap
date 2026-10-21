@@ -38,18 +38,26 @@ We're excited to have you contribute to Spacemap. This is a native macOS utility
 
 | Command | Description |
 |---------|-------------|
+| `make help` | List every target (default) |
 | `make build` | Build release binary |
-| `make app` | Build and assemble `.app` bundle |
+| `make app` | Build and assemble the universal `.app` bundle |
+| `make app-arm` | Build and assemble the arm64 `.app` bundle |
+| `make app-intel` | Build and assemble the x86_64 `.app` bundle |
+| `make app-universal` | Build and assemble the universal `.app` bundle |
 | `make run` | Build, install to `/Applications`, and launch |
 | `make test` | Run unit tests via swift test |
 | `make dev1` | Uninstall from `/Applications` |
 | `make dev2` | Rebuild, reinstall, and launch |
 | `make clean` | Remove build artifacts |
 | `make config` | Create default config file |
-| `make dmg` | Build universal DMG |
-| `make dmg-arm64` | Build ARM64 DMG |
-| `make dmg-x86_64` | Build Intel DMG |
-| `make release RELEASE=x.y.z` | Bump version, commit, tag, push (triggers release) |
+| `make dmg` | Build the arm64 and the x86_64 DMG |
+| `make dmg-arm` | Build ARM64 DMG |
+| `make dmg-intel` | Build Intel DMG |
+| `make dmg-universal` | Build universal DMG |
+| `make release-artifacts` | Build the DMGs and write `checksums.txt` |
+| `make release VERSION=x.y.z` | Bump version, commit, tag locally, print the push command (no push) |
+
+The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work.
 
 ## Code Style
 
