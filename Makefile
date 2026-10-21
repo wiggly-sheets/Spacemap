@@ -1,16 +1,23 @@
+# Spacemap — build interface.
+#
+# `make` prints the list of targets. Every target is phony.
+
 APP_NAME = spacemap
 BINARY_NAME = Spacemap
-BUILD_DIR = .build/release
 APP_BUNDLE = Spacemap.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
 INSTALL_PATH = /Applications/$(APP_BUNDLE)
 VERSION  := $(shell cat VERSION 2>/dev/null || git tag --sort=-v:refname 2>/dev/null | head -1 | sed 's/^v//' || grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/' || echo "0.0.0")
 ARCHIVE   = spacemap-$(VERSION).zip
 STAGE     = spacemap-$(VERSION)
-DMG       = spacemap-$(VERSION).dmg
 DMG_STAGE = dmgstage
 BUILD_ARM64 = .build/arm64-apple-macosx/release
 BUILD_X86_64 = .build/x86_64-apple-macosx/release
+# The disk images. The Homebrew tap downloads the arm64 and the x86_64
+# image; the universal image feeds the Sparkle appcast.
+DMG_ARM   = $(APP_NAME)-$(VERSION)-arm64.dmg
+DMG_INTEL = $(APP_NAME)-$(VERSION)-x86_64.dmg
+DMG_UNIV  = $(APP_NAME)-$(VERSION)-universal.dmg
 # Sparkle public key for update verification (set via env or read from sparklesigner.pub)
 SPARKLE_PUBLIC_KEY ?= $(shell cat sparklesigner.pub 2>/dev/null | tr -d '\n')
 # Release builds must embed SUPublicEDKey; dev/CI builds warn and skip it.
@@ -27,7 +34,60 @@ MAN_PAGE = docs/spacemap.1
 LOCALIZATION_DIRS = $(wildcard Sources/spacemap/Resources/*.lproj)
 LOCALIZATION_NAMES = $(notdir $(LOCALIZATION_DIRS))
 
-.PHONY: build app install run dev uninstall clean config distconfig archive dmg dmg-arm64 dmg-x86_64 dmg-universal permissions install-cli uninstall-cli build-arm64 build-x86_64 build-universal app-arm64 app-x86_64 app-universal verify-localizations generate-xcodeproj test release man update-app-font
+# The version of a release comes from the command line:
+#   make release VERSION=1.2.3
+# RELEASE=1.2.3 is the old spelling and still works.
+ifeq ($(origin VERSION),command line)
+RELEASE_VERSION := $(strip $(VERSION))
+else
+RELEASE_VERSION := $(strip $(RELEASE))
+endif
+
+.PHONY: help build test app app-arm app-intel app-universal \
+	dmg dmg-arm dmg-intel dmg-universal release-artifacts release clean \
+	install run dev uninstall config distconfig archive permissions \
+	install-cli uninstall-cli build-arm64 build-x86_64 build-universal \
+	app-arm64 app-x86_64 verify-localizations generate-xcodeproj man \
+	update-app-font
+
+.DEFAULT_GOAL := help
+
+## help — list every target
+
+help:
+	@printf '%s\n' \
+		'Spacemap — build targets.' \
+		'' \
+		'  help                 List every target (default).' \
+		'  build                Build the release binary of the SwiftPM package.' \
+		'  test                 Run the SwiftPM test suite.' \
+		'  app                  Build the shipping bundle into Spacemap.app (universal).' \
+		'  app-arm              Build an arm64 bundle into spacemap-arm64.app.' \
+		'  app-intel            Build an x86_64 bundle into spacemap-x86_64.app.' \
+		'  app-universal        Build a bundle with both architectures into Spacemap.app.' \
+		'  dmg                  Build the disk images the tap installs (arm64 and x86_64).' \
+		'  dmg-arm              Build spacemap-<version>-arm64.dmg from the arm64 bundle.' \
+		'  dmg-intel            Build spacemap-<version>-x86_64.dmg from the x86_64 bundle.' \
+		'  dmg-universal        Build spacemap-<version>-universal.dmg from the universal bundle.' \
+		'  release-artifacts    Build the disk images and write checksums.txt for the tap.' \
+		'  release VERSION=x.y.z  Build the artifacts, tag v<x.y.z> locally, print the push command.' \
+		'  clean                Remove the build output.' \
+		'' \
+		'Notes' \
+		'  The app bundle is assembled by hand from the SwiftPM build. `swift build`' \
+		'  alone gives a bare executable without the resources the app needs.' \
+		'  Spacemap builds for Apple silicon (arm64), for Intel (x86_64) and universal.' \
+		'  The shipping bundle Spacemap.app is universal.' \
+		'  The tap installs a disk image per architecture, so `make dmg` builds the' \
+		'  arm64 and the x86_64 image. The universal image feeds the Sparkle appcast.' \
+		'  Signing stays ad-hoc: codesign --force --sign - --options runtime.' \
+		'  There is no Developer ID identity and no notarization.' \
+		'  `make release VERSION=1.2.3` writes the VERSION file and the Info.plist,' \
+		'  commits them, tags v1.2.3 locally and prints the command that pushes the' \
+		'  commit and the tag. It never pushes by itself.' \
+		'  The old names app-arm64, app-x86_64, dmg-arm64 and dmg-x86_64 still work.' \
+		'  create-dmg is required for the dmg targets: brew install create-dmg.' \
+		'  scdoc is required for the man page: brew install scdoc.'
 
 # The bundled ttf is committed; this target refreshes it from a local checkout
 # or an installed font. No network access.
@@ -62,11 +122,21 @@ $(MAN_PAGE): $(MAN_SOURCE)
 generate-xcodeproj:
 	python3 scripts/generate-xcodeproj.py
 
+# The toolchain writes every architecture into one product directory, so the
+# per-architecture binary is copied aside before the next build overwrites it.
 build-arm64:
 	swift build -c release --arch arm64 --product $(BINARY_NAME)
+	@if ! lipo -archs "$(BUILD_ARM64)/$(BINARY_NAME)" 2>/dev/null | grep -q arm64; then \
+		mkdir -p $(BUILD_ARM64); \
+		cp "$$(swift build -c release --arch arm64 --product $(BINARY_NAME) --show-bin-path 2>/dev/null | tail -1)/$(BINARY_NAME)" "$(BUILD_ARM64)/$(BINARY_NAME)"; \
+	fi
 
 build-x86_64:
 	swift build -c release --arch x86_64 --product $(BINARY_NAME)
+	@if ! lipo -archs "$(BUILD_X86_64)/$(BINARY_NAME)" 2>/dev/null | grep -q x86_64; then \
+		mkdir -p $(BUILD_X86_64); \
+		cp "$$(swift build -c release --arch x86_64 --product $(BINARY_NAME) --show-bin-path 2>/dev/null | tail -1)/$(BINARY_NAME)" "$(BUILD_X86_64)/$(BINARY_NAME)"; \
+	fi
 
 build-universal: build-arm64 build-x86_64
 	mkdir -p .build/universal/release
@@ -76,26 +146,27 @@ build-universal: build-arm64 build-x86_64
 	@echo "Universal binary: .build/universal/release/$(BINARY_NAME)"
 	@lipo -info .build/universal/release/$(BINARY_NAME)
 
-app: BUNDLE = $(APP_BUNDLE)
-app: BIN_SRC = $(BUILD_DIR)/$(BINARY_NAME)
-app: DONE_MSG = Built $(APP_BUNDLE)
-app: build man
+# The shipping bundle. Spacemap ships universal.
+app: app-universal
+
+app-arm: BUNDLE = $(APP_NAME)-arm64.app
+app-arm: BIN_SRC = $(BUILD_ARM64)/$(BINARY_NAME)
+app-arm: DONE_MSG = Built $(APP_NAME)-arm64.app (Apple Silicon)
+app-arm: build-arm64 man
 	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)" REQUIRE_SPARKLE_KEY=$(REQUIRE_SPARKLE_KEY)
 	@echo "$(DONE_MSG)"
 
-app-arm64: BUNDLE = $(APP_NAME)-arm64.app
-app-arm64: BIN_SRC = $(BUILD_ARM64)/$(BINARY_NAME)
-app-arm64: DONE_MSG = Built $(APP_NAME)-arm64.app (Apple Silicon)
-app-arm64: build-arm64 man
+# The old name still works.
+app-arm64: app-arm
+
+app-intel: BUNDLE = $(APP_NAME)-x86_64.app
+app-intel: BIN_SRC = $(BUILD_X86_64)/$(BINARY_NAME)
+app-intel: DONE_MSG = Built $(APP_NAME)-x86_64.app (Intel)
+app-intel: build-x86_64 man
 	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)" REQUIRE_SPARKLE_KEY=$(REQUIRE_SPARKLE_KEY)
 	@echo "$(DONE_MSG)"
 
-app-x86_64: BUNDLE = $(APP_NAME)-x86_64.app
-app-x86_64: BIN_SRC = $(BUILD_X86_64)/$(BINARY_NAME)
-app-x86_64: DONE_MSG = Built $(APP_NAME)-x86_64.app (Intel)
-app-x86_64: build-x86_64 man
-	@$(MAKE) --no-print-directory _assemble BUNDLE="$(BUNDLE)" BIN_SRC="$(BIN_SRC)" REQUIRE_SPARKLE_KEY=$(REQUIRE_SPARKLE_KEY)
-	@echo "$(DONE_MSG)"
+app-x86_64: app-intel
 
 app-universal: BUNDLE = $(APP_BUNDLE)
 app-universal: BIN_SRC = .build/universal/release/$(BINARY_NAME)
@@ -118,7 +189,7 @@ _assemble:
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
 		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true; \
-	elif [ "$(REQUIRE_SPARKLE_KEY)" = "1" ] || echo " $(MAKECMDGOALS) " | grep -Eq ' (release|archive|dmg|dmg-arm64|dmg-x86_64|dmg-universal)( |$$)'; then \
+	elif [ "$(REQUIRE_SPARKLE_KEY)" = "1" ] || echo " $(MAKECMDGOALS) " | grep -Eq ' (release|archive|dmg|dmg-arm|dmg-arm64|dmg-intel|dmg-x86_64|dmg-universal|release-artifacts)( |$$)'; then \
 		echo "ERROR: SPARKLE_PUBLIC_KEY is empty — set env or sparklesigner.pub (required for release builds)"; exit 1; \
 	else \
 		echo "warning: SPARKLE_PUBLIC_KEY is empty — skipping SUPublicEDKey (dev build only; release builds require it)"; \
@@ -157,7 +228,7 @@ verify-localizations:
 
 # Release entry points require the Sparkle key. The value reaches _assemble
 # via prerequisite inheritance plus explicit forwarding in app-* recipes.
-archive dmg dmg-arm64 dmg-x86_64 dmg-universal: REQUIRE_SPARKLE_KEY = 1
+archive dmg dmg-arm dmg-intel dmg-universal: REQUIRE_SPARKLE_KEY = 1
 
 archive: app
 	rm -rf $(STAGE) $(ARCHIVE)
@@ -176,20 +247,28 @@ archive: app
 	@echo "  3. Attach $(ARCHIVE)"
 	@echo "  4. No Homebrew step: wiggly-sheets/homebrew-tap renders its own cask from a template and follows the latest stable release"
 
-dmg: app
-	@$(MAKE) _dmg INPUT=$(APP_BUNDLE) OUTPUT=$(DMG)
+# The disk images the tap installs: one per architecture. The universal
+# image feeds the Sparkle appcast, not the tap.
+dmg: dmg-arm dmg-intel
 
-dmg-arm64: app-arm64
-	@$(MAKE) _dmg INPUT=$(APP_NAME)-arm64.app OUTPUT=$(APP_NAME)-$(VERSION)-arm64.dmg
+dmg-arm: app-arm
+	@$(MAKE) _dmg INPUT=$(APP_NAME)-arm64.app OUTPUT=$(DMG_ARM)
 
-dmg-x86_64: app-x86_64
-	@$(MAKE) _dmg INPUT=$(APP_NAME)-x86_64.app OUTPUT=$(APP_NAME)-$(VERSION)-x86_64.dmg
+# The old name still works.
+dmg-arm64: dmg-arm
+
+dmg-intel: app-intel
+	@$(MAKE) _dmg INPUT=$(APP_NAME)-x86_64.app OUTPUT=$(DMG_INTEL)
+
+dmg-x86_64: dmg-intel
 
 dmg-universal: app-universal
-	@$(MAKE) _dmg INPUT=$(APP_NAME).app OUTPUT=$(APP_NAME)-$(VERSION)-universal.dmg
+	@$(MAKE) _dmg INPUT=$(APP_BUNDLE) OUTPUT=$(DMG_UNIV)
 
 _dmg:
 	@rm -rf $(DMG_STAGE)
+	@# create-dmg refuses an existing file, so a rebuild starts from scratch.
+	@rm -f $(OUTPUT)
 	@mkdir -p $(DMG_STAGE)
 	@cp -R $(INPUT) $(DMG_STAGE)/Spacemap.app
 	create-dmg --no-internet-enable \
@@ -281,30 +360,57 @@ permissions:
 	@echo "NEVER run the binary directly — always use 'make run' or 'open $(INSTALL_PATH)'"
 	@echo "Running the binary directly causes AXIsProcessTrusted() to return false."
 
+# The files the tap expects: the disk images and the checksum file next to
+# them. The tap matches the asset by name, so the names never change.
+release-artifacts: dmg
+	@shasum -a 256 $(DMG_ARM) $(DMG_INTEL) > checksums.txt
+	@echo "checksums.txt:"
+	@cat checksums.txt
+
+# Prepare a release and tag it. The push is the release, and it belongs to
+# the person who runs this target, so the target prints the command and
+# stops there.
 release:
-	@test -n "$(RELEASE)" || (echo "Usage: make release RELEASE=x.y.z" && exit 1)
+	@if [ -z "$(RELEASE_VERSION)" ]; then \
+		echo "error: make release needs a version, for example: make release VERSION=1.2.3"; \
+		exit 1; \
+	fi
+	@# The generated assets are no reason to refuse the release.
+	@if [ -n "$$(git status --porcelain | grep -vE '^\?\? (checksums\.txt|spacemap-.*\.dmg)$$')" ]; then \
+		echo "error: the working tree is dirty. Commit or stash your changes first."; \
+		git status --short; \
+		exit 1; \
+	fi
+	@if git rev-parse -q --verify "refs/tags/v$(RELEASE_VERSION)" >/dev/null; then \
+		echo "error: the tag v$(RELEASE_VERSION) already exists."; \
+		exit 1; \
+	fi
 	@test -n "$(SPARKLE_PUBLIC_KEY)" || (echo "ERROR: SPARKLE_PUBLIC_KEY is empty — set env or sparklesigner.pub (required for release builds)" && exit 1)
 	@# Auto-generate changelog entry from git diff
 	@chmod +x scripts/generate-changelog.sh
-	@scripts/generate-changelog.sh "$(RELEASE)"
-	@grep -q "$(RELEASE)" CHANGELOG.md || (echo "ERROR: CHANGELOG.md has no entry for $(RELEASE). Update it manually." && exit 1)
-	@echo "Releasing v$(RELEASE)..."
+	@scripts/generate-changelog.sh "$(RELEASE_VERSION)"
+	@grep -q "$(RELEASE_VERSION)" CHANGELOG.md || (echo "ERROR: CHANGELOG.md has no entry for $(RELEASE_VERSION). Update it manually." && exit 1)
+	@echo "Releasing v$(RELEASE_VERSION)..."
 	@# Update Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(RELEASE)" Sources/spacemap/Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(RELEASE)" Sources/spacemap/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(RELEASE_VERSION)" Sources/spacemap/Info.plist
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(RELEASE_VERSION)" Sources/spacemap/Info.plist
 	@# Update VERSION file
-	@echo "$(RELEASE)" > VERSION
-	@# Commit, tag, push
+	@echo "$(RELEASE_VERSION)" > VERSION
+	@# Build before the commit, so a failed build leaves no commit behind.
+	$(MAKE) release-artifacts VERSION=$(RELEASE_VERSION)
+	@# Commit and tag. The tag stays local: the push is printed, never run.
 	git add Sources/spacemap/Info.plist VERSION CHANGELOG.md
-	git commit -m "v$(RELEASE)"
-	git tag "v$(RELEASE)"
-	git push origin main --tags
+	git commit -m "v$(RELEASE_VERSION)"
+	git tag -a "v$(RELEASE_VERSION)" -m "Spacemap $(RELEASE_VERSION)"
 	@echo ""
-	@echo "Tagged v$(RELEASE) — GitHub Actions will build & release."
-	@echo "https://github.com/wiggly-sheets/Spacemap/releases"
+	@echo "Tagged v$(RELEASE_VERSION). Push the commit and the tag with:"
+	@echo "  git push origin main --tags"
 
+# Remove the build output.
 clean:
-	rm -rf .build $(APP_BUNDLE)
+	rm -rf .build $(APP_BUNDLE) $(APP_NAME)-arm64.app $(APP_NAME)-x86_64.app
+	rm -rf $(DMG_STAGE) $(STAGE)
+	rm -f $(APP_NAME)-*.dmg checksums.txt $(ARCHIVE)
 
 config:
 	mkdir -p ~/.config/spacemap
