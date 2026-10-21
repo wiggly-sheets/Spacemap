@@ -255,6 +255,8 @@ First-launch prompt asks the user to choose. Setting is stored in `~/.config/spa
 7. `softprops/action-gh-release` creates GitHub release with DMGs
 8. The consolidated `wiggly-sheets/homebrew-tap` renders its own cask from a template and follows the latest stable release, so a release needs no manual copy into the tap
 
+The release notes are the section of `CHANGELOG.md` for the released version. A version without a section fails the release.
+
 ### Development Notes
 - Sparkle requires `com.apple.security.cs.disable-library-validation` entitlement for ad-hoc signed development builds
 - `startingUpdater: false` + `sparkleUpdaterController.startUpdater()` for idempotent init

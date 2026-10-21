@@ -48,6 +48,9 @@ jobs:
           done
           echo "tag=$TAG_VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Write release notes
+        run: ./scripts/release-notes.sh "${{ steps.version.outputs.tag }}" > release-notes.md
+
       - name: Run tests
         run: swift test
 
@@ -199,7 +202,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: spacemap ${{ steps.version.outputs.tag }}
-          generate_release_notes: true
+          body_path: release-notes.md
           files: |
             spacemap-*-arm64.dmg
             spacemap-*-x86_64.dmg
