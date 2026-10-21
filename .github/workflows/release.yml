@@ -56,33 +56,6 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: .github/scripts/validate-sparkle-keys.sh
 
-      - name: Import code signing certificate
-        if: env.APPLE_CERTIFICATE_BASE64 != ''
-        env:
-          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: |
-          CERT_PATH="$RUNNER_TEMP/certificate.p12"
-          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
-          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
-
-          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security import "$CERT_PATH" \
-            -P "$APPLE_CERTIFICATE_PASSWORD" \
-            -A -t cert -f pkcs12 \
-            -k "$KEYCHAIN_PATH"
-          security set-key-partition-list -S apple-tool:,apple: \
-            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
-
-          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -1 | awk -F '"' '{print $2}')
-          echo "CODESIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
-          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
-
       - name: Build app bundle (ARM64)
         run: |
           rm -rf .build
@@ -112,20 +85,11 @@ jobs:
       - name: Code sign and verify app bundles
         run: |
           # Sparkle treats a bundle with only a linker-signed executable as
-          # unsigned. Use ad-hoc signing when a Developer ID certificate is
-          # unavailable so every release remains a valid update target.
-          if [ -n "${CODESIGN_IDENTITY:-}" ]; then
-            SIGNING_IDENTITY="$CODESIGN_IDENTITY"
-            SIGNING_OPTIONS=(--options runtime --timestamp)
-          else
-            SIGNING_IDENTITY="-"
-            SIGNING_OPTIONS=(--options runtime)
-          fi
-
+          # unsigned. Sign ad-hoc so every release remains a valid update target.
           for bundle in spacemap-arm64.app spacemap-x86_64.app Spacemap.app; do
             if [ -d "$bundle" ]; then
-              codesign --force --sign "$SIGNING_IDENTITY" \
-                "${SIGNING_OPTIONS[@]}" \
+              codesign --force --sign - \
+                --options runtime \
                 "$bundle"
               codesign --verify --deep --strict --verbose=2 "$bundle"
               echo "Signed and verified $bundle"
@@ -164,38 +128,6 @@ jobs:
           verify_dmg spacemap-${{ steps.version.outputs.tag }}-arm64.dmg arm64
           verify_dmg spacemap-${{ steps.version.outputs.tag }}-x86_64.dmg x86_64
           verify_dmg spacemap-${{ steps.version.outputs.tag }}-universal.dmg "arm64 x86_64"
-
-      - name: Code sign DMGs
-        if: env.CODESIGN_IDENTITY != ''
-        run: |
-          for dmg in spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg; do
-            if [ -f "$dmg" ]; then
-              codesign --force --sign "$CODESIGN_IDENTITY" \
-                --timestamp \
-                "$dmg"
-              echo "Signed $dmg"
-            fi
-          done
-
-      - name: Notarize DMGs
-        if: env.APPLE_ID != ''
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          for dmg in spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg; do
-            if [ -f "$dmg" ]; then
-              echo "Notarizing $dmg..."
-              xcrun notarytool submit "$dmg" \
-                --apple-id "$APPLE_ID" \
-                --password "$APPLE_APP_PASSWORD" \
-                --team-id "$APPLE_TEAM_ID" \
-                --wait
-              xcrun stapler staple "$dmg"
-              echo "Notarized $dmg"
-            fi
-          done
 
       - name: Generate checksums
         run: |
@@ -291,7 +223,3 @@ jobs:
           else
             echo "No changes to appcast"
           fi
-
-      - name: Cleanup keychain
-        if: always() && env.KEYCHAIN_PATH != ''
-        run: security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true

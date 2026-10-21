@@ -84,7 +84,7 @@ Drag a real window over any HUD cell and drop it there. Spacemap highlights the 
 
 ## Installation
 
-Install with Homebrew, or download a signed and notarized DMG from the [latest release](https://github.com/wiggly-sheets/Spacemap/releases/latest).
+Install with Homebrew, or download the DMG from the [latest release](https://github.com/wiggly-sheets/Spacemap/releases/latest). The published build is ad-hoc signed and not notarized, so macOS may block it on first open; Control-click the app in Finder and choose Open, or remove the quarantine attribute with `xattr -dr com.apple.quarantine /Applications/Spacemap.app`.
 
 ### Install with Homebrew
 
@@ -119,7 +119,7 @@ brew upgrade --cask spacemap
 > Compare its hash with the matching line in `checksums.txt` on the release page.
 
 > [!WARNING]
-> If macOS quarantines a manually downloaded build, first prefer downloading the signed release again. As a last resort:
+> If macOS quarantines a manually downloaded build, Control-click the app in Finder and choose Open. As a last resort:
 >
 > ```bash
 > xattr -d com.apple.quarantine /Applications/Spacemap.app
