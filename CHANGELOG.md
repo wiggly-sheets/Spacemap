@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `[grid] showSpaceLayout` (default `false`): layout letter next to the space index (`f` float / `s` stack / `b` bsp; bsp is bare in the glyph strip). Requires `showSpaceNumbers`.
 
 ### Changed
+- The release workflow no longer signs with a Developer ID identity and no longer notarizes, so every published build is ad-hoc signed. The published builds were already ad-hoc, because the Developer ID and notarization secrets were never set.
 - The release workflow no longer writes a cask into the Homebrew tap. The consolidated `wiggly-sheets/homebrew-tap` renders its own cask from a template and follows the latest stable release, so a release needs no manual copy.
 
 ## [1.1.1]
