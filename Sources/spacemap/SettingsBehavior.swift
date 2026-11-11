@@ -82,13 +82,12 @@ struct SettingsBehavior: View {
                 }
             SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. The glyph strip hotkey shows or hides the menu-bar strip for the session.")
 
-            Picker("HUD Position", selection: $hudPositionKind) {
-                Text("Center").tag(HUDPositionKind.center)
-                Text("Top").tag(HUDPositionKind.top)
-                Text("Bottom").tag(HUDPositionKind.bottom)
-                Text("Custom").tag(HUDPositionKind.custom)
-            }
-            .pickerStyle(.segmented)
+            GlassSegmentedPicker("HUD Position", selection: $hudPositionKind, options: [
+                (title: "Center", value: .center),
+                (title: "Top", value: .top),
+                (title: "Bottom", value: .bottom),
+                (title: "Custom", value: .custom),
+            ])
             .onChange(of: hudPositionKind) { _ in onSave() }
 
             if case .custom = hudPositionKind {
@@ -109,11 +108,10 @@ struct SettingsBehavior: View {
                 .onChange(of: jumpToSpaceEnabled) { _ in onSave() }
 
             if useArrowKeys || useVimKeys || useExtendedKeys {
-                Picker("Display Navigation", selection: $displayNavigationWrap) {
-                    Text("Wrap Within Display").tag(DisplayNavigationWrap.within)
-                    Text("Wrap Between Displays").tag(DisplayNavigationWrap.between)
-                }
-                .pickerStyle(.segmented)
+                GlassSegmentedPicker("Display Navigation", selection: $displayNavigationWrap, options: [
+                    (title: "Wrap Within Display", value: .within),
+                    (title: "Wrap Between Displays", value: .between),
+                ])
                 .onChange(of: displayNavigationWrap) { _ in onSave() }
                 SettingsFootnote(text: displayNavigationWrap == .within
                     ? "Keeps navigation within the display containing the focused space."
@@ -174,25 +172,24 @@ struct SettingsBehavior: View {
                 }
             }
 
-            Picker("Automatic Updates", selection: $updateMode) {
-                Text("Auto").tag(UpdateMode.auto)
-                Text("Notify").tag(UpdateMode.notify)
-                Text("Off").tag(UpdateMode.off)
-            }
-            .pickerStyle(.segmented)
+            GlassSegmentedPicker("Automatic Updates", selection: $updateMode, options: [
+                (title: "Auto", value: .auto),
+                (title: "Notify", value: .notify),
+                (title: "Off", value: .off),
+            ])
             .onChange(of: updateMode) { _ in onSave() }
 
             Button("Check for Updates...") {
                 checkForUpdates()
             }
+            .liquidGlassButtonStyle()
         }
 
         Section(header: SettingsSectionHeader(title: "App Font")) {
-            Picker("Font Update Mode", selection: $appFontUpdateMode) {
-                Text("Manual").tag(AppFontUpdateMode.manual)
-                Text("Auto").tag(AppFontUpdateMode.auto)
-            }
-            .pickerStyle(.segmented)
+            GlassSegmentedPicker("Font Update Mode", selection: $appFontUpdateMode, options: [
+                (title: "Manual", value: .manual),
+                (title: "Auto", value: .auto),
+            ])
             .onChange(of: appFontUpdateMode) { _ in onSave() }
             SettingsFootnote(text: "Auto checks GitHub once a day for sketchybar-app-font updates.")
 
@@ -205,6 +202,7 @@ struct SettingsBehavior: View {
                     checkForFontUpdate()
                 }
                 .disabled(isCheckingFont)
+                .liquidGlassButtonStyle()
             }
             if let fontStatus {
                 SettingsFootnote(text: fontStatus)

@@ -28,17 +28,18 @@ struct SettingsAppearanceView: View {
                     let url = URL(fileURLWithPath: AppConfig().configPath)
                     _ = NSWorkspace.shared.open(url)
                 }
+                .liquidGlassButtonStyle()
                 Button("Open Themes Folder") {
                     _ = NSWorkspace.shared.open(ThemeManager.themesDir())
                 }
+                .liquidGlassButtonStyle()
             }
 
-            Picker("Background Color", selection: $mode) {
-                Text("Light").tag(ThemeMode.light)
-                Text("Dark").tag(ThemeMode.dark)
-                Text("Auto").tag(ThemeMode.auto)
-            }
-            .pickerStyle(.segmented)
+            GlassSegmentedPicker("Background Color", selection: $mode, options: [
+                (title: "Light", value: .light),
+                (title: "Dark", value: .dark),
+                (title: "Auto", value: .auto),
+            ])
             .onChange(of: mode) { _ in onSave() }
 
             VStack(alignment: .leading) {
@@ -95,6 +96,7 @@ struct SettingsAppearanceView: View {
                     Image(systemName: "minus.circle")
                 }
                 .disabled(currentIndex == 0)
+                .liquidGlassButtonStyle()
 
                 Slider(value: Binding(
                     get: { Double(currentIndex) },
@@ -108,6 +110,7 @@ struct SettingsAppearanceView: View {
                     Image(systemName: "plus.circle")
                 }
                 .disabled(currentIndex == steps.count - 1)
+                .liquidGlassButtonStyle()
             }
         }
 
