@@ -21,6 +21,9 @@ class SettingsWindowController: NSWindowController {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.toolbarStyle = .unified
+        let toolbar = NSToolbar()
+        toolbar.showsBaselineSeparator = false
+        window.toolbar = toolbar
         window.minSize = NSSize(width: 720, height: 520)
         window.maxSize = NSSize(width: 1400, height: 10000)
         if window.setFrameUsingName(Self.frameAutosaveName) {
@@ -55,9 +58,18 @@ class SettingsWindowController: NSWindowController {
         window?.makeKeyAndOrderFront(nil)
     }
 
-    /// Native settings-window backdrop: translucent material behind the
-    /// SwiftUI content (mirrors AboutWindowController's root).
-    private static func makeEffectRoot() -> NSVisualEffectView {
+    /// Native settings-window backdrop: NSGlassEffectView on 26+,
+    /// NSVisualEffectView fallback. Keeps content out of titlebar glass.
+    private static func makeEffectRoot() -> NSView {
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView()
+            glass.style = .regular
+            glass.cornerRadius = 0
+            if #available(macOS 27.0, *) {
+                glass.effectIsInteractive = true
+            }
+            return glass
+        }
         let root = NSVisualEffectView()
         root.material = .underWindowBackground
         root.blendingMode = .behindWindow
