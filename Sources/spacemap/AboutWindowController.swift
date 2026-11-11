@@ -34,10 +34,48 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func makeContentView() -> NSView {
+        let content = makeInnerContent()
+
+        #if compiler(>=6.0)
+        if #available(macOS 26.0, *), GlassSupport.isAvailable {
+            let root = NSGlassEffectView()
+            root.style = .regular
+            // Square corners: the glass must fill the titled window's content
+            // area, or rounded corners leave a window-background ring.
+            root.cornerRadius = 0
+            if #available(macOS 27.0, *) {
+                root.effectIsInteractive = true
+            }
+            root.contentView = content
+            pin(content, in: root)
+            return root
+        }
+        #endif
+
         let root = NSVisualEffectView()
         root.material = .windowBackground
         root.blendingMode = .behindWindow
         root.state = .active
+        root.addSubview(content)
+        pin(content, in: root)
+        return root
+    }
+
+    /// Pins a subview so it fills the whole wrapper at every window size.
+    private func pin(_ view: NSView, in parent: NSView) {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: parent.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: parent.trailingAnchor),
+            view.topAnchor.constraint(equalTo: parent.topAnchor),
+            view.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
+        ])
+    }
+
+    /// Builds the header and tabs once; the caller wraps them in the glass or
+    /// the legacy root.
+    private func makeInnerContent() -> NSView {
+        let content = NSView()
 
         let icon = NSImageView(image: NSApplication.shared.applicationIconImage)
         icon.imageScaling = .scaleProportionallyUpOrDown
@@ -62,23 +100,23 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         tabs.addTabViewItem(tab(title: "Software Used", content: softwareTab()))
         tabs.view.translatesAutoresizingMaskIntoConstraints = false
 
-        root.addSubview(header)
-        root.addSubview(tabs.view)
+        content.addSubview(header)
+        content.addSubview(tabs.view)
 
         NSLayoutConstraint.activate([
             icon.widthAnchor.constraint(equalToConstant: 64),
             icon.heightAnchor.constraint(equalToConstant: 64),
-            header.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 28),
-            header.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -28),
-            header.topAnchor.constraint(equalTo: root.topAnchor, constant: 22),
+            header.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 28),
+            header.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -28),
+            header.topAnchor.constraint(equalTo: content.topAnchor, constant: 22),
 
-            tabs.view.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
-            tabs.view.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
+            tabs.view.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 24),
+            tabs.view.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -24),
             tabs.view.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 18),
-            tabs.view.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -20),
+            tabs.view.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20),
         ])
 
-        return root
+        return content
     }
 
     private func aboutTab() -> NSView {

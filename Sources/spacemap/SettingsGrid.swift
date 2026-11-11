@@ -52,18 +52,16 @@ struct SettingsGrid: View {
                 onSave()
             }
 
-            Picker("Show Mode", selection: $showMode) {
-                Text("All Spaces").tag(ShowMode.all)
-                Text("Active Spaces").tag(ShowMode.active)
-            }
-            .pickerStyle(.segmented)
+            GlassSegmentedPicker("Show Mode", selection: $showMode, options: [
+                (title: "All Spaces", value: .all),
+                (title: "Active Spaces", value: .active),
+            ])
             .onChange(of: showMode) { _ in onSave() }
 
-            Picker("Multi-Monitor HUD", selection: $multiMonitorHUDMode) {
-                Text("Unified Grid").tag(MultiMonitorHUDMode.unified)
-                Text("Separate HUDs").tag(MultiMonitorHUDMode.separate)
-            }
-            .pickerStyle(.segmented)
+            GlassSegmentedPicker("Multi-Monitor HUD", selection: $multiMonitorHUDMode, options: [
+                (title: "Unified Grid", value: .unified),
+                (title: "Separate HUDs", value: .separate),
+            ])
             .onChange(of: multiMonitorHUDMode) { _ in onSave() }
 
             SettingsFootnote(text: multiMonitorHUDMode == .separate
@@ -71,11 +69,10 @@ struct SettingsGrid: View {
                 : "Shows every space in one grid; keyboard navigation can cross displays.")
 
             if multiMonitorHUDMode == .unified {
-                Picker("Unified Grid", selection: $unifiedHUDVisibility) {
-                    Text("Active Display Only").tag(SeparateHUDVisibility.active)
-                    Text("All Displays").tag(SeparateHUDVisibility.all)
-                }
-                .pickerStyle(.segmented)
+                GlassSegmentedPicker("Unified Grid", selection: $unifiedHUDVisibility, options: [
+                    (title: "Active Display Only", value: .active),
+                    (title: "All Displays", value: .all),
+                ])
                 .onChange(of: unifiedHUDVisibility) { _ in onSave() }
                 SettingsFootnote(text: unifiedHUDVisibility == .active
                     ? "Shows the unified grid on the display containing yabai's focused space."
@@ -83,25 +80,23 @@ struct SettingsGrid: View {
             }
 
             if multiMonitorHUDMode == .separate {
-                Picker("Separate HUDs", selection: $separateHUDVisibility) {
-                    Text("All Displays").tag(SeparateHUDVisibility.all)
-                    Text("Active Display Only").tag(SeparateHUDVisibility.active)
-                }
-                .pickerStyle(.segmented)
+                GlassSegmentedPicker("Separate HUDs", selection: $separateHUDVisibility, options: [
+                    (title: "All Displays", value: .all),
+                    (title: "Active Display Only", value: .active),
+                ])
                 .onChange(of: separateHUDVisibility) { _ in onSave() }
                 SettingsFootnote(text: separateHUDVisibility == .active
                     ? "Shows the HUD only on the display containing yabai's focused space."
                     : "Shows a HUD on every display at once.")
             }
 
-            Picker("Cell Style", selection: $cellStyle) {
-                Text("Rectangles").tag(CellStyle.rects)
-                Text("Hybrid").tag(CellStyle.hybrid)
-                Text("Icons").tag(CellStyle.icons)
-                Text("Thumbnails").tag(CellStyle.thumbnails)
-                Text("Simple").tag(CellStyle.simple)
-            }
-            .pickerStyle(.segmented)
+            GlassSegmentedPicker("Cell Style", selection: $cellStyle, options: [
+                (title: "Rectangles", value: .rects),
+                (title: "Hybrid", value: .hybrid),
+                (title: "Icons", value: .icons),
+                (title: "Thumbnails", value: .thumbnails),
+                (title: "Simple", value: .simple),
+            ])
             .onChange(of: cellStyle) { _ in onSave() }
 
             Toggle(showSpaceNumbersTitle, isOn: $showSpaceNumbers)

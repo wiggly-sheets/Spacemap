@@ -198,11 +198,9 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        NavigationSplitView {
             SettingsSidebar(selectedSection: $selectedSection)
-
-            Divider()
-
+        } detail: {
             Form {
                 switch selectedSection {
             case .grid:

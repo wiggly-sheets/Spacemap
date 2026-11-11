@@ -28,6 +28,7 @@ struct SettingsAdvanced: View {
                     refreshDiagnostics()
                 }
                 .disabled(isRefreshingDiagnostics)
+                .liquidGlassButtonStyle()
 
                 SettingsFootnote(text: "Confirms yabai is running and its signals can reach Spacemap's Unix socket.")
 

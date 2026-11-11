@@ -72,7 +72,7 @@ struct SettingsSpaceNames: View {
                 Button("Add Profile") {
                     addProfile()
                 }
-                .buttonStyle(.borderedProminent)
+                .liquidGlassButtonStyle(prominent: true)
                 .controlSize(.small)
                 .disabled(newProfileName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -146,20 +146,20 @@ struct ProfileRow: View {
                 Button("Activate") {
                     onActivate()
                 }
-                .buttonStyle(.bordered)
+                .liquidGlassButtonStyle()
                 .controlSize(.small)
             }
 
             Button(isEditing ? "Done" : "Edit") {
                 onEdit()
             }
-            .buttonStyle(.bordered)
+            .liquidGlassButtonStyle()
             .controlSize(.small)
 
             Button("Delete") {
                 onDelete()
             }
-            .buttonStyle(.bordered)
+            .liquidGlassButtonStyle()
             .controlSize(.small)
             .foregroundStyle(.red)
             .disabled(profilesCount <= 1)
