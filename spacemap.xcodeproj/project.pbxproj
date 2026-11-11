@@ -23,6 +23,8 @@
 		28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46166bf5-f702-94da-7579-b932374e63e8 /* ConfigurationModels.swift */; };
 		a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */; };
 		fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34ad3dc0-23a8-e44b-c9f2-c235ec20a03e /* DeepLinkService.swift */; };
+		9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2da676f1-f422-0aaf-c90c-b29616ebe8e2 /* GlassCompat.swift */; };
+		b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0617c682-0f6f-aaa2-62d1-caadb21bbf38 /* GlassSegmentedControl.swift */; };
 		b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */; };
 		c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */; };
 		a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */; };
@@ -93,6 +95,8 @@
 		46166bf5-f702-94da-7579-b932374e63e8 /* ConfigurationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationModels.swift; sourceTree = "<group>"; };
 		ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLink.swift; sourceTree = "<group>"; };
 		34ad3dc0-23a8-e44b-c9f2-c235ec20a03e /* DeepLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkService.swift; sourceTree = "<group>"; };
+		2da676f1-f422-0aaf-c90c-b29616ebe8e2 /* GlassCompat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCompat.swift; sourceTree = "<group>"; };
+		0617c682-0f6f-aaa2-62d1-caadb21bbf38 /* GlassSegmentedControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSegmentedControl.swift; sourceTree = "<group>"; };
 		f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip.swift; sourceTree = "<group>"; };
 		f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanel.swift; sourceTree = "<group>"; };
 		5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridLayout.swift; sourceTree = "<group>"; };
@@ -219,6 +223,8 @@
 				46166bf5-f702-94da-7579-b932374e63e8 /* ConfigurationModels.swift */,
 				ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */,
 				34ad3dc0-23a8-e44b-c9f2-c235ec20a03e /* DeepLinkService.swift */,
+				2da676f1-f422-0aaf-c90c-b29616ebe8e2 /* GlassCompat.swift */,
+				0617c682-0f6f-aaa2-62d1-caadb21bbf38 /* GlassSegmentedControl.swift */,
 				f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */,
 				f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */,
 				5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */,
@@ -448,6 +454,8 @@
 				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
+				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
+				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
@@ -519,6 +527,8 @@
 				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
+				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
+				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
@@ -590,6 +600,8 @@
 				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
+				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
+				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
@@ -661,6 +673,8 @@
 				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
+				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
+				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
