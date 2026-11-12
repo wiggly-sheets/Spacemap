@@ -236,9 +236,14 @@ showIconStrip = true
 [appearance]
 theme = "default"
 uiScale = 0.5
-backgroundAlpha = 0.3      # glass styles only; solid and transparent ignore it
+backgroundAlpha = 0.3       # shared opacity when matchBackgroundOpacity is on
 backgroundStyle = "glass"   # glass, solid, transparent
-glassStyle = "frosted"      # clear, tinted, frosted (glass only)
+glassStyle = "opaque"       # clear | opaque | tinted (glass only; legacy frosted = opaque)
+glassClearOpacity = 0.15    # per-style opacity; used unless matching
+glassOpaqueOpacity = 0.3
+glassTintedOpacity = 0.3
+solidOpacity = 1.0          # solid fill, no blur
+matchBackgroundOpacity = false  # true = all styles share backgroundAlpha
 hudShadow = true
 
 [behavior]
@@ -274,12 +279,16 @@ maxIconsPerSpace = 8              # glyph cap per space, then "+N"; 0 = unlimite
 iconSize = 11.0                   # glyph point size, clamped 6...24
 indexSize = 11.0                  # space-number point size, clamped 6...24
 highlightCurrentSpace = true
-backgroundMaterial = "none"       # none | solid | liquidGlass
-glassAmount = 0.5                 # liquidGlass tint 0...1; 0 clear, 0.5 default, 1 tinted
-                                   # (Settings slider shown only while Theme Tint is on)
-useThemeTint = true               # liquidGlass only; false = neutral pure frost, no fill overlay
+backgroundMaterial = "none"       # none (Transparent) | solid | liquidGlass
+glassStyle = "opaque"             # liquidGlass only: clear | opaque | tinted
+matchHUDAppearance = false        # true = copy HUD material, glass type, opacity, theme
 shape = "none"                    # none | pill | roundedRect | bar (none = no background, no outline)
-backgroundOpacity = 0.35          # solid only, 0.01...1.0 (Settings slider 1...100%)
+backgroundOpacity = 0.35          # shared opacity when matchBackgroundOpacity is on
+matchBackgroundOpacity = false    # true = all strip styles share backgroundOpacity
+glassClearOpacity = 0.35          # per-style glass backing opacity
+glassOpaqueOpacity = 0.35
+glassTintedOpacity = 0.35
+solidOpacity = 0.35               # solid backing opacity, no blur
 cornerRadius = 20.0               # roundedRect only, 0...40
 margin = 6.0                      # gap to the notch edge, clamped 0...40
 yOffset = 0.0                     # vertical nudge; positive moves the strip DOWN,
@@ -322,9 +331,9 @@ theme = ""                        # follow main HUD theme; or a theme name
 |---|---|
 | `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showSpaceLayout`, `showIconStrip`, `showMultiAppIcons` |
 | `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]` |
-| `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `backgroundStyle`, `glassStyle`, `hudShadow`, `uiScale`, `iconScale` |
+| `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `backgroundStyle`, `glassStyle`, `glassClearOpacity`, `glassOpaqueOpacity`, `glassTintedOpacity`, `solidOpacity`, `matchBackgroundOpacity`, `hudShadow`, `uiScale`, `iconScale` |
 | `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `hideMenuBarIcon`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
-| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassAmount`, `useThemeTint`, `shape`, `backgroundOpacity`, `cornerRadius`, `margin`, `yOffset`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `xOffset`, `borderEnabled` |
+| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `shape`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearOpacity`, `glassOpaqueOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `yOffset`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `xOffset`, `borderEnabled` |
 | `[advanced]` | `socketHealthInterval`, `showExtraWindows` |
 
 Space names example:
