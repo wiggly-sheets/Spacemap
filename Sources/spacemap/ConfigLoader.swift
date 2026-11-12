@@ -1,5 +1,16 @@
 import Foundation
 
+/// Why a load replaced or repaired the file. `load` keeps its existing tuple;
+/// `loadReportingResult` exposes this for callers that can surface a message.
+enum ConfigLoadStatus: Equatable {
+    case loaded
+    case repaired
+    case createdDefault
+    case unreadable
+    case oversized
+    case parseFailed
+}
+
 enum ConfigLoader {
 
     static let configPath = NSString(string: "~/.config/spacemap/config.toml").expandingTildeInPath
@@ -9,91 +20,212 @@ enum ConfigLoader {
     static let maxConfigBytes = 256 * 1024
     static let maxLineBytes = 16 * 1024
 
+    /// One lock for every disk load/save. Recursive because self-heal saves
+    /// while a load holds the lock, and `update` nests a load inside a save.
+    private static let ioLock = NSRecursiveLock()
+    /// Log a parse failure once per path; cleared after a successful parse so
+    /// a later relapse logs again instead of staying silent forever.
+    private static var loggedParseFailures: Set<String> = []
+
     static func isSymlink(at path: String) -> Bool {
         (try? FileManager.default.attributesOfItem(atPath: path))?[.type] as? FileAttributeType == .typeSymbolicLink
     }
 
     static func load(from path: String, silentMode: Bool) -> (values: ConfigValues, needsRepair: Bool) {
+        let result = loadReportingResult(from: path, silentMode: silentMode)
+        return (result.values, result.needsRepair)
+    }
+
+    /// Additive counterpart to `load`: same behavior plus a status explaining
+    /// unreadable / oversized / parse-failed files.
+    static func loadReportingResult(
+        from path: String,
+        silentMode: Bool
+    ) -> (values: ConfigValues, needsRepair: Bool, status: ConfigLoadStatus) {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+        return loadUnlocked(from: path, silentMode: silentMode)
+    }
+
+    private static func loadUnlocked(
+        from path: String,
+        silentMode: Bool,
+        repair: Bool = true
+    ) -> (values: ConfigValues, needsRepair: Bool, status: ConfigLoadStatus) {
         if isSymlink(at: path) {
             NSLog("spacemap/ConfigLoader: refusing to read symlinked config at \(path)")
-            return (ConfigValues(), true)
+            return (ConfigValues(), true, .unreadable)
         }
         // O_NOFOLLOW open: a link swapped in after the check above still
         // fails here instead of being followed (TOCTOU). Nil also covers
         // missing/unreadable files.
-        guard let rawContents = nofollowContents(at: path) else {
+        guard let read = nofollowData(at: path, limit: maxConfigBytes) else {
             if !silentMode { NSLog("spacemap/ConfigLoader: failed to read config at \(path)") }
-            createDefaultConfigFile(at: path)
-            return (ConfigValues(), true)
+            let wroteDefault = createDefaultConfigFileUnlocked(at: path)
+            return (ConfigValues(), true, wroteDefault ? .createdDefault : .unreadable)
         }
-        var raw = rawContents
+        // Stop at the ceiling instead of slurping a huge file into memory.
+        guard !read.exceeded else {
+            NSLog("spacemap/ConfigLoader: config at \(path) exceeds size ceilings — using defaults")
+            return (ConfigValues(), true, .oversized)
+        }
+        guard var raw = String(data: read.data, encoding: .utf8) else {
+            if !silentMode { NSLog("spacemap/ConfigLoader: config at \(path) is not UTF-8") }
+            _ = createDefaultConfigFileUnlocked(at: path)
+            return (ConfigValues(), true, .unreadable)
+        }
         if raw.hasPrefix("\u{FEFF}") { raw = String(raw.dropFirst()) }
         let contents = raw
         if !silentMode { NSLog("spacemap/ConfigLoader: successfully read config from \(path)") }
 
-        // Fail closed on bombs: oversized file or absurd single line.
-        guard contents.utf8.count <= maxConfigBytes,
-              contents.split(separator: "\n", omittingEmptySubsequences: false).allSatisfy({ $0.utf8.count <= maxLineBytes }) else {
-            NSLog("spacemap/ConfigLoader: config at \(path) exceeds size ceilings — using defaults")
-            return (ConfigValues(), true)
+        // Fail closed on absurd single lines even though the byte ceiling passed.
+        guard contents.split(separator: "\n", omittingEmptySubsequences: false)
+            .allSatisfy({ $0.utf8.count <= maxLineBytes }) else {
+            NSLog("spacemap/ConfigLoader: config at \(path) has an oversized line — using defaults")
+            return (ConfigValues(), true, .oversized)
         }
 
         let parsed: ConfigValues
         do {
             parsed = try TOMLParser.parse(contents)
         } catch {
-            if !silentMode { NSLog("spacemap/ConfigLoader: parse failed (\(error.localizedDescription)) — using defaults") }
-            parsed = ConfigValues()
+            // Never overwrite a file we could not understand: the user can fix
+            // a broken file, but cannot recover defaults written over it. Fall
+            // back for this session and leave the bytes untouched.
+            logParseFailureOnce(at: path, error.localizedDescription)
+            return (ConfigValues(), true, .parseFailed)
         }
+        // A later relapse should log again.
+        loggedParseFailures.remove(path)
         let values = sanitizeLabels(parsed)
-        let (_, needsRepair) = values.toGridConfig()
-        if needsRepair {
-            save(values, to: path)
+        let (resolved, needsRepair) = values.toGridConfig()
+        guard needsRepair else {
+            return (values, false, .loaded)
         }
-        return (values, needsRepair)
+        // Persist the resolved model, not the raw values: writing raw input
+        // (e.g. `cols = 9223372036854775807`) makes every load rediscover the
+        // same repair and rewrite the file forever. `update` passes
+        // `repair: false` so it writes once, after applying its mutation.
+        if repair {
+            _ = saveUnlocked(ConfigValues(from: resolved), to: path)
+        }
+        let resolvedValues = ConfigValues(from: resolved)
+        return (resolvedValues, true, .repaired)
     }
 
-    /// O_NOFOLLOW read of a regular file. Returns nil for symlinks (even
-    /// ones planted after `isSymlink`), directories, and read failures.
-    private static func nofollowContents(at path: String) -> String? {
+    /// O_NOFOLLOW read of a regular file, capped at `limit + 1` bytes so the
+    /// size check is decided on one extra byte rather than a full slurp.
+    /// Returns nil for symlinks (even ones planted after `isSymlink`),
+    /// directories, and read failures.
+    private static func nofollowData(at path: String, limit: Int) -> (data: Data, exceeded: Bool)? {
         let fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { return nil }
         defer { close(fd) }
         var statBuf = stat()
         guard fstat(fd, &statBuf) == 0, (statBuf.st_mode & S_IFMT) == S_IFREG else { return nil }
-        let data = FileHandle(fileDescriptor: fd, closeOnDealloc: false).readDataToEndOfFile()
-        return String(data: data, encoding: .utf8)
+        var data = Data()
+        data.reserveCapacity(min(Int(statBuf.st_size), limit + 1))
+        var buffer = [UInt8](repeating: 0, count: 16 * 1024)
+        while data.count <= limit {
+            let remaining = limit + 1 - data.count
+            let chunk = min(buffer.count, max(remaining, 1))
+            let count = buffer.withUnsafeMutableBytes { read(fd, $0.baseAddress, chunk) }
+            if count < 0 {
+                if errno == EINTR { continue }
+                return nil
+            }
+            if count == 0 { break }
+            data.append(contentsOf: buffer[0..<count])
+        }
+        return (data, data.count > limit)
     }
 
     static func save(_ values: ConfigValues, to path: String) {
+        _ = saveReportingResult(values, to: path)
+    }
+
+    /// Additive counterpart to `save`: returns whether the file was written.
+    @discardableResult
+    static func saveReportingResult(_ values: ConfigValues, to path: String) -> Bool {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+        return saveUnlocked(values, to: path)
+    }
+
+    private static func saveUnlocked(_ values: ConfigValues, to path: String) -> Bool {
         // EEXIST + O_NOFOLLOW: never write through a planted link or dir.
         guard !isSymlink(at: path) else {
             NSLog("spacemap/ConfigLoader: refusing to write through symlink at \(path)")
-            return
+            return false
         }
         let dir = (path as NSString).deletingLastPathComponent
         secureDirectory(at: dir)
         backupConfig(at: path)
         let content = tomlConfigString(from: values, includeHeaderComments: true)
-        secureWrite(content, to: path)
+        return secureWrite(content, to: path)
     }
 
     static func save(_ config: GridConfig, to path: String) {
-        let values = ConfigValues(from: config)
-        save(values, to: path)
+        _ = saveReportingResult(config, to: path)
+    }
+
+    /// Additive counterpart to `save(_:to:)` for GridConfig callers.
+    @discardableResult
+    static func saveReportingResult(_ config: GridConfig, to path: String) -> Bool {
+        saveReportingResult(ConfigValues(from: config), to: path)
+    }
+
+    /// Atomic read-modify-write of the on-disk config. Prefer this over a
+    /// separate `load` + `save` pair so concurrent writers cannot drop each
+    /// other's changes.
+    @discardableResult
+    static func update(
+        at path: String,
+        silentMode: Bool,
+        _ mutate: (inout GridConfig) -> Void
+    ) -> Bool {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+        // One write only: a repair write here would immediately be followed by
+        // the post-mutation save, rotating the backup twice.
+        let result = loadUnlocked(from: path, silentMode: silentMode, repair: false)
+        guard result.status != .parseFailed else { return false }
+        var config = result.values.gridConfig
+        mutate(&config)
+        return saveUnlocked(ConfigValues(from: config), to: path)
     }
 
     static func createDefaultConfigFile(at path: String) {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+        _ = createDefaultConfigFileUnlocked(at: path)
+    }
+
+    @discardableResult
+    static func createDefaultConfigFileReportingResult(at path: String) -> Bool {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+        return createDefaultConfigFileUnlocked(at: path)
+    }
+
+    private static func createDefaultConfigFileUnlocked(at path: String) -> Bool {
         guard !isSymlink(at: path) else {
             NSLog("spacemap/ConfigLoader: refusing to write through symlink at \(path)")
-            return
+            return false
         }
         secureDirectory(at: (path as NSString).deletingLastPathComponent)
         backupConfig(at: path)
         let content = tomlConfigString(from: ConfigValues(), includeHeaderComments: true)
-        if secureWrite(content, to: path) {
+        let written = secureWrite(content, to: path)
+        if written {
             NSLog("spacemap: default config created at \(path)")
         }
+        return written
+    }
+
+    private static func logParseFailureOnce(at path: String, _ reason: String) {
+        guard loggedParseFailures.insert(path).inserted else { return }
+        NSLog("spacemap/ConfigLoader: parse failed at \(path) (\(reason)) — using defaults")
     }
 
     /// Config dir 0700, files 0600. XDG config holds hotkeys/behavior — no
@@ -165,7 +297,13 @@ enum ConfigLoader {
     static let maxLabelChars = 64
 
     static func sanitizeLabel(_ label: String) -> String {
-        let filtered = String(label.unicodeScalars.filter { scalar in
+        // U+2028/U+2029 are line breaks to many consumers and cannot survive a
+        // line-oriented config round-trip. Replace with a space rather than
+        // letting them split the document; the writer also escapes them.
+        let replaced = label
+            .replacingOccurrences(of: "\u{2028}", with: " ")
+            .replacingOccurrences(of: "\u{2029}", with: " ")
+        let filtered = String(replaced.unicodeScalars.filter { scalar in
             switch scalar.properties.generalCategory {
             case .uppercaseLetter, .lowercaseLetter, .titlecaseLetter, .modifierLetter, .otherLetter,
                  .nonspacingMark, .spacingMark, .enclosingMark,
@@ -173,7 +311,7 @@ enum ConfigLoader {
                  .connectorPunctuation, .dashPunctuation, .openPunctuation, .closePunctuation,
                  .initialPunctuation, .finalPunctuation, .otherPunctuation,
                  .mathSymbol, .currencySymbol, .modifierSymbol, .otherSymbol,
-                 .spaceSeparator, .lineSeparator, .paragraphSeparator:
+                 .spaceSeparator:
                 return true
             default:
                 return false
@@ -369,9 +507,36 @@ enum ConfigLoader {
         defer { close(srcFd) }
         var srcStat = stat()
         guard fstat(srcFd, &srcStat) == 0, (srcStat.st_mode & S_IFMT) == S_IFREG else { return }
-        let data = FileHandle(fileDescriptor: srcFd, closeOnDealloc: false).readDataToEndOfFile()
         let backupPath = path + ".bak"
-        let rotatedPath = path + ".bak.1"
+        rotateBackup(at: backupPath)
+        // Oversized input is not worth copying, but it must not be destroyed
+        // by the write that follows: move it aside instead. Cap the read as
+        // well so a lying/growing file cannot make the backup unbounded.
+        if srcStat.st_size > off_t(maxConfigBytes) {
+            moveAside(path: path, backupPath: backupPath, srcFd: srcFd)
+            return
+        }
+        let data = FileHandle(fileDescriptor: srcFd, closeOnDealloc: false)
+            .readData(ofLength: maxConfigBytes + 1)
+        guard data.count <= maxConfigBytes else {
+            moveAside(path: path, backupPath: backupPath, srcFd: srcFd)
+            return
+        }
+        // O_EXCL|O_NOFOLLOW: fail closed if link planted after rotation.
+        let dstFd = open(backupPath, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        guard dstFd >= 0 else { return }
+        defer { close(dstFd) }
+        let written = data.withUnsafeBytes { write(dstFd, $0.baseAddress, $0.count) }
+        guard written == data.count else {
+            unlink(backupPath)
+            return
+        }
+        _ = fchmod(dstFd, mode_t(0o600))
+    }
+
+    /// Rotate `path.bak` to `path.bak.1`, dropping whatever was there.
+    private static func rotateBackup(at backupPath: String) {
+        let rotatedPath = backupPath + ".1"
         // unlink() never follows: removes planted link itself, not target.
         unlink(rotatedPath)
         var backupStat = stat()
@@ -386,16 +551,13 @@ enum ConfigLoader {
                 }
             }
         }
-        // O_EXCL|O_NOFOLLOW: fail closed if link planted after rotation.
-        let dstFd = open(backupPath, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
-        guard dstFd >= 0 else { return }
-        defer { close(dstFd) }
-        let written = data.withUnsafeBytes { write(dstFd, $0.baseAddress, $0.count) }
-        guard written == data.count else {
-            unlink(backupPath)
-            return
-        }
-        _ = fchmod(dstFd, mode_t(0o600))
+    }
+
+    /// Move the pinned regular file from `path` to the backup slot without
+    /// reading it. `fchmod` on the still-open fd avoids a path-based chmod race.
+    private static func moveAside(path: String, backupPath: String, srcFd: Int32) {
+        guard rename(path, backupPath) == 0 else { return }
+        _ = fchmod(srcFd, mode_t(0o600))
     }
 
 
@@ -423,6 +585,10 @@ enum ConfigLoader {
             case 0x0D: escaped += "\\r"
             case 0x22: escaped += "\\\""
             case 0x5C: escaped += "\\\\"
+            // U+2028/U+2029 split lines for many readers; escape them so a
+            // label containing one still round-trips through this parser.
+            case 0x2028: escaped += "\\u2028"
+            case 0x2029: escaped += "\\u2029"
             case 0x00...0x1F, 0x7F:
                 escaped += String(format: "\\u%04X", scalar.value)
             default:

@@ -255,4 +255,161 @@ final class TOMLParserTests: XCTestCase {
         XCTAssertEqual(values?.socketHealthInterval, 30)
         XCTAssertEqual(values?.showExtraWindows, true)
     }
+
+    func testParseTrailingCommaAndMultilineArray() {
+        let values = try? TOMLParser.parse("""
+        [behavior.hotkey]
+        keyKind = "keyCode"
+        keyCode = 49
+        modifiers = [
+            "cmd",
+            "shift",
+        ]
+        """)
+
+        XCTAssertNotNil(values?.hotkey)
+        XCTAssertTrue(values?.hotkey?.modifiers.contains(.maskCommand) ?? false)
+        XCTAssertTrue(values?.hotkey?.modifiers.contains(.maskShift) ?? false)
+    }
+
+    func testParseDottedKeys() {
+        let values = try? TOMLParser.parse("""
+        grid.cols = 8
+        grid.rows = 3
+        appearance.theme = "dracula"
+        spaceNames.names."1" = "Term"
+        """)
+
+        XCTAssertEqual(values?.cols, 8)
+        XCTAssertEqual(values?.rows, 3)
+        XCTAssertEqual(values?.theme, "dracula")
+        XCTAssertEqual(values?.spaceNames, [1: "Term"])
+    }
+
+    func testParseHexAndUnderscoredIntegers() {
+        let values = try? TOMLParser.parse("""
+        [grid]
+        cols = 0x8
+        rows = 1_0
+
+        [glyphStrip]
+        maxIconsPerSpace = 0x10
+        xOffset = 1_000
+        """)
+
+        XCTAssertEqual(values?.cols, 8)
+        XCTAssertEqual(values?.rows, 10)
+        XCTAssertEqual(values?.glyphStrip?.maxIconsPerSpace, 16)
+        XCTAssertEqual(values?.glyphStrip?.xOffset, 1000)
+    }
+
+    func testParseInlineTable() {
+        let values = try? TOMLParser.parse("""
+        grid = { cols = 8, rows = 3 }
+        """)
+
+        XCTAssertEqual(values?.cols, 8)
+        XCTAssertEqual(values?.rows, 3)
+    }
+
+    func testDirectSpaceNameEntriesArePreserved() {
+        let values = try? TOMLParser.parse("""
+        [spaceNames]
+        showSpaceNames = false
+        "2" = "Code"
+        """)
+
+        XCTAssertEqual(values?.showSpaceNames, false)
+        XCTAssertEqual(values?.spaceNames, [2: "Code"])
+        XCTAssertEqual(values?.hasInvalidSpaceNames, false)
+    }
+
+    func testDirectSpaceNameEntriesFlagRepairWhenAnEntryIsInvalid() {
+        let values = try? TOMLParser.parse("""
+        [spaceNames]
+        "2" = "Code"
+        "not-a-space" = "Broken"
+        """)
+
+        XCTAssertEqual(values?.spaceNames, [2: "Code"])
+        XCTAssertEqual(values?.hasInvalidSpaceNames, true)
+    }
+
+    func testLegacyBareBooleanGlyphStripMapsToEnabled() {
+        let enabled = try? TOMLParser.parse("glyphStrip = true")
+        XCTAssertEqual(enabled?.glyphStrip?.enabled, true)
+
+        let disabled = try? TOMLParser.parse("glyphStrip = false")
+        XCTAssertEqual(disabled?.glyphStrip?.enabled, false)
+
+        let table = try? TOMLParser.parse("""
+        [glyphStrip]
+        enabled = true
+        iconSize = 14
+        """)
+        XCTAssertEqual(table?.glyphStrip?.enabled, true)
+        XCTAssertEqual(table?.glyphStrip?.iconSize, 14)
+    }
+
+    func testAdvertisedThemeSpellingsArePreserved() throws {
+        for name in ["monokai-dark", "tokyonight", "atom-one-dark"] {
+            let values = try TOMLParser.parse("[appearance]\ntheme = \"\(name)\"")
+            XCTAssertEqual(values.theme, name)
+        }
+    }
+
+    func testParseInlineHotkeyAndHUDPositionUnderBehavior() {
+        let values = try? TOMLParser.parse("""
+        [behavior]
+        hotkey = { keyKind = "keyCode", keyCode = 49, modifiers = ["cmd"] }
+        hudPosition = { kind = "custom", x = 0.25, y = 0.75 }
+        """)
+
+        XCTAssertEqual(values?.hotkey?.keyCode, 49)
+        XCTAssertEqual(values?.hudPosition, .custom(x: 0.25, y: 0.75))
+    }
+
+    func testParseInlineNamesUnderSpaceNameProfile() {
+        let values = try? TOMLParser.parse("""
+        [spaceNameProfiles]
+        activeIndex = 0
+
+        [spaceNameProfiles.0]
+        name = "Default"
+        names = { "1" = "Term", "2" = "Code" }
+        """)
+
+        XCTAssertEqual(values?.spaceNameProfiles?.first?.spaceNames, [1: "Term", 2: "Code"])
+    }
+
+    func testParseLoneCarriageReturnAndCRLFLineEndings() {
+        let loneCR = try? TOMLParser.parse("grid.cols = 8\rgrid.rows = 3\r")
+        XCTAssertEqual(loneCR?.cols, 8)
+        XCTAssertEqual(loneCR?.rows, 3)
+
+        let crlf = try? TOMLParser.parse("grid.cols = 6\r\ngrid.rows = 2\r\n")
+        XCTAssertEqual(crlf?.cols, 6)
+        XCTAssertEqual(crlf?.rows, 2)
+    }
+
+    func testHugeGlyphStripNumbersSaturateInsteadOfTrapping() throws {
+        let huge = try TOMLParser.parse("""
+        [glyphStrip]
+        maxIconsPerSpace = 1e300
+        xOffset = 1e300
+        """)
+        let (config, needsRepair) = huge.toGridConfig()
+        XCTAssertTrue(needsRepair)
+        XCTAssertEqual(config.glyphStrip.maxIconsPerSpace, 16)
+        XCTAssertEqual(config.glyphStrip.xOffset, 4000)
+
+        let negative = try TOMLParser.parse("""
+        [glyphStrip]
+        maxIconsPerSpace = -1e300
+        xOffset = -1e300
+        """)
+        let (negativeConfig, _) = negative.toGridConfig()
+        XCTAssertEqual(negativeConfig.glyphStrip.maxIconsPerSpace, 0)
+        XCTAssertEqual(negativeConfig.glyphStrip.xOffset, -4000)
+    }
 }
