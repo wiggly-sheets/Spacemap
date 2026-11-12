@@ -8,6 +8,11 @@ struct SettingsAppearanceView: View {
     @Binding var backgroundAlpha: Double
     @Binding var backgroundStyle: HUDBackgroundStyle
     @Binding var glassStyle: HUDGlassStyle
+    @Binding var glassClearOpacity: Double
+    @Binding var glassOpaqueOpacity: Double
+    @Binding var glassTintedOpacity: Double
+    @Binding var solidOpacity: Double
+    @Binding var matchBackgroundOpacity: Bool
     @Binding var hudShadow: Bool
     @Binding var iconScale: Double
     @Binding var uiScale: Double
@@ -54,19 +59,31 @@ struct SettingsAppearanceView: View {
             if backgroundStyle == .glass {
                 GlassSegmentedPicker("Glass Style", selection: $glassStyle, options: [
                     (title: "Clear", value: .clear),
+                    (title: "Opaque", value: .opaque),
                     (title: "Tinted", value: .tinted),
-                    (title: "Frosted", value: .frosted),
                 ])
                 .onChange(of: glassStyle) { _ in onSave() }
+                SettingsFootnote(text: "Clear matches the left of the native Liquid Glass slider, Opaque the right, and Tinted adds the theme colour.")
             }
 
-            if backgroundStyle == .glass {
+            if backgroundStyle != .transparent {
+                Toggle("Use Same Opacity for All Styles", isOn: matchOpacityBinding)
+                SettingsFootnote(
+                    text: matchBackgroundOpacity
+                        ? "Clear, opaque, tinted, and solid all share one opacity."
+                        : "Each background style keeps its own opacity."
+                )
                 VStack(alignment: .leading) {
-                    Text("Background Transparency")
+                    Text("Background Opacity")
                         .font(.subheadline)
-                    CustomStepper(steps: backgroundTransparencySteps, value: $backgroundAlpha)
-                        .onChange(of: backgroundAlpha) { _ in onSave() }
+                    CustomStepper(steps: backgroundOpacitySteps, value: activeStyleOpacity)
+                        .onChange(of: activeStyleOpacity.wrappedValue) { _ in onSave() }
                 }
+                SettingsFootnote(
+                    text: backgroundStyle == .solid
+                        ? "Solid stays unblurred; lower opacity simply lets the desktop show through."
+                        : "Controls how much backing sits behind the glass blur."
+                )
             }
 
             Toggle("Draw HUD Shadow", isOn: $hudShadow)
@@ -90,8 +107,44 @@ struct SettingsAppearanceView: View {
         }
     }
 
-    private var backgroundTransparencySteps: [Double] {
-        Self.steps([0.00, 0.05, 0.12, 0.22, 0.35, 0.50, 0.65, 0.80, 0.92, 1.00], including: backgroundAlpha)
+    /// Slider target: the shared value when matching, otherwise the active
+    /// style's remembered opacity.
+    private var activeStyleOpacity: Binding<Double> {
+        guard !matchBackgroundOpacity else { return $backgroundAlpha }
+        switch backgroundStyle {
+        case .solid:
+            return $solidOpacity
+        case .glass:
+            switch glassStyle {
+            case .clear: return $glassClearOpacity
+            case .opaque: return $glassOpaqueOpacity
+            case .tinted: return $glassTintedOpacity
+            }
+        case .transparent:
+            return $backgroundAlpha
+        }
+    }
+
+    /// Turning matching on seeds the shared value from the visible style so
+    /// the HUD does not jump.
+    private var matchOpacityBinding: Binding<Bool> {
+        Binding(
+            get: { matchBackgroundOpacity },
+            set: { newValue in
+                if newValue {
+                    backgroundAlpha = activeStyleOpacity.wrappedValue
+                }
+                matchBackgroundOpacity = newValue
+                onSave()
+            }
+        )
+    }
+
+    private var backgroundOpacitySteps: [Double] {
+        Self.steps(
+            [0.00, 0.05, 0.12, 0.22, 0.35, 0.50, 0.65, 0.80, 0.92, 1.00],
+            including: activeStyleOpacity.wrappedValue
+        )
     }
 
     private var uiScaleSteps: [Double] {

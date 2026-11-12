@@ -231,7 +231,8 @@ enum TOMLConfigDecoder {
         ])
         flatten("appearance", keys: [
             "theme", "mode", "backgroundAlpha", "hudShadow", "iconScale", "uiScale",
-            "backgroundStyle", "glassStyle"
+            "backgroundStyle", "glassStyle", "glassClearOpacity", "glassOpaqueOpacity",
+            "glassTintedOpacity", "solidOpacity", "matchBackgroundOpacity"
         ])
         // Legacy fallback: pre-[advanced] files keep showExtraWindows under
         // [behavior]. Capture before flatten drops the section; [advanced]
@@ -329,6 +330,11 @@ enum TOMLConfigDecoder {
         if let name: String = value("glassStyle") {
             values.glassStyle = parsedEnum(from: name)
         }
+        values.glassClearOpacity = rangedDouble("glassClearOpacity")
+        values.glassOpaqueOpacity = rangedDouble("glassOpaqueOpacity")
+        values.glassTintedOpacity = rangedDouble("glassTintedOpacity")
+        values.solidOpacity = rangedDouble("solidOpacity")
+        values.matchBackgroundOpacity = value("matchBackgroundOpacity")
 
         if let rawSpaceNames = object["spaceNames"] as? [String: Any] {
             var spaceNames: [Int: String] = [:]
@@ -508,9 +514,30 @@ enum TOMLConfigDecoder {
         if let name = table["shape"] as? String {
             config.shape = parsedEnum(from: name) ?? GlyphStripConfig.default.shape
         }
-        if let value = number(table["glassAmount"]) { config.glassAmount = value }
-        if let value = table["useThemeTint"] as? Bool { config.useThemeTint = value }
+        if let name = table["glassStyle"] as? String {
+            config.glassStyle = parsedEnum(from: name) ?? GlyphStripConfig.default.glassStyle
+        } else {
+            // Older files only had a continuous amount plus a tint toggle.
+            // Map them onto the closest of the three native positions.
+            let legacyTint = table["useThemeTint"] as? Bool
+            let legacyAmount = number(table["glassAmount"])
+            if legacyTint == false {
+                config.glassStyle = .opaque
+            } else if let legacyAmount {
+                config.glassStyle = legacyAmount <= 0.02 ? .clear : .tinted
+            } else if legacyTint == true {
+                config.glassStyle = .tinted
+            }
+        }
         if let value = number(table["backgroundOpacity"]) { config.backgroundOpacity = value }
+        // New per-style keys inherit the shared value from older configs.
+        let sharedOpacity = config.backgroundOpacity
+        config.glassClearOpacity = number(table["glassClearOpacity"]) ?? sharedOpacity
+        config.glassOpaqueOpacity = number(table["glassOpaqueOpacity"]) ?? sharedOpacity
+        config.glassTintedOpacity = number(table["glassTintedOpacity"]) ?? sharedOpacity
+        config.solidOpacity = number(table["solidOpacity"]) ?? sharedOpacity
+        if let value = table["matchBackgroundOpacity"] as? Bool { config.matchBackgroundOpacity = value }
+        if let value = table["matchHUDAppearance"] as? Bool { config.matchHUDAppearance = value }
         if let value = number(table["cornerRadius"]) { config.cornerRadius = value }
         if let value = number(table["margin"]) { config.margin = value }
         if let value = number(table["iconSpacing"]) { config.iconSpacing = value }

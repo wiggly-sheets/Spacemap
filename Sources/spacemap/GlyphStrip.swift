@@ -330,41 +330,31 @@ enum GlyphStrip {
         return false
     }
 
-    /// Native glass tint alpha for an amount: `nil` at/below the clear
-    /// threshold (ultraclear, no tint), else `0.08 + 0.30*t`. No public blur
-    /// radius API exists, so tint + fill overlay carry the whole effect.
-    static func glassTintAlpha(for amount: Double) -> Double? {
-        guard amount > GlyphStripGlassAmount.clearThreshold else { return nil }
-        return 0.08 + 0.30 * amount
+    /// Flat backing opacity for the glass path. Clear gets a light scrim so
+    /// the opacity control still has a gentle effect without defeating the
+    /// clear material; opaque and tinted map the value straight through.
+    static func glassFillOpacity(for style: HUDGlassStyle, backgroundOpacity: Double) -> Double {
+        switch style {
+        case .clear: return backgroundOpacity * 0.15
+        case .opaque, .tinted: return backgroundOpacity
+        }
     }
 
-    /// Flat fill overlay opacity for an amount: `0.10 + 0.55*t`. Painted under
-    /// the glyphs on the glass path; view alpha stays 1.0.
-    static func glassFillOpacity(for amount: Double) -> Double {
-        0.10 + 0.55 * amount
+    /// Neutral backing colour for the opaque style: no theme hue. Tinted skips
+    /// this and uses the theme's `cellBg` instead.
+    static func neutralGlassColor(isDark: Bool) -> NSColor {
+        isDark ? NSColor(white: 0.06, alpha: 1) : NSColor(white: 0.97, alpha: 1)
     }
 
-    /// Tint-off hairline: achromatic mid-gray. The themed stroke blends the
-    /// theme's text/background hues, which would edge a tint-off strip in
-    /// theme colour.
+    /// Neutral hairline for clear/opaque. Tinted uses `glassStrokeColor`, whose
+    /// theme blend matches the tinted backing.
     static func neutralGlassStrokeColor() -> NSColor { NSColor(white: 0.5, alpha: 1) }
 
-    /// Fallback `NSVisualEffectView` material. Tint-on keeps the saturated
-    /// `.popover`/`.menu` pair; tint-off uses `.headerView`, the least
-    /// wallpaper-saturated stock material, so no theme or wallpaper warmth
-    /// leaks in. Tint-off alpha is always 1.0 (set at the call site): anything
-    /// lower bleeds the warm menu bar through the sibling blur view, and that
-    /// bleed is what made the yellow worse toward the slider max.
-    static func glassFallbackMaterial(for amount: Double, useThemeTint: Bool) -> NSVisualEffectView.Material {
-        guard useThemeTint else { return .headerView }
-        return glassUsesPopoverMaterial(for: amount) ? .popover : .menu
-    }
-
-    /// Fallback `NSVisualEffectView` recipe: saturated `.popover` at/above the
-    /// centre notch, lighter `.menu` below. Keeps the legacy sides
-    /// (`blurred` 0.5 -> popover, `transparent` 0.15 -> menu).
-    static func glassUsesPopoverMaterial(for amount: Double) -> Bool {
-        amount >= GlyphStripGlassAmount.default
+    /// Fallback `NSVisualEffectView` material. Tinted keeps the saturated
+    /// `.popover`; neutral styles use `.headerView`, the least
+    /// wallpaper-saturated stock material, so no wallpaper warmth leaks in.
+    static func glassFallbackMaterial(for style: HUDGlassStyle) -> NSVisualEffectView.Material {
+        style == .tinted ? .popover : .headerView
     }
 
     /// Fills a resolved backdrop, or strokes it for the glass edge. The only

@@ -38,30 +38,29 @@ struct HUDBackground: View {
         case .transparent:
             HUDBorder(cornerRadius: cornerRadius)
         case .solid:
-            HUDSolidFill(cornerRadius: cornerRadius, color: themeColor)
+            HUDSolidFill(cornerRadius: cornerRadius, color: themeColor, opacity: alpha)
         case .glass:
             switch glassStyle {
             case .clear:
-                glassBody(materialOpacity: 0.5, scrimOpacity: alpha * 0.15, tint: nil)
-            case .frosted:
-                glassBody(materialOpacity: 1, scrimOpacity: alpha * 0.4, tint: nil)
+                glassBody(material: .ultraThinMaterial, backing: scrim, backingOpacity: alpha * 0.15)
+            case .opaque:
+                glassBody(material: .regularMaterial, backing: scrim, backingOpacity: alpha)
             case .tinted:
-                glassBody(materialOpacity: 1, scrimOpacity: alpha * 0.4, tint: themeColor.opacity(alpha))
+                glassBody(material: .regularMaterial, backing: themeColor, backingOpacity: alpha)
             }
         }
     }
 
-    private func glassBody(materialOpacity: Double, scrimOpacity: Double, tint: Color?) -> some View {
+    private func glassBody(
+        material: Material,
+        backing: Color,
+        backingOpacity: Double
+    ) -> some View {
         ZStack {
             Rectangle()
-                .fill(scrim.opacity(scrimOpacity))
+                .fill(backing.opacity(backingOpacity))
             Rectangle()
-                .fill(.ultraThinMaterial)
-                .opacity(materialOpacity)
-            if let tint {
-                Rectangle()
-                    .fill(tint)
-            }
+                .fill(material)
         }
         .overlay(HUDBorder(cornerRadius: cornerRadius))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
@@ -83,18 +82,22 @@ private struct ModernHUDBackground: View {
         case .transparent:
             HUDBorder(cornerRadius: cornerRadius)
         case .solid:
-            HUDSolidFill(cornerRadius: cornerRadius, color: themeColor)
+            HUDSolidFill(cornerRadius: cornerRadius, color: themeColor, opacity: alpha)
         case .glass:
             switch glassStyle {
             case .clear:
                 clearGlass
-            case .frosted:
-                glassBody(scrimOpacity: alpha * 0.4, material: .regular.interactive(), tint: nil)
+            case .opaque:
+                glassBody(
+                    backing: scrim,
+                    backingOpacity: alpha,
+                    material: .regular.interactive()
+                )
             case .tinted:
                 glassBody(
-                    scrimOpacity: alpha * 0.4,
-                    material: .regular.interactive(),
-                    tint: themeColor.opacity(alpha)
+                    backing: themeColor,
+                    backingOpacity: alpha,
+                    material: .regular.interactive()
                 )
             }
         }
@@ -103,22 +106,30 @@ private struct ModernHUDBackground: View {
     @ViewBuilder
     private var clearGlass: some View {
         #if compiler(>=6.2)
-        glassBody(scrimOpacity: alpha * 0.15, material: .clear.interactive(), tint: nil)
+        glassBody(
+            backing: scrim,
+            backingOpacity: alpha * 0.15,
+            material: .clear.interactive()
+        )
         #else
-        glassBody(scrimOpacity: alpha * 0.15, material: .regular.interactive(), tint: nil)
+        glassBody(
+            backing: scrim,
+            backingOpacity: alpha * 0.15,
+            material: .regular.interactive()
+        )
         #endif
     }
 
-    private func glassBody(scrimOpacity: Double, material: Glass, tint: Color?) -> some View {
+    private func glassBody(
+        backing: Color,
+        backingOpacity: Double,
+        material: Glass
+    ) -> some View {
         ZStack {
             Rectangle()
-                .fill(scrim.opacity(scrimOpacity))
+                .fill(backing.opacity(backingOpacity))
             Rectangle()
                 .glassEffect(material, in: .rect(cornerRadius: cornerRadius))
-            if let tint {
-                Rectangle()
-                    .fill(tint)
-            }
         }
         .overlay(HUDBorder(cornerRadius: cornerRadius))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
@@ -138,10 +149,12 @@ private struct HUDBorder: View {
 private struct HUDSolidFill: View {
     let cornerRadius: CGFloat
     let color: Color
+    /// 0...1 fill alpha. Solid never blurs; this just makes it see-through.
+    let opacity: Double
 
     var body: some View {
         Rectangle()
-            .fill(color)
+            .fill(color.opacity(opacity))
             .overlay(HUDBorder(cornerRadius: cornerRadius))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }

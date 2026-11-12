@@ -40,7 +40,12 @@ struct SettingsView: View {
     @State private var gridLayoutIndex: Int = 0
     @State private var backgroundAlpha: Double = 0.3
     @State private var backgroundStyle: HUDBackgroundStyle = .glass
-    @State private var glassStyle: HUDGlassStyle = .frosted
+    @State private var glassStyle: HUDGlassStyle = .opaque
+    @State private var glassClearOpacity: Double = 0.15
+    @State private var glassOpaqueOpacity: Double = 0.3
+    @State private var glassTintedOpacity: Double = 0.3
+    @State private var solidOpacity: Double = 1.0
+    @State private var matchBackgroundOpacity: Bool = false
     @State private var hudShadow: Bool = true
     @State private var mode: ThemeMode = .auto
     @State private var iconScale: Double = 1.0
@@ -108,6 +113,11 @@ struct SettingsView: View {
         _backgroundAlpha = State(initialValue: config.backgroundAlpha)
         _backgroundStyle = State(initialValue: config.backgroundStyle)
         _glassStyle = State(initialValue: config.glassStyle)
+        _glassClearOpacity = State(initialValue: config.glassClearOpacity)
+        _glassOpaqueOpacity = State(initialValue: config.glassOpaqueOpacity)
+        _glassTintedOpacity = State(initialValue: config.glassTintedOpacity)
+        _solidOpacity = State(initialValue: config.solidOpacity)
+        _matchBackgroundOpacity = State(initialValue: config.matchBackgroundOpacity)
         _hudShadow = State(initialValue: config.hudShadow)
         _mode = State(initialValue: config.mode)
         _iconScale = State(initialValue: config.iconScale)
@@ -170,6 +180,11 @@ struct SettingsView: View {
             backgroundAlpha: backgroundAlpha,
             backgroundStyle: backgroundStyle,
             glassStyle: glassStyle,
+            glassClearOpacity: glassClearOpacity,
+            glassOpaqueOpacity: glassOpaqueOpacity,
+            glassTintedOpacity: glassTintedOpacity,
+            solidOpacity: solidOpacity,
+            matchBackgroundOpacity: matchBackgroundOpacity,
             hudShadow: hudShadow,
             mode: mode,
             iconScale: iconScale,
@@ -245,6 +260,11 @@ struct SettingsView: View {
                     backgroundAlpha: $backgroundAlpha,
                     backgroundStyle: $backgroundStyle,
                     glassStyle: $glassStyle,
+                    glassClearOpacity: $glassClearOpacity,
+                    glassOpaqueOpacity: $glassOpaqueOpacity,
+                    glassTintedOpacity: $glassTintedOpacity,
+                    solidOpacity: $solidOpacity,
+                    matchBackgroundOpacity: $matchBackgroundOpacity,
                     hudShadow: $hudShadow,
                     iconScale: $iconScale,
                     uiScale: $uiScale,

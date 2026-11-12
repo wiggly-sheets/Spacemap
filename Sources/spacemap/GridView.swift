@@ -55,7 +55,7 @@ struct GridView: View {
             HUDBackground(style: state.config.backgroundStyle,
                           glassStyle: state.config.glassStyle,
                           cornerRadius: 10,
-                          alpha: state.config.backgroundAlpha,
+                          alpha: state.config.effectiveBackgroundOpacity(for: state.config.backgroundStyle),
                           isDarkMode: isDarkMode,
                           themeColor: Color(hex: resolvedTheme.background))
         )

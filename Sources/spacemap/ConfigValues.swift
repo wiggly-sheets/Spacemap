@@ -21,6 +21,11 @@ struct ConfigValues {
     var backgroundAlpha: Double?
     var backgroundStyle: HUDBackgroundStyle?
     var glassStyle: HUDGlassStyle?
+    var glassClearOpacity: Double?
+    var glassOpaqueOpacity: Double?
+    var glassTintedOpacity: Double?
+    var solidOpacity: Double?
+    var matchBackgroundOpacity: Bool?
     var hudShadow: Bool?
     var mode: ThemeMode?
     var iconScale: Double?
@@ -76,6 +81,11 @@ struct ConfigValues {
         self.backgroundAlpha = config.backgroundAlpha
         self.backgroundStyle = config.backgroundStyle
         self.glassStyle = config.glassStyle
+        self.glassClearOpacity = config.glassClearOpacity
+        self.glassOpaqueOpacity = config.glassOpaqueOpacity
+        self.glassTintedOpacity = config.glassTintedOpacity
+        self.solidOpacity = config.solidOpacity
+        self.matchBackgroundOpacity = config.matchBackgroundOpacity
         self.hudShadow = config.hudShadow
         self.mode = config.mode
         self.iconScale = config.iconScale
@@ -143,6 +153,21 @@ struct ConfigValues {
         let resolvedCellStyle = orDefault(cellStyle, defaults.cellStyle)
         let resolvedBackgroundStyle = orDefault(backgroundStyle, defaults.backgroundStyle)
         let resolvedGlassStyle = orDefault(glassStyle, defaults.glassStyle)
+        let resolvedBackgroundAlpha = valid(backgroundAlpha, defaults.backgroundAlpha) { (0...1).contains($0) }
+        // Per-style keys are new: absent values inherit `backgroundAlpha` so
+        // older configs keep their look without triggering a repair.
+        let resolvedGlassClearOpacity = valid(
+            glassClearOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
+        ) { (0...1).contains($0) }
+        let resolvedGlassOpaqueOpacity = valid(
+            glassOpaqueOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
+        ) { (0...1).contains($0) }
+        let resolvedGlassTintedOpacity = valid(
+            glassTintedOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
+        ) { (0...1).contains($0) }
+        let resolvedSolidOpacity = valid(
+            solidOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
+        ) { (0...1).contains($0) }
         let resolvedShowMode = orDefault(showMode, defaults.showMode)
         let resolvedMultiMonitorMode = orDefault(multiMonitorHUDMode, defaults.multiMonitorHUDMode)
         let resolvedUnifiedVisibility = orDefault(unifiedHUDVisibility, defaults.unifiedHUDVisibility)
@@ -201,9 +226,14 @@ struct ConfigValues {
             separateHUDVisibility: resolvedSeparateVisibility,
             displayNavigationWrap: resolvedNavigationWrap,
             maxSpaces: oversizeClamped(maxSpaces, defaults.maxSpaces, in: 1...16),
-            backgroundAlpha: valid(backgroundAlpha, defaults.backgroundAlpha) { (0...1).contains($0) },
+            backgroundAlpha: resolvedBackgroundAlpha,
             backgroundStyle: resolvedBackgroundStyle,
             glassStyle: resolvedGlassStyle,
+            glassClearOpacity: resolvedGlassClearOpacity,
+            glassOpaqueOpacity: resolvedGlassOpaqueOpacity,
+            glassTintedOpacity: resolvedGlassTintedOpacity,
+            solidOpacity: resolvedSolidOpacity,
+            matchBackgroundOpacity: matchBackgroundOpacity ?? defaults.matchBackgroundOpacity,
             hudShadow: orDefault(hudShadow, defaults.hudShadow),
             mode: resolvedThemeMode,
             iconScale: valid(iconScale, defaults.iconScale) { (0...1).contains($0) },
