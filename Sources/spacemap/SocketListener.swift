@@ -13,13 +13,37 @@ final class SocketListener {
     private var healthTimer: DispatchSourceTimer?
     private var isStopped = false
     private var restartScheduled = false
+    private var ownsSocketFile = false
+    private var bindFailureCount = 0
+    private var didFail = false
+    private var failureReason: String?
+    private var pendingClients: [Int32] = []
     private let listenerQueue = DispatchQueue(label: "com.spacemap.socketlistener")
     private let clientQueue = DispatchQueue(label: "com.spacemap.socketlistener.client", attributes: .concurrent)
     private let queueKey = DispatchSpecificKey<Void>()
+    private let clientSlots = DispatchSemaphore(value: SocketListener.maxConcurrentClients)
+    private let bindRetryDelays: [TimeInterval]
 
-    init(socketPath: String, healthInterval: Int = 60, onRefresh: @escaping () -> Void, onShow: @escaping () -> Void, onToggle: @escaping () -> Void, onSettings: @escaping () -> Void) {
+    private static let maxConcurrentClients = 8
+    private static let maxPendingClients = 8
+    static let defaultBindRetryDelays: [TimeInterval] = [0.5, 1, 2, 4, 5]
+    private static let failureLock = NSLock()
+    private static var _lastFailureDescription: String?
+    private static let nonceProcessLock = NSLock()
+    private static var didRotateNonceThisProcess = false
+
+    init(
+        socketPath: String,
+        healthInterval: Int = 60,
+        bindRetryDelays: [TimeInterval] = SocketListener.defaultBindRetryDelays,
+        onRefresh: @escaping () -> Void,
+        onShow: @escaping () -> Void,
+        onToggle: @escaping () -> Void,
+        onSettings: @escaping () -> Void
+    ) {
         self.socketPath = socketPath
         self.healthInterval = healthInterval
+        self.bindRetryDelays = bindRetryDelays
         self.onRefresh = onRefresh
         self.onShow = onShow
         self.onToggle = onToggle
@@ -27,9 +51,73 @@ final class SocketListener {
         listenerQueue.setSpecific(key: queueKey, value: ())
         guard SpacemapCommand.validatedSocketPath(socketPath) != nil else {
             fputs("spacemap/SocketListener: refusing invalid socket path\n", stderr)
+            recordFailure("invalid socket path")
             return
         }
         listenerQueue.async { self.start() }
+    }
+
+    /// True once bind/listen has exhausted its retry budget (or the listener
+    /// refused a live socket). Safe to read from any queue.
+    var hasFailed: Bool {
+        if DispatchQueue.getSpecific(key: queueKey) != nil { return didFail }
+        return listenerQueue.sync { self.didFail }
+    }
+
+    var failureDescription: String? {
+        if DispatchQueue.getSpecific(key: queueKey) != nil { return failureReason }
+        return listenerQueue.sync { self.failureReason }
+    }
+
+    /// Last permanent listener failure (also logged to stderr). Retained for a
+    /// future Settings diagnostics consumer; no UI reads it yet.
+    static var lastFailureDescription: String? {
+        failureLock.lock()
+        defer { failureLock.unlock() }
+        return _lastFailureDescription
+    }
+
+    private func recordFailure(_ reason: String) {
+        guard !didFail else { return }
+        didFail = true
+        failureReason = reason
+        Self.failureLock.lock()
+        if Self._lastFailureDescription == nil {
+            Self._lastFailureDescription = reason
+        }
+        Self.failureLock.unlock()
+        fputs("spacemap/SocketListener: failed — \(reason)\n", stderr)
+    }
+
+    /// Connect probe used both for single-instance detection and to avoid
+    /// unlinking a socket another process still owns. A refused connection is
+    /// the only proof that an existing self-owned socket is stale; anything
+    /// else is treated as live (fail closed).
+    static func isSocketLive(path: String) -> Bool {
+        var st = stat()
+        guard lstat(path, &st) == 0, (st.st_mode & S_IFMT) == S_IFSOCK else { return false }
+        let sock = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard sock >= 0 else { return true }
+        let flags = fcntl(sock, F_GETFL, 0)
+        if flags >= 0 { _ = fcntl(sock, F_SETFL, flags | O_NONBLOCK) }
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let pathBytes = path.utf8CString
+        withUnsafeMutableBytes(of: &addr.sun_path) { dest in
+            pathBytes.withUnsafeBytes { src in
+                guard let base = src.baseAddress else { return }
+                dest.copyMemory(from: UnsafeRawBufferPointer(start: base,
+                                                             count: min(src.count, dest.count - 1)))
+            }
+        }
+        let result = connect(sock, withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { $0 }
+        }, socklen_t(MemoryLayout<sockaddr_un>.size))
+        let error = errno
+        close(sock)
+        if result == 0 { return true }
+        if error == EINPROGRESS || error == EAGAIN { return true }
+        return error != ECONNREFUSED && error != ENOENT && error != ENOTSOCK
     }
 
     @discardableResult
@@ -84,9 +172,9 @@ final class SocketListener {
     }
 
     private func start() {
-        guard !isStopped else { return }
+        guard !isStopped, !didFail else { return }
         guard SpacemapCommand.validatedSocketPath(socketPath) != nil else {
-            fputs("spacemap/SocketListener: refusing invalid socket path\n", stderr)
+            recordFailure("invalid socket path")
             return
         }
         // Fail closed on a pre-existing symlink: never bind through a link
@@ -94,11 +182,18 @@ final class SocketListener {
         var existing = stat()
         if lstat(socketPath, &existing) == 0 {
             if (existing.st_mode & S_IFMT) == S_IFLNK {
-                fputs("spacemap/SocketListener: refusing symlink at socket path\n", stderr)
+                recordFailure("refusing symlink at socket path")
                 return
             }
             guard existing.st_uid == getuid() else {
-                fputs("spacemap/SocketListener: refusing foreign-owned socket path\n", stderr)
+                recordFailure("refusing foreign-owned socket path")
+                return
+            }
+            if (existing.st_mode & S_IFMT) == S_IFSOCK, Self.isSocketLive(path: socketPath) {
+                // Another instance still owns it. Never steal a live socket:
+                // the App-level single-instance guard normally prevents this,
+                // but a direct binary launch must not unlink it either.
+                recordFailure("socket is already live — refusing to steal it")
                 return
             }
             unlink(socketPath)
@@ -106,11 +201,13 @@ final class SocketListener {
 
         // Nonce precedes bind: any client that connects already sees the
         // nonce the sender read, so no bare-frame window exists.
-        rotateNonceFile()
+        _ = Self.ensureNonceFile(for: socketPath)
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else {
             fputs("spacemap/SocketListener: socket() failed\n", stderr)
+            close(fd)
+            scheduleBindRetry()
             return
         }
         // Nonblocking accept: drain() loops until EAGAIN instead of
@@ -137,11 +234,19 @@ final class SocketListener {
         guard bound == 0, listen(fd, 8) == 0 else {
             fputs("spacemap/SocketListener: bind/listen failed\n", stderr)
             close(fd)
+            scheduleBindRetry()
             return
         }
 
         chmod(socketPath, 0o600)
         serverFd = fd
+        ownsSocketFile = true
+        bindFailureCount = 0
+        didFail = false
+        failureReason = nil
+        Self.failureLock.lock()
+        Self._lastFailureDescription = nil
+        Self.failureLock.unlock()
         let src = DispatchSource.makeReadSource(fileDescriptor: fd, queue: listenerQueue)
         src.setEventHandler { [weak self] in self?.drain() }
         src.setCancelHandler { [weak self] in
@@ -154,29 +259,101 @@ final class SocketListener {
         startHealthTimer()
     }
 
+    private func scheduleBindRetry() {
+        guard !isStopped, !didFail else { return }
+        guard bindFailureCount < bindRetryDelays.count else {
+            recordFailure("bind/listen failed \(bindRetryDelays.count) times — giving up")
+            return
+        }
+        let delay = bindRetryDelays[bindFailureCount]
+        bindFailureCount += 1
+        fputs("spacemap/SocketListener: retrying bind/listen in \(delay)s\n", stderr)
+        listenerQueue.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.start()
+        }
+    }
+
     /// Per-bind 256-bit nonce for the programmatic send path. Same uid can
     /// read it — it stops blind path-guessers, not same-user malware.
     /// $TMPDIR perms (0700) + peer-uid check carry the cross-user case.
-    /// Kept across restarts: yabai signals embed it at registration, so a
-    /// rotation without re-registering would drop space_changed frames.
-    private func rotateNonceFile() {
+    /// Kept across listener restarts: yabai signals embed it at registration,
+    /// so a rotation without re-registering would drop space_changed frames.
+    /// Rotate the nonce once per app process, before the first listener/signal
+    /// registration. Later listener rebuilds call `ensureNonceFile` and keep it.
+    /// A live socket means another instance already registered yabai actions
+    /// with this nonce: reuse it and never rotate, even if this process has not
+    /// rotated yet (two near-simultaneous launches can both pass the guard).
+    @discardableResult
+    static func prepareNonceForProcess(for socketPath: String) -> String? {
+        nonceProcessLock.lock()
+        let alreadyRotated = didRotateNonceThisProcess
+        didRotateNonceThisProcess = true
+        nonceProcessLock.unlock()
+
+        let socketIsLive = isSocketLive(path: socketPath)
+        if !alreadyRotated && !socketIsLive {
+            removeNonceFileIfOwned(socketPath)
+        }
+        return ensureNonceFile(for: socketPath)
+    }
+
+    /// Test seam for the once-per-process rotation flag.
+    static func resetNonceRotationForTesting() {
+        nonceProcessLock.lock()
+        didRotateNonceThisProcess = false
+        nonceProcessLock.unlock()
+    }
+
+    private static func removeNonceFileIfOwned(_ socketPath: String) {
         let path = socketPath + ".nonce"
-        if let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
-           data.count == 32 { return }
+        var st = stat()
+        guard lstat(path, &st) == 0, st.st_uid == getuid() else { return }
+        // unlink() removes a symlink itself, never its target.
+        unlink(path)
+    }
+
+    @discardableResult
+    static func ensureNonceFile(for socketPath: String) -> String? {
+        guard SpacemapCommand.validatedSocketPath(socketPath) != nil else { return nil }
+        let path = socketPath + ".nonce"
+        let url = URL(fileURLWithPath: path)
+        var st = stat()
+        if lstat(path, &st) == 0 {
+            guard st.st_uid == getuid() else {
+                fputs("spacemap/SocketListener: refusing foreign-owned nonce file\n", stderr)
+                return nil
+            }
+            if (st.st_mode & S_IFMT) == S_IFREG,
+               let data = try? Data(contentsOf: url),
+               data.count == 32 {
+                // Re-assert permissions: an old/relaxed file must be 0600
+                // before it is trusted again.
+                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path)
+                SpacemapCommand.invalidateNonceCache()
+                return data.map { String(format: "%02x", $0) }.joined()
+            }
+            // Wrong size, symlink, or other self-owned junk: remove the path
+            // entry (never follow the link) before writing a fresh nonce.
+            if (st.st_mode & S_IFMT) != S_IFDIR {
+                unlink(path)
+            }
+        }
+
         var bytes = [UInt8](repeating: 0, count: 32)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
             fputs("spacemap/SocketListener: no entropy for nonce — programmatic send disabled\n", stderr)
-            try? FileManager.default.removeItem(atPath: socketPath + ".nonce")
+            try? FileManager.default.removeItem(atPath: path)
             SpacemapCommand.invalidateNonceCache()
-            return
+            return nil
         }
-        let url = URL(fileURLWithPath: socketPath + ".nonce")
         do {
             try Data(bytes).write(to: url, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
             SpacemapCommand.invalidateNonceCache()
+            return bytes.map { String(format: "%02x", $0) }.joined()
         } catch {
             fputs("spacemap/SocketListener: nonce write failed\n", stderr)
+            return nil
         }
     }
 
@@ -243,11 +420,42 @@ final class SocketListener {
                 scheduleRestart()
                 break
             }
-            let acceptedFd = clientFd
-            clientQueue.async { [weak self] in
-                guard let self else { close(acceptedFd); return }
-                self.handleClient(acceptedFd)
+            enqueueClient(clientFd)
+        }
+    }
+
+    /// Run on listenerQueue. Acquire a worker slot or queue the accepted fd
+    /// (bounded) so a short burst is not dropped after the client's write
+    /// already succeeded.
+    private func enqueueClient(_ clientFd: Int32) {
+        if clientSlots.wait(timeout: .now()) == .success {
+            startClient(clientFd)
+        } else if pendingClients.count < Self.maxPendingClients {
+            pendingClients.append(clientFd)
+        } else {
+            fputs("spacemap/SocketListener: client backlog full — dropping connection\n", stderr)
+            close(clientFd)
+        }
+    }
+
+    /// Caller holds one `clientSlots` permit; the worker releases it.
+    private func startClient(_ clientFd: Int32) {
+        let slots = clientSlots
+        clientQueue.async { [weak self] in
+            defer {
+                slots.signal()
+                if let self { self.listenerQueue.async { self.drainPendingClients() } }
             }
+            guard let self else { close(clientFd); return }
+            self.handleClient(clientFd)
+        }
+    }
+
+    /// Run on listenerQueue when a worker frees a slot.
+    private func drainPendingClients() {
+        while !isStopped, !pendingClients.isEmpty,
+              clientSlots.wait(timeout: .now()) == .success {
+            startClient(pendingClients.removeFirst())
         }
     }
 
@@ -332,7 +540,14 @@ final class SocketListener {
     private func tearDownSocket() {
         healthTimer?.cancel(); healthTimer = nil
         source?.cancel(); source = nil
-        unlinkIfOwned(socketPath)
+        for fd in pendingClients { close(fd) }
+        pendingClients.removeAll()
+        // Only remove a socket this listener actually bound. A refused
+        // second listener must never unlink the live instance's socket.
+        if ownsSocketFile {
+            ownsSocketFile = false
+            unlinkIfOwned(socketPath)
+        }
     }
 
     /// unlink() never follows symlinks; uid gate stops foreign-planted link removal.
@@ -367,16 +582,17 @@ final class SocketListener {
     }
 
     func stop() {
+        // Keep the nonce file: yabai signal actions embed it at registration
+        // and stop() is also used to rebuild the listener at runtime. Removing
+        // it here would strand those actions until the next re-registration.
+        let work = {
+            self.isStopped = true
+            self.tearDownSocket()
+        }
         if DispatchQueue.getSpecific(key: queueKey) != nil {
-            isStopped = true
-            tearDownSocket()
-            unlinkIfOwned(socketPath + ".nonce")
+            work()
         } else {
-            listenerQueue.sync {
-                self.isStopped = true
-                self.tearDownSocket()
-                self.unlinkIfOwned(self.socketPath + ".nonce")
-            }
+            listenerQueue.sync(execute: work)
         }
         SpacemapCommand.invalidateNonceCache()
     }

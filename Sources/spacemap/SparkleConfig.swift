@@ -1,5 +1,26 @@
 import Sparkle
 
+/// Sparkle flags for each user-visible update mode. Kept separate from the
+/// controller so the transitions are unit-testable.
+struct SparkleUpdatePolicy: Equatable {
+    let automaticallyChecksForUpdates: Bool
+    let automaticallyDownloadsUpdates: Bool
+
+    init(updateMode: UpdateMode) {
+        switch updateMode {
+        case .auto:
+            automaticallyChecksForUpdates = true
+            automaticallyDownloadsUpdates = true
+        case .notify:
+            automaticallyChecksForUpdates = true
+            automaticallyDownloadsUpdates = false
+        case .off:
+            automaticallyChecksForUpdates = false
+            automaticallyDownloadsUpdates = false
+        }
+    }
+}
+
 /// Signing key hygiene: sparklesigner.pem must live at 0600 and never enter
 /// git. Long term it belongs in the Keychain (EdDSA private key), with only
 /// the public key in the repo/CI. See validate-sparkle-keys.sh.
@@ -10,22 +31,14 @@ enum SparkleConfig {
             return
         }
         let updater = controller.updater
-
-        switch updateMode {
-        case .auto:
-            updater.automaticallyDownloadsUpdates = true
-            updater.automaticallyChecksForUpdates = true
-        case .notify:
-            updater.automaticallyDownloadsUpdates = false
-            updater.automaticallyChecksForUpdates = true
-        case .off:
-            updater.automaticallyChecksForUpdates = false
-        }
+        let policy = SparkleUpdatePolicy(updateMode: updateMode)
+        updater.automaticallyChecksForUpdates = policy.automaticallyChecksForUpdates
+        updater.automaticallyDownloadsUpdates = policy.automaticallyDownloadsUpdates
 
         NSLog("spacemap/Sparkle: configured updater mode \(updateMode)")
 
-        if updateMode != .off {
-            controller.startUpdater()
-        }
+        // Always start: `.off` disables automatic checks but manual
+        // "Check for Updates" must still work.
+        controller.startUpdater()
     }
 }

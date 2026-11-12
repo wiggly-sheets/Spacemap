@@ -40,8 +40,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
 }
 
+/// One instance per user: a direct CLI-symlink/binary launch must not start a
+/// second NSApplication (duplicate status items, taps, and a stolen socket).
+/// Deep links are the forwarding channel because `spacemap://` already routes
+/// to the running app through LaunchServices.
+enum SingleInstanceGuard {
+    static func existingInstance() -> NSRunningApplication? {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return nil }
+        return NSRunningApplication
+            .runningApplications(withBundleIdentifier: bundleIdentifier)
+            .first { $0.processIdentifier != getpid() }
+    }
+
+    static func shouldExitForExistingInstance() -> Bool {
+        existingInstance() != nil || SocketListener.isSocketLive(path: SpacemapCommand.socketPath)
+    }
+
+    static func forwardingURL(for argument: String) -> URL? {
+        switch argument {
+        case "--settings": return URL(string: "spacemap://settings")
+        case "--show-menu": return URL(string: "spacemap://menu")
+        default: return nil
+        }
+    }
+
+    /// Commands that can be delivered straight over the live socket; the deep
+    /// link stays as a fallback when the probe or write fails.
+    static func socketCommand(for argument: String) -> SpacemapCommand? {
+        switch argument {
+        case "--settings": return .settings
+        default: return nil
+        }
+    }
+
+    static func forward(arguments: [String], socketPath: String = SpacemapCommand.socketPath) {
+        let socketIsLive = SocketListener.isSocketLive(path: socketPath)
+        for argument in arguments {
+            if socketIsLive, let command = socketCommand(for: argument) {
+                if SocketListener.sendCommand(to: socketPath, command: command.rawValue) {
+                    continue
+                }
+                NSLog("spacemap/single-instance: socket forward failed for %@", argument)
+            }
+            guard let url = forwardingURL(for: argument) else { continue }
+            if !NSWorkspace.shared.open(url) {
+                NSLog("spacemap/single-instance: deep-link forward failed for %@", argument)
+            }
+        }
+    }
+}
+
 @main
 struct SpacemapEntry {
+    // `NSApplication.delegate` is weak. Keep a guaranteed strong reference for
+    // the whole lifetime of `app.run()`.
+    private static var appDelegate: AppDelegate?
+
     static func main() {
         // DEBUG builds skip CLI handling so Xcode runs always launch the HUD;
         // release builds exit early for --version/--trigger/--space/--config.
@@ -52,9 +106,17 @@ struct SpacemapEntry {
         }
         #endif
 
+        if SingleInstanceGuard.shouldExitForExistingInstance() {
+            SingleInstanceGuard.forward(arguments: CommandLine.arguments)
+            exit(0)
+        }
+
         let app = NSApplication.shared
         let delegate = AppDelegate()
+        appDelegate = delegate
         app.delegate = delegate
-        app.run()
+        withExtendedLifetime(delegate) {
+            app.run()
+        }
     }
 }

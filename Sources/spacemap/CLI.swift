@@ -57,11 +57,26 @@ final class CLI {
                 return .command(.config)
             case "--trigger":
                 return .command(.trigger)
+            case "--settings", "--show-menu", "--restarting":
+                // Handled after AppKit starts (or by the relaunch helper);
+                // they must fall through to a normal app launch.
+                continue
             default:
+                // Never silently ignore an option: a typo such as --settigns
+                // should fail instead of falling through to a second daemon.
+                if arg.hasPrefix("-") {
+                    return .error("unknown option: \(arg)")
+                }
                 continue
             }
         }
         return .none
+    }
+
+    /// Single version source with About (falls back to "Unknown", never a
+    /// fabricated 1.0.0).
+    static func versionLine(shortVersion: String? = AppVersion.short) -> String {
+        "Spacemap \(shortVersion ?? AppVersion.unknown)"
     }
 
     func runIfRequested(arguments: [String]) -> Int32? {
@@ -72,8 +87,7 @@ final class CLI {
             fputs("spacemap: \(message)\n", stderr)
             return 2
         case .command(.version):
-            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0.0"
-            print("Spacemap \(version)")
+            print(Self.versionLine())
             return 0
         case .command(.help):
             print(CLI.help)

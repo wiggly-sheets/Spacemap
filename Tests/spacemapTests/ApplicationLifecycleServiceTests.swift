@@ -70,4 +70,41 @@ final class ApplicationLifecycleServiceTests: XCTestCase {
         ))
     }
 
+    func testActivationPolicyRestoresOnlyWhenNoWindowIsVisible() {
+        XCTAssertTrue(ApplicationLifecycleService.shouldRestoreActivationPolicy(
+            previous: .accessory,
+            hasVisibleKeyWindow: false
+        ))
+        XCTAssertFalse(ApplicationLifecycleService.shouldRestoreActivationPolicy(
+            previous: .accessory,
+            hasVisibleKeyWindow: true
+        ))
+        XCTAssertFalse(ApplicationLifecycleService.shouldRestoreActivationPolicy(
+            previous: .regular,
+            hasVisibleKeyWindow: true
+        ))
+    }
+
+    func testSparkleUpdatePolicyCoversEveryMode() {
+        let auto = SparkleUpdatePolicy(updateMode: .auto)
+        XCTAssertTrue(auto.automaticallyChecksForUpdates)
+        XCTAssertTrue(auto.automaticallyDownloadsUpdates)
+
+        let notify = SparkleUpdatePolicy(updateMode: .notify)
+        XCTAssertTrue(notify.automaticallyChecksForUpdates)
+        XCTAssertFalse(notify.automaticallyDownloadsUpdates)
+
+        let off = SparkleUpdatePolicy(updateMode: .off)
+        XCTAssertFalse(off.automaticallyChecksForUpdates)
+        XCTAssertFalse(off.automaticallyDownloadsUpdates)
+
+        // A sequence through every mode must not leave downloads enabled when
+        // automatic checks are turned off.
+        var policy = auto
+        for mode in [UpdateMode.notify, .off, .auto, .off] {
+            policy = SparkleUpdatePolicy(updateMode: mode)
+        }
+        XCTAssertFalse(policy.automaticallyChecksForUpdates)
+        XCTAssertFalse(policy.automaticallyDownloadsUpdates)
+    }
 }

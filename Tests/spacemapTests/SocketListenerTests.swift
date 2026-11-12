@@ -114,6 +114,245 @@ final class SocketListenerTests: XCTestCase {
         XCTAssertEqual(permissions?.intValue, 0o600)
     }
 
+    func testNonceSurvivesStopAndListenerRestart() throws {
+        let socketPath = temporarySocketPath()
+        let noncePath = socketPath + ".nonce"
+        let nonceURL = URL(fileURLWithPath: noncePath)
+        defer {
+            try? FileManager.default.removeItem(atPath: socketPath)
+            try? FileManager.default.removeItem(atPath: noncePath)
+        }
+
+        let first = SocketListener(
+            socketPath: socketPath,
+            onRefresh: {},
+            onShow: {},
+            onToggle: {},
+            onSettings: {}
+        )
+        defer { first.stop() }
+        XCTAssertTrue(waitForSocket(at: socketPath))
+
+        let nonce = try Data(contentsOf: nonceURL)
+        XCTAssertEqual(nonce.count, 32)
+        XCTAssertTrue(SocketListener.isSocketLive(path: socketPath))
+
+        // A runtime listener rebuild calls stop(); the nonce must remain so
+        // yabai signal actions that embedded it keep working.
+        first.stop()
+        XCTAssertFalse(SocketListener.isSocketLive(path: socketPath))
+        XCTAssertEqual(try Data(contentsOf: nonceURL), nonce)
+
+        let restarted = SocketListener(
+            socketPath: socketPath,
+            onRefresh: {},
+            onShow: {},
+            onToggle: {},
+            onSettings: {}
+        )
+        defer { restarted.stop() }
+        XCTAssertTrue(waitForSocket(at: socketPath))
+        XCTAssertEqual(try Data(contentsOf: nonceURL), nonce)
+    }
+
+    func testSecondListenerRefusesToStealLiveSocket() throws {
+        let socketPath = temporarySocketPath()
+        defer {
+            try? FileManager.default.removeItem(atPath: socketPath)
+            try? FileManager.default.removeItem(atPath: socketPath + ".nonce")
+        }
+
+        let first = SocketListener(
+            socketPath: socketPath,
+            onRefresh: {},
+            onShow: {},
+            onToggle: {},
+            onSettings: {}
+        )
+        defer { first.stop() }
+        XCTAssertTrue(waitForSocket(at: socketPath))
+
+        let second = SocketListener(
+            socketPath: socketPath,
+            onRefresh: {},
+            onShow: {},
+            onToggle: {},
+            onSettings: {}
+        )
+        defer { second.stop() }
+
+        let deadline = Date().addingTimeInterval(1)
+        while !second.hasFailed && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        XCTAssertTrue(second.hasFailed)
+        XCTAssertTrue(SocketListener.isSocketLive(path: socketPath))
+
+        // Stopping the refused listener must not unlink the live socket.
+        second.stop()
+        XCTAssertTrue(SocketListener.isSocketLive(path: socketPath))
+    }
+
+    func testParseFrameRejectsBareFrameWhenNonceExpected() {
+        let nonce = String(repeating: "a", count: 64)
+        XCTAssertNil(SocketListener.parseFrame(
+            Data([SpacemapCommand.show.rawValue]),
+            nonce: nonce
+        ))
+        XCTAssertEqual(
+            SocketListener.parseFrame(
+                Data([SpacemapCommand.show.rawValue]) + Data((":" + nonce).utf8),
+                nonce: nonce
+            ),
+            .show
+        )
+    }
+
+    func testStaleSocketIsReplaced() throws {
+        let socketPath = temporarySocketPath()
+        defer {
+            try? FileManager.default.removeItem(atPath: socketPath)
+            try? FileManager.default.removeItem(atPath: socketPath + ".nonce")
+        }
+
+        try createStaleSocket(at: socketPath)
+        XCTAssertFalse(SocketListener.isSocketLive(path: socketPath))
+
+        let listener = SocketListener(
+            socketPath: socketPath,
+            onRefresh: {},
+            onShow: {},
+            onToggle: {},
+            onSettings: {}
+        )
+        defer { listener.stop() }
+        // The stale file already exists, so wait for the new listener to bind
+        // before probing liveness.
+        XCTAssertTrue(waitForSocketLive(at: socketPath))
+    }
+
+    func testBindRetryExhaustionExposesFailure() throws {
+        let blocker = (NSTemporaryDirectory() as NSString)
+            .appendingPathComponent("sp-block-\(UUID().uuidString.prefix(8))")
+        try "not a directory".write(toFile: blocker, atomically: true, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(atPath: blocker) }
+
+        let listener = SocketListener(
+            socketPath: blocker + "/spacemap.socket",
+            bindRetryDelays: [0.01, 0.01],
+            onRefresh: {},
+            onShow: {},
+            onToggle: {},
+            onSettings: {}
+        )
+        defer { listener.stop() }
+
+        let deadline = Date().addingTimeInterval(2)
+        while !listener.hasFailed && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        XCTAssertTrue(listener.hasFailed)
+        XCTAssertNotNil(listener.failureDescription)
+    }
+
+    func testOverflowClientsAreQueuedAndStillServeCommands() throws {
+        let socketPath = temporarySocketPath()
+        let refreshed = expectation(description: "command served after client overflow")
+        let listener = SocketListener(
+            socketPath: socketPath,
+            onRefresh: { refreshed.fulfill() },
+            onShow: {},
+            onToggle: {},
+            onSettings: {}
+        )
+        defer {
+            listener.stop()
+            try? FileManager.default.removeItem(atPath: socketPath)
+            try? FileManager.default.removeItem(atPath: socketPath + ".nonce")
+        }
+        XCTAssertTrue(waitForSocket(at: socketPath))
+
+        var clients: [Int32] = []
+        for _ in 0..<10 {
+            clients.append(try connectClient(to: socketPath))
+        }
+        defer { clients.forEach { close($0) } }
+
+        // Let the listener accept the burst into slots/pending before the
+        // command connects, so the kernel backlog itself is not the thing
+        // under test.
+        Thread.sleep(forTimeInterval: 0.05)
+        XCTAssertTrue(SocketListener.sendCommand(to: socketPath, command: SpacemapCommand.refresh.rawValue))
+        wait(for: [refreshed], timeout: 2)
+    }
+
+    func testNonceFileIsRechmoddedWhenReused() throws {
+        let socketPath = temporarySocketPath()
+        let noncePath = socketPath + ".nonce"
+        let nonceURL = URL(fileURLWithPath: noncePath)
+        defer { try? FileManager.default.removeItem(atPath: noncePath) }
+
+        let bytes = Data(repeating: 0x5A, count: 32)
+        try bytes.write(to: nonceURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: noncePath)
+
+        let hex = try XCTUnwrap(SocketListener.ensureNonceFile(for: socketPath))
+        XCTAssertEqual(hex, String(repeating: "5a", count: 32))
+
+        let attributes = try FileManager.default.attributesOfItem(atPath: noncePath)
+        XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o600)
+    }
+
+    func testNonceSymlinkIsReplacedWithoutFollowingIt() throws {
+        let socketPath = temporarySocketPath()
+        let noncePath = socketPath + ".nonce"
+        let targetPath = socketPath + ".target"
+        defer {
+            try? FileManager.default.removeItem(atPath: noncePath)
+            try? FileManager.default.removeItem(atPath: targetPath)
+        }
+
+        let targetBytes = Data(repeating: 0x11, count: 32)
+        try targetBytes.write(to: URL(fileURLWithPath: targetPath))
+        try FileManager.default.createSymbolicLink(atPath: noncePath, withDestinationPath: targetPath)
+
+        let hex = try XCTUnwrap(SocketListener.ensureNonceFile(for: socketPath))
+        XCTAssertNotEqual(hex, String(repeating: "11", count: 32))
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: targetPath)), targetBytes)
+
+        var st = stat()
+        XCTAssertEqual(lstat(noncePath, &st), 0)
+        XCTAssertEqual(st.st_mode & S_IFMT, S_IFREG)
+    }
+
+    func testPrepareNonceDoesNotRotateWhileAnotherInstanceIsLive() throws {
+        let socketPath = temporarySocketPath()
+        let noncePath = socketPath + ".nonce"
+        let nonceURL = URL(fileURLWithPath: noncePath)
+        defer {
+            try? FileManager.default.removeItem(atPath: socketPath)
+            try? FileManager.default.removeItem(atPath: noncePath)
+        }
+
+        let listener = SocketListener(
+            socketPath: socketPath,
+            onRefresh: {},
+            onShow: {},
+            onToggle: {},
+            onSettings: {}
+        )
+        defer { listener.stop() }
+        XCTAssertTrue(waitForSocket(at: socketPath))
+
+        let original = try Data(contentsOf: nonceURL)
+        XCTAssertEqual(original.count, 32)
+        SocketListener.resetNonceRotationForTesting()
+
+        let prepared = try XCTUnwrap(SocketListener.prepareNonceForProcess(for: socketPath))
+        XCTAssertEqual(prepared, original.map { String(format: "%02x", $0) }.joined())
+        XCTAssertEqual(try Data(contentsOf: nonceURL), original)
+    }
+
     func testReadSourceClosesDescriptorOnceFromCancellationHandler() {
         var descriptors: [Int32] = [-1, -1]
         XCTAssertEqual(pipe(&descriptors), 0)
@@ -162,6 +401,15 @@ final class SocketListenerTests: XCTestCase {
         return false
     }
 
+    private func waitForSocketLive(at path: String, timeout: TimeInterval = 2) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if SocketListener.isSocketLive(path: path) { return true }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return false
+    }
+
     private func connectClient(to path: String) throws -> Int32 {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { throw POSIXError(.ENFILE) }
@@ -187,5 +435,33 @@ final class SocketListenerTests: XCTestCase {
             throw POSIXError(error)
         }
         return fd
+    }
+
+    /// Create a bound-but-closed UNIX socket, the crash-leftover shape the
+    /// listener must prove stale before unlinking.
+    private func createStaleSocket(at path: String) throws {
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { throw POSIXError(.ENFILE) }
+        defer { close(fd) }
+
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        let pathBytes = path.utf8CString
+        withUnsafeMutableBytes(of: &address.sun_path) { destination in
+            pathBytes.withUnsafeBytes { source in
+                destination.copyMemory(from: UnsafeRawBufferPointer(
+                    start: source.baseAddress,
+                    count: min(source.count, destination.count - 1)
+                ))
+            }
+        }
+        let result = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        guard result == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EINVAL)
+        }
     }
 }

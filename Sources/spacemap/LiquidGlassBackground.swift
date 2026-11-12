@@ -18,8 +18,8 @@ struct HUDBackground: View {
     }
 
     var body: some View {
-        #if compiler(>=6.0)
-        if #available(macOS 26.0, *) {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *), GlassSupport.isAvailable {
             ModernHUDBackground(
                 style: style, glassStyle: glassStyle, cornerRadius: cornerRadius,
                 alpha: alpha, scrim: scrim, themeColor: themeColor
@@ -67,7 +67,7 @@ struct HUDBackground: View {
     }
 }
 
-#if compiler(>=6.0)
+#if compiler(>=6.2)
 @available(macOS 26.0, *)
 private struct ModernHUDBackground: View {
     let style: HUDBackgroundStyle

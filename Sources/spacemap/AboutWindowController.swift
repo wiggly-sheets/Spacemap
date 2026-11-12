@@ -1,5 +1,30 @@
 import AppKit
 
+/// Shared version strings for About and `spacemap --version`.
+enum AppVersion {
+    static let unknown = "Unknown"
+
+    static var short: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? unknown
+    }
+
+    static func formatted(shortVersion: String?, build: String?) -> String {
+        let version = shortVersion ?? unknown
+        if let build, build != version {
+            return "v\(version) (\(build))"
+        }
+        return "v\(version)"
+    }
+
+    static var display: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        return formatted(
+            shortVersion: info["CFBundleShortVersionString"] as? String,
+            build: info["CFBundleVersion"] as? String
+        )
+    }
+}
+
 final class AboutWindowController: NSWindowController, NSWindowDelegate {
     private let onCheckForUpdates: () -> Void
     private let onClose: () -> Void
@@ -36,7 +61,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     private func makeContentView() -> NSView {
         let content = makeInnerContent()
 
-        #if compiler(>=6.0)
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *), GlassSupport.isAvailable {
             let root = NSGlassEffectView()
             root.style = .regular
@@ -324,13 +349,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     }
 
     static var versionText: String {
-        let info = Bundle.main.infoDictionary ?? [:]
-        let version = info["CFBundleShortVersionString"] as? String ?? "Unknown"
-        let build = info["CFBundleVersion"] as? String
-        if let build, build != version {
-            return "v\(version) (\(build))"
-        }
-        return "v\(version)"
+        AppVersion.display
     }
 
     private static let mitLicense = """
