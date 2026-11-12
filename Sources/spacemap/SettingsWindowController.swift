@@ -81,6 +81,8 @@ class SettingsWindowController: NSWindowController {
     /// root, so the sidebar runs up under the traffic lights like System
     /// Settings. SwiftUI keeps the sidebar rows inside the titlebar safe area.
     private static func pinContent(_ view: NSView, in root: NSView) {
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor.clear.cgColor
         view.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(view)
         NSLayoutConstraint.activate([
