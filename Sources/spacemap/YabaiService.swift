@@ -24,6 +24,8 @@ protocol YabaiService {
     func querySpaces() throws -> [YabaiSpace]
     func queryDisplays() throws -> [YabaiDisplay]
     func queryWindows() throws -> [YabaiWindow]
+    /// Drops coalesced spaces/windows snapshots after an external mutation.
+    func invalidateSnapshotCaches()
     func queryFocusedWindow() throws -> Int?
     func queryFocusedSpaceIndex() -> Int?
 
@@ -55,4 +57,5 @@ protocol YabaiService {
 
 extension YabaiService {
     func yabaiTrustIssue() -> String? { nil }
+    func invalidateSnapshotCaches() {}
 }

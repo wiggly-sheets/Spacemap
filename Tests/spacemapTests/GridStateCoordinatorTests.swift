@@ -236,6 +236,84 @@ final class GridStateCoordinatorTests: XCTestCase {
     }
 
 
+    func testFetchDropsPendingFocusSoNextRefreshDoesNotReapplyIt() throws {
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: true, label: nil),
+        ]
+        let liveState = cannedState(focusedIndex: 1, spaces: spaces)
+        let coordinator = makeCoordinator(buildGridState: { _, _ in liveState })
+
+        let primeExp = expectation(description: "prime")
+        coordinator.fetch { primeExp.fulfill() }
+        waitForExpectations(timeout: 1.0)
+
+        _ = coordinator.updateFocusedIndex(2)
+        XCTAssertEqual(coordinator.pendingFocusedSpaceIndex, 2)
+
+        let fetchExp = expectation(description: "authoritative fetch")
+        coordinator.fetch { fetchExp.fulfill() }
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertNil(coordinator.pendingFocusedSpaceIndex,
+                     "fetch must drop optimistic focus intent")
+        XCTAssertEqual(coordinator.latestState?.focusedIndex, 1)
+
+        // A refresh immediately after fetch is still within the old 1s window.
+        // It must show live truth, not resurrect the dropped pending index.
+        let refreshExp = expectation(description: "refresh after fetch")
+        coordinator.refresh { refreshExp.fulfill() }
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(coordinator.latestState?.focusedIndex, 1,
+                       "dropped pending focus must not be re-applied by a near-term refresh")
+    }
+
+    func testPendingFocusExpiresAfterDeadline() throws {
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: true, label: nil),
+        ]
+        let liveState = cannedState(focusedIndex: 1, spaces: spaces)
+        let coordinator = makeCoordinator(buildGridState: { _, _ in liveState })
+
+        let primeExp = expectation(description: "prime")
+        coordinator.fetch { primeExp.fulfill() }
+        waitForExpectations(timeout: 1.0)
+
+        _ = coordinator.updateFocusedIndex(2)
+        XCTAssertTrue(coordinator.isPendingFocusValid)
+
+        Thread.sleep(forTimeInterval: 1.1)
+        XCTAssertFalse(coordinator.isPendingFocusValid,
+                       "pending focus should expire after the 1s deadline")
+
+        let refreshExp = expectation(description: "refresh after expiry")
+        coordinator.refresh { refreshExp.fulfill() }
+        waitForExpectations(timeout: 1.0)
+
+        XCTAssertEqual(coordinator.latestState?.focusedIndex, 1,
+                       "expired pending focus must not override live state")
+        XCTAssertNil(coordinator.pendingFocusedSpaceIndex)
+    }
+
+
+    func testUpdateConfigNotifiesCanceledFetchCompletion() throws {
+        let mock = MockYabaiService()
+        mock.runsYabaiQueueImmediately = false
+        mock.buildGridStateClosure = { _, _ in self.cannedState(focusedIndex: 1) }
+        let coordinator = GridStateCoordinator(config: .default, yabaiService: mock)
+
+        var completions = 0
+        coordinator.refresh { completions += 1 }
+        coordinator.updateConfig(.default)
+
+        XCTAssertEqual(completions, 1,
+                       "canceling an in-flight fetch must release its caller")
+        XCTAssertEqual(coordinator.phase, .idle)
+    }
+
+
     func testCancelPendingFetchKeepsLastState() throws {
         let coordinator = makeCoordinator(buildGridState: { _, _ in self.cannedState(focusedIndex: 1) })
 

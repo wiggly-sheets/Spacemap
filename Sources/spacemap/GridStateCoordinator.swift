@@ -31,6 +31,11 @@ final class GridStateCoordinator {
 
     private var inFlightWorkItem: DispatchWorkItem?
 
+    /// Completion for the work currently in flight. A superseding fetch drops
+    /// it (generation guard), but cancel/updateConfig must invoke it so callers
+    /// such as GlyphStripPanel can clear their in-flight flag.
+    private var pendingCompletion: (() -> Void)?
+
     private let yabaiService: YabaiService
 
     /// Production loader (services.appConfig); nil falls back to shared.
@@ -51,9 +56,14 @@ final class GridStateCoordinator {
     /// the HUD must show live truth, not a stale focus intent from before open.
     /// Callers doing a live update while visible want refresh() instead.
     func fetch(completion: (() -> Void)? = nil) {
+        // Drop optimistic focus here, not just in the rendering path: leaving
+        // the pending index alive lets the next refresh within the deadline
+        // re-apply focus intent the authoritative fetch just discarded.
+        clearPendingFocus()
         guard let config = ensureConfig() else { completion?(); return }
 
         inFlightWorkItem?.cancel()
+        pendingCompletion = completion
         fetchGeneration += 1
         let generation = fetchGeneration
         phase = .fetching
@@ -63,6 +73,7 @@ final class GridStateCoordinator {
             let state = self.yabaiService.buildGridState(config: config, focusedIndex: nil)
             DispatchQueue.main.async { [weak self] in
                 guard let self, generation == self.fetchGeneration else { return }
+                self.pendingCompletion = nil
                 self.latestState = state
                 self.phase = .ready
                 completion?()
@@ -80,6 +91,7 @@ final class GridStateCoordinator {
         guard let config = ensureConfig() else { completion?(); return }
 
         inFlightWorkItem?.cancel()
+        pendingCompletion = completion
         fetchGeneration += 1
         let generation = fetchGeneration
         phase = .fetching
@@ -89,6 +101,7 @@ final class GridStateCoordinator {
             let state = self.yabaiService.buildGridState(config: config, focusedIndex: nil)
             DispatchQueue.main.async { [weak self] in
                 guard let self, generation == self.fetchGeneration else { return }
+                self.pendingCompletion = nil
                 let displayedState = self.statePreservingPendingFocus(state)
                 self.latestState = displayedState
                 self.phase = .ready
@@ -104,6 +117,9 @@ final class GridStateCoordinator {
         inFlightWorkItem = nil
         fetchGeneration += 1
         phase = latestState != nil ? .ready : .idle
+        let completion = pendingCompletion
+        pendingCompletion = nil
+        completion?()
     }
 
 
@@ -125,6 +141,11 @@ final class GridStateCoordinator {
             )
         }
         phase = latestState != nil ? .ready : .idle
+        // The canceled fetch will never reach its generation-guarded
+        // completion; notify its caller so in-flight UI state can clear.
+        let completion = pendingCompletion
+        pendingCompletion = nil
+        completion?()
     }
 
     public func reloadConfig() {
