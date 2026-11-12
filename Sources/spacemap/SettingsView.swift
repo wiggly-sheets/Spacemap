@@ -2,10 +2,17 @@ import SwiftUI
 import Foundation
 import CoreGraphics
 import AppKit
+import Combine
 import Sparkle
 
 extension Notification.Name {
     static let settingsChanged = Notification.Name("settingsChanged")
+    /// Position-only strip change (a drag). Unlike `.settingsChanged` this must
+    /// not reload themes or drop the glyph-font cache.
+    static let glyphStripPositionChanged = Notification.Name("glyphStripPositionChanged")
+    /// Active space-name profile changed from the menu bar. Re-seeds only the
+    /// profile state in an open Settings window.
+    static let spaceNameProfileChanged = Notification.Name("spaceNameProfileChanged")
 }
 
 
@@ -65,6 +72,7 @@ struct SettingsView: View {
     @State private var hudPositionKind: HUDPositionKind = .center
     @State private var spaceNameInputs: [Int: String] = [:]
     @State private var spaceNameProfiles: [SpaceNameProfile] = [SpaceNameProfile.default]
+    @State private var pendingSpaceNameEdit = SpaceNamePendingEdit()
     @State private var activeSpaceNameProfileIndex: Int = 0
     @State private var showExtraWindows: Bool = false
     @State private var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
@@ -88,6 +96,7 @@ struct SettingsView: View {
     @State private var isYabaiHealthy: Bool?
     @State private var isSocketHealthy: Bool?
     @State private var isRefreshingDiagnostics = false
+    @State private var saveErrorMessage: String?
 
     private let yabaiService: YabaiService
     private let diagnosticsTimer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
@@ -153,13 +162,33 @@ struct SettingsView: View {
         _appFontUpdateMode = State(initialValue: config.appFont.updateMode)
     }
 
-    private func saveConfig() {
-        // The updater persists `installedVersion`/`lastCheck` straight to
-        // disk, so re-read those here and only take the mode from UI state —
-        // a settings save must not clobber a newer install recorded since the
-        // window opened.
-        var appFont = AppConfig.load().appFont
+    static let saveFailureMessage = NSLocalizedString(
+        "Spacemap could not write its configuration file. Check permissions and try again.",
+        comment: "Settings save failure message"
+    )
+
+    static func saveResultMessage(_ success: Bool) -> String? {
+        success ? nil : saveFailureMessage
+    }
+
+    /// Applies the UI-owned fields onto the current disk config. The updater
+    /// owns `appFont.installedVersion`/`lastCheck`, and yabai trust refusal has
+    /// no UI control, so both are read from `disk` at write time inside the
+    /// atomic `AppConfig.updateConfig` closure.
+    static func applySave(
+        _ ui: GridConfig,
+        to disk: inout GridConfig,
+        appFontUpdateMode: AppFontUpdateMode
+    ) {
+        var appFont = disk.appFont
         appFont.updateMode = appFontUpdateMode
+        let refuseUntrustedYabai = disk.refuseUntrustedYabai
+        disk = ui
+        disk.appFont = appFont
+        disk.refuseUntrustedYabai = refuseUntrustedYabai
+    }
+
+    private func saveConfig() {
         let config = GridConfig(
             cols: cols,
             rows: rows,
@@ -210,11 +239,15 @@ struct SettingsView: View {
             focusSpaceOnWindowDropModifier: focusSpaceOnWindowDropModifier,
             showHUDOnSpaceChange: showHUDOnSpaceChange,
             updateMode: updateMode,
-            appFont: appFont,
             spaceNameProfiles: spaceNameProfiles,
             activeSpaceNameProfileIndex: activeSpaceNameProfileIndex
         )
-        AppConfig.saveConfig(config)
+        let fontUpdateMode = appFontUpdateMode
+        let saved = AppConfig.updateConfig { disk in
+            Self.applySave(config, to: &disk, appFontUpdateMode: fontUpdateMode)
+        }
+        saveErrorMessage = Self.saveResultMessage(saved)
+        guard saved else { return }
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
@@ -250,6 +283,7 @@ struct SettingsView: View {
                     maxSpaces: $maxSpaces,
                     profiles: $spaceNameProfiles,
                     activeProfileIndex: $activeSpaceNameProfileIndex,
+                    pendingEdit: pendingSpaceNameEdit,
                     onSave: saveConfig
                 )
 
@@ -330,14 +364,68 @@ struct SettingsView: View {
             // re-seeded always already matches the file.
             glyphStrip = config.glyphStrip.clamped()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .glyphStripPositionChanged)) { _ in
+            // A finished drag persists only the strip position. Re-seed just
+            // that value so the next settings save keeps the drag.
+            glyphStrip = AppConfig.load().glyphStrip.clamped()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .spaceNameProfileChanged)) { _ in
+            // Apply any queued keystroke to the profile that was active when it
+            // was typed, then re-seed the newly active profile. Saving after
+            // both keeps the menu switch and the edit on disk together.
+            let flushed = pendingSpaceNameEdit.flushApply()
+            let config = AppConfig.load()
+            if let seed = Self.profileStateToSeed(from: config) {
+                activeSpaceNameProfileIndex = seed.index
+                spaceNameInputs = seed.spaceNames
+            }
+            if flushed { saveConfig() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: HUDDisplay.hudPositionChangedNotification)) { _ in
+            let seed = Self.hudPositionStateToSeed(from: AppConfig.load())
+            hudPositionKind = seed.kind
+            lastCustomHUDX = seed.x
+            lastCustomHUDY = seed.y
+        }
         .onChange(of: selectedSection) { section in
             if section == .advanced { refreshDiagnostics() }
         }
         .onReceive(diagnosticsTimer) { _ in
             if selectedSection == .advanced { refreshDiagnostics() }
         }
+        .alert(
+            "Could not save settings",
+            isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(saveErrorMessage ?? "")
+        }
         .formStyle(.grouped)
         .frame(minWidth: 500)
+    }
+
+    /// Profile state to re-seed from a menu-bar profile switch. Pure so the
+    /// menu → Settings flow is testable without SwiftUI state.
+    static func profileStateToSeed(
+        from config: GridConfig
+    ) -> (index: Int, spaceNames: [Int: String])? {
+        let index = config.activeSpaceNameProfileIndex
+        guard config.spaceNameProfiles.indices.contains(index) else { return nil }
+        return (index, config.spaceNameProfiles[index].spaceNames)
+    }
+
+    static func hudPositionStateToSeed(
+        from config: GridConfig
+    ) -> (kind: HUDPositionKind, x: Double, y: Double) {
+        (
+            HUDPositionKind(from: config.hudPosition),
+            config.customHUDX,
+            config.customHUDY
+        )
     }
 
     private func refreshDiagnostics() {

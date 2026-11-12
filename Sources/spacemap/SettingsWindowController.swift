@@ -63,12 +63,17 @@ class SettingsWindowController: NSWindowController {
         window?.makeKeyAndOrderFront(nil)
     }
 
-    /// Native settings-window backdrop: NSGlassEffectView on 26+,
-    /// NSVisualEffectView fallback. The SwiftUI content must be the glass's
+    /// Native settings-window backdrop: NSGlassEffectView when
+    /// `GlassSupport.isAvailable` (macOS 26+, Reduce Transparency off),
+    /// NSVisualEffectView otherwise. The SwiftUI content must be the glass's
     /// `contentView`; arbitrary subviews are not guaranteed to be part of the
     /// glass effect.
     private static func makeEffectRoot(hostingView: NSView) -> NSView {
-        if #available(macOS 26.0, *) {
+        // `NSGlassEffectView` only exists in 6.2+ SDKs. Xcode 16 ships Swift
+        // 6.0/6.1 with the macOS 15 SDK where the type is absent, so this must
+        // be source-excluded rather than only gated by `#available`.
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *), GlassSupport.isAvailable {
             let glass = NSGlassEffectView()
             glass.style = .regular
             glass.cornerRadius = 0
@@ -78,6 +83,7 @@ class SettingsWindowController: NSWindowController {
             glass.contentView = hostingView
             return glass
         }
+        #endif
         let root = NSVisualEffectView()
         root.material = .underWindowBackground
         root.blendingMode = .behindWindow

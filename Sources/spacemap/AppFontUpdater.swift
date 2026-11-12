@@ -237,12 +237,12 @@ struct AppFontUpdater {
     /// Persists check state into `[appFont]`; pass the tag only after a
     /// successful install. Failures record nothing so the next launch retries.
     static func recordCheck(installedTag: String?) {
-        var config = AppConfig.load()
-        if let installedTag {
-            config.appFont.installedVersion = installedTag
+        AppConfig.updateConfig { config in
+            if let installedTag {
+                config.appFont.installedVersion = installedTag
+            }
+            config.appFont.lastCheck = Int(Date().timeIntervalSince1970)
         }
-        config.appFont.lastCheck = Int(Date().timeIntervalSince1970)
-        AppConfig.saveConfig(config)
     }
 
     /// Deny redirects off the download allowlist. Same-host API redirects

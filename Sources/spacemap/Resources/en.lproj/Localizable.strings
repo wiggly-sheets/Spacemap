@@ -127,3 +127,82 @@
 "Spacemap workspace preview" = "Spacemap workspace preview";
 
 "You can now use `spacemap` and `man spacemap` from Terminal." = "You can now use `spacemap` and `man spacemap` from Terminal.";
+
+/* Settings section headers */
+"Advanced" = "Advanced";
+"App Font" = "App Font";
+"Contents" = "Contents";
+"Hover Highlight" = "Hover Highlight";
+"Clicks" = "Clicks";
+"Space Name Profiles" = "Space Name Profiles";
+
+/* Settings diagnostics */
+"Yabai Process" = "Yabai Process";
+"Spacemap Signal Socket" = "Spacemap Signal Socket";
+"Checking…" = "Checking…";
+"Running" = "Running";
+"Unavailable" = "Unavailable";
+
+/* Settings footnotes */
+"Each space shows its index plus a glyph per window." = "Each space shows its index plus a glyph per window.";
+"Distance from the left edge of the menu bar row. Vertical Offset in Appearance moves the strip up or down." = "Distance from the left edge of the menu bar row. Vertical Offset in Appearance moves the strip up or down.";
+"Gap between the strip and the edge of the notch area." = "Gap between the strip and the edge of the notch area.";
+"Floating spaces are marked f, stack spaces s, bsp spaces unmarked." = "Floating spaces are marked f, stack spaces s, bsp spaces unmarked.";
+"App Font draws sketchybar-app-font glyphs. Native Icons draws each app's own icon, falling back to the app-font glyph then initials when unavailable." = "App Font draws sketchybar-app-font glyphs. Native Icons draws each app's own icon, falling back to the app-font glyph then initials when unavailable.";
+"When on, an app with several windows on one space shows a single glyph." = "When on, an app with several windows on one space shows a single glyph.";
+"Draws a | between spaces that sit on different displays." = "Draws a | between spaces that sit on different displays.";
+"Extra windows on a space collapse into a +N indicator once this cap is reached." = "Extra windows on a space collapse into a +N indicator once this cap is reached.";
+"Glyphs, fills and the glass edge resolve against this theme. Follow main HUD uses the theme from the Appearance pane." = "Glyphs, fills and the glass edge resolve against this theme. Follow main HUD uses the theme from the Appearance pane.";
+"Icon Spacing is the extra gap between two app icons. Index Padding is the gap between a space's number and its first icon." = "Icon Spacing is the extra gap between two app icons. Index Padding is the gap between a space's number and its first icon.";
+"Positive moves the strip down, into the screen interior. 0 is centered. Negative moves it up toward the top edge." = "Positive moves the strip down, into the screen interior. 0 is centered. Negative moves it up toward the top edge.";
+"Clear matches the left of the native Liquid Glass slider, Opaque the right, and Tinted adds the theme colour." = "Clear matches the left of the native Liquid Glass slider, Opaque the right, and Tinted adds the theme colour.";
+"None draws no background shape. Pill is fully rounded ends, Rounded Rectangle uses the corner radius below, Bar is square ends." = "None draws no background shape. Pill is fully rounded ends, Rounded Rectangle uses the corner radius below, Bar is square ends.";
+"Hairline outline around the strip, independent of the material. With none it outlines the plain strip bounds." = "Hairline outline around the strip, independent of the material. With none it outlines the plain strip bounds.";
+"The highlight is the hovered segment's glyph box grown by Hover Padding on both axes, not the height of the menu bar, and hover only arms within it." = "The highlight is the hovered segment's glyph box grown by Hover Padding on both axes, not the height of the menu bar, and hover only arms within it.";
+"Destroy Space takes effect immediately with no confirmation. Window actions apply to the focused window; Merge Windows moves every window of the clicked space into the current one." = "Destroy Space takes effect immediately with no confirmation. Window actions apply to the focused window; Merge Windows moves every window of the clicked space into the current one.";
+"Each input corresponds to its space number, up to Max Spaces." = "Each input corresponds to its space number, up to Max Spaces.";
+"Each profile stores a set of space names. Switch profiles from the menu bar or here." = "Each profile stores a set of space names. Switch profiles from the menu bar or here.";
+"Confirms yabai is running and its signals can reach Spacemap's Unix socket." = "Confirms yabai is running and its signals can reach Spacemap's Unix socket.";
+"Regular app windows are always shown, whether tiled or floating." = "Regular app windows are always shown, whether tiled or floating.";
+"Drag the HUD to reposition. Position is saved automatically." = "Drag the HUD to reposition. Position is saved automatically.";
+"Shows the HUD whenever yabai changes spaces, including changes triggered by skhd." = "Shows the HUD whenever yabai changes spaces, including changes triggered by skhd.";
+"Shows the configured workspace grid as dots, highlighting the focused space." = "Shows the configured workspace grid as dots, highlighting the focused space.";
+"Draws each space's live window layout in the menu bar. All spaces are shown full size in one horizontal row." = "Draws each space's live window layout in the menu bar. All spaces are shown full size in one horizontal row.";
+"Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. The glyph strip hotkey shows or hides the menu-bar strip for the session." = "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. The glyph strip hotkey shows or hides the menu-bar strip for the session.";
+"n/p = previous/next space, f/e = first/last space, r = recent space, a/t/w = create/create+focus/destroy space, b/s/u = bsp/stack/float layout, esc/c = close the HUD." = "n/p = previous/next space, f/e = first/last space, r = recent space, a/t/w = create/create+focus/destroy space, b/s/u = bsp/stack/float layout, esc/c = close the HUD.";
+"Auto checks GitHub once a day for sketchybar-app-font updates." = "Auto checks GitHub once a day for sketchybar-app-font updates.";
+"The strip copies the HUD's material, glass style, opacity, and theme. Position, size, shape, and contents stay its own." = "The strip copies the HUD's material, glass style, opacity, and theme. Position, size, shape, and contents stay its own.";
+"The strip keeps its own complete appearance." = "The strip keeps its own complete appearance.";
+"Clear, opaque, tinted, and solid all share one opacity." = "Clear, opaque, tinted, and solid all share one opacity.";
+"Each background style keeps its own opacity." = "Each background style keeps its own opacity.";
+"Solid stays unblurred; lower opacity simply lets the menu bar and desktop show through." = "Solid stays unblurred; lower opacity simply lets the menu bar and desktop show through.";
+"Controls how much backing sits behind the glass blur." = "Controls how much backing sits behind the glass blur.";
+"Keeps navigation within the display containing the focused space." = "Keeps navigation within the display containing the focused space.";
+"Allows navigation to wrap from one display's spaces into another's." = "Allows navigation to wrap from one display's spaces into another's.";
+"Switches to the destination only when the selected modifier is held while dropping." = "Switches to the destination only when the selected modifier is held while dropping.";
+"Controls whether the destination space is focused after a dragged window is moved." = "Controls whether the destination space is focused after a dragged window is moved.";
+"Shows one grid on each display and keeps keyboard navigation on the focused display." = "Shows one grid on each display and keeps keyboard navigation on the focused display.";
+"Shows every space in one grid; keyboard navigation can cross displays." = "Shows every space in one grid; keyboard navigation can cross displays.";
+"Shows the unified grid on the display containing yabai's focused space." = "Shows the unified grid on the display containing yabai's focused space.";
+"Shows the same unified grid on every display at once." = "Shows the same unified grid on every display at once.";
+"Shows the HUD only on the display containing yabai's focused space." = "Shows the HUD only on the display containing yabai's focused space.";
+"Shows a HUD on every display at once." = "Shows a HUD on every display at once.";
+
+/* Launch at Login approval */
+"Approve Launch at Login" = "Approve Launch at Login";
+"Couldn’t Enable Launch at Login" = "Couldn’t Enable Launch at Login";
+"Couldn’t Disable Launch at Login" = "Couldn’t Disable Launch at Login";
+"macOS is waiting for approval. Enable Spacemap in System Settings > General > Login Items." = "macOS is waiting for approval. Enable Spacemap in System Settings > General > Login Items.";
+
+/* Config save errors */
+"Could not save settings" = "Could not save settings";
+"Spacemap could not write its configuration file. Check permissions and try again." = "Spacemap could not write its configuration file. Check permissions and try again.";
+
+/* Glyph strip VoiceOver labels */
+"Glyph strip" = "Glyph strip";
+"Add space" = "Add space";
+"Display separator" = "Display separator";
+"Space %d" = "Space %d";
+"Empty" = "Empty";
+"%d more windows" = "%d more windows";
+"Current space" = "Current space";
