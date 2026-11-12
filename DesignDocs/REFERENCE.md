@@ -66,9 +66,12 @@ The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work
 | `[grid]` | `showSpaceNumbers` / `showSpaceNames` | true / true | HUD-cell labels (strip has its own `[glyphStrip]` key) |
 | `[grid]` | `showIconStrip` / `showMultiAppIcons` | true / false | Per-cell app icons; per-window (true) or per-app (false) |
 | `[appearance]` | `theme` / `mode` | `default` / `auto` | Color theme; `light`, `dark`, or `auto` |
-| `[appearance]` | `backgroundAlpha` | 0.3 | HUD transparency 0–1 (glass styles only; solid and transparent ignore it) |
+| `[appearance]` | `backgroundAlpha` | 0.3 | Shared HUD opacity 0–1 when `matchBackgroundOpacity` is on; otherwise the legacy fallback |
 | `[appearance]` | `backgroundStyle` | `glass` | `glass`, `solid`, or `transparent` |
-| `[appearance]` | `glassStyle` | `frosted` | Glass sub-type: `clear`, `tinted`, or `frosted` |
+| `[appearance]` | `glassStyle` | `opaque` | Glass sub-type: `clear` (left of native slider), `opaque` (right), or `tinted` (opaque + theme colour); legacy `frosted` reads as `opaque` |
+| `[appearance]` | `glassClearOpacity` / `glassOpaqueOpacity` / `glassTintedOpacity` | inherits `backgroundAlpha` | Per-glass-style opacity 0–1. Used when `matchBackgroundOpacity` is off |
+| `[appearance]` | `solidOpacity` | inherits `backgroundAlpha` | Solid HUD fill opacity 0–1 (no blur) |
+| `[appearance]` | `matchBackgroundOpacity` | false | Link all HUD styles to `backgroundAlpha`; transparent still has no opacity |
 | `[appearance]` | `hudShadow` | true | Draw HUD panel shadow |
 | `[appearance]` | `uiScale` / `iconScale` | 0.5 / 0.5 | HUD scale / icon size, 0–1 |
 | `[behavior]` | `hotkey` / `pinnedHotkey` | ctrl+space / none | Toggle hotkeys (applied immediately from Settings) |
@@ -119,6 +122,9 @@ Stores parsed configuration values.
 | `backgroundAlpha` | `Double` | `backgroundAlpha` |
 | `backgroundStyle` | `HUDBackgroundStyle` | `backgroundStyle` |
 | `glassStyle` | `HUDGlassStyle` | `glassStyle` |
+| `glassClearOpacity` / `glassOpaqueOpacity` / `glassTintedOpacity` | `Double` | same |
+| `solidOpacity` | `Double` | `solidOpacity` |
+| `matchBackgroundOpacity` | `Bool` | `matchBackgroundOpacity` |
 | `hudShadow` | `Bool` | `hudShadow` |
 | `mode` | `ThemeMode` | `mode` |
 | `iconScale` | `Double` | `iconScale` |
@@ -173,11 +179,14 @@ Read from the `[glyphStrip]` table. A legacy bare `glyphStrip = true` boolean is
 | `iconSize` | `Double` | `11.0`, clamped 6...24 |
 | `indexSize` | `Double` | `11.0`, clamped 6...24 |
 | `highlightCurrentSpace` | `Bool` | `true` |
-| `backgroundMaterial` | `GlyphStripBackgroundMaterial` | `.none` |
-| `glassAmount` | `Double` | `0.5`, clamped 0...1; continuous Liquid Glass tint, 0 = ultraclear, centre default, 1 = opaque/tinted (liquidGlass only; Settings slider shown tint-on-only) |
-| `useThemeTint` | `Bool` | `true` (liquidGlass only; false = neutral pure `.headerView` frost, no fill overlay) |
+| `backgroundMaterial` | `GlyphStripBackgroundMaterial` | `.none` (Settings label: Transparent) |
+| `glassStyle` | `HUDGlassStyle` | `.opaque`; `clear` = left native slider position, `opaque` = right, `tinted` = opaque + theme colour (liquidGlass only) |
+| `matchHUDAppearance` | `Bool` | `false`; copy the HUD's material, glass style, opacity, and theme. Position, size, shape, and contents stay the strip's own |
 | `shape` | `GlyphStripShape` | `.none` (no outline even with `borderEnabled`; otherwise the border follows the shape) |
-| `backgroundOpacity` | `Double` | `0.35`, clamped 0.01...1.0 (solid only; Settings slider 1...100%) |
+| `backgroundOpacity` | `Double` | `0.35`, clamped 0.01...1.0; shared/legacy opacity, used when `matchBackgroundOpacity` |
+| `glassClearOpacity` / `glassOpaqueOpacity` / `glassTintedOpacity` | `Double` | `0.35`, clamped 0.01...1.0; per-glass-style backing opacity |
+| `solidOpacity` | `Double` | `0.35`, clamped 0.01...1.0; solid backing opacity (no blur) |
+| `matchBackgroundOpacity` | `Bool` | `false`; link all strip styles to `backgroundOpacity` |
 | `cornerRadius` | `Double` | `20.0`, clamped 0...40 (roundedRect only; capped to half strip height) |
 | `margin` | `Double` | `6.0`, clamped 0...40; gap between the strip and the notch edge |
 | `yOffset` | `Double` | `0.0`, clamped -10.0...10.0; vertical nudge, positive moves the strip down, 0 is centered |
@@ -210,7 +219,7 @@ The hover highlight is the segment's glyph **content box** — its slot trimmed 
 
 The notch gap is typically around 200pt wide on a 14" MacBook Pro (208pt at the default scaled resolution), so a full strip rarely fits inside it. `center` will therefore be partly occluded by the camera housing on most displays — prefer `leftOfNotch` or `rightOfNotch`.
 
-`backgroundMaterial` selects what sits behind the glyphs: `none` draws nothing, `solid` fills the strip with the theme's `cellBg` at `backgroundOpacity`, and `liquidGlass` puts native glass behind the glyphs, masked to the configured shape and stroked with a theme-derived hairline. The solid fill spans the full panel height; the glass mask keeps a 2pt vertical inset so it never touches the menu bar edges. With material `.none` the border still follows the selected `shape` (`pill`/`roundedRect`/`bar`); `shape` `.none` draws no outline at all. `glassAmount` (0...1, default 0.5) drives the tint like the System Settings > Appearance > Liquid Glass slider: 0 is ultraclear (no tint), the centre is the default, 1 is opaque/tinted. There is no public blur radius API, so the amount modulates the glass `tintColor` alpha (`0.08 + 0.30*t`, unset at/below 0.02) plus a `cellBg` fill overlay (`0.10 + 0.55*t`); view alpha stays 1.0. Tint-off is pure neutral frost: the pre-26/`NSVisualEffectView` fallback uses `.headerView` at full opacity (never translucent, so no warm menu bar bleeds through) with an achromatic mid-gray hairline instead of the theme-blended stroke. The pre-26 tint-on fallback uses saturated `.popover` at/above centre, lighter `.menu` below. `shape` picks the outline the material is drawn in: `pill` is a capsule with fully rounded ends, `roundedRect` is a rounded rectangle at `cornerRadius` (capped to half the strip height), and `bar` is one continuous bar with square ends. The same shape masks the glass layer. The hover highlight always composites on top at a fixed subtle tint, in the theme's `focused` colour.
+`backgroundMaterial` selects what sits behind the glyphs: `none` (labelled Transparent) draws nothing, `solid` fills the strip with the theme's `cellBg` without blurring, and `liquidGlass` puts native glass behind the glyphs, masked to the configured shape and stroked with a hairline. The solid fill spans the full panel height; the glass mask keeps a 2pt vertical inset so it never touches the menu bar edges. With material `none` the border still follows the selected `shape` (`pill`/`roundedRect`/`bar`); `shape` `.none` draws no outline at all. `glassStyle` mirrors the HUD's three native positions: `clear` uses the clear glass material and a light scrim, `opaque` uses regular glass with a neutral backing, and `tinted` uses regular glass with the theme's `cellBg`. Each style has its own `glass*Opacity`/`solidOpacity` (default 0.35); clear scales its value to 15% so the clear material still reads as clear. `matchBackgroundOpacity` links them all to `backgroundOpacity`. `matchHUDAppearance` instead copies the HUD's material, glass style, effective opacity, and theme, leaving the strip's position, size, shape, and contents alone. Tinted uses the theme-blended hairline, clear and opaque use an achromatic mid-gray. The pre-26/`NSVisualEffectView` fallback uses `.headerView` for clear/opaque (never translucent, so no warm menu bar bleeds through) and saturated `.popover` for tinted. Legacy `glassAmount` + `useThemeTint` decode onto the closest sub-type, and a legacy `backgroundOpacity` seeds every per-style value. `shape` picks the outline the material is drawn in: `pill` is a capsule with fully rounded ends, `roundedRect` is a rounded rectangle at `cornerRadius` (capped to half the strip height), and `bar` is one continuous bar with square ends. The same shape masks the glass layer. The hover highlight always composites on top at a fixed subtle tint, in the theme's `focused` colour.
 
 Glyph verticals: every run draws from one shared baseline at a 1pt drop (`glyphDrop`); icon-font runs lift 1.5pt (`appGlyphLift`) because sketchybar-app-font ink sits low next to system digits. The trailing `+` add button draws bold at `indexSize + 2`.
 
@@ -231,6 +240,8 @@ The strip is theme-driven: every layer resolves to one of the theme's colours (`
 - **`WindowDropFocusMode`** — `.never`, `.always`, `.modifier`
 - **`WindowDropFocusModifier`** — `.command`, `.function` (`fn`), `.option`, `.control`, `.shift`
 - **`HUDPosition`** — `.center`, `.top`, `.bottom`, `.custom(x, y)`
+- **`HUDBackgroundStyle`** — `.glass`, `.solid`, `.transparent`
+- **`HUDGlassStyle`** — `.clear`, `.opaque`, `.tinted` (`frosted` decodes as `.opaque`)
 - **`GlyphStripBackgroundMaterial`** — `.none`, `.solid`, `.liquidGlass`
 - **`GlyphStripShape`** — `.none`, `.pill`, `.roundedRect`, `.bar`
 - **`GlyphStripAction`** — `.none`, `.focusSpace`, `.destroySpace`, `.moveWindowHere`, `.toggleFullscreen`, `.floatWindow`, `.balanceWindows`, `.mergeWindows`

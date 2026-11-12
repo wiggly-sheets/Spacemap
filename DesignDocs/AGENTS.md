@@ -238,7 +238,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - Dynamic yabai path detection (ARM + Intel)
 - Xcode project generation (`scripts/generate-xcodeproj.py`, 4 targets)
 - Unit test suite: ~588 tests across 35 files (`Tests/spacemapTests/`)
-- Glyph strip: theme-driven menu-bar index+glyph strip (material/shape/glassAmount/tint gating, notch-aware positions + custom drag, session-only hotkey)
+- Glyph strip: theme-driven menu-bar index+glyph strip (material/shape/glassStyle+per-style opacity, optional match-HUD appearance, notch-aware positions + custom drag, session-only hotkey)
 - Space-name profiles with menu-bar switching; fn modifier preserved across hotkeys/drop-focus
 - Hardening: yabai 10s timeout + async pipe drain, socket mode 0600, release tag/appcast checks
 - GitHub Actions CI: swift test + build on push/PR
