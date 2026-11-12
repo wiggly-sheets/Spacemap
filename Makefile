@@ -90,8 +90,8 @@ help:
 		'  Signing stays ad-hoc: codesign --force --sign - --options runtime.' \
 		'  There is no Developer ID identity and no notarization.' \
 		'  `make release VERSION=1.2.3` writes the VERSION file and the Info.plist,' \
-		'  commits them, tags v1.2.3 locally and prints the command that pushes the' \
-		'  commit and the tag. It never pushes by itself.' \
+		'  regenerates spacemap.xcodeproj, commits them, tags v1.2.3 locally and' \
+		'  prints the command that pushes the commit and the tag. It never pushes.' \
 		'  The old names app-arm64, app-x86_64, dmg-arm64 and dmg-x86_64 still work.' \
 		'  create-dmg is required for the dmg targets: brew install create-dmg.' \
 		'  scdoc is required for the man page: brew install scdoc.'
@@ -192,6 +192,7 @@ _assemble:
 	cp Sources/spacemap/Info.plist $(BUNDLE)/Contents/
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" $(BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(VERSION)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
+	/usr/libexec/PlistBuddy -c "Add :LSMinimumSystemVersion string $(MACOS_DEPLOYMENT_TARGET)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :LSMinimumSystemVersion $(MACOS_DEPLOYMENT_TARGET)" $(BUNDLE)/Contents/Info.plist
 	/usr/libexec/PlistBuddy -c "Add :SUFeedURL string https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUFeedURL https://wiggly-sheets.github.io/Spacemap/appcast.xml" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true
 	@if [ -n "$(SPARKLE_PUBLIC_KEY)" ]; then \
 		/usr/libexec/PlistBuddy -c "Add :SUPublicEDKey string $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $(SPARKLE_PUBLIC_KEY)" $(BUNDLE)/Contents/Info.plist 2>/dev/null || true; \
@@ -381,6 +382,11 @@ release:
 		echo "error: make release needs a version, for example: make release VERSION=1.2.3"; \
 		exit 1; \
 	fi
+	@# Validate before any write: a bad version must not touch Info.plist or VERSION.
+	@printf '%s\n' "$(RELEASE_VERSION)" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$$' || { \
+		echo "error: invalid version '$(RELEASE_VERSION)': use a dotted number like 1.2.3"; \
+		exit 1; \
+	}
 	@# The generated assets are no reason to refuse the release.
 	@if [ -n "$$(git status --porcelain | grep -vE '^\?\? (checksums\.txt|spacemap-.*\.dmg)$$')" ]; then \
 		echo "error: the working tree is dirty. Commit or stash your changes first."; \
@@ -402,10 +408,12 @@ release:
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(RELEASE_VERSION)" Sources/spacemap/Info.plist
 	@# Update VERSION file
 	@echo "$(RELEASE_VERSION)" > VERSION
+	@# Keep the generated Xcode project in step with VERSION.
+	@python3 scripts/generate-xcodeproj.py
 	@# Build before the commit, so a failed build leaves no commit behind.
 	$(MAKE) release-artifacts VERSION=$(RELEASE_VERSION)
 	@# Commit and tag. The tag stays local: the push is printed, never run.
-	git add Sources/spacemap/Info.plist VERSION CHANGELOG.md
+	git add Sources/spacemap/Info.plist VERSION spacemap.xcodeproj/project.pbxproj CHANGELOG.md
 	git commit -m "v$(RELEASE_VERSION)"
 	git tag -a "v$(RELEASE_VERSION)" -m "Spacemap $(RELEASE_VERSION)"
 	@echo ""

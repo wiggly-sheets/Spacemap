@@ -29,6 +29,8 @@
 
 The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work.
 
+Only one instance runs per user. Launching the binary or CLI symlink again exits immediately; `--settings` is sent over the live socket first (falling back to a `spacemap://` deep link) and `--show-menu` uses the `spacemap://` deep link. The bundle declares `LSMultipleInstancesProhibited` and the app also has a runtime guard.
+
 ## CLI Usage (after `make install-cli`)
 
 | Command | Description |
@@ -57,7 +59,7 @@ Note: DEBUG builds (Xcode) skip CLI handling and always launch the HUD; `--versi
 
 | Table | Key | Default | Description |
 |-----|-----|---------|-------------|
-| `[grid]` | `cols` / `rows` | 8 / 2 | Grid dimensions (must be > 0) |
+| `[grid]` | `cols` / `rows` | 8 / 2 | Grid dimensions 1–32; oversize clamps to 32, undersize resets to the default |
 | `[grid]` | `maxSpaces` | 16 | Max spaces to display, clamped 1–16 |
 | `[grid]` | `cellStyle` | `rects` | `rects`, `hybrid`, `icons`, `thumbnails`, or `simple` |
 | `[grid]` | `showMode` | `all` | `all` or `active` spaces |
@@ -85,7 +87,7 @@ Note: DEBUG builds (Xcode) skip CLI handling and always launch the HUD; `--versi
 | `[behavior]` | `jumpToSpaceEnabled` | false | Number-key space jumps (multi-digit supported) |
 | `[behavior]` | `focusSpaceOnWindowDrop` (+ `...Modifier`) | `never` (`command`) | `never`, `always`, or `modifier` (`command‖fn‖option‖control‖shift`) |
 | `[behavior]` | `showHUDOnSpaceChange` | false | Auto-show HUD on yabai space change |
-| `[behavior]` | `hideMenuBarIcon` / `updateMode` | false / `notify` | Headless menubar; Sparkle `auto‖notify‖off` |
+| `[behavior]` | `hideMenuBarIcon` / `updateMode` | false / `notify` | Headless menubar; Sparkle `auto‖notify‖off`. `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `[behavior]` | `menuBarDisplayMode` (+ `menuBarNearbyCount`) | `icon` (3) | `icon‖dots‖current‖nearby‖all`; nearby count clamped 1–16 |
 | `[spaceNames]` | `showSpaceNames`; names in `[spaceNames.names]` | true | Per-space names plus `[spaceNameProfiles]` sets (see Settings) |
 | `[glyphStrip]` | — | — | Full key table below |
@@ -285,9 +287,9 @@ The strip is theme-driven: every layer resolves to one of the theme's colours (`
 | `HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`HUDStateSync` | `HUDWindowController` | NSPanel lifecycle, show/hide, auto-hide timer, state refresh |
 | `GridView.swift` | `GridView` | SwiftUI grid container, cell layout, theme |
 | `CellView.swift` | `CellView` | Per-cell rendering (rects/icons/thumbnails), space names |
-| `GridLayout.swift` | `GridLayout` | Pure geometry: cell/gap/padding math, slot frames, hit-test, window→cell transforms (guarded: `cols > 0`, spaces clamped 0–16, zero-size frames return nil/empty) |
+| `GridLayout.swift` | `GridLayout` | Pure geometry: cell/gap/padding math, slot frames, hit-test, window→cell transforms (guarded: `cols` clamped 1–32, spaces clamped 0–16, zero-size frames return nil/empty) |
 | `YabaiClientImpl.swift` + `YabaiService.swift` | `YabaiClientImpl` | yabai CLI wrapper, space/window queries, signal management (10s command timeout, async pipe drain) |
-| `AppConfig.swift` + `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues` | `AppConfig` | Config load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup |
+| `AppConfig.swift` + `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues` | `AppConfig` | Config load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup, and the repaired/clamped values are written back |
 | `HotkeyMonitor.swift` + `HotkeyService`/`HotkeyHandler` | `HotkeyMonitor` | Global CGEventTap for hotkey capture (normal, pinned, glyph-strip bindings) |
 | `SocketListener.swift` | `SocketListener` | Unix domain socket server for yabai signals (mode 0600, non-blocking clients) |
 | `WindowDragHandler.swift` + `WindowDragService` | `WindowDragHandler` | Drag-and-drop detection via CGEventTap |
@@ -327,9 +329,9 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 ### `HotkeyMonitor.swift`
 - `CGEvent.tapCreate` with `.headInsertEventTap`
 - Monitors key-down events matching configured hotkey
-- One owned monitor each for normal, pinned, and glyph-strip bindings; changed bindings apply without retaining old shortcuts, media shortcuts fire on key-down only
+- All bindings share one `CGEventTap` owned by `HotkeyTapRouter`; it runs on a private run-loop thread and routes matches to the main thread. Changed bindings apply without retaining old shortcuts, media shortcuts fire on key-down only
 - Fails open when Accessibility is revoked: taps release immediately and unrelated keys pass through pinned HUDs
-- Polls every 2s until Accessibility permission granted
+- Polls every second until Accessibility permission granted
 
 ### `SocketListener.swift`
 - Unix domain server at `$TMPDIR/spacemap_<username>.socket` (`NSTemporaryDirectory()`, created mode 0600, clients non-blocking)
@@ -348,6 +350,8 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 Each theme defines 9 hex colors in `AppTheme` (`background`, `focused`, `text`, `dropTarget`, `cellBg`, `cellBgFocused`, `rect1`, `rect2`, `rect3`). Edit `.smthemes` files in `~/.config/spacemap/themes/`.
 
 Available themes: `default`, `tokyonight`, `catppuccin`, `monokai-dark`, `monokai-light`, `dracula`, `ayu`, `github`, `vscode`, `xcode`, `nord`, `atom-one-dark`
+
+Theme names are matched case-insensitively and accept hyphens, underscores, spaces, or compact forms: `monokai-dark`, `monokai_dark`, `monokai dark`, and `monokaidark` all resolve.
 
 ## Signal Integration
 
