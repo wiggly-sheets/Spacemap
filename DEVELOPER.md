@@ -46,9 +46,11 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `glyphStripHotkey` | Hotkey | `none` | modifiers+key or `none` | Glyph-strip show/hide; session-only, never persisted |
 | `uiScale` / `iconScale` | Double | 0.5 / 0.5 | 0.0–1.0 | HUD scale (effective: 0.5×–4.0×) / icon size (effective: 0.2×–1.0×) |
 | `theme` / `mode` | String | `default` / `auto` | theme names / `light‖dark‖auto` | Color theme / appearance |
-| `backgroundAlpha` | Double | 0.3 | 0.0–1.0 | HUD background transparency (glass styles only; solid and transparent ignore it) |
+| `backgroundAlpha` | Double | 0.3 | 0.0–1.0 | Shared HUD opacity when `matchBackgroundOpacity` is on; legacy fallback otherwise |
 | `backgroundStyle` | String | `glass` | `glass‖solid‖transparent` | HUD background style |
-| `glassStyle` | String | `frosted` | `clear‖tinted‖frosted` | Glass sub-type; only read when `backgroundStyle` is `glass` |
+| `glassStyle` | String | `opaque` | `clear‖opaque‖tinted` | Glass sub-type; only read when `backgroundStyle` is `glass`. Legacy `frosted` reads as `opaque` |
+| `glassClearOpacity` / `glassOpaqueOpacity` / `glassTintedOpacity` / `solidOpacity` | Double | inherits `backgroundAlpha` | 0.0–1.0 | Per-style HUD opacity. Transparent ignores opacity |
+| `matchBackgroundOpacity` | Bool | false | — | Link every HUD style to `backgroundAlpha` instead of per-style values |
 | `hudShadow` | Bool | true | — | HUD panel shadow |
 | `autoHideTimeout` | Int | 5 | ≥ 0 | Seconds before HUD hides (0=never) |
 | `showMode` | String | `all` | `all‖active` | Show all or active-only spaces |
@@ -73,7 +75,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `updateMode` | String | `notify` | `auto‖notify‖off` | Sparkle update check behavior. `auto` downloads and installs; `notify` prompts; `off` disables |
 | `focusSpaceOnWindowDrop` | WindowDropFocusMode | `never` | `never‖always‖modifier` | Focus the destination space after a successful window drop |
 | `focusSpaceOnWindowDropModifier` | WindowDropFocusModifier | `command` | `command‖fn‖option‖control‖shift` | Modifier required when drop focus is `modifier` (fn preserved) |
-| `[glyphStrip]` | — | — | — | Strip keys in REFERENCE.md; numerics clamped (`iconSize`/`indexSize` 6–24, `backgroundOpacity` 0.01–1, `glassAmount` 0–1, `cornerRadius` 0–40, `margin` 0–40, `iconSpacing`/`indexPadding` 0–20, `yOffset` -10–10, `xOffset` ±4000, `hoverPadding` 0–12, `hoverCornerRadius` 0–20, `maxIconsPerSpace` 0–16) |
+| `[glyphStrip]` | — | — | — | Strip keys in REFERENCE.md; `matchHUDAppearance` copies the HUD appearance or the strip keeps its own. Numerics clamped (`iconSize`/`indexSize` 6–24, `backgroundOpacity`/`glass*Opacity`/`solidOpacity` 0.01–1, `cornerRadius` 0–40, `margin` 0–40, `iconSpacing`/`indexPadding` 0–20, `yOffset` -10–10, `xOffset` ±4000, `hoverPadding` 0–12, `hoverCornerRadius` 0–20, `maxIconsPerSpace` 0–16) |
 | `[appFont]` | `updateMode` | `manual` | `manual‖auto` | Glyph-font update policy |
 
 ### Space Naming Support
