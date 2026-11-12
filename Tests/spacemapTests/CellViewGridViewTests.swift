@@ -410,6 +410,42 @@ final class CellViewGridViewTests: XCTestCase {
         )
     }
 
+    func testHoverStateMutationDrivesTheDropTargetCell() {
+        var config = GridConfig.default
+        config.cols = 4
+        config.maxSpaces = 4
+        config.showMode = .all
+        let state = GridState(
+            config: config,
+            spaces: makeSpaces(1...4),
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            focusedIndex: 1
+        )
+        let hover = HUDHoverState()
+        let view = GridView(
+            state: state,
+            hoveredCell: nil,
+            hoverState: hover,
+            onSelect: { _ in },
+            resolvedTheme: .default
+        )
+
+        XCTAssertNil(view.dropTargetSpaceIndex)
+
+        hover.cell = 2
+        XCTAssertEqual(view.dropTargetSpaceIndex, 2,
+            "mutating hover must repaint cell 2 as the drop target")
+
+        hover.cell = 4
+        XCTAssertEqual(view.dropTargetSpaceIndex, 4)
+        XCTAssertNotEqual(view.dropTargetSpaceIndex, 2,
+            "the previous drop target must not linger")
+
+        hover.cell = nil
+        XCTAssertNil(view.dropTargetSpaceIndex)
+    }
+
     func testVisibleIndicesActiveNoOverlap() {
         let indices = GridLayout.visibleSpaceIndices(
             maxSpaces: 4, showMode: .active, activeIndices: Set([5, 6])

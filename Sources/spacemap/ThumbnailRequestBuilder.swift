@@ -62,10 +62,11 @@ enum ThumbnailRequestBuilder {
         frame: CGRect,
         displayFrame: CGRect,
         knownYabaiWindowIDs: Set<CGWindowID>,
-        currentPID: pid_t
+        currentPID: pid_t,
+        secureInputEnabled: Bool = IsSecureEventInputEnabled()
     ) -> Bool {
         // Secure input (password field): skip unmanaged windows entirely.
-        guard !IsSecureEventInputEnabled() else { return false }
+        guard !secureInputEnabled else { return false }
         guard isOnScreen, windowLayer >= 0,
               let ownerPID, ownerPID != currentPID,
               !knownYabaiWindowIDs.contains(windowID),

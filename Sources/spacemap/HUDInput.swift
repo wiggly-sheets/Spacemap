@@ -59,11 +59,13 @@ final class HUDInput {
     private var useExtendedKeys = false
     private var jumpToSpaceEnabled = false
     private var dragHandlerCellFrames: [(spaceIndex: Int, frame: CGRect)] = []
+    private var autoHideSuppressed = false
 
 
     var isPinned = false
     var autoHideTimeout: TimeInterval = 0
     private var autoHideTimer: Timer?
+    var isAutoHideScheduled: Bool { autoHideTimer != nil }
     var lastFocusedSpaceIndex: Int? = nil
     var currentState: GridState?
     var config: GridConfig?
@@ -72,6 +74,7 @@ final class HUDInput {
     weak var hudDisplay: HUDDisplay?
     var isPollingFocusedSpace = false
     private var pollTimer: Timer?
+    private var pollTicks = 0
     var onRefresh: (() -> Void)?
     var onAutoHide: (() -> Void)?
     var onNumberEntry: ((Int?) -> Void)?
@@ -81,14 +84,23 @@ final class HUDInput {
     private var didNotifyAccessibilityRevocation = false
     private var pendingNumber = ""
     private var numberEntryTimer: Timer?
+    /// Trust cached from the reconciliation path. The event-tap callback runs
+    /// on every keystroke and must not syscall AXIsProcessTrusted per event.
+    private(set) var cachedAccessibilityTrusted = false
+    /// Trust source used by reconciliation and the rare tap-disabled path.
+    /// Overridable in tests; production reads the AX API.
+    var accessibilityTrustProvider: () -> Bool = { AXIsProcessTrusted() }
 
     init(panel: NSPanel?) {
         self.panel = panel
+        cachedAccessibilityTrusted = accessibilityTrustProvider()
     }
 
     func updatePanel(_ panel: NSPanel?) {
         self.panel = panel
     }
+
+    var currentPanel: NSPanel? { panel }
 
     func updateVisibility(_ visible: Bool) {
         if visible, !isVisible {
@@ -109,8 +121,10 @@ final class HUDInput {
     }
 
     deinit {
-        stopSettingsKeyMonitor()
-        stopPanelDragMonitor()
+        // Invalidate timers and tear down monitors; a retained event tap can
+        // keep this object alive, but any path that does reach deinit must
+        // not leave scheduled timers behind.
+        stop()
     }
 
     func start() {
@@ -124,7 +138,28 @@ final class HUDInput {
         autoHideTimer = nil
         pollTimer?.invalidate()
         pollTimer = nil
+        pollTicks = 0
+        autoHideSuppressed = false
         clearNumberEntry()
+        onStopForTesting?(autoHideTimer == nil && pollTimer == nil)
+    }
+
+    /// Test seam: lets a test observe that deinit reached `stop()` with both
+    /// timers invalidated.
+    var onStopForTesting: ((Bool) -> Void)?
+
+    /// Hold/release auto-hide without touching the panel-drag monitor. The
+    /// HUD uses this while a window drag hovers a cell so the HUD cannot
+    /// disappear mid-drag.
+    func setAutoHideSuppressed(_ suppressed: Bool) {
+        guard autoHideSuppressed != suppressed else { return }
+        autoHideSuppressed = suppressed
+        if suppressed {
+            autoHideTimer?.invalidate()
+            autoHideTimer = nil
+        } else {
+            resetAutoHideTimer()
+        }
     }
 
     func startPanelDragMonitor() {
@@ -137,10 +172,10 @@ final class HUDInput {
 
             switch event.type {
             case .leftMouseDown:
-                self.panelDragStart = NSEvent.mouseLocation
-                self.panelDragOrigin = panel.frame.origin
-                self.panelDragDidMove = false
-                self.isPanelDragging = true
+                self.beginPanelDrag(
+                    start: NSEvent.mouseLocation,
+                    panelOrigin: panel.frame.origin
+                )
             case .leftMouseDragged:
                 guard let start = self.panelDragStart,
                       let origin = self.panelDragOrigin else { break }
@@ -158,17 +193,38 @@ final class HUDInput {
                     }
                 }
             case .leftMouseUp:
-                if self.panelDragDidMove {
+                if self.endPanelDrag() {
                     self.onPanelDragEnded?()
                 }
-                self.panelDragStart = nil
-                self.panelDragOrigin = nil
-                self.panelDragDidMove = false
-                self.isPanelDragging = false
             default: break
             }
             return event
         }
+    }
+
+    /// Start a panel drag: the armed auto-hide timer must be disarmed while
+    /// the mouse is down, otherwise the HUD can vanish mid-drag even though
+    /// `resetAutoHideTimer` refuses to schedule a new one.
+    func beginPanelDrag(start: CGPoint, panelOrigin: CGPoint) {
+        panelDragStart = start
+        panelDragOrigin = panelOrigin
+        panelDragDidMove = false
+        isPanelDragging = true
+        autoHideTimer?.invalidate()
+        autoHideTimer = nil
+    }
+
+    /// Finish a panel drag and re-arm auto-hide. Returns whether the panel
+    /// actually moved (so the caller can persist the new position).
+    @discardableResult
+    func endPanelDrag() -> Bool {
+        let moved = panelDragDidMove
+        panelDragStart = nil
+        panelDragOrigin = nil
+        panelDragDidMove = false
+        isPanelDragging = false
+        resetAutoHideTimer()
+        return moved
     }
 
     func stopPanelDragMonitor() {
@@ -180,13 +236,14 @@ final class HUDInput {
         panelDragOrigin = nil
         panelDragDidMove = false
         isPanelDragging = false
+        if isVisible { resetAutoHideTimer() }
     }
 
     var panelDragActive: Bool { isPanelDragging }
 
 
     func resetAutoHideTimer() {
-        guard !panelDragActive else { return }
+        guard !panelDragActive, !autoHideSuppressed else { return }
         autoHideTimer?.invalidate()
         autoHideTimer = nil
         guard !isPinned, autoHideTimeout > 0 else { return }
@@ -198,8 +255,17 @@ final class HUDInput {
 
     func startPollTimer() {
         pollTimer?.invalidate()
+        pollTicks = 0
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             guard let self, self.isVisible else { return }
+            // Reconcile Accessibility roughly every 3s. Revocation and
+            // re-grant must recover while the HUD stays visible, and the
+            // per-keystroke callback only reads the cached value.
+            self.pollTicks += 1
+            if self.pollTicks >= 6 {
+                self.pollTicks = 0
+                self.reconcileAccessibilityFromPoll()
+            }
             guard !self.isPollingFocusedSpace else { return }
             self.isPollingFocusedSpace = true
             self.yabaiService?.runOnYabaiQueue { [weak self] in
@@ -341,7 +407,9 @@ final class HUDInput {
 
 
     private func startSettingsKeyMonitor() {
-        guard keyboardEventTap == nil, AXIsProcessTrusted() else { return }
+        let trusted = accessibilityTrustProvider()
+        cachedAccessibilityTrusted = trusted
+        guard keyboardEventTap == nil, trusted else { return }
         let mask = CGEventMask(
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.keyUp.rawValue)
@@ -356,7 +424,7 @@ final class HUDInput {
             callback: { _, type, event, refcon in
                 guard let refcon else { return Unmanaged.passUnretained(event) }
                 let input = Unmanaged<HUDInput>.fromOpaque(refcon).takeUnretainedValue()
-                let isTrusted = AXIsProcessTrusted()
+                let isTrusted = input.cachedAccessibilityTrusted
                 guard isTrusted else {
                     if let tap = input.keyboardEventTap, CFMachPortIsValid(tap) {
                         CGEvent.tapEnable(tap: tap, enable: false)
@@ -367,9 +435,7 @@ final class HUDInput {
                     return Unmanaged.passUnretained(event)
                 }
                 if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                    if let tap = input.keyboardEventTap {
-                        CGEvent.tapEnable(tap: tap, enable: true)
-                    }
+                    input.handleDisabledKeyboardTap()
                     return Unmanaged.passUnretained(event)
                 }
                 guard input.isVisible else { return Unmanaged.passUnretained(event) }
@@ -405,10 +471,36 @@ final class HUDInput {
     }
 
     func reconcileSettingsKeyMonitor() {
-        handleAccessibilityState(isTrusted: AXIsProcessTrusted())
+        handleAccessibilityState(isTrusted: accessibilityTrustProvider())
+    }
+
+    /// Poll-driven reconciliation. Skip the never-trusted startup state so a
+    /// user who has not granted Accessibility is not told capture was revoked
+    /// (which would hide a mouse-usable HUD). Once trusted, any transition in
+    /// either direction is applied.
+    private func reconcileAccessibilityFromPoll() {
+        let trustedNow = accessibilityTrustProvider()
+        guard trustedNow || cachedAccessibilityTrusted || keyboardEventTap != nil else { return }
+        handleAccessibilityState(isTrusted: trustedNow)
+    }
+
+    /// Rare path: the system disabled the tap (timeout/user input). Re-check
+    /// trust instead of blindly re-enabling, so a revocation disables capture
+    /// and notifies the owner; a re-grant re-installs via reconciliation.
+    func handleDisabledKeyboardTap() {
+        guard accessibilityTrustProvider() else {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleAccessibilityState(isTrusted: false)
+            }
+            return
+        }
+        if let tap = keyboardEventTap, CFMachPortIsValid(tap) {
+            CGEvent.tapEnable(tap: tap, enable: true)
+        }
     }
 
     func handleAccessibilityState(isTrusted: Bool) {
+        cachedAccessibilityTrusted = isTrusted
         guard isTrusted else {
             if keyboardEventTap != nil {
                 NSLog("spacemap/HUDInput: Accessibility revoked; releasing keyboard capture")

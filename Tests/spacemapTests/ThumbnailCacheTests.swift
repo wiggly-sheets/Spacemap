@@ -72,7 +72,6 @@ final class ThumbnailCacheTests: XCTestCase {
 
         XCTAssertEqual(size, CGSize(width: 356, height: 200))
         XCTAssertEqual(ThumbnailCache.maxConcurrentCaptures, 4)
-        XCTAssertEqual(ThumbnailCache.duplicateRefreshTTL, 0.25)
     }
 
     func testCaptureRequestsIncludeHelperWindowsOnlyWhenConfigured() {
@@ -81,6 +80,91 @@ final class ThumbnailCacheTests: XCTestCase {
         )
 
         XCTAssertEqual(requests[0].windows.map(\.windowID), [11, 13])
+    }
+
+    func testRefreshPolicyReusesCompletedCapturesUntilStale() {
+        let request = ThumbnailRequestBuilder.captureRequests(for: makeState())[0]
+
+        XCTAssertTrue(ThumbnailCache.shouldSkipRefresh(
+            requests: [request],
+            lastCompleted: [request],
+            lastCompletedAt: 100,
+            now: 110,
+            force: false
+        ), "fresh identical requests must reuse the completed captures")
+        XCTAssertFalse(ThumbnailCache.shouldSkipRefresh(
+            requests: [request],
+            lastCompleted: [request],
+            lastCompletedAt: 100,
+            now: 100 + ThumbnailCache.maxStaleness + 1,
+            force: false
+        ), "captures older than maxStaleness must be recaptured")
+        XCTAssertFalse(ThumbnailCache.shouldSkipRefresh(
+            requests: [request],
+            lastCompleted: [request],
+            lastCompletedAt: 100,
+            now: 101,
+            force: true
+        ), "an explicit force must always recapture")
+    }
+
+    func testRefreshPolicyDoesNotSkipDifferentRequests() {
+        // A different request set is never skipped by staleness.
+        XCTAssertFalse(ThumbnailCache.shouldSkipRefresh(
+            requests: ThumbnailRequestBuilder.captureRequests(for: makeState(), spaceIndices: [1]),
+            lastCompleted: ThumbnailRequestBuilder.captureRequests(for: makeState(), spaceIndices: [1, 2]),
+            lastCompletedAt: 100,
+            now: 101,
+            force: false
+        ))
+    }
+
+    func testCancelAdvancesGenerationAndDropsInFlightState() {
+        let cache = ThumbnailCache()
+        let generation = cache.currentGeneration
+
+        cache.cancel()
+
+        XCTAssertGreaterThan(cache.currentGeneration, generation)
+        XCTAssertFalse(cache.hasActiveRefresh)
+        XCTAssertFalse(cache.hasPendingRefresh)
+    }
+
+    func testForceBypassesIdenticalActiveJobDedupe() {
+        let request = ThumbnailRequestBuilder.captureRequests(for: makeState())[0]
+
+        XCTAssertTrue(ThumbnailCache.shouldDedupeActiveJob(
+            requests: [request],
+            pending: [request],
+            active: nil,
+            force: false
+        ))
+        XCTAssertTrue(ThumbnailCache.shouldDedupeActiveJob(
+            requests: [request],
+            pending: nil,
+            active: [request],
+            force: false
+        ))
+        XCTAssertFalse(ThumbnailCache.shouldDedupeActiveJob(
+            requests: [request],
+            pending: [request],
+            active: [request],
+            force: true
+        ), "force must bypass the identical-job dedupe")
+    }
+
+    func testClearCancelsAndAdvancesGeneration() {
+        let cache = ThumbnailCache()
+        let generation = cache.currentGeneration
+
+        cache.clear()
+
+        XCTAssertGreaterThan(cache.currentGeneration, generation)
+        XCTAssertFalse(cache.hasActiveRefresh)
+    }
+
+    func testMaxStalenessIsBounded() {
+        XCTAssertEqual(ThumbnailCache.maxStaleness, 30)
     }
 
     func testUnmanagedOnScreenWindowFilterIncludesRaycastButRejectsSystemAndManagedWindows() {
@@ -96,7 +180,8 @@ final class ThumbnailCacheTests: XCTestCase {
             frame: raycastFrame,
             displayFrame: display,
             knownYabaiWindowIDs: [11],
-            currentPID: 999
+            currentPID: 999,
+            secureInputEnabled: false
         ))
         XCTAssertFalse(ThumbnailRequestBuilder.shouldIncludeUnmanagedWindow(
             windowID: 50,
@@ -107,7 +192,8 @@ final class ThumbnailCacheTests: XCTestCase {
             frame: raycastFrame,
             displayFrame: display,
             knownYabaiWindowIDs: [],
-            currentPID: 999
+            currentPID: 999,
+            secureInputEnabled: false
         ))
         XCTAssertFalse(ThumbnailRequestBuilder.shouldIncludeUnmanagedWindow(
             windowID: 50,
@@ -118,7 +204,8 @@ final class ThumbnailCacheTests: XCTestCase {
             frame: raycastFrame,
             displayFrame: display,
             knownYabaiWindowIDs: [],
-            currentPID: 999
+            currentPID: 999,
+            secureInputEnabled: false
         ))
         XCTAssertFalse(ThumbnailRequestBuilder.shouldIncludeUnmanagedWindow(
             windowID: 11,
@@ -129,7 +216,8 @@ final class ThumbnailCacheTests: XCTestCase {
             frame: raycastFrame,
             displayFrame: display,
             knownYabaiWindowIDs: [11],
-            currentPID: 999
+            currentPID: 999,
+            secureInputEnabled: false
         ))
     }
 

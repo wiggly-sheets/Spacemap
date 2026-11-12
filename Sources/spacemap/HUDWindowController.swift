@@ -7,6 +7,7 @@ class HUDWindowController {
     private var state: GridState? = nil
     private(set) var focusedWindowIDAtOpen: Int? = nil
     private var presentationGeneration = 0
+    private var dragAutoHidePoll: DispatchWorkItem?
     var isVisible = false
     var isPinned: Bool {
         get { hudInput.isPinned }
@@ -41,6 +42,12 @@ class HUDWindowController {
     private func setupDelegates() {
         hudInput.delegate = self
         hudDisplay.delegate = self
+        hudDisplay.isPanelDragging = { [weak hudInput = self.hudInput] in
+            hudInput?.panelDragActive ?? false
+        }
+        hudInput.quartzPointConverter = { [weak hudDisplay = self.hudDisplay] point in
+            hudDisplay?.quartzPoint(fromAppKit: point) ?? point
+        }
         hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, useExtendedKeys: config.useExtendedKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
         hudInput.yabaiService = services.yabaiService
         hudInput.config = config
@@ -52,16 +59,14 @@ class HUDWindowController {
         hudInput.onPanelDragEnded = { [weak self] in self?.hudDisplay.savePanelPosition() }
         hudInput.onAccessibilityRevoked = { [weak self] in self?.hide() }
         dragHandler.onHoverCell = { [weak self] cell in
-            guard let self, self.isVisible, let state = self.state else { return }
-            self.hoveredCell = cell
-            self.hudDisplay.updateHoveredCell(cell)
-            self.hudDisplay.refreshAndRender(state: state, force: false)
-            self.resetAutoHideTimer()
+            guard let self, self.isVisible, self.state != nil else { return }
+            self.handleHoverCell(cell)
         }
         dragHandler.onDropInCell = { [weak self] windowID, spaceIndex, modifiers in
             guard let self, self.isVisible else { return }
             self.hoveredCell = nil
             self.hudDisplay.updateHoveredCell(nil)
+            hudInput.setAutoHideSuppressed(false)
             let focusDestination = self.config.focusSpaceOnWindowDrop.shouldFocus(
                 eventFlags: modifiers,
                 requiredModifier: self.config.focusSpaceOnWindowDropModifier
@@ -98,6 +103,57 @@ class HUDWindowController {
         }
     }
 
+    /// Cell-crossing hover: only mutate the observable hover channel and
+    /// auto-hide state. No icons, thumbnails, rendering or panel resizing.
+    func handleHoverCell(_ cell: Int?) {
+        guard hoveredCell != cell else { return }
+        hoveredCell = cell
+        hudDisplay.updateHoveredCell(cell)
+        hudInput.setAutoHideSuppressed(cell != nil || dragHandler.isDragging)
+        guard cell == nil else { return }
+        guard dragHandler.isDragging else {
+            hudInput.setAutoHideSuppressed(false)
+            resetAutoHideTimer()
+            return
+        }
+        // handleMouseUp clears the hover before WindowDragHandler.reset() runs
+        // its deferred isDragging reset, and a drag that ends over panel
+        // padding produces no final hover callback at all. Poll briefly until
+        // the drag is genuinely over, then re-arm auto-hide.
+        releaseAutoHideAfterDrag()
+
+    }
+
+    private func releaseAutoHideAfterDrag(attempt: Int = 0) {
+        dragAutoHidePoll?.cancel()
+        // Bounded: a drag under 20s is re-checked every 200ms; after that
+        // give up and re-arm auto-hide rather than polling forever.
+        guard attempt < 100 else {
+            dragAutoHidePoll = nil
+            hudInput.setAutoHideSuppressed(false)
+            resetAutoHideTimer()
+            return
+        }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.isVisible else { return }
+            guard !self.dragHandler.isDragging else {
+                self.releaseAutoHideAfterDrag(attempt: attempt + 1)
+                return
+            }
+            self.dragAutoHidePoll = nil
+            self.hudInput.setAutoHideSuppressed(false)
+            self.resetAutoHideTimer()
+        }
+        dragAutoHidePoll = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+    }
+
+    /// Test seam: the input's drag target must be the live HUD panel.
+    var inputPanel: NSPanel? { hudInput.currentPanel }
+    var inputQuartzPointConverter: ((CGPoint) -> CGPoint)? { hudInput.quartzPointConverter }
+    var hudDisplayForTesting: HUDDisplay { hudDisplay }
+    var seededFocusedSpaceIndex: Int? { hudInput.lastFocusedSpaceIndex }
+
     func toggle() {
         debouncedToggle { [weak self] in
             guard let self else { return }
@@ -105,6 +161,7 @@ class HUDWindowController {
             self.isVisible ? self.hide() : self.show()
         }
     }
+
     func togglePinned() {
         debouncedToggle { [weak self] in
             guard let self else { return }
@@ -135,6 +192,7 @@ class HUDWindowController {
         if let state = coordinator.state {
             hudDisplay.updateState(state)
             hudInput.currentState = state
+            hudInput.lastFocusedSpaceIndex = state.focusedIndex
         } else {
             // Fail-usable placeholder: empty grid still paints cells and
             // seeds input state, so navigation works once fetch lands.
@@ -145,13 +203,14 @@ class HUDWindowController {
             let placeholder = GridState(config: placeholderConfig, spaces: [], windows: [], displayBounds: NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440), focusedIndex: nil)
             hudDisplay.updateState(placeholder)
             hudInput.currentState = placeholder
+            hudInput.lastFocusedSpaceIndex = placeholder.focusedIndex
         }
         hudInput.autoHideTimeout = TimeInterval(config.autoHideTimeout)
         hudInput.resetAutoHideTimer()
         hudInput.startPollTimer()
         hudInput.start()
-        if config.multiMonitorHUDMode == .unified, config.unifiedHUDVisibility == .active, case .custom = config.hudPosition { hudInput.startPanelDragMonitor() }
-        coordinator.fetch { [weak self] in self?.renderRefreshedState(force: true, refreshFocusedWindow: true) }
+        reconcilePanelDragMonitor()
+        coordinator.fetch { [weak self] in self?.renderRefreshedState(force: false, refreshFocusedWindow: true) }
     }
     func prewarmState() {
         coordinator.fetch { [weak self] in
@@ -190,8 +249,13 @@ class HUDWindowController {
         isVisible = false
         hudInput.updateVisibility(false)
         isPinned = false; dragHandler.stop()
-        hudInput.stop()
+        // Hide the display first: hudInput.stop() clears number entry, whose
+        // callback triggers updateDisplayNumber → a full render if the display
+        // still considers itself rendered. Ordering avoids a transient re-show.
+        dragAutoHidePoll?.cancel()
+        dragAutoHidePoll = nil
         hudDisplay.hide()
+        hudInput.stop()
         hoveredCell = nil; self.state = nil; hudInput.currentState = nil
         focusedWindowIDAtOpen = nil
         hudInput.isPollingFocusedSpace = false
@@ -217,11 +281,12 @@ class HUDWindowController {
     }
     func reloadConfig() {
         _config = nil
-        services.themeService.reload()
+        services.themeService.reloadIfChanged()
         hudInput.config = config
         hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, useExtendedKeys: config.useExtendedKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
         hudDisplay.updateConfig(config)
         coordinator.reloadConfig()
+        reconcilePanelDragMonitor()
     }
     private func reloadConfigIfChanged() {
         let mtime: Date? = (try? FileManager.default.attributesOfItem(atPath: services.appConfig.configPath))?[.modificationDate] as? Date
@@ -232,6 +297,20 @@ class HUDWindowController {
     }
     private func resetAutoHideTimer() {
         hudInput.resetAutoHideTimer()
+    }
+    /// Panel-drag positioning only applies to the single unified active
+    /// panel; reconcile on show and on config reload so toggling the custom
+    /// position takes effect without a hide/show cycle.
+    private func reconcilePanelDragMonitor() {
+        let current = config
+        if isVisible,
+           current.multiMonitorHUDMode == .unified,
+           current.unifiedHUDVisibility == .active,
+           case .custom = current.hudPosition {
+            hudInput.startPanelDragMonitor()
+        } else {
+            hudInput.stopPanelDragMonitor()
+        }
     }
     private func navigateSpace(_ direction: SpaceNavigationDirection) {
         hudInput.navigate(direction: direction)
@@ -245,7 +324,19 @@ extension HUDWindowController: HUDInputDelegate {
     func focusRecent() {
         // "recent" is a named selector; SpaceFocusTarget never fails for it.
         guard let target = SpaceFocusTarget(argument: "recent") else { return }
-        _ = services.yabaiService.focusSpace(target)
+        // focusSpaceAsync only accepts numeric indices, so run the target
+        // form on yabaiQueue instead: yabai can block up to 10s and must
+        // never stall the main thread (same as every other entry point).
+        services.yabaiService.runOnYabaiQueue { [weak self] in
+            guard let self else { return }
+            _ = self.services.yabaiService.focusSpace(target)
+            // Pull the new focus back immediately so the highlight and the
+            // next arrow key operate on the actual current space.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.isVisible else { return }
+                self.refresh()
+            }
+        }
     }
     func createSpace() {
         // Chain the refresh after the create lands: poll for the new max
@@ -312,6 +403,9 @@ extension HUDWindowController: HUDDisplayDelegate {
     func updateCellFrames(state: GridState) {
         let frames = hudDisplay.computeCellFrames(state: state)
         hudInput.updateCellFrames(frames)
+        // Panels are created/replaced during render; keep the drag monitor's
+        // target pointed at the live unified panel or custom positioning dies.
+        hudInput.updatePanel(hudDisplay.unifiedPanel)
         dragHandler.updateInput(WindowDragInput(
             cellFrames: frames,
             cachedWindows: state.windows,

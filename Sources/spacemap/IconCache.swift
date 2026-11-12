@@ -1,6 +1,17 @@
 import AppKit
 import Foundation
 
+/// Boxes a caller completion so the queue's `@Sendable` closures can carry it
+/// without requiring the closure itself (and everything it captures) to be
+/// Sendable. `handler` only ever runs on the main thread.
+private final class IconCompletionBox: @unchecked Sendable {
+    let handler: (NSImage?) -> Void
+
+    init(_ handler: @escaping (NSImage?) -> Void) {
+        self.handler = handler
+    }
+}
+
 /// App-name to NSImage lookup for native icon rendering.
 ///
 /// Resolution order per name: running-application fast path (by pid, then by
@@ -22,11 +33,18 @@ final class IconCache {
     private var bundlePathByName: [String: String] = [:]
     /// Names with a Spotlight lookup already running. Lock-guarded.
     private var inFlight: Set<String> = []
-    private var pendingCompletions: [String: [(@Sendable (NSImage?) -> Void)]] = [:]
+    private var pendingCompletions: [String: [IconCompletionBox]] = [:]
     /// Bumped on clear(): stale Spotlight lookups check it before store.
     private var generation: UInt64 = 0
     /// Negative cache: miss timestamps stop repeat mdfind for unknown apps.
     private var unresolvedUntil: [String: TimeInterval] = [:]
+    /// Overridable in tests; production uses the real mdfind lookup.
+    var spotlightLookup: (String) -> String? = IconCache.pathViaSpotlight
+    /// How long a failed lookup stays negative. Instance value so tests can
+    /// exercise expiry without waiting out the production TTL.
+    var negativeTTL: TimeInterval = IconCache.unresolvedTTL
+    /// Monotonic clock seam for the negative cache.
+    var uptime: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
 
     /// Posted on main after `store()` caches a new image. Cell views observe
     /// it and repaint their cached-only reads. One post per stored image;
@@ -35,11 +53,18 @@ final class IconCache {
     /// Cap for `cache`. Running-app count bounds the lookup map; only the
     /// image map needs eviction.
     static let maxEntries = 200
-    /// Serial Spotlight queue: one mdfind at a time so a wedged
-    /// Spotlight never pins the shared utility pool. Coalescing
-    /// (inFlight/pendingCompletions) still dedupes repeat names.
-    private static let spotlightQueue = DispatchQueue(label: "com.spacemap.iconcache.spotlight")
+    /// Concurrent Spotlight queue: bounded so a wedged mdfind holds at most
+    /// one slot and cannot serialize every other app behind it.
+    static let maxConcurrentSpotlightLookups = 3
+    private static let spotlightQueue = DispatchQueue(
+        label: "com.spacemap.iconcache.spotlight",
+        attributes: .concurrent
+    )
+    private let spotlightGate = DispatchSemaphore(value: IconCache.maxConcurrentSpotlightLookups)
     static let unresolvedTTL: TimeInterval = 30
+    /// Per-lookup wall-clock cap. Long enough for a cold Spotlight index,
+    /// short enough that a wedged one releases its slot promptly.
+    static let spotlightTimeout: TimeInterval = 1.5
 
     private let workspace: WorkspaceProtocol
 
@@ -108,7 +133,8 @@ final class IconCache {
     /// runs on main (NSWorkspace + NSImage are main-only). Never blocks strip.
     /// Coalesced: concurrent misses for one name share one mdfind, and names
     /// with no bundle anywhere sleep `unresolvedTTL` before the next attempt.
-    func resolveInBackground(appName: String, completion: (@Sendable (NSImage?) -> Void)? = nil) {
+    func resolveInBackground(appName: String, completion: ((NSImage?) -> Void)? = nil) {
+        let completionBox = completion.map { IconCompletionBox($0) }
         lock.lock()
         let gen = generation
         let known = bundlePathByName[appName] != nil || cache[appName] != nil
@@ -118,29 +144,32 @@ final class IconCache {
             // the store when completion is nil, leaving preloads uncached.
             DispatchQueue.main.async {
                 let image = self.icon(for: appName)
-                completion?(image)
+                completionBox?.handler(image)
             }
             return
         }
         if inFlight.contains(appName) {
-            if let completion { pendingCompletions[appName, default: []].append(completion) }
+            if let completionBox { pendingCompletions[appName, default: []].append(completionBox) }
             lock.unlock()
             return
         }
         if let until = unresolvedUntil[appName],
-           ProcessInfo.processInfo.systemUptime < until {
+           uptime() < until {
             lock.unlock()
-            if let completion {
-                DispatchQueue.main.async { completion(nil) }
+            if let completionBox {
+                DispatchQueue.main.async { completionBox.handler(nil) }
             }
             return
         }
         inFlight.insert(appName)
-        if let completion { pendingCompletions[appName, default: []].append(completion) }
+        if let completionBox { pendingCompletions[appName, default: []].append(completionBox) }
         lock.unlock()
         Self.spotlightQueue.async { [weak self] in
             guard let self else { return }
-            guard let path = Self.pathViaSpotlight(appName: appName) else {
+            self.spotlightGate.wait()
+            let resolvedPath = self.spotlightLookup(appName)
+            self.spotlightGate.signal()
+            guard let path = resolvedPath else {
                 self.lock.lock()
                 // Stale lookup: clear() already fired these completions.
                 // Touch nothing: a new generation may own this state.
@@ -149,12 +178,12 @@ final class IconCache {
                     return
                 }
                 self.inFlight.remove(appName)
-                self.unresolvedUntil[appName] = ProcessInfo.processInfo.systemUptime + Self.unresolvedTTL
+                self.unresolvedUntil[appName] = self.uptime() + self.negativeTTL
                 let completions = self.pendingCompletions.removeValue(forKey: appName) ?? []
                 self.lock.unlock()
                 guard !completions.isEmpty else { return }
                 DispatchQueue.main.async {
-                    for pending in completions { pending(nil) }
+                    for pending in completions { pending.handler(nil) }
                 }
                 return
             }
@@ -192,7 +221,7 @@ final class IconCache {
                 self.unresolvedUntil.removeValue(forKey: appName)
                 let completions = self.pendingCompletions.removeValue(forKey: appName) ?? []
                 self.lock.unlock()
-                for pending in completions { pending(image) }
+                for pending in completions { pending.handler(image) }
             }
         }
     }
@@ -221,7 +250,7 @@ final class IconCache {
         // Never drop a waiter: stale lookups check generation and stay out.
         if !dropped.isEmpty {
             DispatchQueue.main.async {
-                for pending in dropped { pending(nil) }
+                for pending in dropped { pending.handler(nil) }
             }
         }
         rebuildLookup()
@@ -309,9 +338,9 @@ final class IconCache {
         process.standardError = FileHandle.nullDevice
         do { try process.run() } catch { return nil }
         // waitUntilExit blocks forever on a wedged Spotlight; cap the wait
-        // on this serial-queue lookup and kill the child on timeout.
+        // on this bounded background lookup and kill the child on timeout.
         // Monotonic clock: wall-clock jumps must not cut the wait short.
-        let deadline = ProcessInfo.processInfo.systemUptime + 5
+        let deadline = ProcessInfo.processInfo.systemUptime + Self.spotlightTimeout
         while process.isRunning, ProcessInfo.processInfo.systemUptime < deadline {
             Thread.sleep(forTimeInterval: 0.05)
         }
