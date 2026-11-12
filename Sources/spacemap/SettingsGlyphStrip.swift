@@ -21,9 +21,11 @@ struct SettingsGlyphStrip: View {
     /// so `.smthemes` edits show up without rebuilding the view.
     private static let themeService = ThemeManager.shared
 
-    /// The strip's own theme, or the main HUD's when it follows it.
+    /// The strip's own theme, or the main HUD's when it follows it or matches
+    /// the whole HUD appearance.
     private var effectiveThemeName: String {
-        glyphStrip.theme.isEmpty ? themeName : glyphStrip.theme
+        if glyphStrip.matchHUDAppearance { return themeName }
+        return glyphStrip.theme.isEmpty ? themeName : glyphStrip.theme
     }
 
     private var theme: AppTheme { Self.themeService.named(effectiveThemeName) }
@@ -83,14 +85,23 @@ struct SettingsGlyphStrip: View {
             }
 
             Section(header: SettingsSectionHeader(title: "Appearance")) {
-                Picker("Theme", selection: $glyphStrip.theme) {
-                    Text("Follow main HUD").tag("")
-                    ForEach(Self.themeService.allNames(), id: \.self) { name in
-                        Text(name.capitalized).tag(name)
+                Toggle("Match HUD Appearance", isOn: matchHUDBinding)
+                SettingsFootnote(
+                    text: glyphStrip.matchHUDAppearance
+                        ? "The strip copies the HUD's material, glass style, opacity, and theme. Position, size, shape, and contents stay its own."
+                        : "The strip keeps its own complete appearance."
+                )
+
+                if !glyphStrip.matchHUDAppearance {
+                    Picker("Theme", selection: $glyphStrip.theme) {
+                        Text("Follow main HUD").tag("")
+                        ForEach(Self.themeService.allNames(), id: \.self) { name in
+                            Text(name.capitalized).tag(name)
+                        }
                     }
+                    .onChange(of: glyphStrip.theme) { _ in onSave() }
+                    SettingsFootnote(text: "Glyphs, fills and the glass edge resolve against this theme. Follow main HUD uses the theme from the Appearance pane.")
                 }
-                .onChange(of: glyphStrip.theme) { _ in onSave() }
-                SettingsFootnote(text: "Glyphs, fills and the glass edge resolve against this theme. Follow main HUD uses the theme from the Appearance pane.")
 
                 stepper("Icon Size", value: $glyphStrip.iconSize, range: 6...24, step: 1)
                     .onChange(of: glyphStrip.iconSize) { _ in onSave() }
@@ -108,44 +119,21 @@ struct SettingsGlyphStrip: View {
                     .onChange(of: glyphStrip.highlightCurrentSpace) { _ in onSave() }
                 SettingsFootnote(text: "Colours come from the \(effectiveThemeName.capitalized) theme — the current space, the + button and the hover highlight use focused, everything else uses text. No per-element colour keys.")
 
-                Picker("Background Material", selection: $glyphStrip.backgroundMaterial) {
-                    Text("None").tag(GlyphStripBackgroundMaterial.none)
-                    Text("Solid").tag(GlyphStripBackgroundMaterial.solid)
-                    Text("Liquid Glass").tag(GlyphStripBackgroundMaterial.liquidGlass)
-                }
-                .onChange(of: glyphStrip.backgroundMaterial) { _ in onSave() }
-                if glyphStrip.backgroundMaterial == .liquidGlass {
-                    Toggle("Theme Tint", isOn: $glyphStrip.useThemeTint)
-                        .onChange(of: glyphStrip.useThemeTint) { _ in onSave() }
-                    SettingsFootnote(text: "When off, the glass stays neutral with no theme colour.")
-                    if glyphStrip.useThemeTint {
-                        // Mirrors System Settings > Appearance > Liquid Glass:
-                        // continuous 0...100% with 3 notches, centre default.
-                        HStack {
-                            Text("Glass Amount")
-                            Spacer()
-                            Text("\(Int((glyphStrip.glassAmount * 100).rounded()))%")
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                        Slider(
-                            value: Binding(
-                                get: { glyphStrip.glassAmount * 100 },
-                                set: { glyphStrip.glassAmount = min(max($0 / 100, 0), 1) }
-                            ),
-                            in: 0...100,
-                            step: 1
-                        )
-                        .onChange(of: glyphStrip.glassAmount) { _ in onSave() }
-                        HStack {
-                            Text("Clear")
-                            Spacer()
-                            Text("Default")
-                            Spacer()
-                            Text("Tinted")
-                        }
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
+                if !glyphStrip.matchHUDAppearance {
+                    Picker("Background Material", selection: $glyphStrip.backgroundMaterial) {
+                        Text("Transparent").tag(GlyphStripBackgroundMaterial.none)
+                        Text("Solid").tag(GlyphStripBackgroundMaterial.solid)
+                        Text("Liquid Glass").tag(GlyphStripBackgroundMaterial.liquidGlass)
+                    }
+                    .onChange(of: glyphStrip.backgroundMaterial) { _ in onSave() }
+                    if glyphStrip.backgroundMaterial == .liquidGlass {
+                        GlassSegmentedPicker("Glass Style", selection: $glyphStrip.glassStyle, options: [
+                            (title: "Clear", value: .clear),
+                            (title: "Opaque", value: .opaque),
+                            (title: "Tinted", value: .tinted),
+                        ])
+                        .onChange(of: glyphStrip.glassStyle) { _ in onSave() }
+                        SettingsFootnote(text: "Clear matches the left of the native Liquid Glass slider, Opaque the right, and Tinted adds the theme colour.")
                     }
                 }
 
@@ -168,25 +156,34 @@ struct SettingsGlyphStrip: View {
                     .onChange(of: glyphStrip.borderEnabled) { _ in onSave() }
                 SettingsFootnote(text: "Hairline outline around the strip, independent of the material. With none it outlines the plain strip bounds.")
 
-                if glyphStrip.backgroundMaterial == .solid {
-                    // Liquid Glass derives its translucency from the system
-                    // material, so opacity applies to the solid fill only.
+                if !glyphStrip.matchHUDAppearance, glyphStrip.backgroundMaterial != .none {
+                    Toggle("Use Same Opacity for All Styles", isOn: matchOpacityBinding)
+                    SettingsFootnote(
+                        text: glyphStrip.matchBackgroundOpacity
+                            ? "Clear, opaque, tinted, and solid all share one opacity."
+                            : "Each background style keeps its own opacity."
+                    )
                     HStack {
                         Text("Background Opacity")
                         Spacer()
-                        Text("\(Int((glyphStrip.backgroundOpacity * 100).rounded()))%")
+                        Text("\(Int((activeBackgroundOpacity.wrappedValue * 100).rounded()))%")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
                     Slider(
                         value: Binding(
-                            get: { glyphStrip.backgroundOpacity * 100 },
-                            set: { glyphStrip.backgroundOpacity = min(max($0 / 100, 0.01), 1) }
+                            get: { activeBackgroundOpacity.wrappedValue * 100 },
+                            set: { activeBackgroundOpacity.wrappedValue = min(max($0 / 100, 0.01), 1) }
                         ),
                         in: 1...100,
                         step: 1
                     )
-                    .onChange(of: glyphStrip.backgroundOpacity) { _ in onSave() }
+                    .onChange(of: activeBackgroundOpacity.wrappedValue) { _ in onSave() }
+                    SettingsFootnote(
+                        text: glyphStrip.backgroundMaterial == .solid
+                            ? "Solid stays unblurred; lower opacity simply lets the menu bar and desktop show through."
+                            : "Controls how much backing sits behind the glass blur."
+                    )
                 }
             }
 
@@ -209,6 +206,56 @@ struct SettingsGlyphStrip: View {
             }
         }
         .onAppear { Self.themeService.reload() }
+    }
+
+    /// Slider target: shared when matching, otherwise the active material/style.
+    private var activeBackgroundOpacity: Binding<Double> {
+        Binding(
+            get: { glyphStrip.effectiveBackgroundOpacity(for: glyphStrip.backgroundMaterial) },
+            set: { newValue in
+                guard !glyphStrip.matchBackgroundOpacity else {
+                    glyphStrip.backgroundOpacity = newValue
+                    return
+                }
+                switch glyphStrip.backgroundMaterial {
+                case .none:
+                    break
+                case .solid:
+                    glyphStrip.solidOpacity = newValue
+                case .liquidGlass:
+                    switch glyphStrip.glassStyle {
+                    case .clear: glyphStrip.glassClearOpacity = newValue
+                    case .opaque: glyphStrip.glassOpaqueOpacity = newValue
+                    case .tinted: glyphStrip.glassTintedOpacity = newValue
+                    }
+                }
+            }
+        )
+    }
+
+    private var matchOpacityBinding: Binding<Bool> {
+        Binding(
+            get: { glyphStrip.matchBackgroundOpacity },
+            set: { newValue in
+                if newValue {
+                    glyphStrip.backgroundOpacity = glyphStrip.effectiveBackgroundOpacity(
+                        for: glyphStrip.backgroundMaterial
+                    )
+                }
+                glyphStrip.matchBackgroundOpacity = newValue
+                onSave()
+            }
+        )
+    }
+
+    private var matchHUDBinding: Binding<Bool> {
+        Binding(
+            get: { glyphStrip.matchHUDAppearance },
+            set: { newValue in
+                glyphStrip.matchHUDAppearance = newValue
+                onSave()
+            }
+        )
     }
 
     private func actionPicker(_ label: String, selection: Binding<GlyphStripAction>) -> some View {

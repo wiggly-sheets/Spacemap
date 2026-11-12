@@ -565,11 +565,16 @@ final class GlyphStripPanelController: NSObject {
         return GlyphStrip.baselineLift(for: segments[offset].runs[index])
     }
     fileprivate var hovered: Int? { hoveredSegment }
-    fileprivate var backgroundMaterial: GlyphStripBackgroundMaterial { config.glyphStrip.backgroundMaterial }
-    fileprivate var glassAmount: Double { config.glyphStrip.glassAmount }
-    fileprivate var useThemeTint: Bool { config.glyphStrip.useThemeTint }
+    fileprivate var backgroundMaterial: GlyphStripBackgroundMaterial {
+        config.glyphStrip.resolvedBackgroundMaterial(hud: config)
+    }
+    fileprivate var glassStyle: HUDGlassStyle {
+        config.glyphStrip.resolvedGlassStyle(hud: config)
+    }
     fileprivate var shape: GlyphStripShape { config.glyphStrip.shape }
-    fileprivate var backgroundOpacity: CGFloat { CGFloat(config.glyphStrip.backgroundOpacity) }
+    fileprivate var backgroundOpacity: CGFloat {
+        CGFloat(config.glyphStrip.resolvedBackgroundOpacity(hud: config))
+    }
     fileprivate var cornerRadius: CGFloat { CGFloat(config.glyphStrip.cornerRadius) }
     fileprivate var hoverPadding: CGFloat { CGFloat(config.glyphStrip.hoverPadding) }
     fileprivate var hoverCornerRadius: CGFloat { CGFloat(config.glyphStrip.hoverCornerRadius) }
@@ -619,7 +624,7 @@ final class GlyphStripPanelController: NSObject {
     /// The theme the strip's colours resolve against: its own `theme` key when
     /// set, otherwise the main HUD's theme.
     private var effectiveThemeName: String {
-        config.glyphStrip.theme.isEmpty ? config.theme : config.glyphStrip.theme
+        config.glyphStrip.resolvedThemeName(hud: config)
     }
 
     /// The solid material's fill: the theme's `cellBg` at `backgroundOpacity`.
@@ -662,6 +667,21 @@ final class GlyphStripPanelController: NSObject {
 
     fileprivate var strokeColor: NSColor {
         GlyphStrip.glassStrokeColor(theme: themeService.named(effectiveThemeName))
+    }
+
+    /// Backing colour for the glass path: the theme's `cellBg` when tinted,
+    /// otherwise a neutral light/dark scrim that matches the menu bar.
+    fileprivate var glassBackingColor: NSColor {
+        guard glassStyle == .tinted else {
+            let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return GlyphStrip.neutralGlassColor(isDark: isDark)
+        }
+        return backdropColor
+    }
+
+    /// Tinted glass gets the theme-blended hairline; clear/opaque stay neutral.
+    fileprivate var glassEdgeColor: NSColor {
+        glassStyle == .tinted ? strokeColor : GlyphStrip.neutralGlassStrokeColor()
     }
 
     /// The hover highlight always uses the theme's `focused` role.
@@ -813,8 +833,8 @@ private final class GlyphStripContainerView: NSView {
         self.controller = controller
         self.glyphs = GlyphStripView(controller: controller)
         super.init(frame: .zero)
-        // Native menu glass sampling the desktop behind the panel. Tint
-        // is applied per `glassAmount` in `layout()` so settings apply live.
+        // Native menu glass sampling the desktop behind the panel. The style
+        // and backing are applied in `layout()`/`draw()` so settings apply live.
         fallbackGlass.blendingMode = .behindWindow
         fallbackGlass.state = .active
         addSubview(fallbackGlass)
@@ -878,15 +898,10 @@ private final class GlyphStripContainerView: NSView {
                 glyphs.removeFromSuperview()
                 glass.contentView = glyphs
             }
-            // Continuous tint: no public blur radius API, so the slider drives
-            // tintColor alpha + a fill overlay in draw(), never view alpha.
-            glass.style = .regular
-            if controller.useThemeTint,
-               let tintAlpha = GlyphStrip.glassTintAlpha(for: controller.glassAmount) {
-                glass.tintColor = controller.backdropColor.withAlphaComponent(CGFloat(tintAlpha))
-            } else {
-                glass.tintColor = nil
-            }
+            // No public blur radius API, so the sub-type picks the material and
+            // the background-opacity fill overlay in draw() carries the rest.
+            glass.style = controller.glassStyle.usesClearMaterial ? .clear : .regular
+            glass.tintColor = nil
             glass.cornerRadius = backdrop.glassCornerRadius
             glass.frame = backdrop.rect
             glass.isHidden = false
@@ -905,13 +920,9 @@ private final class GlyphStripContainerView: NSView {
 
     private func layoutFallbackGlass(backdrop: GlyphStrip.Backdrop, controller: GlyphStripPanelController) {
         dockGlyphsAsSibling()
-        // Tint-on keeps the saturated popover/menu pair; tint-off uses the
-        // neutral `.headerView` material at full opacity so no warm menu bar
-        // bleeds through the sibling blur view.
-        fallbackGlass.material = GlyphStrip.glassFallbackMaterial(
-            for: controller.glassAmount,
-            useThemeTint: controller.useThemeTint
-        )
+        // Tinted keeps the saturated popover material; clear/opaque use the
+        // neutral `.headerView` material so no warm menu bar bleeds through.
+        fallbackGlass.material = GlyphStrip.glassFallbackMaterial(for: controller.glassStyle)
         fallbackGlass.state = .active
         fallbackGlass.alphaValue = 1.0
         // Size the blur view itself to the backdrop rect — a full-bounds frame
@@ -1096,35 +1107,28 @@ private final class GlyphStripView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         guard let controller else { return }
 
-        // `.liquidGlass` tints via the glass tintColor plus this fill overlay —
-        // view alpha stays 1.0. Same backdrop rect as layout(). Tint off:
-        // pure frost, no fill overlay.
+        // `.liquidGlass` gets a backing fill over the native blur: neutral for
+        // clear/opaque, theme colour for tinted. View alpha stays 1.0.
         if controller.usesGlass, let backdrop = controller.backdrop(in: bounds) {
             // Inside native glass `bounds` already are the shared backdrop
             // rect, so paint them directly instead of insetting twice.
             let base = insideGlass
                 ? GlyphStrip.Backdrop(shape: backdrop.shape, rect: bounds)
                 : backdrop
-            if controller.useThemeTint {
-                GlyphStrip.fill(
-                    base,
-                    color: controller.backdropColor,
-                    opacity: CGFloat(GlyphStrip.glassFillOpacity(for: controller.glassAmount))
-                )
-            } else {
-                // Tint off: pure neutral `.headerView` frost. No fill overlay.
-            }
+            let opacity = GlyphStrip.glassFillOpacity(
+                for: controller.glassStyle,
+                backgroundOpacity: Double(controller.backgroundOpacity)
+            )
+            GlyphStrip.fill(
+                base,
+                color: controller.glassBackingColor,
+                opacity: CGFloat(opacity)
+            )
             if controller.borderEnabled {
-                GlyphStrip.stroke(
-                    base,
-                    color: controller.useThemeTint
-                        ? controller.strokeColor
-                        : GlyphStrip.neutralGlassStrokeColor(),
-                    opacity: 1
-                )
+                GlyphStrip.stroke(base, color: controller.glassEdgeColor, opacity: 1)
             }
         } else if controller.usesSolid, let backdrop = controller.backdrop(in: bounds) {
-            // Opacity applies to the solid fill only; glass uses system material.
+            // Solid never blurs; opacity simply lets the desktop show through.
             GlyphStrip.fill(backdrop, color: controller.backdropColor, opacity: controller.backgroundOpacity)
             if controller.borderEnabled {
                 GlyphStrip.stroke(backdrop, color: controller.strokeColor, opacity: 1)
