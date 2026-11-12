@@ -34,9 +34,14 @@ class SettingsWindowController: NSWindowController {
         window.setFrameAutosaveName(Self.frameAutosaveName)
 
         super.init(window: window)
-        let root = Self.makeEffectRoot()
-        window.contentView = root
-        Self.pinContent(hostingController.view, in: root)
+
+        // The glass can only sample the desktop when the window itself is
+        // transparent. With the default opaque `windowBackgroundColor` the
+        // detail column just shows a flat, frosted window background.
+        window.isOpaque = false
+        window.backgroundColor = .clear
+
+        window.contentView = Self.makeEffectRoot(hostingView: hostingController.view)
     }
 
     /// An autosaved frame from an older, narrower build would leave the sidebar
@@ -59,8 +64,10 @@ class SettingsWindowController: NSWindowController {
     }
 
     /// Native settings-window backdrop: NSGlassEffectView on 26+,
-    /// NSVisualEffectView fallback. Keeps content out of titlebar glass.
-    private static func makeEffectRoot() -> NSView {
+    /// NSVisualEffectView fallback. The SwiftUI content must be the glass's
+    /// `contentView`; arbitrary subviews are not guaranteed to be part of the
+    /// glass effect.
+    private static func makeEffectRoot(hostingView: NSView) -> NSView {
         if #available(macOS 26.0, *) {
             let glass = NSGlassEffectView()
             glass.style = .regular
@@ -68,12 +75,14 @@ class SettingsWindowController: NSWindowController {
             if #available(macOS 27.0, *) {
                 glass.effectIsInteractive = true
             }
+            glass.contentView = hostingView
             return glass
         }
         let root = NSVisualEffectView()
         root.material = .underWindowBackground
         root.blendingMode = .behindWindow
         root.state = .active
+        pinContent(hostingView, in: root)
         return root
     }
 

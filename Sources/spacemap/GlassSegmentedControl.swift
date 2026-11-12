@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Segmented control that becomes a native Liquid Glass button group on
-/// macOS 26+ and stays a segmented `Picker` before that.
+/// Native segmented picker. macOS 26+ renders it with Liquid Glass when the
+/// app links against the current SDK; older systems keep the classic look.
 struct GlassSegmentedPicker<Value: Hashable>: View {
     struct Option: Identifiable {
         let title: String
@@ -22,43 +22,13 @@ struct GlassSegmentedPicker<Value: Hashable>: View {
 
     var body: some View {
         LabeledContent(title) {
-            control
-        }
-    }
-
-    @ViewBuilder
-    private var control: some View {
-        #if compiler(>=6.0)
-        if #available(macOS 26.0, *), GlassSupport.isAvailable {
-            GlassEffectContainer(spacing: 2) {
-                HStack(spacing: 2) {
-                    ForEach(options) { option in
-                        let isSelected = selection == option.value
-                        Button(option.title) {
-                            selection = option.value
-                        }
-                        .controlSize(.small)
-                        .liquidGlassButtonStyle(prominent: isSelected)
-                        .accessibilityAddTraits(isSelected ? .isSelected : [])
-                    }
+            Picker("", selection: $selection) {
+                ForEach(options) { option in
+                    Text(option.title).tag(option.value)
                 }
             }
-        } else {
-            fallback
+            .pickerStyle(.segmented)
+            .labelsHidden()
         }
-        #else
-        fallback
-        #endif
-    }
-
-    @ViewBuilder
-    private var fallback: some View {
-        Picker("", selection: $selection) {
-            ForEach(options) { option in
-                Text(option.title).tag(option.value)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
     }
 }
