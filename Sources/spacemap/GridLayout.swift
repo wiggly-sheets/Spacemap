@@ -44,9 +44,9 @@ public enum GridLayout {
     static func idealSize(visibleIndices: Int, cols: Int, uiScale: Double) -> CGSize {
         let gap = baseGap * scale(for: uiScale)
         let pad = basePadding * scale(for: uiScale)
-        guard cols > 0 else {
-            return CGSize(width: pad * 2, height: pad * 2)
-        }
+        // Clamp locally as defense in depth: callers normally hand in a
+        // validated GridConfig, but direct construction must not overflow.
+        let cols = min(max(cols, 1), 32)
         let visible = max(0, visibleIndices)
         let cellW = baseCellWidth * scale(for: uiScale)
         let cellH = baseCellHeight * scale(for: uiScale)

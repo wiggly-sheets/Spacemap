@@ -294,4 +294,110 @@ final class HUDWindowControllerTests: XCTestCase {
         controller.focusRecent()
         XCTAssertEqual(yabaiService.focusSpaceTargetCallCount, 2)
     }
+
+    func testRecentSpaceFocusRunsOffTheMainThreadQueue() {
+        let yabaiService = MockYabaiService()
+        yabaiService.runsYabaiQueueImmediately = false
+        let controller = HUDWindowController(
+            services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts())
+        )
+
+        controller.focusRecent()
+
+        XCTAssertEqual(yabaiService.focusSpaceTargetCallCount, 0,
+            "focusRecent must not run yabai synchronously on the main thread")
+        yabaiService.performPendingYabaiQueueBlocks()
+        XCTAssertEqual(yabaiService.focusSpaceTargetCallCount, 1)
+        XCTAssertEqual(yabaiService.lastFocusSpaceTarget, SpaceFocusTarget(argument: "recent"))
+    }
+
+    func testRecentSpaceFocusRefreshesStateAfterFocusCompletes() {
+        let yabaiService = MockYabaiService()
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 2, index: 3, display: 1, hasFocus: true, isVisible: nil, label: nil)
+        ]
+        yabaiService.buildGridStateResult = cannedState(focusedIndex: 3, spaces: spaces)
+        let controller = HUDWindowController(
+            services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts())
+        )
+        controller.show()
+        let settled = expectation(description: "initial show settled")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { settled.fulfill() }
+        wait(for: [settled], timeout: 2)
+        let buildsBefore = yabaiService.buildGridStateCallCount
+
+        controller.focusRecent()
+
+        let refreshed = expectation(description: "refresh after recent focus")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { refreshed.fulfill() }
+        wait(for: [refreshed], timeout: 2)
+        XCTAssertGreaterThan(yabaiService.buildGridStateCallCount, buildsBefore,
+            "focusRecent must refresh state so the highlight catches up")
+    }
+
+    func testShowWiresPanelAndQuartzConverterForCustomDrag() throws {
+        let controller = makeHUDWindowController()
+
+        controller.show()
+
+        XCTAssertNotNil(controller.inputPanel,
+            "custom-position drag needs the live unified panel")
+        let converter = try XCTUnwrap(controller.inputQuartzPointConverter,
+            "custom-position drag needs the Quartz point converter")
+        let point = CGPoint(x: 25, y: 125)
+        XCTAssertEqual(
+            converter(point),
+            HUDGeometry.quartzPoint(
+                fromAppKit: point,
+                quartzMaxY: HUDGeometry.mainScreenFrame().maxY
+            )
+        )
+    }
+
+    func testShowSeedsLastFocusedSpaceIndex() {
+        let yabaiService = MockYabaiService()
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 2, index: 3, display: 1, hasFocus: true, isVisible: nil, label: nil)
+        ]
+        yabaiService.buildGridStateResult = cannedState(focusedIndex: 3, spaces: spaces)
+        let coordinator = GridStateCoordinator(config: .default, yabaiService: yabaiService)
+        let controller = HUDWindowController(
+            services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts()),
+            coordinator: coordinator
+        )
+        let fetched = expectation(description: "state fetched")
+        coordinator.fetch { fetched.fulfill() }
+        wait(for: [fetched], timeout: 2)
+
+        controller.show()
+
+        XCTAssertEqual(controller.seededFocusedSpaceIndex, 3,
+            "first arrow key must move from the installed focus, not no-op")
+    }
+
+    func testHoverCellUpdatesOnlyHoverState() {
+        let controller = makeHUDWindowController()
+        controller.show()
+        let display = controller.hudDisplayForTesting
+        let renders = display.fullRenderCount
+        let iconPreloads = display.iconPreloadCount
+        let thumbnailRefreshes = display.thumbnailRefreshCount
+        let panelOrigin = controller.inputPanel?.frame.origin
+
+        controller.handleHoverCell(3)
+
+        XCTAssertEqual(display.hoveredCell, 3)
+        XCTAssertEqual(display.hoverState.cell, 3)
+        XCTAssertEqual(display.fullRenderCount, renders, "hover must not re-render the HUD")
+        XCTAssertEqual(display.iconPreloadCount, iconPreloads, "hover must not preload icons")
+        XCTAssertEqual(display.thumbnailRefreshCount, thumbnailRefreshes,
+            "hover must not refresh thumbnails")
+        XCTAssertEqual(controller.inputPanel?.frame.origin, panelOrigin,
+            "hover must not move or resize the panel")
+
+        controller.handleHoverCell(nil)
+        XCTAssertNil(display.hoveredCell)
+    }
 }

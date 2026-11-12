@@ -16,13 +16,31 @@ final class HUDDisplay {
     private var hostingView: NSHostingView<AnyView>?
     private var displayHostingViews: [Int: NSHostingView<AnyView>] = [:]
     private var currentConfig: GridConfig = .default
-    private var hoveredCell: Int? = nil
+    private(set) var hoveredCell: Int? = nil
     private var displayNumber: Int?
-    private var renderedState: GridState?
+    private(set) var renderedState: GridState?
     private var yabaiService: YabaiService
     private let themeService: ThemeManager
+    /// Shared, cheap hover channel for the rendered grid. Hover changes only
+    /// mutate this observable, so SwiftUI repaints the border/background of
+    /// the affected cells without icon/thumbnail work or panel resizing.
+    let hoverState = HUDHoverState()
+    private var showingThumbnails = false
+
+    /// Test-visible work counters: hover must not bump these.
+    private(set) var fullRenderCount = 0
+    private(set) var iconPreloadCount = 0
+    private(set) var thumbnailRefreshCount = 0
 
     var unifiedPanel: NSPanel? { panel }
+    var displayPanelIndices: Set<Int> { Set(displayPanels.keys) }
+    /// Test seam: when set, display matching uses these frames instead of the
+    /// host's `NSScreen.screens`, so panel tests do not depend on the CI
+    /// machine's monitor count.
+    var screenFramesOverride: [CGRect]?
+    /// Supplied by the controller: true while the user is dragging the panel.
+    /// A signal-driven render mid-drag must not snap it back.
+    var isPanelDragging: (() -> Bool)?
 
     init(yabaiService: YabaiService, themeService: ThemeManager = .shared) {
         self.yabaiService = yabaiService
@@ -30,9 +48,13 @@ final class HUDDisplay {
     }
 
     func updateConfig(_ config: GridConfig) {
+        let wasShowingThumbnails = currentConfig.cellStyle == .thumbnails
         currentConfig = config
         panel?.hasShadow = config.hudShadow
         displayPanels.values.forEach { $0.hasShadow = config.hudShadow }
+        if wasShowingThumbnails, config.cellStyle != .thumbnails {
+            clearThumbnailsIfNeeded()
+        }
     }
 
     func updateDisplayNumber(_ number: Int?) {
@@ -41,7 +63,9 @@ final class HUDDisplay {
     }
 
     func updateHoveredCell(_ cell: Int?) {
+        guard hoveredCell != cell || hoverState.cell != cell else { return }
         hoveredCell = cell
+        hoverState.cell = cell
     }
 
     func show() {
@@ -49,38 +73,33 @@ final class HUDDisplay {
     }
 
     func hide() {
-        tearDownPanels()
+        // Clear hover before hiding: no drop-target border may survive into
+        // the next presentation. Panels/hosting views stay alive so the next
+        // show does not rebuild the whole window tree.
+        hoveredCell = nil
+        hoverState.cell = nil
+        renderedState = nil
+        if #available(macOS 14.0, *) {
+            ThumbnailCache.shared.cancel()
+        }
+        panel?.orderOut(nil)
+        for displayPanel in displayPanels.values {
+            displayPanel.orderOut(nil)
+        }
         delegate?.hide()
     }
 
+    /// Single panel-sync path: a state update is a full render. Panels are
+    /// created, removed, positioned and rooted exactly like `render`, so an
+    /// async icon landing or focus change cannot leave stale panels behind.
     func updateState(_ state: GridState) {
-        currentConfig = state.config
-        renderedState = state
-        let gridView = makeGridView(state: state, hoveredCell: hoveredCell)
-        if let hostingView {
-            hostingView.rootView = AnyView(gridView)
-        } else if !displayHostingViews.isEmpty {
-            for (displayIndex, hostingView) in displayHostingViews {
-                let mode = currentConfig.multiMonitorHUDMode.hudMode(for: displayIndex, in: state)
-                if mode == .unified {
-                    hostingView.rootView = AnyView(makeGridView(state: state, hoveredCell: hoveredCell))
-                } else {
-                    let spaces = state.spaces(forDisplay: displayIndex).map(\.index)
-                    hostingView.rootView = AnyView(makeGridView(state: state, hoveredCell: hoveredCell, spaceIndices: spaces))
-                }
-            }
-        } else {
-            render(state: state)
-            return
-        }
-        // Mouse hit-test frames must follow every state update, not just
-        // full renders, or clicks land on stale cells after focus changes.
-        updateCellFrames(state: state)
+        render(state: state)
     }
 
     func render(state: GridState) {
         currentConfig = state.config
         renderedState = state
+        fullRenderCount += 1
         switch state.config.multiMonitorHUDMode {
         case .unified:
             renderUnifiedState(state)
@@ -123,6 +142,7 @@ final class HUDDisplay {
 
     func preloadIcons(for state: GridState) {
         guard Self.shouldPreloadIcons(config: currentConfig) else { return }
+        iconPreloadCount += 1
         let visibleWindows = state.windows.filter {
             $0.shouldDisplay(showExtraWindows: currentConfig.showExtraWindows)
         }
@@ -146,7 +166,12 @@ final class HUDDisplay {
 
     func refreshThumbnails(state: GridState, force: Bool = false) {
         guard #available(macOS 14.0, *) else { return }
-        guard currentConfig.cellStyle == .thumbnails else { return }
+        guard currentConfig.cellStyle == .thumbnails else {
+            clearThumbnailsIfNeeded()
+            return
+        }
+        thumbnailRefreshCount += 1
+        showingThumbnails = true
 
         let visibleSpaceIndices: Set<Int>
         switch currentConfig.multiMonitorHUDMode {
@@ -167,29 +192,104 @@ final class HUDDisplay {
             spaceIndices: visibleSpaceIndices,
             thumbnailPixelSize: thumbnailPixelSize
         )
+        guard !requests.isEmpty else {
+            clearThumbnailsIfNeeded()
+            return
+        }
 
         ThumbnailCache.shared.refreshSpaces(requests, force: force)
     }
 
+    /// Thumbnails are only meaningful while the style is active and at least
+    /// one space is visible; drop the store so a later style switch cannot
+    /// paint stale captures, and so an empty topology leaves no residue.
+    private func clearThumbnailsIfNeeded() {
+        guard showingThumbnails else { return }
+        showingThumbnails = false
+        guard #available(macOS 14.0, *) else { return }
+        // Both sides are main in the HUD path; clear synchronously so a new
+        // refresh queued in the same turn cannot be cancelled by a late task.
+        ThumbnailCache.shared.clear()
+    }
+
+    /// Panel-position normalization shared with `HUDPosition.custom.point`:
+    /// fraction 0 sits at the screen origin, fraction 1 fully right/bottom.
+    /// Storing a mid-panel fraction (the old code) made the round trip move
+    /// the panel by half its size on the next show.
+    static func normalizedPosition(panelFrame: CGRect, screenFrame: CGRect) -> CGPoint? {
+        let rangeX = screenFrame.width - panelFrame.width
+        let rangeY = screenFrame.height - panelFrame.height
+        guard rangeX > 0, rangeY > 0 else { return nil }
+        return CGPoint(
+            x: (panelFrame.minX - screenFrame.minX) / rangeX,
+            y: (panelFrame.minY - screenFrame.minY) / rangeY
+        )
+    }
+
+    static let customScreenDefaultsKey = "spacemap.hudCustomScreenIdentifier"
+    static let hudPositionChangedNotification = Notification.Name("hudPositionChanged")
+
+    /// Stable-ish display identity used to restore a custom position on the
+    /// screen it was dragged on. Falls back to the localized name.
+    static func displayIdentifier(for screen: NSScreen) -> String {
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        if let number = screen.deviceDescription[key] as? NSNumber {
+            let displayID = CGDirectDisplayID(number.uint32Value)
+            if let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue() {
+                return CFUUIDCreateString(nil, uuid) as String
+            }
+        }
+        return screen.localizedName
+    }
+
+    static func screen(
+        matchingIdentifier identifier: String,
+        screens: [NSScreen] = NSScreen.screens
+    ) -> NSScreen? {
+        screens.first { displayIdentifier(for: $0) == identifier }
+    }
+
+    private func restoredCustomScreenFrame() -> CGRect? {
+        guard case .custom = currentConfig.hudPosition,
+              let identifier = UserDefaults.standard.string(forKey: Self.customScreenDefaultsKey)
+        else { return nil }
+        return Self.screen(matchingIdentifier: identifier)?.frame
+    }
+
     func savePanelPosition() {
-        guard let panel = unifiedPanel ?? displayPanels.first?.value, let screen = NSScreen.main else { return }
-        let screenFrame = screen.frame
-        let panelFrame = panel.frame
-        let x = Double((panelFrame.midX - screenFrame.minX) / screenFrame.width)
-        let y = Double((panelFrame.midY - screenFrame.minY) / screenFrame.height)
-        var config = AppConfig.load()
-        config.hudPosition = .custom(x: x, y: y)
-        config.customHUDX = x
-        config.customHUDY = y
-        AppConfig.saveConfig(config)
+        guard let panel = unifiedPanel ?? displayPanels.first?.value else { return }
+        guard let screen = panel.screen ?? NSScreen.main else { return }
+        guard let normalized = Self.normalizedPosition(panelFrame: panel.frame, screenFrame: screen.frame) else { return }
+        let x = Double(normalized.x)
+        let y = Double(normalized.y)
+        // Atomic read-modify-write so a concurrent AppFontUpdater save cannot
+        // be clobbered by this load+save pair. Only persist the screen pairing
+        // when the fraction actually landed, otherwise the next restore would
+        // combine a new screen with an old fraction.
+        let saved = AppConfig.updateConfig { config in
+            config.hudPosition = .custom(x: x, y: y)
+            config.customHUDX = x
+            config.customHUDY = y
+        }
+        guard saved else {
+            NSLog("spacemap/HUDDisplay: failed to persist custom position x=%.2f y=%.2f", x, y)
+            return
+        }
+        UserDefaults.standard.set(
+            Self.displayIdentifier(for: screen),
+            forKey: Self.customScreenDefaultsKey
+        )
         NSLog("spacemap/HUDDisplay: saved custom position x=%.2f y=%.2f", x, y)
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
+        NotificationCenter.default.post(name: Self.hudPositionChangedNotification, object: nil)
     }
 
 
     func prewarm(state: GridState) {
+        // Launch warmup: icons only. Thumbnail captures must never run before
+        // the HUD is first shown — they are expensive and can prompt for
+        // screen-recording permission from a background launch.
         preloadIcons(for: state)
-        refreshThumbnails(state: state, force: true)
     }
 
     func refreshAndRender(state: GridState, force: Bool) {
@@ -215,7 +315,9 @@ final class HUDDisplay {
             // Empty spaces (pre-fetch placeholder) yield no indices: fall
             // back to one main-screen panel so the HUD still paints.
             let displayIndices = state.populatedDisplayIndices.isEmpty ? [1] : state.populatedDisplayIndices
-            let staleIndices = Set(displayPanels.keys).subtracting(displayIndices)
+            let assignments = screenAssignments(for: displayIndices, in: state)
+            let activeIndices = Set(assignments.map(\.displayIndex))
+            let staleIndices = Set(displayPanels.keys).subtracting(activeIndices)
             for index in staleIndices {
                 displayPanels[index]?.orderOut(nil)
                 displayPanels[index]?.close()
@@ -223,8 +325,7 @@ final class HUDDisplay {
                 displayHostingViews[index] = nil
             }
 
-            for displayIndex in displayIndices {
-                guard let screen = screen(forDisplay: displayIndex, in: state) else { continue }
+            for (displayIndex, screenFrame) in assignments {
                 let panel: NSPanel
                 if let existing = displayPanels[displayIndex] {
                     panel = existing
@@ -244,7 +345,7 @@ final class HUDDisplay {
                     displayHostingViews[displayIndex] = hostingView
                 }
                 panel.setContentSize(size)
-                panel.setFrameOrigin(currentConfig.hudPosition.point(for: size, screen: screen.frame))
+                positionPanel(panel, size: size, screenFrame: screenFrame)
                 panel.orderFrontRegardless()
             }
             return
@@ -266,11 +367,14 @@ final class HUDDisplay {
         }
 
         panel.setContentSize(size)
-        let focusedScreen = state.focusedIndex
+        let focusedScreenFrame = state.focusedIndex
             .flatMap { state.displayIndex(forSpace: $0) }
-            .flatMap { screen(forDisplay: $0, in: state) }
-        if let screen = focusedScreen ?? NSScreen.main {
-            panel.setFrameOrigin(currentConfig.hudPosition.point(for: size, screen: screen.frame))
+            .flatMap { screenFrame(forDisplay: $0, in: state) }
+        if let frame = restoredCustomScreenFrame()
+            ?? focusedScreenFrame
+            ?? NSScreen.main?.frame
+            ?? availableScreenFrames.first {
+            positionPanel(panel, size: size, screenFrame: frame)
         }
         panel.orderFrontRegardless()
     }
@@ -294,7 +398,14 @@ final class HUDDisplay {
         // Empty spaces (pre-fetch placeholder) yield no indices: fall back
         // to one main-screen panel so the HUD still paints.
         if displayIndices.isEmpty { displayIndices = [1] }
-        let staleIndices = Set(displayPanels.keys).subtracting(displayIndices)
+        // A display with no spaces while others have them is not shown;
+        // filtered before resolution so it cannot claim a physical screen.
+        displayIndices = displayIndices.filter { index in
+            !(state.spaces(forDisplay: index).isEmpty && !state.spaces.isEmpty)
+        }
+        let assignments = screenAssignments(for: displayIndices, in: state)
+        let activeIndices = Set(assignments.map(\.displayIndex))
+        let staleIndices = Set(displayPanels.keys).subtracting(activeIndices)
         for index in staleIndices {
             displayPanels[index]?.orderOut(nil)
             displayPanels[index]?.close()
@@ -302,12 +413,8 @@ final class HUDDisplay {
             displayHostingViews[index] = nil
         }
 
-        for displayIndex in displayIndices {
+        for (displayIndex, screenFrame) in assignments {
             let spaces = state.spaces(forDisplay: displayIndex).map(\.index)
-            // Empty-state placeholder: nil paints showMode-derived cells so
-            // the fallback main-screen panel appears instead of zero panels.
-            if spaces.isEmpty, !state.spaces.isEmpty { continue }
-            guard let screen = screen(forDisplay: displayIndex, in: state) else { continue }
 
             let panel: NSPanel
             if let existing = displayPanels[displayIndex] {
@@ -330,7 +437,7 @@ final class HUDDisplay {
                 displayHostingViews[displayIndex] = hostingView
             }
             panel.setContentSize(size)
-            panel.setFrameOrigin(currentConfig.hudPosition.point(for: size, screen: screen.frame))
+            positionPanel(panel, size: size, screenFrame: screenFrame)
             panel.orderFrontRegardless()
         }
     }
@@ -340,7 +447,7 @@ final class HUDDisplay {
         hoveredCell: Int?,
         spaceIndices: [Int]? = nil
     ) -> GridView {
-        GridView(state: state, hoveredCell: hoveredCell, displayNumber: displayNumber, onSelect: { [weak self] index in
+        GridView(state: state, hoveredCell: hoveredCell, hoverState: hoverState, displayNumber: displayNumber, onSelect: { [weak self] index in
             self?.yabaiService.focusSpaceAsync(index)
             self?.delegate?.hide()
         }, uiScale: currentConfig.uiScale, theme: currentConfig.theme,
@@ -356,11 +463,18 @@ final class HUDDisplay {
         )
     }
 
-    private func screen(forDisplay displayIndex: Int, in state: GridState) -> NSScreen? {
-        let screens = NSScreen.screens
-        guard !screens.isEmpty else { return nil }
+    private var availableScreenFrames: [CGRect] {
+        screenFramesOverride ?? NSScreen.screens.map(\.frame)
+    }
+
+    private func screenFrame(forDisplay displayIndex: Int, in state: GridState) -> CGRect? {
+        let frames = availableScreenFrames
+        guard !frames.isEmpty else { return nil }
         guard let yabaiDisplay = state.displays.first(where: { $0.index == displayIndex }) else {
-            return screens.indices.contains(displayIndex - 1) ? screens[displayIndex - 1] : NSScreen.main
+            // No yabai topology yet: positional fallback, but never clamp a
+            // nonexistent display onto the main screen (that stacked panels).
+            let fallbackIndex = displayIndex - 1
+            return frames.indices.contains(fallbackIndex) ? frames[fallbackIndex] : nil
         }
 
         let yabaiFrame = yabaiDisplay.frame.cgFrame
@@ -370,13 +484,73 @@ final class HUDDisplay {
             width: yabaiFrame.width,
             height: yabaiFrame.height
         )
-        return screens.min { first, second in
-            screenMatchScore(first.frame, targetFrame: appKitFrame) <
-                screenMatchScore(second.frame, targetFrame: appKitFrame)
+        guard let index = Self.bestScreenIndex(
+            for: appKitFrame,
+            screenFrames: frames
+        ) else { return nil }
+        return frames[index]
+    }
+
+    /// Resolve display indices to physical screen frames, dropping duplicate
+    /// frames (mirrored/stale yabai topology) so two logical displays can
+    /// never stack two HUD panels on one screen. If nothing matches, keep the
+    /// HUD usable with a single main-screen panel rather than painting nothing.
+    private func screenAssignments(
+        for displayIndices: [Int],
+        in state: GridState
+    ) -> [(displayIndex: Int, frame: CGRect)] {
+        // Array + equality instead of Set: CGRect's Hashable conformance is
+        // macOS 15+, and this deployment target is macOS 13.
+        var seenFrames: [CGRect] = []
+        var assignments: [(displayIndex: Int, frame: CGRect)] = []
+        for displayIndex in displayIndices {
+            guard let frame = screenFrame(forDisplay: displayIndex, in: state) else { continue }
+            guard !seenFrames.contains(frame) else { continue }
+            seenFrames.append(frame)
+            assignments.append((displayIndex, frame))
+        }
+        if assignments.isEmpty,
+           let mainFrame = screenFramesOverride?.first ?? NSScreen.main?.frame,
+           let first = displayIndices.first {
+            assignments.append((first, mainFrame))
+        }
+        return assignments
+    }
+
+    static func deduplicatedAssignments(
+        _ assignments: [(displayIndex: Int, screenFrame: CGRect)]
+    ) -> [(displayIndex: Int, screenFrame: CGRect)] {
+        var seenFrames: [CGRect] = []
+        return assignments.filter { assignment in
+            guard !seenFrames.contains(assignment.screenFrame) else { return false }
+            seenFrames.append(assignment.screenFrame)
+            return true
         }
     }
 
-    private func screenMatchScore(_ screenFrame: CGRect, targetFrame: CGRect) -> CGFloat {
+    /// Tolerance for a yabai display frame vs. an AppKit screen frame. Sum of
+    /// origin/size deltas; bigger than this is a stale or scaled-away display.
+    static let screenMatchTolerance: CGFloat = 200
+
+    static func bestScreenIndex(
+        for targetFrame: CGRect,
+        screenFrames: [CGRect],
+        tolerance: CGFloat = HUDDisplay.screenMatchTolerance
+    ) -> Int? {
+        guard !screenFrames.isEmpty else { return nil }
+        var bestIndex = 0
+        var bestScore = CGFloat.greatestFiniteMagnitude
+        for (index, frame) in screenFrames.enumerated() {
+            let score = screenMatchScore(frame, targetFrame: targetFrame)
+            if score < bestScore {
+                bestScore = score
+                bestIndex = index
+            }
+        }
+        return bestScore <= tolerance ? bestIndex : nil
+    }
+
+    static func screenMatchScore(_ screenFrame: CGRect, targetFrame: CGRect) -> CGFloat {
         abs(screenFrame.minX - targetFrame.minX) +
             abs(screenFrame.minY - targetFrame.minY) +
             abs(screenFrame.width - targetFrame.width) +
@@ -392,14 +566,11 @@ final class HUDDisplay {
         displayHostingViews.removeAll()
     }
 
-    private func tearDownPanels() {
-        if let panel {
-            panel.orderOut(nil)
-            panel.close()
-        }
-        panel = nil
-        hostingView = nil
-        closeDisplayPanels()
+    private func positionPanel(_ panel: NSPanel, size: CGSize, screenFrame: CGRect) {
+        // A render can be triggered by a yabai signal while the user is
+        // dragging the panel; leave the live drag position alone.
+        guard isPanelDragging?() != true else { return }
+        panel.setFrameOrigin(currentConfig.hudPosition.point(for: size, screen: screenFrame))
     }
 
     private func makePanel() -> NSPanel {

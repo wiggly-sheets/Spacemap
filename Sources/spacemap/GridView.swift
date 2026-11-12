@@ -1,4 +1,12 @@
 import SwiftUI
+import Combine
+
+/// Lightweight hover channel shared by the panel's root grid. Mutating `cell`
+/// repaints only the cell borders/backgrounds that read it; no state fetch,
+/// icon preload, thumbnail capture or panel resize is involved.
+final class HUDHoverState: ObservableObject {
+    @Published var cell: Int?
+}
 
 struct GridView: View {
     let state: GridState
@@ -8,6 +16,8 @@ struct GridView: View {
     let theme: String
     let displayNumber: Int?
     let resolvedTheme: AppTheme
+    @ObservedObject private var hoverState: HUDHoverState
+    private let usesHoverState: Bool
     
     private var isDarkMode: Bool {
         switch state.config.mode {
@@ -80,6 +90,13 @@ struct GridView: View {
         _visibleSpaceIndices
     }
 
+    /// Current drop-target cell. A shared `HUDHoverState` supersedes the
+    /// value snapshot passed at render time, so mutating it repaints the
+    /// affected cell without rebuilding the grid.
+    var dropTargetSpaceIndex: Int? {
+        usesHoverState ? hoverState.cell : hoveredCell
+    }
+
     private var displayBoundaries: [DisplayBoundary] {
         guard state.config.multiMonitorHUDMode == .unified,
               state.populatedDisplayIndices.count > 1 else { return [] }
@@ -134,7 +151,7 @@ struct GridView: View {
         let cellSpaceLabel = spaceLabel(for: spaceIndex)
         let cellSpaceName = state.config.spaceNames[spaceIndex]
         let cellIsFocused = spaceIndex == state.focusedIndex
-        let cellIsDropTarget = spaceIndex == hoveredCell
+        let cellIsDropTarget = dropTargetSpaceIndex == spaceIndex
         let cellWindows = state.windows(forSpace: spaceIndex)
         let cellDisplayBounds = displayIndexBySpace[spaceIndex].flatMap { boundsByDisplayIndex[$0] } ?? state.displayBounds
         let cellStyle = state.config.cellStyle
@@ -180,6 +197,7 @@ struct GridView: View {
     init(
         state: GridState,
         hoveredCell: Int?,
+        hoverState: HUDHoverState? = nil,
         displayNumber: Int? = nil,
         onSelect: @escaping (Int) -> Void,
         uiScale: Double = 1.0,
@@ -194,6 +212,8 @@ struct GridView: View {
         self.uiScale = uiScale
         self.theme = theme
         self.resolvedTheme = resolvedTheme
+        self.usesHoverState = hoverState != nil
+        self._hoverState = ObservedObject(wrappedValue: hoverState ?? HUDHoverState())
         if let spaceIndices {
             self._visibleSpaceIndices = spaceIndices.sorted()
         } else {

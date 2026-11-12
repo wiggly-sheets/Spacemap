@@ -11,10 +11,15 @@ enum HUDGeometry {
         let cols = max(1, min(config.cols, cells.count))
         let localFrames = GridLayout.cellFrames(count: cells.count, cols: cols, uiScale: config.uiScale)
         let panelMaxY = panelFrame.maxY
+        // GridLayout.cellFrame is top-down from the panel's top edge; Quartz
+        // drag points are top-down as well. Convert the panel top into Quartz
+        // coordinates once, then add the local top-down offset. Adding
+        // frame.height here would shift every hit rect down one slot.
+        let panelTopInQuartz = quartzMaxY - panelMaxY
         return cells.enumerated().map { offset, spaceIndex in
             var frame = localFrames[offset]
             frame.origin.x += panelFrame.minX
-            frame.origin.y = quartzMaxY - panelMaxY + frame.origin.y + frame.height
+            frame.origin.y = panelTopInQuartz + frame.origin.y
             return (spaceIndex, frame)
         }
     }

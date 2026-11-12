@@ -259,4 +259,76 @@ final class HUDInputTests: XCTestCase {
             .reenable
         )
     }
+
+    func testAutoHideSuppressionCancelsAndRestoresTheTimer() {
+        let input = HUDInput(panel: nil)
+        input.autoHideTimeout = 30
+        input.resetAutoHideTimer()
+        XCTAssertTrue(input.isAutoHideScheduled)
+
+        input.setAutoHideSuppressed(true)
+        XCTAssertFalse(input.isAutoHideScheduled,
+            "a window drag must invalidate the pending auto-hide")
+
+        input.setAutoHideSuppressed(false)
+        XCTAssertTrue(input.isAutoHideScheduled)
+        input.stop()
+        XCTAssertFalse(input.isAutoHideScheduled)
+    }
+
+    func testPanelDragDisarmsAndRearmsAutoHide() {
+        let input = HUDInput(panel: nil)
+        input.autoHideTimeout = 30
+        input.resetAutoHideTimer()
+        XCTAssertTrue(input.isAutoHideScheduled)
+
+        input.beginPanelDrag(start: .zero, panelOrigin: .zero)
+        XCTAssertTrue(input.panelDragActive)
+        XCTAssertFalse(input.isAutoHideScheduled,
+            "an armed auto-hide timer must be invalidated on mouse down")
+
+        XCTAssertFalse(input.endPanelDrag())
+        XCTAssertFalse(input.panelDragActive)
+        XCTAssertTrue(input.isAutoHideScheduled,
+            "auto-hide re-arms once the panel drag ends")
+        input.stop()
+    }
+
+    func testDeinitStopsTimers() {
+        var input: HUDInput? = HUDInput(panel: nil)
+        input?.autoHideTimeout = 30
+        input?.resetAutoHideTimer()
+        input?.startPollTimer()
+        let stopped = expectation(description: "deinit reached stop()")
+        input?.onStopForTesting = { timersCleared in
+            XCTAssertTrue(timersCleared, "deinit must leave no scheduled timers")
+            stopped.fulfill()
+        }
+
+        input = nil
+
+        wait(for: [stopped], timeout: 1)
+    }
+
+    func testAccessibilityTrustIsCachedForTheEventTapCallback() {
+        let input = HUDInput(panel: nil)
+
+        input.handleAccessibilityState(isTrusted: false)
+
+        XCTAssertFalse(input.cachedAccessibilityTrusted)
+    }
+
+    func testDisabledKeyboardTapRechecksTrustAndNotifiesRevocation() {
+        let input = HUDInput(panel: nil)
+        input.updateVisibility(true)
+        input.accessibilityTrustProvider = { false }
+        let revoked = expectation(description: "accessibility revocation reported")
+        input.onAccessibilityRevoked = { revoked.fulfill() }
+
+        input.handleDisabledKeyboardTap()
+
+        wait(for: [revoked], timeout: 1)
+        XCTAssertFalse(input.cachedAccessibilityTrusted,
+            "the tap-disabled path must refresh the cached trust value")
+    }
 }

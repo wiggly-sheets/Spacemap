@@ -53,7 +53,9 @@ final class ThumbnailCache {
 
     static let shared = ThumbnailCache()
     static let maxConcurrentCaptures = 4
-    static let duplicateRefreshTTL: TimeInterval = 0.25
+    /// Reuse a completed capture set for this long. A show after a short
+    /// hide reuses pixels instead of recapturing the whole display.
+    static let maxStaleness: TimeInterval = 30
     static let defaultThumbnailPixelSize = CGSize(width: 320, height: 200)
     private static let excludedUnmanagedBundleIDs: Set<String> = [
         "com.apple.controlcenter",
@@ -66,22 +68,58 @@ final class ThumbnailCache {
     ]
 
     private var refreshGeneration = 0
+    private var activeGeneration: Int?
     private var activeRequests: [CaptureRequest]?
+    private var activeTask: Task<Void, Never>?
     private var pendingRefresh: RefreshJob?
     private var lastCompletedRequests: [CaptureRequest]?
     private var lastCompletedAt: TimeInterval = 0
     private let queue = DispatchQueue(label: "com.spacemap.thumbnailcache")
 
+    /// Pure staleness/dedupe decision so tests can pin the policy without
+    /// invoking ScreenCaptureKit.
+    static func shouldSkipRefresh(
+        requests: [CaptureRequest],
+        lastCompleted: [CaptureRequest]?,
+        lastCompletedAt: TimeInterval,
+        now: TimeInterval,
+        force: Bool,
+        maxStaleness: TimeInterval = ThumbnailCache.maxStaleness
+    ) -> Bool {
+        guard !force, requests == lastCompleted else { return false }
+        return now - lastCompletedAt < maxStaleness
+    }
+
+    /// An in-flight or queued identical job normally absorbs a repeat call.
+    /// `force` must bypass that dedupe so callers can demand fresh pixels.
+    static func shouldDedupeActiveJob(
+        requests: [CaptureRequest],
+        pending: [CaptureRequest]?,
+        active: [CaptureRequest]?,
+        force: Bool
+    ) -> Bool {
+        guard !force else { return false }
+        return requests == pending || (requests == active && pending == nil)
+    }
+
     func refreshSpaces(_ requests: [CaptureRequest], force: Bool = false) {
         let jobToStart: RefreshJob? = queue.sync {
             let now = ProcessInfo.processInfo.systemUptime
-            if !force,
-               requests == lastCompletedRequests,
-               now - lastCompletedAt < Self.duplicateRefreshTTL {
+            if Self.shouldSkipRefresh(
+                requests: requests,
+                lastCompleted: lastCompletedRequests,
+                lastCompletedAt: lastCompletedAt,
+                now: now,
+                force: force
+            ) {
                 return nil
             }
-            if requests == pendingRefresh?.requests ||
-                (requests == activeRequests && pendingRefresh == nil) {
+            if Self.shouldDedupeActiveJob(
+                requests: requests,
+                pending: pendingRefresh?.requests,
+                active: activeRequests,
+                force: force
+            ) {
                 return nil
             }
 
@@ -95,6 +133,7 @@ final class ThumbnailCache {
                 return nil
             }
             activeRequests = requests
+            activeGeneration = job.generation
             return job
         }
         guard let jobToStart else { return }
@@ -106,12 +145,16 @@ final class ThumbnailCache {
         // and force on-screen-only so the fetch itself stays narrow.
         let secureInput = IsSecureEventInputEnabled()
         let onScreenOnly = secureInput || !job.requests.contains(where: \.includeUnmanagedOnScreenWindows)
-        Task {
+        let task = Task {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(
                     true,
                     onScreenWindowsOnly: onScreenOnly
                 )
+                guard !Task.isCancelled else {
+                    finishRefresh(generation: job.generation)
+                    return
+                }
                 var shareableWindows: [CGWindowID: SCWindow] = [:]
                 for window in content.windows {
                     shareableWindows[window.windowID] = window
@@ -213,22 +256,55 @@ final class ThumbnailCache {
             } catch {
                 NSLog("spacemap/ThumbnailCache: SCK refresh error: \(error.localizedDescription)")
             }
-            finishRefresh()
+            finishRefresh(generation: job.generation)
+        }
+        // Only publish the handle if this job still owns the active slot;
+        // cancel() may have run between Task creation and this queue hop.
+        let ownsSlot = queue.sync { () -> Bool in
+            guard activeGeneration == job.generation else { return false }
+            activeTask = task
+            return true
+        }
+        if !ownsSlot {
+            task.cancel()
         }
     }
 
-    private func finishRefresh() {
+    private func finishRefresh(generation: Int) {
         let nextJob: RefreshJob? = queue.sync {
+            // A cancel() or a newer job owns the slot now; do not resurrect
+            // stale state or start a pending job that was cleared.
+            guard activeGeneration == generation else { return nil }
             activeRequests = nil
+            activeGeneration = nil
+            activeTask = nil
             guard let pendingRefresh else { return nil }
             self.pendingRefresh = nil
             activeRequests = pendingRefresh.requests
+            activeGeneration = pendingRefresh.generation
             return pendingRefresh
         }
         if let nextJob {
             run(nextJob)
         }
     }
+
+    /// Drop in-flight captures (hide) without clearing already-rendered
+    /// thumbnails. Any late completion is ignored by generation checks.
+    func cancel() {
+        queue.sync {
+            refreshGeneration += 1
+            pendingRefresh = nil
+            activeRequests = nil
+            activeGeneration = nil
+            activeTask?.cancel()
+            activeTask = nil
+        }
+    }
+
+    var currentGeneration: Int { queue.sync { refreshGeneration } }
+    var hasActiveRefresh: Bool { queue.sync { activeRequests != nil } }
+    var hasPendingRefresh: Bool { queue.sync { pendingRefresh != nil } }
 
     static func captureRequests(
         for state: GridState,
@@ -270,15 +346,24 @@ final class ThumbnailCache {
         ThumbnailCompositor.aspectFillSize(source: source, target: target)
     }
 
-    @MainActor
+    /// Synchronous when called on main (the normal HUD path) so a same-turn
+    /// `refreshSpaces` cannot be wiped by a deferred clear. Off-main callers
+    /// still get a main hop.
     func clear() {
+        cancel()
         queue.sync {
-            refreshGeneration += 1
-            pendingRefresh = nil
             lastCompletedRequests = nil
             lastCompletedAt = 0
         }
-        ThumbnailStore.shared.removeAll()
+        if Thread.isMainThread {
+            MainActor.assumeIsolated {
+                ThumbnailStore.shared.removeAll()
+            }
+        } else {
+            Task { @MainActor in
+                ThumbnailStore.shared.removeAll()
+            }
+        }
     }
 
     static func composite(

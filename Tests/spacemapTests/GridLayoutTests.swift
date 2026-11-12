@@ -167,6 +167,19 @@ final class GridLayoutTests: XCTestCase {
         XCTAssertGreaterThan(size.height, 0, "Height should be positive even with 0 cells (padding)")
     }
 
+    func testIdealSizeClampsExtremeColumnCounts() {
+        XCTAssertEqual(
+            GridLayout.idealSize(visibleIndices: 4, cols: Int.max, uiScale: 1.0),
+            GridLayout.idealSize(visibleIndices: 4, cols: 32, uiScale: 1.0),
+            "huge col counts must not overflow the row math"
+        )
+        XCTAssertEqual(
+            GridLayout.idealSize(visibleIndices: 4, cols: 0, uiScale: 1.0),
+            GridLayout.idealSize(visibleIndices: 4, cols: 1, uiScale: 1.0),
+            "non-positive col counts clamp to one column"
+        )
+    }
+
     func testIdealSizeSingleCell() {
         let size = GridLayout.idealSize(visibleIndices: 1, cols: 8, uiScale: 1.0)
         let cellSize = GridLayout.cellSize(for: 1.0)
