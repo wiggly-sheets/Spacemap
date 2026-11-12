@@ -22,7 +22,8 @@ final class HotkeyTests: XCTestCase {
 
     func testDuplicateHotkeyBindingsMatchOnlyWhenEnabledAndEquivalent() {
         XCTAssertTrue(SettingsBehavior.matches("ctrl+space", " CTRL + space "))
-        XCTAssertFalse(SettingsBehavior.matches("fn+f8", "f8"))
+        // Hardware reports fn for function keys; both spellings are the same binding.
+        XCTAssertTrue(SettingsBehavior.matches("fn+f8", "f8"))
         XCTAssertFalse(SettingsBehavior.matches("none", "none"))
         XCTAssertFalse(SettingsBehavior.matches("ctrl+space", "cmd+space"))
     }
@@ -295,6 +296,427 @@ final class HotkeyTests: XCTestCase {
         XCTAssertTrue(factory.monitors.allSatisfy { $0.stopCount == 1 })
     }
 
+    func testBareFunctionKeyBindingMatchesHardwareFnFlag() {
+        XCTAssertEqual(
+            HotkeyMonitor.keyEventDecision(
+                isTrusted: true,
+                type: .keyDown,
+                isAutoRepeat: false,
+                keyCode: 100,
+                flags: [.maskSecondaryFn],
+                targetKey: .keyCode(100),
+                targetModifiers: []
+            ),
+            .init(shouldConsume: true, shouldTrigger: true)
+        )
+        XCTAssertEqual(
+            HotkeyMonitor.keyEventDecision(
+                isTrusted: true,
+                type: .keyDown,
+                isAutoRepeat: false,
+                keyCode: 100,
+                flags: [.maskControl, .maskSecondaryFn],
+                targetKey: .keyCode(100),
+                targetModifiers: [.maskControl]
+            ),
+            .init(shouldConsume: true, shouldTrigger: true)
+        )
+    }
+
+    func testFnFlagIsNotNormalizedForNonFunctionKeys() {
+        XCTAssertEqual(
+            HotkeyMonitor.keyEventDecision(
+                isTrusted: true,
+                type: .keyDown,
+                isAutoRepeat: false,
+                keyCode: 40,
+                flags: [.maskSecondaryFn],
+                targetKey: .keyCode(40),
+                targetModifiers: []
+            ),
+            .passThrough
+        )
+    }
+
+    func testExplicitFnFunctionKeyBindingStillRequiresFn() {
+        XCTAssertEqual(
+            HotkeyMonitor.keyEventDecision(
+                isTrusted: true,
+                type: .keyDown,
+                isAutoRepeat: false,
+                keyCode: 100,
+                flags: [],
+                targetKey: .keyCode(100),
+                targetModifiers: [.maskSecondaryFn]
+            ),
+            .passThrough
+        )
+        XCTAssertEqual(
+            HotkeyMonitor.keyEventDecision(
+                isTrusted: true,
+                type: .keyDown,
+                isAutoRepeat: false,
+                keyCode: 100,
+                flags: [.maskSecondaryFn],
+                targetKey: .keyCode(100),
+                targetModifiers: [.maskSecondaryFn]
+            ),
+            .init(shouldConsume: true, shouldTrigger: true)
+        )
+    }
+
+    func testFunctionKeyBindingIdentityNormalizesHardwareFn() {
+        let bare = HotkeyConfig(key: .keyCode(122), modifiers: [])
+        let explicit = HotkeyConfig(key: .keyCode(122), modifiers: [.maskSecondaryFn])
+        XCTAssertEqual(Hotkey.bindingIdentity(bare), Hotkey.bindingIdentity(explicit))
+
+        let ctrlBare = HotkeyConfig(key: .keyCode(122), modifiers: [.maskControl])
+        let ctrlExplicit = HotkeyConfig(
+            key: .keyCode(122),
+            modifiers: [.maskControl, .maskSecondaryFn]
+        )
+        XCTAssertEqual(Hotkey.bindingIdentity(ctrlBare), Hotkey.bindingIdentity(ctrlExplicit))
+        XCTAssertNotEqual(
+            Hotkey.bindingIdentity(bare),
+            Hotkey.bindingIdentity(HotkeyConfig(key: .keyCode(120), modifiers: []))
+        )
+    }
+
+    func testMatchingKeyUpIsConsumedWithoutTriggering() {
+        XCTAssertEqual(
+            HotkeyMonitor.keyEventDecision(
+                isTrusted: true,
+                type: .keyUp,
+                isAutoRepeat: false,
+                keyCode: 40,
+                flags: [.maskCommand, .maskShift],
+                targetKey: .keyCode(40),
+                targetModifiers: [.maskCommand, .maskShift]
+            ),
+            .init(shouldConsume: true, shouldTrigger: false)
+        )
+    }
+
+    func testEventTapObservesKeyDownKeyUpAndSystemDefined() {
+        let mask = HotkeyMonitor.eventTapMask
+        XCTAssertNotEqual(mask & (CGEventMask(1) << CGEventMask(CGEventType.keyDown.rawValue)), 0)
+        XCTAssertNotEqual(mask & (CGEventMask(1) << CGEventMask(CGEventType.keyUp.rawValue)), 0)
+        XCTAssertNotEqual(
+            mask & (CGEventMask(1) << CGEventMask(HotkeyMonitor.systemDefinedEventRawValue)),
+            0
+        )
+    }
+
+    func testMediaKeyBindingMatchConsumesAndTriggers() throws {
+        let event = try XCTUnwrap(
+            NSEvent.otherEvent(
+                with: .systemDefined,
+                location: .zero,
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                subtype: 8,
+                data1: (16 << 16) | (0xA << 8),
+                data2: 0
+            )
+        )
+        let cgEvent = try XCTUnwrap(event.cgEvent)
+        let hotkey = try XCTUnwrap(HotkeyMonitor.mediaKeyHotkey(from: cgEvent))
+
+        XCTAssertEqual(hotkey.key, .mediaKey(.playPause))
+        XCTAssertEqual(
+            HotkeyMonitor.mediaKeyDecision(
+                eventHotkey: hotkey,
+                targetKey: .mediaKey(.playPause),
+                targetModifiers: []
+            ),
+            .init(shouldConsume: true, shouldTrigger: true)
+        )
+        XCTAssertEqual(
+            HotkeyMonitor.mediaKeyDecision(
+                eventHotkey: hotkey,
+                targetKey: .mediaKey(.nextTrack),
+                targetModifiers: []
+            ),
+            .passThrough
+        )
+        XCTAssertEqual(
+            HotkeyMonitor.mediaKeyDecision(
+                eventHotkey: hotkey,
+                targetKey: .mediaKey(.playPause),
+                targetModifiers: [.maskCommand]
+            ),
+            .passThrough
+        )
+        XCTAssertEqual(
+            HotkeyMonitor.mediaKeyDecision(
+                eventHotkey: hotkey,
+                targetKey: .keyCode(49),
+                targetModifiers: []
+            ),
+            .passThrough
+        )
+    }
+
+    func testRouterRetriesFailedTapCreation() {
+        let router = HotkeyTapRouter(
+            tapFactory: { _, _, _, _, _, _ in nil },
+            trustProvider: { true },
+            promptProvider: { _ in true }
+        )
+        router.addBinding(id: UUID(), key: .keyCode(40), modifiers: [.maskCommand]) {}
+
+        XCTAssertEqual(router.tapCreationAttempts, 1)
+        XCTAssertEqual(router.tapCreationFailureCount, 1)
+        XCTAssertFalse(router.hasTapContext, "failed install must release its tap context")
+        XCTAssertFalse(router.isEventTapInstalled)
+
+        router.reconcile(promptIfNeeded: false)
+        XCTAssertEqual(router.tapCreationAttempts, 2)
+        XCTAssertEqual(router.tapCreationFailureCount, 2)
+        router.stop()
+    }
+
+    func testRouterWaitsForAccessibilityBeforeCreatingTap() {
+        var isTrusted = false
+        var attempts = 0
+        let router = HotkeyTapRouter(
+            tapFactory: { _, _, _, _, _, _ in
+                attempts += 1
+                return nil
+            },
+            trustProvider: { isTrusted },
+            promptProvider: { _ in isTrusted }
+        )
+        router.addBinding(id: UUID(), key: .keyCode(40), modifiers: [.maskCommand]) {}
+
+        XCTAssertEqual(attempts, 0)
+        isTrusted = true
+        router.reconcile(promptIfNeeded: false)
+        XCTAssertEqual(attempts, 1)
+        router.stop()
+    }
+
+    func testRouterRemovesBindingsAndDeallocates() {
+        var router: HotkeyTapRouter? = HotkeyTapRouter(
+            tapFactory: { _, _, _, _, _, _ in nil },
+            trustProvider: { true },
+            promptProvider: { _ in true }
+        )
+        weak var weakRouter = router
+        let id = UUID()
+
+        router?.addBinding(id: id, key: .keyCode(40), modifiers: [.maskCommand]) {}
+        XCTAssertEqual(router?.registeredBindingCount, 1)
+
+        router?.removeBinding(id: id)
+        XCTAssertEqual(router?.registeredBindingCount, 0)
+        router = nil
+
+        XCTAssertNil(weakRouter)
+    }
+
+    func testHotkeyMonitorRegistersAndUnregistersOneBinding() {
+        let router = HotkeyTapRouter(
+            tapFactory: { _, _, _, _, _, _ in nil },
+            trustProvider: { true },
+            promptProvider: { _ in true }
+        )
+        let monitor = HotkeyMonitor(
+            config: HotkeyConfig(key: .keyCode(40), modifiers: [.maskCommand]),
+            onTrigger: {},
+            router: router
+        )
+
+        monitor.start()
+        XCTAssertEqual(router.registeredBindingCount, 1)
+        monitor.stop()
+        XCTAssertEqual(router.registeredBindingCount, 0)
+    }
+
+    func testHotkeyHandlerDeinitStopsEveryMonitor() {
+        let factory = RecordingHotkeyMonitorFactory()
+        var handler: HotkeyHandler? = HotkeyHandler(
+            hotkeyMonitorFactory: factory,
+            onToggle: {},
+            onTogglePinned: {}
+        )
+
+        handler?.restartHotkeys(config: .default)
+        XCTAssertEqual(factory.monitors.count, 1)
+        handler = nil
+
+        XCTAssertTrue(factory.monitors.allSatisfy { $0.stopCount == 1 })
+    }
+
+    func testHotkeyHandlerTreatsFNVariantAsDuplicate() {
+        let factory = RecordingHotkeyMonitorFactory()
+        let handler = HotkeyHandler(
+            hotkeyMonitorFactory: factory,
+            onToggle: {},
+            onTogglePinned: {}
+        )
+        var config = GridConfig.default
+        config.hotkey = HotkeyConfig(key: .keyCode(122), modifiers: [])
+        config.pinnedHotkey = HotkeyConfig(key: .keyCode(122), modifiers: [.maskSecondaryFn])
+
+        handler.restartHotkeys(config: config)
+
+        XCTAssertEqual(factory.monitors.count, 1, "f1 and fn+f1 are the same physical binding")
+    }
+
+    func testRouterRoutesMultipleBindingsAndHopsTriggers() {
+        let router = makeRouter()
+        var firstCount = 0
+        var secondCount = 0
+        router.addBinding(id: UUID(), key: .keyCode(40), modifiers: [.maskCommand]) {
+            firstCount += 1
+        }
+        router.addBinding(id: UUID(), key: .keyCode(41), modifiers: [.maskCommand]) {
+            secondCount += 1
+        }
+
+        let matching = makeKeyEvent(keyCode: 40, flags: [.maskCommand])
+        XCTAssertNil(router.handle(type: .keyDown, event: matching))
+        XCTAssertEqual(firstCount, 0, "trigger must hop to main")
+        pumpMainQueue()
+        XCTAssertEqual(firstCount, 1)
+        XCTAssertEqual(secondCount, 0)
+
+        let unmatched = makeKeyEvent(keyCode: 42, flags: [.maskCommand])
+        XCTAssertNotNil(router.handle(type: .keyDown, event: unmatched))
+        pumpMainQueue()
+        XCTAssertEqual(firstCount, 1)
+        XCTAssertEqual(secondCount, 0)
+
+        router.stop()
+    }
+
+    func testRouterConsumesMatchingKeyUpWithoutTriggering() {
+        let router = makeRouter()
+        var count = 0
+        router.addBinding(id: UUID(), key: .keyCode(40), modifiers: [.maskCommand]) {
+            count += 1
+        }
+
+        let release = makeKeyEvent(keyCode: 40, flags: [.maskCommand], keyDown: false)
+        XCTAssertNil(router.handle(type: .keyUp, event: release))
+        pumpMainQueue()
+        XCTAssertEqual(count, 0)
+
+        router.stop()
+    }
+
+    func testRouterPrefersExplicitFunctionKeyBindingOverBareMatch() {
+        let router = makeRouter()
+        var bareCount = 0
+        var explicitCount = 0
+        router.addBinding(id: UUID(), key: .keyCode(122), modifiers: []) {
+            bareCount += 1
+        }
+        router.addBinding(id: UUID(), key: .keyCode(122), modifiers: [.maskSecondaryFn]) {
+            explicitCount += 1
+        }
+
+        let withFn = makeKeyEvent(keyCode: 122, flags: [.maskSecondaryFn])
+        XCTAssertNil(router.handle(type: .keyDown, event: withFn))
+        pumpMainQueue()
+        XCTAssertEqual(bareCount, 0, "explicit fn binding wins; no double fire")
+        XCTAssertEqual(explicitCount, 1)
+
+        let withoutFn = makeKeyEvent(keyCode: 122, flags: [])
+        XCTAssertNil(router.handle(type: .keyDown, event: withoutFn))
+        pumpMainQueue()
+        XCTAssertEqual(bareCount, 1)
+        XCTAssertEqual(explicitCount, 1)
+
+        router.stop()
+    }
+
+    func testRouterSuppressesMediaKeysWhileRecording() throws {
+        let router = makeRouter()
+        var count = 0
+        router.addBinding(id: UUID(), key: .mediaKey(.playPause), modifiers: []) {
+            count += 1
+        }
+
+        let event = try XCTUnwrap(
+            NSEvent.otherEvent(
+                with: .systemDefined,
+                location: .zero,
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                subtype: 8,
+                data1: (16 << 16) | (0xA << 8),
+                data2: 0
+            )
+        )
+        let cgEvent = try XCTUnwrap(event.cgEvent)
+        let type = try XCTUnwrap(
+            CGEventType(rawValue: HotkeyMonitor.systemDefinedEventRawValue)
+        )
+
+        HotkeyTapRouter.isRecording = true
+        defer { HotkeyTapRouter.isRecording = false }
+
+        XCTAssertNotNil(router.handle(type: type, event: cgEvent))
+        pumpMainQueue()
+        XCTAssertEqual(count, 0)
+
+        HotkeyTapRouter.isRecording = false
+        XCTAssertNil(router.handle(type: type, event: cgEvent))
+        pumpMainQueue()
+        XCTAssertEqual(count, 1)
+
+        router.stop()
+    }
+
+    func testRouterPassesKeyDownKeyUpAndMediaEventsWhileRecording() throws {
+        let router = makeRouter()
+        var count = 0
+        router.addBinding(id: UUID(), key: .keyCode(40), modifiers: [.maskCommand]) {
+            count += 1
+        }
+        router.addBinding(id: UUID(), key: .mediaKey(.playPause), modifiers: []) {
+            count += 1
+        }
+
+        let mediaEvent = try XCTUnwrap(
+            NSEvent.otherEvent(
+                with: .systemDefined,
+                location: .zero,
+                modifierFlags: [],
+                timestamp: 0,
+                windowNumber: 0,
+                context: nil,
+                subtype: 8,
+                data1: (16 << 16) | (0xA << 8),
+                data2: 0
+            )?.cgEvent
+        )
+        let mediaType = try XCTUnwrap(
+            CGEventType(rawValue: HotkeyMonitor.systemDefinedEventRawValue)
+        )
+
+        HotkeyTapRouter.isRecording = true
+        defer { HotkeyTapRouter.isRecording = false }
+
+        // Keep the events alive: `handle` returns an unretained wrapper, and
+        // reflecting a dangling Unmanaged in XCTAssertNotNil can crash.
+        let down = makeKeyEvent(keyCode: 40, flags: [.maskCommand])
+        let up = makeKeyEvent(keyCode: 40, flags: [.maskCommand], keyDown: false)
+        XCTAssertTrue(router.handle(type: .keyDown, event: down) != nil)
+        XCTAssertTrue(router.handle(type: .keyUp, event: up) != nil)
+        XCTAssertTrue(router.handle(type: mediaType, event: mediaEvent) != nil)
+
+        pumpMainQueue()
+        XCTAssertEqual(count, 0)
+        router.stop()
+    }
+
     func testGlyphStripHotkeyIsSkippedWhenUnboundOrConflicting() {
         let factory = RecordingHotkeyMonitorFactory()
         let handler = HotkeyHandler(
@@ -314,6 +736,32 @@ final class HotkeyTests: XCTestCase {
         conflicting.glyphStripHotkey = GridConfig.default.hotkey
         handler.restartHotkeys(config: conflicting)
         XCTAssertEqual(factory.monitors.count, 2)
+    }
+
+    private func makeRouter() -> HotkeyTapRouter {
+        HotkeyTapRouter(
+            tapFactory: { _, _, _, _, _, _ in nil },
+            trustProvider: { true },
+            promptProvider: { _ in true }
+        )
+    }
+
+    private func makeKeyEvent(
+        keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        keyDown: Bool = true
+    ) -> CGEvent {
+        let event = CGEvent(
+            keyboardEventSource: nil,
+            virtualKey: keyCode,
+            keyDown: keyDown
+        )!
+        event.flags = flags
+        return event
+    }
+
+    private func pumpMainQueue() {
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
     }
 }
 

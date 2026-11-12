@@ -31,6 +31,10 @@ class HotkeyHandler {
         self.onToggleGlyphStrip = onToggleGlyphStrip
     }
 
+    deinit {
+        stopHotkeys()
+    }
+
     func restartHotkeys(config: GridConfig) {
         stopHotkeys()
         startHotkey(config: config)
@@ -61,7 +65,7 @@ class HotkeyHandler {
 
     private func startPinnedHotkey(config: GridConfig) {
         guard !config.pinnedHotkey.isDisabled else { return }
-        guard Hotkey.hotkeyToString(config.pinnedHotkey) != Hotkey.hotkeyToString(config.hotkey) else {
+        guard Hotkey.bindingIdentity(config.pinnedHotkey) != Hotkey.bindingIdentity(config.hotkey) else {
             NSLog("Spacemap: pinned HUD hotkey matches the normal hotkey; pinned binding ignored")
             return
         }
@@ -72,9 +76,9 @@ class HotkeyHandler {
 
     private func startGlyphStripHotkey(config: GridConfig) {
         guard !config.glyphStripHotkey.isDisabled else { return }
-        let binding = Hotkey.hotkeyToString(config.glyphStripHotkey)
-        guard binding != Hotkey.hotkeyToString(config.hotkey),
-              binding != Hotkey.hotkeyToString(config.pinnedHotkey) else {
+        let binding = Hotkey.bindingIdentity(config.glyphStripHotkey)
+        guard binding != Hotkey.bindingIdentity(config.hotkey),
+              binding != Hotkey.bindingIdentity(config.pinnedHotkey) else {
             NSLog("Spacemap: glyph strip hotkey matches another binding; strip binding ignored")
             return
         }
