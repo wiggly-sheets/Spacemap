@@ -138,7 +138,49 @@ final class ConfigValuesTests: XCTestCase {
         let values = ConfigValues()
         let (config, _) = values.toGridConfig()
         XCTAssertEqual(config.backgroundStyle, .glass)
-        XCTAssertEqual(config.glassStyle, .frosted)
+        XCTAssertEqual(config.glassStyle, .opaque)
+    }
+
+    func testPerStyleBackgroundOpacitiesRoundTripAndResolve() throws {
+        var values = ConfigValues()
+        values.backgroundAlpha = 0.4
+        values.backgroundStyle = .glass
+        values.glassStyle = .tinted
+        values.glassClearOpacity = 0.1
+        values.glassOpaqueOpacity = 0.2
+        values.glassTintedOpacity = 0.7
+        values.solidOpacity = 0.9
+        values.matchBackgroundOpacity = true
+
+        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+        let reread = try TOMLParser.parse(toml)
+
+        XCTAssertEqual(reread.glassClearOpacity, 0.1)
+        XCTAssertEqual(reread.glassOpaqueOpacity, 0.2)
+        XCTAssertEqual(reread.glassTintedOpacity, 0.7)
+        XCTAssertEqual(reread.solidOpacity, 0.9)
+        XCTAssertEqual(reread.matchBackgroundOpacity, true)
+
+        var config = reread.toGridConfig().config
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .glass), 0.4)
+        config.matchBackgroundOpacity = false
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .glass), 0.7)
+        config.backgroundStyle = .solid
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .solid), 0.9)
+        config.backgroundStyle = .transparent
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .transparent), 0)
+    }
+
+    func testMissingPerStyleOpacityInheritsBackgroundAlpha() {
+        var values = ConfigValues()
+        values.backgroundAlpha = 0.6
+
+        let config = values.toGridConfig().config
+
+        XCTAssertEqual(config.glassClearOpacity, 0.6)
+        XCTAssertEqual(config.glassOpaqueOpacity, 0.6)
+        XCTAssertEqual(config.glassTintedOpacity, 0.6)
+        XCTAssertEqual(config.solidOpacity, 0.6)
     }
 
     func testToGridConfigWithFullGlyphStripTable() {
@@ -163,7 +205,7 @@ final class ConfigValuesTests: XCTestCase {
         values.maxSpaces = 16
         values.backgroundAlpha = 0.3
         values.backgroundStyle = .glass
-        values.glassStyle = .frosted
+        values.glassStyle = .opaque
         values.hudShadow = true
         values.mode = .auto
         values.iconScale = 0.5
@@ -352,7 +394,7 @@ final class ConfigValuesTests: XCTestCase {
         values.maxSpaces = 8
         values.backgroundAlpha = 0.7
         values.backgroundStyle = .glass
-        values.glassStyle = .frosted
+        values.glassStyle = .opaque
         values.hudShadow = true
         values.iconScale = 0.6
         values.showSpaceNumbers = true
