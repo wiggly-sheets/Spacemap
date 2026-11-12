@@ -28,6 +28,16 @@ final class CLIToolsService {
     private let manPageSymlinkPath = "/usr/local/share/man/man1/spacemap.1"
     private let applicationsPath = "/Applications"
 
+    /// `/Applications` holds a Homebrew install; `~/Applications` holds a
+    /// local `make run` install. Both count as installed.
+    static var applicationsPaths: [String] {
+        [
+            "/Applications",
+            FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Applications", isDirectory: true).path,
+        ]
+    }
+
     private static let askedLaunchAtLoginKey = "HasAskedLaunchAtLogin"
     private static let askedUpdatePreferenceKey = "HasAskedUpdatePreference"
     private static let declinedMoveToApplicationsKey = "HasDeclinedMoveToApplications"
@@ -62,7 +72,7 @@ final class CLIToolsService {
         if Self.shouldPromptToMove(
             appPath: appPath,
             hasDeclined: defaults.bool(forKey: Self.declinedMoveToApplicationsKey),
-            applicationsPath: applicationsPath
+            applicationsPaths: Self.applicationsPaths
         ) {
             showMoveToApplicationsDialog()
         }
@@ -84,19 +94,33 @@ final class CLIToolsService {
 
     /// Component-wise check: `/Applications-old/Spacemap.app` is not inside
     /// `/Applications`, while nested builds under it are.
-    static func isInApplications(appPath: String, applicationsPath: String = "/Applications") -> Bool {
+    static func isInApplications(appPath: String) -> Bool {
+        isInApplications(appPath: appPath, applicationsPaths: applicationsPaths)
+    }
+
+    static func isInApplications(appPath: String, applicationsPaths: [String]) -> Bool {
         let appComponents = URL(fileURLWithPath: appPath).standardizedFileURL.pathComponents
-        let applicationsComponents = URL(fileURLWithPath: applicationsPath).standardizedFileURL.pathComponents
-        guard appComponents.count > applicationsComponents.count else { return false }
-        return Array(appComponents.prefix(applicationsComponents.count)) == applicationsComponents
+        return applicationsPaths.contains { applicationsPath in
+            let applicationsComponents = URL(fileURLWithPath: applicationsPath).standardizedFileURL.pathComponents
+            guard appComponents.count > applicationsComponents.count else { return false }
+            return Array(appComponents.prefix(applicationsComponents.count)) == applicationsComponents
+        }
+    }
+
+    static func shouldPromptToMove(appPath: String, hasDeclined: Bool) -> Bool {
+        shouldPromptToMove(
+            appPath: appPath,
+            hasDeclined: hasDeclined,
+            applicationsPaths: applicationsPaths
+        )
     }
 
     static func shouldPromptToMove(
         appPath: String,
         hasDeclined: Bool,
-        applicationsPath: String = "/Applications"
+        applicationsPaths: [String]
     ) -> Bool {
-        !hasDeclined && !isInApplications(appPath: appPath, applicationsPath: applicationsPath)
+        !hasDeclined && !isInApplications(appPath: appPath, applicationsPaths: applicationsPaths)
     }
 
     func showMoveToApplicationsDialog() {

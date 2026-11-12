@@ -25,6 +25,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: The tag must sit on the default branch
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::The tag ${GITHUB_REF_NAME} is not on origin/main; cut it from the default branch"
+            exit 1
+          fi
+
       - uses: swift-actions/setup-swift@v2
         with:
           swift-version: "5.9"
@@ -48,11 +57,8 @@ jobs:
           done
           echo "tag=$TAG_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Write release notes
-        run: ./scripts/release-notes.sh "${{ steps.version.outputs.tag }}" > release-notes.md
-
       - name: Run tests
-        run: swift test
+        run: make test
 
       - name: Verify Sparkle signing key pair
         env:
@@ -93,11 +99,18 @@ jobs:
             if [ -d "$bundle" ]; then
               codesign --force --sign - \
                 --options runtime \
+                --entitlements sparkle-entitlements.plist \
                 "$bundle"
               codesign --verify --deep --strict --verbose=2 "$bundle"
               echo "Signed and verified $bundle"
             fi
           done
+
+      - name: Verify the built bundles
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+          BUNDLES: spacemap-arm64.app spacemap-x86_64.app Spacemap.app
+        run: make verify VERSION="$VERSION" BUNDLES="$BUNDLES"
 
       - name: Create DMGs
         run: |
@@ -137,6 +150,21 @@ jobs:
           shasum -a 256 spacemap-*-arm64.dmg spacemap-*-x86_64.dmg spacemap-*-universal.dmg > checksums.txt
           cat checksums.txt
 
+      - name: Write the release notes
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ./scripts/changelog.sh notes "$VERSION" > release-notes.md
+          {
+            echo ""
+            echo "## Checksums"
+            echo ""
+            echo '```'
+            cat checksums.txt
+            echo '```'
+          } >> release-notes.md
+
       - name: Verify Sparkle dependency pin
         run: |
           test "$(jq -r '.pins[] | select(.identity == "sparkle") | .state.version' Package.resolved)" = "2.9.5" || { echo "::error::Package.resolved Sparkle version is not 2.9.5"; exit 1; }
@@ -154,13 +182,15 @@ jobs:
           SPARKLE_VERSION: "2.9.5"
           SPARKLE_SHA256: "015336b601493e05c237964954bff6191370003d94edefe663724c88840d73cc"
         run: |
-          export DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
+          DMG_SIZE=$(stat -f%z "spacemap-$VERSION-universal.dmg")
+          export DMG_SIZE
           # Pinned Sparkle sign_update tool: version + SHA256 checked before unpack.
           curl -sSL --fail "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz" -o /tmp/Sparkle.tar.xz
           echo "${SPARKLE_SHA256}  /tmp/Sparkle.tar.xz" | shasum -a 256 -c -
           tar -xJ -f /tmp/Sparkle.tar.xz
           printf '%s' "$SPARKLE_PRIVATE_KEY" | ./bin/sign_update --ed-key-file - -p "spacemap-$VERSION-universal.dmg" > sig.txt
-          export ED_SIGNATURE=$(tr -d '\r\n' < sig.txt)
+          ED_SIGNATURE=$(tr -d '\r\n' < sig.txt)
+          export ED_SIGNATURE
           test -n "$ED_SIGNATURE"
           echo "ED_SIGNATURE computed"
           chmod +x .github/scripts/generate-appcast.sh
@@ -201,14 +231,16 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: spacemap ${{ steps.version.outputs.tag }}
+          name: Spacemap ${{ steps.version.outputs.tag }}
           body_path: release-notes.md
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             spacemap-*-arm64.dmg
             spacemap-*-x86_64.dmg
             spacemap-*-universal.dmg
             checksums.txt
             appcast.xml
+          fail_on_unmatched_files: true
 
       - name: Update docs branch with appcast
         run: |

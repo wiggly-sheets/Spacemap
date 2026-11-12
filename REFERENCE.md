@@ -5,7 +5,7 @@
 | Command | Description |
 |---------|-------------|
 | `make help` | List every target (default) |
-| `make run` | Build, install, and launch the app |
+| `make run` | Build, install to `~/Applications`, and launch the app |
 | `make dev1` | Uninstall the app (use before code changes) |
 | `make dev2` | Reinstall and launch after code changes |
 | `make build` | Build release binary only |

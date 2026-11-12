@@ -6,7 +6,8 @@ APP_NAME = spacemap
 BINARY_NAME = Spacemap
 APP_BUNDLE = Spacemap.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
-INSTALL_PATH = /Applications/$(APP_BUNDLE)
+INSTALL_DIR ?= $(HOME)/Applications
+INSTALL_PATH = $(INSTALL_DIR)/$(APP_BUNDLE)
 VERSION  := $(shell cat VERSION 2>/dev/null || git tag --sort=-v:refname 2>/dev/null | head -1 | sed 's/^v//' || grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/' || echo "0.0.0")
 # SwiftPM links through clang with only a deployment-target triple, so the
 # binary records that target (13.0) as its SDK version. AppKit reads
@@ -50,8 +51,8 @@ else
 RELEASE_VERSION := $(strip $(RELEASE))
 endif
 
-.PHONY: help build test app app-arm app-intel app-universal \
-	dmg dmg-arm dmg-intel dmg-universal release-artifacts release clean \
+.PHONY: help build test verify app app-arm app-intel app-universal \
+	dmg dmg-arm dmg-intel dmg-universal release-artifacts release-notes release clean \
 	install run dev uninstall config distconfig archive permissions \
 	install-cli uninstall-cli build-arm64 build-x86_64 build-universal \
 	app-arm64 app-x86_64 verify-localizations generate-xcodeproj man \
@@ -67,7 +68,8 @@ help:
 		'' \
 		'  help                 List every target (default).' \
 		'  build                Build the release binary of the SwiftPM package.' \
-		'  test                 Run the SwiftPM test suite.' \
+		'  test                 Run the changelog check and the SwiftPM test suite.' \
+		'  verify               Check every built bundle: version, architecture, localizations, signature.' \
 		'  app                  Build the shipping bundle into Spacemap.app (universal).' \
 		'  app-arm              Build an arm64 bundle into spacemap-arm64.app.' \
 		'  app-intel            Build an x86_64 bundle into spacemap-x86_64.app.' \
@@ -76,8 +78,9 @@ help:
 		'  dmg-arm              Build spacemap-<version>-arm64.dmg from the arm64 bundle.' \
 		'  dmg-intel            Build spacemap-<version>-x86_64.dmg from the x86_64 bundle.' \
 		'  dmg-universal        Build spacemap-<version>-universal.dmg from the universal bundle.' \
-		'  release-artifacts    Build the disk images and write checksums.txt for the tap.' \
-		'  release VERSION=x.y.z  Build the artifacts, tag v<x.y.z> locally, print the push command.' \
+		'  release-artifacts    Build the disk images and checksums.txt, then verify the checksums.' \
+		'  release-notes VERSION=x.y.z  Print the changelog section of a version.' \
+		'  release VERSION=x.y.z  Bump the changelog and version files, test, build, verify, commit and tag.' \
 		'  clean                Remove the build output.' \
 		'' \
 		'Notes' \
@@ -89,9 +92,13 @@ help:
 		'  arm64 and the x86_64 image. The universal image feeds the Sparkle appcast.' \
 		'  Signing stays ad-hoc: codesign --force --sign - --options runtime.' \
 		'  There is no Developer ID identity and no notarization.' \
-		'  `make release VERSION=1.2.3` writes the VERSION file and the Info.plist,' \
-		'  regenerates spacemap.xcodeproj, commits them, tags v1.2.3 locally and' \
-		'  prints the command that pushes the commit and the tag. It never pushes.' \
+		'  CHANGELOG.md follows the shared shape and `make test` checks it.' \
+		'  Spacemap releases a stable x.y.z only: the Xcode project stores the version' \
+		'  as its build version, which is numeric.' \
+		'  `make release VERSION=1.2.3` moves [Unreleased] to the version, writes the' \
+		'  VERSION file and the Info.plist, regenerates spacemap.xcodeproj, runs the' \
+		'  tests, builds and verifies the artifacts, commits the bump, tags v1.2.3' \
+		'  locally and prints the push commands. It never pushes.' \
 		'  The old names app-arm64, app-x86_64, dmg-arm64 and dmg-x86_64 still work.' \
 		'  create-dmg is required for the dmg targets: brew install create-dmg.' \
 		'  scdoc is required for the man page: brew install scdoc.'
@@ -118,6 +125,7 @@ build:
 	swift build -c release --product $(BINARY_NAME) $(DESIGN_LINK_FLAGS)
 
 test:
+	./scripts/changelog.sh check
 	swift test
 
 man: $(MAN_PAGE)
@@ -214,6 +222,11 @@ _assemble:
 	cp $(MAN_PAGE) $(BUNDLE)/Contents/Resources/spacemap.1
 	cp $(APP_FONT_RESOURCE) $(BUNDLE)/Contents/Resources/sketchybar-app-font.ttf
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(BUNDLE)
+	# Sign ad-hoc so every bundle, dev or release, is a valid update target.
+	codesign --force --sign - --options runtime \
+		--entitlements sparkle-entitlements.plist \
+		$(BUNDLE)
+	codesign --verify --deep --strict $(BUNDLE)
 
 
 verify-localizations:
@@ -232,6 +245,41 @@ verify-localizations:
 		fi; \
 	done
 	@echo "Verified $(words $(LOCALIZATION_NAMES)) localizations in $(BUNDLE)"
+
+## verify — check every built bundle
+
+BUNDLES ?= Spacemap.app
+
+verify:
+	@found=0; \
+	for bundle in $(BUNDLES); do \
+		if [ -d "$$bundle" ]; then \
+			found=1; \
+			echo "Verifying $$bundle..."; \
+			$(MAKE) --no-print-directory verify-localizations BUNDLE="$$bundle"; \
+			version="$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$$bundle/Contents/Info.plist")"; \
+			test "$$version" = "$(VERSION)" || { \
+				echo "error: $$bundle reports $$version, but $(VERSION) was expected."; \
+				exit 1; \
+			}; \
+			archs="$$(lipo -archs "$$bundle/Contents/MacOS/$(BINARY_NAME)" | tr ' ' '\n' | sort | tr '\n' ' ' | xargs)"; \
+			case "$$bundle" in \
+				spacemap-arm64.app) expected="arm64" ;; \
+				spacemap-x86_64.app) expected="x86_64" ;; \
+				*) expected="arm64 x86_64" ;; \
+			esac; \
+			test "$$archs" = "$$expected" || { \
+				echo "error: $$bundle holds [$$archs], expected [$$expected]."; \
+				exit 1; \
+			}; \
+			codesign --verify --deep --strict "$$bundle"; \
+		fi; \
+	done; \
+	test "$$found" = "1" || { \
+		echo "error: no bundle to verify; run make app, make app-arm or make app-intel first."; \
+		exit 1; \
+	}
+	@echo "Verified the built bundles."
 
 # Release entry points require the Sparkle key. The value reaches _assemble
 # via prerequisite inheritance plus explicit forwarding in app-* recipes.
@@ -371,8 +419,18 @@ permissions:
 # them. The tap matches the asset by name, so the names never change.
 release-artifacts: dmg
 	@shasum -a 256 $(DMG_ARM) $(DMG_INTEL) > checksums.txt
+	@shasum -a 256 -c checksums.txt
 	@echo "checksums.txt:"
 	@cat checksums.txt
+
+## release-notes — print the changelog section of a version
+
+release-notes:
+	@if [ -z "$(strip $(RELEASE_VERSION))" ]; then \
+		echo "error: make release-notes needs a version, for example: make release-notes VERSION=1.2.3"; \
+		exit 1; \
+	fi
+	@./scripts/changelog.sh notes "$(RELEASE_VERSION)"
 
 # Prepare a release and tag it. The push is the release, and it belongs to
 # the person who runs this target, so the target prints the command and
@@ -382,43 +440,8 @@ release:
 		echo "error: make release needs a version, for example: make release VERSION=1.2.3"; \
 		exit 1; \
 	fi
-	@# Validate before any write: a bad version must not touch Info.plist or VERSION.
-	@printf '%s\n' "$(RELEASE_VERSION)" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$$' || { \
-		echo "error: invalid version '$(RELEASE_VERSION)': use a dotted number like 1.2.3"; \
-		exit 1; \
-	}
-	@# The generated assets are no reason to refuse the release.
-	@if [ -n "$$(git status --porcelain | grep -vE '^\?\? (checksums\.txt|spacemap-.*\.dmg)$$')" ]; then \
-		echo "error: the working tree is dirty. Commit or stash your changes first."; \
-		git status --short; \
-		exit 1; \
-	fi
-	@if git rev-parse -q --verify "refs/tags/v$(RELEASE_VERSION)" >/dev/null; then \
-		echo "error: the tag v$(RELEASE_VERSION) already exists."; \
-		exit 1; \
-	fi
-	@test -n "$(SPARKLE_PUBLIC_KEY)" || (echo "ERROR: SPARKLE_PUBLIC_KEY is empty — set env or sparklesigner.pub (required for release builds)" && exit 1)
-	@# Auto-generate changelog entry from git diff
-	@chmod +x scripts/generate-changelog.sh
-	@scripts/generate-changelog.sh "$(RELEASE_VERSION)"
-	@grep -q "$(RELEASE_VERSION)" CHANGELOG.md || (echo "ERROR: CHANGELOG.md has no entry for $(RELEASE_VERSION). Update it manually." && exit 1)
-	@echo "Releasing v$(RELEASE_VERSION)..."
-	@# Update Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(RELEASE_VERSION)" Sources/spacemap/Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(RELEASE_VERSION)" Sources/spacemap/Info.plist
-	@# Update VERSION file
-	@echo "$(RELEASE_VERSION)" > VERSION
-	@# Keep the generated Xcode project in step with VERSION.
-	@python3 scripts/generate-xcodeproj.py
-	@# Build before the commit, so a failed build leaves no commit behind.
-	$(MAKE) release-artifacts VERSION=$(RELEASE_VERSION)
-	@# Commit and tag. The tag stays local: the push is printed, never run.
-	git add Sources/spacemap/Info.plist VERSION spacemap.xcodeproj/project.pbxproj CHANGELOG.md
-	git commit -m "v$(RELEASE_VERSION)"
-	git tag -a "v$(RELEASE_VERSION)" -m "Spacemap $(RELEASE_VERSION)"
-	@echo ""
-	@echo "Tagged v$(RELEASE_VERSION). Push the commit and the tag with:"
-	@echo "  git push origin main --tags"
+	@APP_NAME="Spacemap" SPARKLE_PUBLIC_KEY="$(SPARKLE_PUBLIC_KEY)" \
+		./scripts/release.sh "$(RELEASE_VERSION)"
 
 # Remove the build output.
 clean:
