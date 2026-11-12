@@ -8,6 +8,13 @@ APP_BUNDLE = Spacemap.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
 INSTALL_PATH = /Applications/$(APP_BUNDLE)
 VERSION  := $(shell cat VERSION 2>/dev/null || git tag --sort=-v:refname 2>/dev/null | head -1 | sed 's/^v//' || grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/' || echo "0.0.0")
+# SwiftPM links through clang with only a deployment-target triple, so the
+# binary records that target (13.0) as its SDK version. AppKit reads
+# LC_BUILD_VERSION.sdk to decide whether to adopt Liquid Glass, so pass the
+# real SDK version while keeping the deployment target as the minimum.
+MACOS_DEPLOYMENT_TARGET = 13.0
+SDK_VERSION := $(shell xcrun --show-sdk-version 2>/dev/null)
+DESIGN_LINK_FLAGS = $(if $(strip $(SDK_VERSION)),-Xlinker -platform_version -Xlinker macos -Xlinker $(MACOS_DEPLOYMENT_TARGET) -Xlinker $(strip $(SDK_VERSION)))
 ARCHIVE   = spacemap-$(VERSION).zip
 STAGE     = spacemap-$(VERSION)
 DMG_STAGE = dmgstage
@@ -108,7 +115,7 @@ update-app-font:
 	echo "Copied $$src -> $(APP_FONT_RESOURCE)"
 
 build:
-	swift build -c release --product $(BINARY_NAME)
+	swift build -c release --product $(BINARY_NAME) $(DESIGN_LINK_FLAGS)
 
 test:
 	swift test
@@ -122,21 +129,20 @@ $(MAN_PAGE): $(MAN_SOURCE)
 generate-xcodeproj:
 	python3 scripts/generate-xcodeproj.py
 
-# The toolchain writes every architecture into one product directory, so the
-# per-architecture binary is copied aside before the next build overwrites it.
+# Newer toolchains write both architectures into one shared product directory,
+# so copy the just-built binary aside before the next arch build overwrites it.
+# Only copy when the bin path differs, so older per-arch layouts still work.
 build-arm64:
-	swift build -c release --arch arm64 --product $(BINARY_NAME)
-	@if ! lipo -archs "$(BUILD_ARM64)/$(BINARY_NAME)" 2>/dev/null | grep -q arm64; then \
-		mkdir -p $(BUILD_ARM64); \
-		cp "$$(swift build -c release --arch arm64 --product $(BINARY_NAME) --show-bin-path 2>/dev/null | tail -1)/$(BINARY_NAME)" "$(BUILD_ARM64)/$(BINARY_NAME)"; \
-	fi
+	swift build -c release --arch arm64 --product $(BINARY_NAME) $(DESIGN_LINK_FLAGS)
+	@mkdir -p $(BUILD_ARM64); \
+	bin="$$(swift build -c release --arch arm64 --product $(BINARY_NAME) --show-bin-path 2>/dev/null | tail -1)/$(BINARY_NAME)"; \
+	if [ ! "$$bin" -ef "$(BUILD_ARM64)/$(BINARY_NAME)" ]; then cp "$$bin" "$(BUILD_ARM64)/$(BINARY_NAME)"; fi
 
 build-x86_64:
-	swift build -c release --arch x86_64 --product $(BINARY_NAME)
-	@if ! lipo -archs "$(BUILD_X86_64)/$(BINARY_NAME)" 2>/dev/null | grep -q x86_64; then \
-		mkdir -p $(BUILD_X86_64); \
-		cp "$$(swift build -c release --arch x86_64 --product $(BINARY_NAME) --show-bin-path 2>/dev/null | tail -1)/$(BINARY_NAME)" "$(BUILD_X86_64)/$(BINARY_NAME)"; \
-	fi
+	swift build -c release --arch x86_64 --product $(BINARY_NAME) $(DESIGN_LINK_FLAGS)
+	@mkdir -p $(BUILD_X86_64); \
+	bin="$$(swift build -c release --arch x86_64 --product $(BINARY_NAME) --show-bin-path 2>/dev/null | tail -1)/$(BINARY_NAME)"; \
+	if [ ! "$$bin" -ef "$(BUILD_X86_64)/$(BINARY_NAME)" ]; then cp "$$bin" "$(BUILD_X86_64)/$(BINARY_NAME)"; fi
 
 build-universal: build-arm64 build-x86_64
 	mkdir -p .build/universal/release
