@@ -44,7 +44,7 @@ We're excited to have you contribute to Spacemap. This is a native macOS utility
 | `make app-arm` | Build and assemble the arm64 `.app` bundle |
 | `make app-intel` | Build and assemble the x86_64 `.app` bundle |
 | `make app-universal` | Build and assemble the universal `.app` bundle |
-| `make run` | Build, install to `/Applications`, and launch |
+| `make run` | Build, install to `~/Applications`, and launch |
 | `make test` | Run unit tests via swift test |
 | `make dev1` | Uninstall from `/Applications` |
 | `make dev2` | Rebuild, reinstall, and launch |

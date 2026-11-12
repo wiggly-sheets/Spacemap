@@ -274,14 +274,15 @@ The release notes are the section of `CHANGELOG.md` for the released version. A 
 |--------|-------------|
 | `make help` | List every target (default) |
 | `make build` | Build release binary |
-| `make test` | Run unit tests via swift test |
+| `make test` | Run the changelog check and the unit tests |
+| `make verify` | Check version, architecture, localizations and signature of the built bundles |
 | `make app` | Build and assemble the universal .app bundle |
 | `make app-arm` | Build and assemble the arm64 .app bundle |
 | `make app-intel` | Build and assemble the x86_64 .app bundle |
 | `make app-universal` | Build and assemble the universal .app bundle |
-| `make install` | Install to /Applications |
+| `make install` | Install to `~/Applications` |
 | `make run` | Install and launch |
-| `make dev1` | Uninstall (remove from /Applications) |
+| `make dev1` | Uninstall (remove from `~/Applications`) |
 | `make dev2` | Reinstall and relaunch |
 | `make clean` | Remove build artifacts |
 | `make config` | Create default config |
@@ -293,8 +294,9 @@ The release notes are the section of `CHANGELOG.md` for the released version. A 
 | `make build-arm64` | Build for Apple Silicon only |
 | `make build-x86_64` | Build for Intel only |
 | `make build-universal` | Build universal binary |
-| `make release-artifacts` | Build the DMGs and write checksums.txt |
-| `make release VERSION=x.y.z` | Bump version, commit, tag locally, print the push command (no push) |
+| `make release-artifacts` | Build the DMGs, write checksums.txt and verify it |
+| `make release-notes VERSION=x.y.z` | Print the changelog section of a version |
+| `make release VERSION=x.y.z` | Bump changelog and version files, test, build, verify, commit, tag locally (no push) |
 
 The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work.
 

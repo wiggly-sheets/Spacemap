@@ -378,8 +378,9 @@ Manual installs can download the newest DMG from [Releases](https://github.com/w
 git clone https://github.com/wiggly-sheets/Spacemap.git
 cd Spacemap
 
-make run       # build, install, launch
-make test      # unit tests
+make run       # build, install to ~/Applications, launch
+make test      # changelog check and unit tests
+make verify    # version, architecture, localizations, signature
 make app       # assemble Spacemap.app (universal)
 make dmg       # arm64 and x86_64 DMGs
 ```

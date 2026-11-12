@@ -69,25 +69,61 @@ final class CLITests: XCTestCase {
     }
 
     func testMoveToApplicationsUsesPathComponents() {
-        XCTAssertTrue(CLIToolsService.isInApplications(appPath: "/Applications/Spacemap.app"))
-        XCTAssertTrue(CLIToolsService.isInApplications(appPath: "/Applications/Spacemap.app/"))
-        XCTAssertFalse(CLIToolsService.isInApplications(appPath: "/Applications-old/Spacemap.app"))
-        XCTAssertFalse(CLIToolsService.isInApplications(appPath: "/Users/me/Applications/Spacemap.app"))
-        XCTAssertFalse(CLIToolsService.isInApplications(appPath: "/Applications"))
+        let applicationsPaths = ["/Applications", "/Users/me/Applications"]
+        XCTAssertTrue(CLIToolsService.isInApplications(
+            appPath: "/Applications/Spacemap.app",
+            applicationsPaths: applicationsPaths
+        ))
+        XCTAssertTrue(CLIToolsService.isInApplications(
+            appPath: "/Applications/Spacemap.app/",
+            applicationsPaths: applicationsPaths
+        ))
+        XCTAssertTrue(CLIToolsService.isInApplications(
+            appPath: "/Users/me/Applications/Spacemap.app",
+            applicationsPaths: applicationsPaths
+        ))
+        XCTAssertFalse(CLIToolsService.isInApplications(
+            appPath: "/Applications-old/Spacemap.app",
+            applicationsPaths: applicationsPaths
+        ))
+        XCTAssertFalse(CLIToolsService.isInApplications(
+            appPath: "/Users/me/Applications-old/Spacemap.app",
+            applicationsPaths: applicationsPaths
+        ))
+        XCTAssertFalse(CLIToolsService.isInApplications(
+            appPath: "/Applications",
+            applicationsPaths: applicationsPaths
+        ))
+    }
+
+    func testDefaultApplicationsPathsIncludeTheUserFolder() {
+        let userApplications = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Applications", isDirectory: true)
+            .appendingPathComponent("Spacemap.app")
+        XCTAssertTrue(CLIToolsService.isInApplications(appPath: userApplications.path))
     }
 
     func testMovePromptRespectsDeclinedFlag() {
+        let applicationsPaths = ["/Applications", "/Users/me/Applications"]
         XCTAssertTrue(CLIToolsService.shouldPromptToMove(
             appPath: "/Users/me/Downloads/Spacemap.app",
-            hasDeclined: false
+            hasDeclined: false,
+            applicationsPaths: applicationsPaths
         ))
         XCTAssertFalse(CLIToolsService.shouldPromptToMove(
             appPath: "/Users/me/Downloads/Spacemap.app",
-            hasDeclined: true
+            hasDeclined: true,
+            applicationsPaths: applicationsPaths
         ))
         XCTAssertFalse(CLIToolsService.shouldPromptToMove(
             appPath: "/Applications/Spacemap.app",
-            hasDeclined: false
+            hasDeclined: false,
+            applicationsPaths: applicationsPaths
+        ))
+        XCTAssertFalse(CLIToolsService.shouldPromptToMove(
+            appPath: "/Users/me/Applications/Spacemap.app",
+            hasDeclined: false,
+            applicationsPaths: applicationsPaths
         ))
     }
 

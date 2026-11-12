@@ -107,7 +107,7 @@ socketHealthInterval = 60
 Uses `CGEvent.tapCreate` at `cgSessionEventTap` / `headInsertEventTap` for global hotkey capture. This requires Accessibility permissions.
 
 ### Binary Running vs App Bundle
-macOS grants Accessibility to the `.app` bundle, not the raw binary. Running the binary directly will fail the trust check. Always use `make run` or `open /Applications/spacemap.app`.
+macOS grants Accessibility to the `.app` bundle, not the raw binary. Running the binary directly will fail the trust check. Always use `make run` or `open ~/Applications/Spacemap.app`.
 
 ### Permission Revocation on Reinstall
 Rebuilding and reinstalling revokes Accessibility permissions because the binary hash changes. Use the `make dev1` / `make dev2` workflow.
@@ -146,7 +146,7 @@ make build       # swift build -c release
 make app         # Build and assemble the universal .app bundle
 make app-arm     # Build and assemble the arm64 .app bundle
 make app-intel   # Build and assemble the x86_64 .app bundle
-make install     # Install to /Applications
+make install     # Install to ~/Applications
 make run         # Install and launch
 make dev1        # Uninstall (then remove Accessibility in System Settings)
 make dev2        # Reinstall, relaunch, re-grant permissions

@@ -5,8 +5,6 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
----
-
 ## [Unreleased]
 
 ### Added
@@ -76,7 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Guard event-tap recovery with a generation counter and keep the drag delivery queue generation-safe.
 - Add regression coverage for HUD geometry, config parsing/repair, socket nonce/liveness, drag evidence/fallbacks, hotkey routing, thumbnail policy, and appcast/version consistency.
 
-## [1.1.1]
+## [1.1.1] - 2026-10-13
 
 ### Fixed
 - Reject socket paths outside the per-user temp-dir allowlist before binding, failing closed on invalid input.
@@ -84,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clear pending icon resolutions on cache clear so stale lookups cannot repopulate it.
 - Document the sanitized socket username (non-alphanumerics stripped, empty falls back to uid) in the man page.
 
-## [1.1.0]
+## [1.1.0] - 2026-10-09
 
 ### Added
 - Optional always-visible glyph strip in the menu bar row, showing each yabai space's index plus a sketchybar-app-font glyph per window. A new **Glyph Strip** settings pane and `[glyphStrip]` config table control contents (`showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`), appearance (`iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassAmount`, `useThemeTint`, `shape`, `backgroundOpacity` solid-only 0.01...1.0, `cornerRadius`, `margin`, `yOffset`), decoration (`showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `borderEnabled`, `theme`), click bindings (`leftClickAction`, `rightClickAction`, `middleClickAction`) and `position` (new `custom` value with `xOffset`). The former bare `[behavior] glyphStrip = true` boolean is still read and migrated on the next config repair.
@@ -102,6 +100,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Glyph verticals share one baseline with a 1pt drop; icon-font runs lift 1.5pt to sit with system digits, and the `+` add button draws bold at `indexSize + 2`.
 - Clicks hit the full slot while the hover pill stays glyph-sized (symmetric `hoverPadding` growth on both axes).
 - Preserved the `fn` modifier end to end (`maskSecondaryFn` record/serialize/match) across hotkeys and drop-focus modifiers.
+
+### Removed
+- Removed unused icon and thumbnail cache facade modules.
+- Removed unused duplicate Settings and configuration owner types.
+- Removed unused duplicate menu-bar owner types.
 
 ### Fixed
 - Size the glyph strip's hover highlight to the glyphs it covers on both axes, and stop hover arming from anywhere in the 37.5pt menu bar row. The highlight is now the segment's glyph box grown by `hoverPadding` (default `1`, radius `4`) while clicks hit the full slot, so it sits on the glyphs rather than 1.5pt off and a few points too large.
@@ -140,10 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Match native icon sizing to the glyph advance it replaces so resolving an icon never reflows the strip; misses paint the sbar glyph or initials with 0.55 resting dim.
 - Harden the glyph strip against freezes: debounced refresh with generation guard and re-entrant follow-up, font IO off-main, main-only icon fetch with background resolve plus one follow-up repaint, lock-guarded font/icon caches, silent drag persist.
 
-### Removed
-- Removed unused icon and thumbnail cache facade modules.
-- Removed unused duplicate Settings and configuration owner types.
-- Removed unused duplicate menu-bar owner types.
+<!-- pre-versioning -->
 
 ## [1.0.39] - 2026-08-15
 
