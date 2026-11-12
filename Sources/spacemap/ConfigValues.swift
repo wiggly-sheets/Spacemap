@@ -210,8 +210,10 @@ struct ConfigValues {
         }
 
         let config = GridConfig(
-            cols: valid(cols, defaults.cols) { $0 > 0 },
-            rows: valid(rows, defaults.rows) { $0 > 0 },
+            // Upper bound keeps `GridLayout.idealSize` arithmetic (visible +
+            // cols - 1) away from `Int` overflow on a hand-edited `cols`.
+            cols: oversizeClamped(cols, defaults.cols, in: 1...32),
+            rows: oversizeClamped(rows, defaults.rows, in: 1...32),
             cellStyle: resolvedCellStyle,
             hotkey: resolvedHotkey,
             pinnedHotkey: resolvedPinnedHotkey,

@@ -332,6 +332,22 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.menuBarNearbyCount, 16)
     }
 
+    func testToGridConfigClampsOversizedColsAndRows() {
+        var values = ConfigValues()
+        values.cols = Int.max
+        values.rows = 100
+
+        let (config, needsRepair) = values.toGridConfig()
+
+        XCTAssertTrue(needsRepair)
+        XCTAssertEqual(config.cols, 32)
+        XCTAssertEqual(config.rows, 32)
+        // Exact geometry for a clamped 32-column grid at uiScale 0.5.
+        let size = GridLayout.idealSize(visibleIndices: 16, cols: config.cols, uiScale: 0.5)
+        XCTAssertEqual(size.width, 3136.5, accuracy: 0.001)
+        XCTAssertEqual(size.height, 166.5, accuracy: 0.001)
+    }
+
     func testToGridConfigWithEmptyConfigReturnsDefaults() {
         let values = ConfigValues()
         let (config, needsRepair) = values.toGridConfig()

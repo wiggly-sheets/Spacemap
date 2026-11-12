@@ -337,7 +337,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(AppConfig.load(from: path).theme, "nord")
     }
 
-    func testLoadReplacesInvalidTOMLWithDefaultsAndBacksItUp() throws {
+    func testLoadLeavesInvalidTOMLUntouchedAndUsesDefaults() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("spacemap-config-invalid-\(UUID().uuidString)")
         let path = directory.appendingPathComponent("config.toml").path
@@ -349,15 +349,15 @@ final class ConfigTests: XCTestCase {
 
         let invalid = "[grid\ncols = 5"
         try invalid.write(toFile: path, atomically: true, encoding: .utf8)
-        let repaired = AppConfig.load(from: path)
+        let loaded = AppConfig.load(from: path)
 
-        XCTAssertEqual(repaired.cols, GridConfig.default.cols)
-        XCTAssertEqual(repaired.theme, GridConfig.default.theme)
-        XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), invalid)
-        XCTAssertTrue(try String(contentsOfFile: path, encoding: .utf8).contains("[grid]"))
+        XCTAssertEqual(loaded.cols, GridConfig.default.cols)
+        XCTAssertEqual(loaded.theme, GridConfig.default.theme)
+        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), invalid)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: path + ".bak"))
     }
 
-    func testJSONIsRejectedAndReplacedWithDefaults() throws {
+    func testJSONIsRejectedAndLeftUntouched() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("spacemap-config-json-rejection-\(UUID().uuidString)")
         let path = directory.appendingPathComponent("config.toml").path
@@ -372,7 +372,8 @@ final class ConfigTests: XCTestCase {
         let loaded = AppConfig.load(from: path)
 
         XCTAssertEqual(loaded.cols, GridConfig.default.cols)
-        XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), json)
+        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), json)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: path + ".bak"))
     }
 
     func testPlainConfigIsRejectedAndReplacedWithDefaults() throws {

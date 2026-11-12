@@ -33,7 +33,11 @@ enum TOMLDocumentParser {
         var tables: [String: [String: Any]] = [:]
         var currentTable: String?
 
-        for rawLine in text.components(separatedBy: .newlines) {
+        let lines = splitPhysicalLines(text)
+        var index = 0
+        while index < lines.count {
+            let rawLine = lines[index]
+            index += 1
             guard let uncommented = stripTOMLComment(rawLine) else { return nil }
             let line = uncommented.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty else { continue }
@@ -49,19 +53,90 @@ enum TOMLDocumentParser {
 
             guard let equals = firstUnquotedEquals(in: line) else { return nil }
             let rawKey = String(line[..<equals]).trimmingCharacters(in: .whitespaces)
-            let rawValue = String(line[line.index(after: equals)...]).trimmingCharacters(in: .whitespaces)
-            guard let key = parseTOMLKey(rawKey), let value = parseTOMLValue(rawValue) else { return nil }
-            if let currentTable {
-                tables[currentTable, default: [:]][key] = value
-            } else {
-                root[key] = value
+            var rawValue = String(line[line.index(after: equals)...]).trimmingCharacters(in: .whitespaces)
+            // Arrays may span lines. Keep folding continuation lines until the
+            // brackets balance so a hand-wrapped `modifiers = [ ... ]` is not
+            // treated as a fatal parse error.
+            if rawValue.hasPrefix("[") {
+                var depth = bracketDepth(rawValue)
+                while depth > 0, index < lines.count {
+                    guard let continuation = stripTOMLComment(lines[index]) else { return nil }
+                    index += 1
+                    let trimmed = continuation.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !trimmed.isEmpty else { continue }
+                    rawValue += " " + trimmed
+                    depth = bracketDepth(rawValue)
+                }
+                guard depth == 0 else { return nil }
             }
+            guard let keyPath = parseTOMLKeyPath(rawKey),
+                  let value = parseTOMLValue(rawValue) else { return nil }
+            insert(value, keyPath: keyPath, currentTable: currentTable, root: &root, tables: &tables)
         }
 
         for (name, table) in tables {
             root[name] = table
         }
         return root
+    }
+
+    /// Split on line terminators (`\n`, `\r\n`, lone `\r`) but not on
+    /// U+2028/U+2029: those are legal inside a quoted string and must reach
+    /// the sanitizer instead of corrupting the document.
+    private static func splitPhysicalLines(_ text: String) -> [String] {
+        text.replacingOccurrences(of: "\r\n", with: "\n")
+            .split(omittingEmptySubsequences: false) { $0 == "\n" || $0 == "\r" }
+            .map { String($0) }
+    }
+
+    /// Bracket balance outside quoted strings. A non-zero result means the
+    /// array value continues onto the next line.
+    private static func bracketDepth(_ raw: String) -> Int {
+        var depth = 0
+        var quote: Character?
+        var escaping = false
+        for character in raw {
+            if let activeQuote = quote {
+                if activeQuote == "\"", escaping {
+                    escaping = false
+                } else if activeQuote == "\"", character == "\\" {
+                    escaping = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+            } else if character == "\"" || character == "'" {
+                quote = character
+            } else if character == "[" {
+                depth += 1
+            } else if character == "]" {
+                depth -= 1
+            }
+        }
+        return depth
+    }
+
+    /// Dotted keys (`grid.cols = 8`) resolve to the same table shape as a
+    /// `[grid]` section, so the decoder sees one representation.
+    private static func insert(
+        _ value: Any,
+        keyPath: [String],
+        currentTable: String?,
+        root: inout [String: Any],
+        tables: inout [String: [String: Any]]
+    ) {
+        guard let key = keyPath.last else { return }
+        let prefix = Array(keyPath.dropLast())
+        if let currentTable {
+            if prefix.isEmpty {
+                tables[currentTable, default: [:]][key] = value
+            } else {
+                tables[([currentTable] + prefix).joined(separator: "."), default: [:]][key] = value
+            }
+        } else if prefix.isEmpty {
+            root[key] = value
+        } else {
+            tables[prefix.joined(separator: "."), default: [:]][key] = value
+        }
     }
     /// Strips full-line and trailing `#` comments; `#` inside quotes is
     /// literal. Nil means unbalanced quote — fail closed, whole file rejected.
@@ -122,6 +197,40 @@ enum TOMLDocumentParser {
         return raw
     }
 
+    /// Split a dotted key into its unquoted segments: `grid.cols`,
+    /// `spaceNames.names."1"`. A quoted segment may contain a literal dot.
+    private static func parseTOMLKeyPath(_ raw: String) -> [String]? {
+        var parts: [String] = []
+        var start = raw.startIndex
+        var quote: Character?
+        var escaping = false
+        for index in raw.indices {
+            let character = raw[index]
+            if let activeQuote = quote {
+                if activeQuote == "\"", escaping {
+                    escaping = false
+                } else if activeQuote == "\"", character == "\\" {
+                    escaping = true
+                } else if character == activeQuote {
+                    quote = nil
+                }
+            } else if character == "\"" || character == "'" {
+                quote = character
+            } else if character == "." {
+                parts.append(String(raw[start..<index]).trimmingCharacters(in: .whitespaces))
+                start = raw.index(after: index)
+            }
+        }
+        guard quote == nil else { return nil }
+        parts.append(String(raw[start...]).trimmingCharacters(in: .whitespaces))
+        var keys: [String] = []
+        for part in parts {
+            guard let key = parseTOMLKey(part) else { return nil }
+            keys.append(key)
+        }
+        return keys.isEmpty ? nil : keys
+    }
+
     private static func parseTOMLValue(_ raw: String) -> Any? {
         if raw.hasPrefix("\""), raw.hasSuffix("\"") {
             return decodeTOMLString(raw)
@@ -131,8 +240,10 @@ enum TOMLDocumentParser {
         }
         if raw == "true" { return true }
         if raw == "false" { return false }
-        if let integer = Int(raw) { return integer }
-        if let double = Double(raw), double.isFinite { return double }
+        if let integer = parseTOMLInteger(raw) { return integer }
+        if let double = Double(raw.replacingOccurrences(of: "_", with: "")), double.isFinite {
+            return double
+        }
         if raw.hasPrefix("["), raw.hasSuffix("]") {
             let body = String(raw.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
             if body.isEmpty { return [String]() }
@@ -144,7 +255,53 @@ enum TOMLDocumentParser {
             }
             return strings
         }
+        if raw.hasPrefix("{"), raw.hasSuffix("}") {
+            let body = String(raw.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+            if body.isEmpty { return [String: Any]() }
+            guard let items = splitTOMLArray(body) else { return nil }
+            var table: [String: Any] = [:]
+            for item in items {
+                guard let equals = firstUnquotedEquals(in: item) else { return nil }
+                let rawKey = String(item[..<equals]).trimmingCharacters(in: .whitespaces)
+                let rawValue = String(item[item.index(after: equals)...]).trimmingCharacters(in: .whitespaces)
+                guard let keyPath = parseTOMLKeyPath(rawKey), keyPath.count == 1,
+                      let value = parseTOMLValue(rawValue) else { return nil }
+                table[keyPath[0]] = value
+            }
+            return table
+        }
         return nil
+    }
+
+    /// TOML integers: optional sign, `_` separators, and `0x`/`0o`/`0b`
+    /// prefixes. `Int(raw)` alone rejects every one of those beyond plain
+    /// decimal.
+    private static func parseTOMLInteger(_ raw: String) -> Int? {
+        let compact = raw.replacingOccurrences(of: "_", with: "")
+        guard !compact.isEmpty else { return nil }
+        var body = compact
+        var negative = false
+        if body.hasPrefix("+") {
+            body.removeFirst()
+        } else if body.hasPrefix("-") {
+            negative = true
+            body.removeFirst()
+        }
+        let radix: Int
+        if body.hasPrefix("0x") || body.hasPrefix("0X") {
+            radix = 16
+            body.removeFirst(2)
+        } else if body.hasPrefix("0o") || body.hasPrefix("0O") {
+            radix = 8
+            body.removeFirst(2)
+        } else if body.hasPrefix("0b") || body.hasPrefix("0B") {
+            radix = 2
+            body.removeFirst(2)
+        } else {
+            radix = 10
+        }
+        guard !body.isEmpty, let magnitude = Int(body, radix: radix) else { return nil }
+        return negative ? -magnitude : magnitude
     }
 
     private static func splitTOMLArray(_ body: String) -> [String]? {
@@ -152,6 +309,7 @@ enum TOMLDocumentParser {
         var start = body.startIndex
         var quote: Character?
         var escaping = false
+        var depth = 0
         for index in body.indices {
             let character = body[index]
             if let activeQuote = quote {
@@ -164,13 +322,21 @@ enum TOMLDocumentParser {
                 }
             } else if character == "\"" || character == "'" {
                 quote = character
-            } else if character == "," {
+            } else if character == "[" || character == "{" {
+                depth += 1
+            } else if character == "]" || character == "}" {
+                depth -= 1
+            } else if character == ",", depth == 0 {
                 items.append(String(body[start..<index]).trimmingCharacters(in: .whitespaces))
                 start = body.index(after: index)
             }
         }
         guard quote == nil else { return nil }
         items.append(String(body[start...]).trimmingCharacters(in: .whitespaces))
+        // TOML allows a trailing comma; the empty tail is not an item.
+        if items.last?.isEmpty == true {
+            items.removeLast()
+        }
         return items.allSatisfy { !$0.isEmpty } ? items : nil
     }
 
@@ -242,20 +408,37 @@ enum TOMLConfigDecoder {
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
             "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange",
             "focusSpaceOnWindowDropModifier", "hideMenuBarIcon",
-            "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode"
+            "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode",
+            // Inline `hotkey = { ... }` / `hudPosition = { ... }` under
+            // [behavior] must survive flatten just like the dotted form.
+            "hotkey", "pinnedHotkey", "glyphStripHotkey", "hudPosition"
         ])
         flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows", "refuseUntrustedYabai"])
         if result["showExtraWindows"] == nil, let legacyShowExtra {
             result["showExtraWindows"] = legacyShowExtra
         }
 
-        if let section = result["spaceNames"] as? [String: Any],
-           section["showSpaceNames"] != nil {
-            result["showSpaceNames"] = section["showSpaceNames"]
-            result.removeValue(forKey: "spaceNames")
+        // `[spaceNames]` has held three shapes over time: a names map, the
+        // showSpaceNames toggle, and a nested `names` map. Merge them instead
+        // of dropping direct entries; anything non-numeric still reaches the
+        // decoder and flags repair.
+        var directSpaceNames: [String: Any] = [:]
+        if let section = result.removeValue(forKey: "spaceNames") as? [String: Any] {
+            for (key, value) in section {
+                if key == "showSpaceNames" {
+                    result["showSpaceNames"] = value
+                } else if key == "names", let nested = value as? [String: Any] {
+                    directSpaceNames.merge(nested) { _, new in new }
+                } else {
+                    directSpaceNames[key] = value
+                }
+            }
         }
-        if let names = result.removeValue(forKey: "spaceNames.names") as? [String: Any] {
-            result["spaceNames"] = names
+        if let nested = result.removeValue(forKey: "spaceNames.names") as? [String: Any] {
+            directSpaceNames.merge(nested) { _, new in new }
+        }
+        if !directSpaceNames.isEmpty {
+            result["spaceNames"] = directSpaceNames
         }
         if let hotkey = result.removeValue(forKey: "behavior.hotkey") {
             result["hotkey"] = hotkey
@@ -429,7 +612,10 @@ enum TOMLConfigDecoder {
             if let name = profileDict["name"] as? String {
                 profile.name = name
             }
-            if let names = object["spaceNameProfiles.\(index).names"] as? [String: Any] {
+            // `[spaceNameProfiles.N.names]` is the writer's form; accept the
+            // inline `names = { ... }` form under the profile table too.
+            if let names = (object["spaceNameProfiles.\(index).names"] as? [String: Any])
+                ?? (profileDict["names"] as? [String: Any]) {
                 var spaceNames: [Int: String] = [:]
                 for (key, rawName) in names {
                     guard let spaceIndex = Int(key), spaceIndex > 0,
@@ -454,10 +640,18 @@ enum TOMLConfigDecoder {
 
 
     /// Unknown theme names stay nil so `toGridConfig` flags repair and heals
-    /// the file, instead of silently falling back at every use site.
+    /// the file, instead of silently falling back at every use site. Lookup
+    /// mirrors `ThemeManager.named`: normalized (spaces/hyphens/underscores)
+    /// first, then compact (`tokyonight` -> `tokyo night`). The user's
+    /// spelling is preserved so a save does not rewrite it.
     private static func validatedThemeName(_ name: String?) -> String? {
-        guard let name, ThemeManager.shared.allNames().contains(name.lowercased()) else { return nil }
-        return name
+        guard let name else { return nil }
+        let names = ThemeManager.shared.allNames()
+        let normalized = ThemeManager.normalizedName(name)
+        if names.contains(normalized) { return name }
+        let compact = ThemeManager.compactName(name)
+        if names.contains(where: { ThemeManager.compactName($0) == compact }) { return name }
+        return nil
     }
 
     private static func parseHotkeyTable(_ table: [String: Any]) -> HotkeyConfig? {
@@ -494,7 +688,13 @@ enum TOMLConfigDecoder {
     }
     /// `[glyphStrip]` table. Unknown enum names fall back to that key's default
     /// instead of failing the whole load, matching how the other enum keys behave.
+    /// A bare `glyphStrip = true` is the legacy on/off form and maps to `enabled`.
     private static func glyphStripConfig(from object: [String: Any]) -> GlyphStripConfig? {
+        if let enabled = object["glyphStrip"] as? Bool {
+            var config = GlyphStripConfig.default
+            config.enabled = enabled
+            return config
+        }
         guard let table = object["glyphStrip"] as? [String: Any] else { return nil }
         var config = GlyphStripConfig.default
         if let value = table["enabled"] as? Bool { config.enabled = value }
@@ -504,7 +704,9 @@ enum TOMLConfigDecoder {
         if let name = table["iconSource"] as? String,
            let source = GlyphStripIconSource.iconSource(from: name) { config.iconSource = source }
         if let value = table["dedupeAppsPerSpace"] as? Bool { config.dedupeAppsPerSpace = value }
-        if let value = number(table["maxIconsPerSpace"]) { config.maxIconsPerSpace = Int(value) }
+        if let value = number(table["maxIconsPerSpace"]) {
+            config.maxIconsPerSpace = clampedInt(value, rounding: .towardZero)
+        }
         if let value = number(table["iconSize"]) { config.iconSize = value }
         if let value = number(table["indexSize"]) { config.indexSize = value }
         if let value = table["highlightCurrentSpace"] as? Bool { config.highlightCurrentSpace = value }
@@ -563,7 +765,9 @@ enum TOMLConfigDecoder {
         // Int storage (see GlyphStrip.customOffsets): round, don't truncate,
         // so 12.7 lands on 13 rather than 12. Full-Double storage needs
         // Glyph* call-site changes, out of scope for this pass.
-        if let value = number(table["xOffset"]) { config.xOffset = Int(value.rounded()) }
+        if let value = number(table["xOffset"]) {
+            config.xOffset = clampedInt(value, rounding: .toNearestOrAwayFromZero)
+        }
         if let value = table["borderEnabled"] as? Bool { config.borderEnabled = value }
         if let value = table["theme"] as? String { config.theme = value }
         return config
@@ -581,6 +785,17 @@ enum TOMLConfigDecoder {
         if let value = raw as? Double { return value }
         if let value = raw as? Int { return Double(value) }
         return nil
+    }
+
+    /// `Int(Double)` traps outside `Int`'s range (e.g. `1e300`). Saturate
+    /// instead; `toGridConfig` still clamps to the documented range and flags
+    /// repair, so a wild file heals on the next save rather than killing the app.
+    private static func clampedInt(_ value: Double, rounding rule: FloatingPointRoundingRule) -> Int {
+        guard value.isFinite else { return 0 }
+        let rounded = value.rounded(rule)
+        if rounded >= Double(Int.max) { return Int.max }
+        if rounded <= Double(Int.min) { return Int.min }
+        return Int(rounded)
     }
 
     /// `[appFont]` table.

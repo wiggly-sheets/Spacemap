@@ -2,7 +2,23 @@ import Foundation
 
 class ThemeManager {
 
+    private struct DirectoryStamp: Equatable {
+        struct Entry: Equatable {
+            let name: String
+            let size: Int
+            let modificationDate: Date
+        }
+
+        let entries: [Entry]
+    }
+
+    private let lock = NSLock()
     private var themes: [String: AppTheme] = [:]
+    /// Sorted `(name, size, mtime)` snapshot of the theme files at the last
+    /// load. Directory mtime alone misses in-place `.smthemes` edits.
+    private var loadedDirectoryStamp: DirectoryStamp?
+    /// Unknown names are looked up on every strip refresh; log each once.
+    private var loggedUnresolvedNames = Set<String>()
 
     /// Single shared instance; a fresh `ThemeManager()` re-reads the whole
     /// themes directory on every construction.
@@ -17,12 +33,79 @@ class ThemeManager {
         loadAll()
     }
 
+    /// Reloads only when the theme files changed. `HUDWindowController` and the
+    /// strip both react to one settings save, so this also prevents a second
+    /// parse of the same directory.
+    func reloadIfChanged() {
+        let stamp = Self.directoryStamp()
+        let changed = withLock { stamp != loadedDirectoryStamp }
+        guard changed else { return }
+        reload()
+    }
+
     func named(_ name: String) -> AppTheme {
-        themes[name.lowercased()] ?? .default
+        let key = Self.normalizedName(name)
+        let compact = Self.compactName(name)
+        return withLock {
+            if let theme = themes[key] { return theme }
+            // Docs also list compact names (`tokyonight`); accept those without
+            // weakening exact-name precedence. Sorted keys keep a collision
+            // deterministic across loads.
+            for candidate in themes.keys.sorted() where Self.compactName(candidate) == compact {
+                if let theme = themes[candidate] { return theme }
+            }
+            if loggedUnresolvedNames.insert(key).inserted {
+                NSLog("spacemap/ThemeManager: theme '%@' not found; using default", name)
+            }
+            return .default
+        }
     }
 
     func allNames() -> [String] {
-        Array(themes.keys).sorted()
+        withLock { Array(themes.keys).sorted() }
+    }
+
+    private func withLock<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
+    }
+
+    /// Theme names are advertised with hyphens (`monokai-dark`) but stored
+    /// with spaces (`monokai dark`). Both, plus underscores and repeated
+    /// whitespace, resolve to the same key.
+    static func normalizedName(_ name: String) -> String {
+        name.lowercased()
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .split(whereSeparator: { $0.isWhitespace })
+            .joined(separator: " ")
+    }
+
+    static func compactName(_ name: String) -> String {
+        normalizedName(name).filter { !$0.isWhitespace }
+    }
+
+    private static func directoryStamp() -> DirectoryStamp? {
+        let dir = themesDir()
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]
+        ) else { return nil }
+        let entries: [DirectoryStamp.Entry] = files
+            .filter { $0.pathExtension == "smthemes" }
+            .compactMap { url in
+                guard let values = try? url.resourceValues(
+                    forKeys: [.fileSizeKey, .contentModificationDateKey]
+                ) else { return nil }
+                return DirectoryStamp.Entry(
+                    name: url.lastPathComponent,
+                    size: values.fileSize ?? -1,
+                    modificationDate: values.contentModificationDate ?? .distantPast
+                )
+            }
+            .sorted { $0.name < $1.name }
+        return DirectoryStamp(entries: entries)
     }
 
     static func themesDir() -> URL {
@@ -38,24 +121,37 @@ class ThemeManager {
 
 
     private func loadAll() {
-        themes.removeAll()
         seedDefaultsIfNeeded()
         let dir = Self.ensureThemesDir()
-        guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return }
-        if files.count > 64 {
-            NSLog("spacemap/ThemeManager: dropped %d theme files beyond 64", files.count - 64)
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]
+        ) else { return }
+        let themeFiles = files
+            .filter { $0.pathExtension == "smthemes" }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        if themeFiles.count > 64 {
+            NSLog("spacemap/ThemeManager: dropped %d theme files beyond 64", themeFiles.count - 64)
         }
-        for file in files.prefix(64) where file.pathExtension == "smthemes" {
-            let name = file.deletingPathExtension().lastPathComponent
-                .replacingOccurrences(of: "-", with: " ")
+
+        var loaded: [String: AppTheme] = [:]
+        for file in themeFiles.prefix(64) {
+            let name = Self.normalizedName(file.deletingPathExtension().lastPathComponent)
             if let theme = parseTheme(from: file) {
-                themes[name.lowercased()] = theme
+                loaded[name] = theme
+            } else {
+                NSLog("spacemap/ThemeManager: failed to parse theme file %@", file.lastPathComponent)
             }
         }
         for (name, theme) in Self.builtinThemes() {
-            if themes[name] == nil {
-                themes[name] = theme
+            if loaded[name] == nil {
+                loaded[name] = theme
             }
+        }
+        let stamp = Self.directoryStamp()
+        withLock {
+            themes = loaded
+            loadedDirectoryStamp = stamp
         }
     }
 

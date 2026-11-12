@@ -21,6 +21,29 @@ final class AppConfig {
 
     static func saveConfig(_ config: GridConfig, to path: String) { shared.save(config, to: path) }
 
+    /// Additive failure-reporting variants; existing call sites keep ignoring
+    /// the result and stay source-compatible.
+    @discardableResult
+    static func saveConfigReportingResult(_ config: GridConfig) -> Bool {
+        ConfigLoader.saveReportingResult(config, to: shared.configPath)
+    }
+
+    @discardableResult
+    static func saveConfigReportingResult(_ config: GridConfig, to path: String) -> Bool {
+        ConfigLoader.saveReportingResult(config, to: path)
+    }
+
+    /// Atomic read-modify-write. Use this instead of a separate `load()` +
+    /// `saveConfig()` pair when two tasks may update different fields.
+    @discardableResult
+    static func updateConfig(_ mutate: (inout GridConfig) -> Void) -> Bool {
+        ConfigLoader.update(at: shared.configPath, silentMode: shared.silentMode, mutate)
+    }
+
+    static func loadReportingResult() -> (values: ConfigValues, needsRepair: Bool, status: ConfigLoadStatus) {
+        ConfigLoader.loadReportingResult(from: shared.configPath, silentMode: shared.silentMode)
+    }
+
     static func parseConfig(_ text: String) -> GridConfig { shared.parseConfig(text) }
 
     static func parseHotkey(_ value: String) -> HotkeyConfig? { shared.parseHotkey(value) }
