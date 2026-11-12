@@ -1463,22 +1463,102 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(config?.shape, .pill)
     }
 
-    func testGlassAmountDecodesAndDefaultsToCentre() {
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nglassAmount = 0.8")?.glassAmount, 0.8)
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.glassAmount, 0.5)
+    func testGlassStyleDecodesAndDefaultsToOpaque() {
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nglassStyle = \"tinted\"")?.glassStyle, .tinted)
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nglassStyle = \"frosted\"")?.glassStyle, .opaque)
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.glassStyle, .opaque)
     }
 
-    func testGlassAmountClampsToZeroAndOne() {
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nglassAmount = 4.0")?.clamped().glassAmount, 1)
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nglassAmount = -2.0")?.clamped().glassAmount, 0)
+    func testLegacyGlassAmountAndTintMapToGlassStyle() {
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\nuseThemeTint = false")?.glassStyle,
+            .opaque
+        )
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\nuseThemeTint = true\nglassAmount = 0.0")?.glassStyle,
+            .clear
+        )
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\nuseThemeTint = true\nglassAmount = 0.8")?.glassStyle,
+            .tinted
+        )
     }
 
-    func testGlassTintAndFillMath() {
-        XCTAssertNil(GlyphStrip.glassTintAlpha(for: 0.02))
-        XCTAssertEqual(GlyphStrip.glassTintAlpha(for: 0.5) ?? 0, 0.23, accuracy: 1e-9)
-        XCTAssertEqual(GlyphStrip.glassFillOpacity(for: 0.5), 0.375, accuracy: 1e-9)
-        XCTAssertFalse(GlyphStrip.glassUsesPopoverMaterial(for: 0.15))
-        XCTAssertTrue(GlyphStrip.glassUsesPopoverMaterial(for: 0.5))
+    func testGlassFillOpacityAndFallbackMaterial() {
+        XCTAssertEqual(
+            GlyphStrip.glassFillOpacity(for: .clear, backgroundOpacity: 0.5),
+            0.075,
+            accuracy: 1e-9
+        )
+        XCTAssertEqual(
+            GlyphStrip.glassFillOpacity(for: .opaque, backgroundOpacity: 0.5),
+            0.5,
+            accuracy: 1e-9
+        )
+        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .tinted), .popover)
+        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .opaque), .headerView)
+        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .clear), .headerView)
+    }
+
+    func testPerStyleOpacityResolvesAndSharedModeOverrides() {
+        var config = GlyphStripConfig.default
+        config.glassClearOpacity = 0.1
+        config.glassOpaqueOpacity = 0.2
+        config.glassTintedOpacity = 0.7
+        config.solidOpacity = 0.9
+        config.backgroundOpacity = 0.4
+
+        config.backgroundMaterial = .solid
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .solid), 0.9)
+        config.backgroundMaterial = .liquidGlass
+        config.glassStyle = .clear
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.1)
+        config.glassStyle = .opaque
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.2)
+        config.glassStyle = .tinted
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.7)
+
+        config.matchBackgroundOpacity = true
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .solid), 0.4)
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.4)
+    }
+
+    func testLegacyBackgroundOpacityFeedsPerStyleValues() {
+        let config = decodeGlyphStrip("[glyphStrip]\nbackgroundOpacity = 0.6")
+        XCTAssertEqual(config?.glassClearOpacity, 0.6)
+        XCTAssertEqual(config?.glassOpaqueOpacity, 0.6)
+        XCTAssertEqual(config?.glassTintedOpacity, 0.6)
+        XCTAssertEqual(config?.solidOpacity, 0.6)
+    }
+
+    func testMatchHUDAppearanceCopiesMaterialStyleOpacityAndTheme() {
+        var hud = GridConfig.default
+        hud.backgroundStyle = .solid
+        hud.solidOpacity = 0.8
+        hud.glassStyle = .tinted
+        hud.theme = "nord"
+
+        var strip = GlyphStripConfig.default
+        strip.backgroundMaterial = .none
+        strip.theme = "dracula"
+        strip.matchHUDAppearance = true
+
+        XCTAssertEqual(strip.resolvedBackgroundMaterial(hud: hud), .solid)
+        XCTAssertEqual(strip.resolvedBackgroundOpacity(hud: hud), 0.8)
+        XCTAssertEqual(strip.resolvedThemeName(hud: hud), "nord")
+
+        hud.backgroundStyle = .glass
+        XCTAssertEqual(strip.resolvedBackgroundMaterial(hud: hud), .liquidGlass)
+        XCTAssertEqual(strip.resolvedGlassStyle(hud: hud), .tinted)
+        XCTAssertEqual(
+            strip.resolvedBackgroundOpacity(hud: hud),
+            hud.effectiveBackgroundOpacity(for: .glass)
+        )
+
+        strip.matchHUDAppearance = false
+        XCTAssertEqual(strip.resolvedBackgroundMaterial(hud: hud), .none)
+        XCTAssertEqual(strip.resolvedGlassStyle(hud: hud), .opaque)
+        XCTAssertEqual(strip.resolvedThemeName(hud: hud), "dracula")
     }
 
     func testAbsentGlyphStripKeyLeavesConfigUntouched() {
@@ -1584,9 +1664,15 @@ final class GlyphStripTests: XCTestCase {
         original.indexSize = 9
         original.highlightCurrentSpace = false
         original.backgroundMaterial = .liquidGlass
-        original.glassAmount = 0.8
+        original.glassStyle = .tinted
+        original.matchHUDAppearance = true
         original.shape = .pill
         original.backgroundOpacity = 0.6
+        original.glassClearOpacity = 0.2
+        original.glassOpaqueOpacity = 0.4
+        original.glassTintedOpacity = 0.8
+        original.solidOpacity = 0.9
+        original.matchBackgroundOpacity = true
         original.cornerRadius = 12
         original.margin = 9
         original.yOffset = 3.5
