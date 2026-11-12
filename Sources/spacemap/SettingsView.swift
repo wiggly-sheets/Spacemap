@@ -39,6 +39,8 @@ struct SettingsView: View {
     @State private var maxSpaces: Int = 16
     @State private var gridLayoutIndex: Int = 0
     @State private var backgroundAlpha: Double = 0.3
+    @State private var backgroundStyle: HUDBackgroundStyle = .glass
+    @State private var glassStyle: HUDGlassStyle = .frosted
     @State private var hudShadow: Bool = true
     @State private var mode: ThemeMode = .auto
     @State private var iconScale: Double = 1.0
@@ -104,6 +106,8 @@ struct SettingsView: View {
         _displayNavigationWrap = State(initialValue: config.displayNavigationWrap)
         _maxSpaces = State(initialValue: config.maxSpaces)
         _backgroundAlpha = State(initialValue: config.backgroundAlpha)
+        _backgroundStyle = State(initialValue: config.backgroundStyle)
+        _glassStyle = State(initialValue: config.glassStyle)
         _hudShadow = State(initialValue: config.hudShadow)
         _mode = State(initialValue: config.mode)
         _iconScale = State(initialValue: config.iconScale)
@@ -164,6 +168,8 @@ struct SettingsView: View {
             displayNavigationWrap: displayNavigationWrap,
             maxSpaces: maxSpaces,
             backgroundAlpha: backgroundAlpha,
+            backgroundStyle: backgroundStyle,
+            glassStyle: glassStyle,
             hudShadow: hudShadow,
             mode: mode,
             iconScale: iconScale,
@@ -236,6 +242,8 @@ struct SettingsView: View {
                     theme: $theme,
                     mode: $mode,
                     backgroundAlpha: $backgroundAlpha,
+                    backgroundStyle: $backgroundStyle,
+                    glassStyle: $glassStyle,
                     hudShadow: $hudShadow,
                     iconScale: $iconScale,
                     uiScale: $uiScale,

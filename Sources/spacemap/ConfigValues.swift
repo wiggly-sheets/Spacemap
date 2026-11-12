@@ -19,6 +19,8 @@ struct ConfigValues {
     var displayNavigationWrap: DisplayNavigationWrap?
     var maxSpaces: Int?
     var backgroundAlpha: Double?
+    var backgroundStyle: HUDBackgroundStyle?
+    var glassStyle: HUDGlassStyle?
     var hudShadow: Bool?
     var mode: ThemeMode?
     var iconScale: Double?
@@ -72,6 +74,8 @@ struct ConfigValues {
         self.displayNavigationWrap = config.displayNavigationWrap
         self.maxSpaces = config.maxSpaces
         self.backgroundAlpha = config.backgroundAlpha
+        self.backgroundStyle = config.backgroundStyle
+        self.glassStyle = config.glassStyle
         self.hudShadow = config.hudShadow
         self.mode = config.mode
         self.iconScale = config.iconScale
@@ -137,6 +141,8 @@ struct ConfigValues {
         }
 
         let resolvedCellStyle = orDefault(cellStyle, defaults.cellStyle)
+        let resolvedBackgroundStyle = orDefault(backgroundStyle, defaults.backgroundStyle)
+        let resolvedGlassStyle = orDefault(glassStyle, defaults.glassStyle)
         let resolvedShowMode = orDefault(showMode, defaults.showMode)
         let resolvedMultiMonitorMode = orDefault(multiMonitorHUDMode, defaults.multiMonitorHUDMode)
         let resolvedUnifiedVisibility = orDefault(unifiedHUDVisibility, defaults.unifiedHUDVisibility)
@@ -196,6 +202,8 @@ struct ConfigValues {
             displayNavigationWrap: resolvedNavigationWrap,
             maxSpaces: oversizeClamped(maxSpaces, defaults.maxSpaces, in: 1...16),
             backgroundAlpha: valid(backgroundAlpha, defaults.backgroundAlpha) { (0...1).contains($0) },
+            backgroundStyle: resolvedBackgroundStyle,
+            glassStyle: resolvedGlassStyle,
             hudShadow: orDefault(hudShadow, defaults.hudShadow),
             mode: resolvedThemeMode,
             iconScale: valid(iconScale, defaults.iconScale) { (0...1).contains($0) },

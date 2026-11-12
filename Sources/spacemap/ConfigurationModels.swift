@@ -11,6 +11,15 @@ enum CellStyle: Int, CaseIterable, Identifiable, Equatable {
     case rects, hybrid, icons, thumbnails, simple
     var id: Int { rawValue }
 }
+
+enum HUDBackgroundStyle: String, CaseIterable, Identifiable, Codable, Equatable {
+    case glass, solid, transparent
+    var id: String { rawValue }
+}
+enum HUDGlassStyle: String, CaseIterable, Identifiable, Codable, Equatable {
+    case clear, tinted, frosted
+    var id: String { rawValue }
+}
 enum ShowMode: String, CaseIterable, Identifiable, Equatable { case all, active; var id: String { rawValue } }
 enum MultiMonitorHUDMode: String, CaseIterable, Identifiable, Equatable {
     case unified
@@ -387,6 +396,10 @@ struct GridConfig: Equatable {
     /// HUD overlay translucency 0...1. Not the strip fill — that is
     /// `GlyphStripConfig.backgroundOpacity` under `[glyphStrip]`.
     var backgroundAlpha: Double
+    /// HUD background style, independent of the theme.
+    var backgroundStyle: HUDBackgroundStyle = .glass
+    /// Glass sub-type, only read when `backgroundStyle == .glass`.
+    var glassStyle: HUDGlassStyle = .frosted
     var hudShadow: Bool = true
     var mode: ThemeMode
     var iconScale: Double
@@ -430,7 +443,8 @@ struct GridConfig: Equatable {
         socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5,
         theme: "default", showMode: .all, multiMonitorHUDMode: .unified,
         unifiedHUDVisibility: .active, separateHUDVisibility: .all,
-        displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3, hudShadow: true,
+        displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3,
+        backgroundStyle: .glass, glassStyle: .frosted, hudShadow: true,
         mode: .auto, iconScale: 0.5, showSpaceNumbers: true,
         showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false,
         hideMenuBarIcon: false, glyphStrip: .default, menuBarDisplayMode: .icon,

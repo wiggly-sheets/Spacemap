@@ -248,6 +248,44 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertTrue(config.jumpToSpaceEnabled)
     }
 
+    func testBackgroundStyleRepairsInvalidToDefault() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-loader-bgstyle-repair-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let valid = ConfigLoader.tomlConfigString(
+            from: ConfigValues(from: .default),
+            includeHeaderComments: true
+        )
+        let invalid = valid
+            .replacingOccurrences(of: "backgroundStyle = \"glass\"", with: "backgroundStyle = \"broken\"")
+            .replacingOccurrences(of: "glassStyle = \"frosted\"", with: "glassStyle = \"broken\"")
+        try invalid.write(toFile: path, atomically: true, encoding: .utf8)
+
+        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let repaired = try String(contentsOfFile: path, encoding: .utf8)
+
+        XCTAssertTrue(needsRepair)
+        XCTAssertEqual(values.gridConfig.backgroundStyle, GridConfig.default.backgroundStyle)
+        XCTAssertEqual(values.gridConfig.glassStyle, GridConfig.default.glassStyle)
+        XCTAssertTrue(repaired.contains("backgroundStyle = \"glass\""))
+        XCTAssertTrue(repaired.contains("glassStyle = \"frosted\""))
+        XCTAssertFalse(repaired.contains("broken"))
+    }
+
+    func testGeneratedConfigHasBackgroundStylesInAppearanceSection() {
+        let toml = ConfigLoader.tomlConfigString(
+            from: ConfigValues(from: .default),
+            includeHeaderComments: true
+        )
+        let appearance = toml.components(separatedBy: "[appearance]").last ?? ""
+
+        XCTAssertTrue(appearance.contains("backgroundStyle = \"glass\""))
+        XCTAssertTrue(appearance.contains("glassStyle = \"frosted\""))
+    }
+
 
     func testCreateDefaultConfigFile() throws {
         let directory = FileManager.default.temporaryDirectory

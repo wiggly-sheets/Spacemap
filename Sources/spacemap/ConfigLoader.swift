@@ -226,6 +226,8 @@ enum ConfigLoader {
             "theme = \(tomlString(values.theme ?? defaults.theme))",
             "mode = \(tomlString((values.mode ?? defaults.mode).rawValue))",
             "backgroundAlpha = \(values.backgroundAlpha ?? defaults.backgroundAlpha)",
+            "backgroundStyle = \(tomlString((values.backgroundStyle ?? defaults.backgroundStyle).rawValue))",
+            "glassStyle = \(tomlString((values.glassStyle ?? defaults.glassStyle).rawValue))",
             "hudShadow = \(values.hudShadow ?? defaults.hudShadow)",
             "iconScale = \(values.iconScale ?? defaults.iconScale)",
             "uiScale = \(values.uiScale ?? defaults.uiScale)",

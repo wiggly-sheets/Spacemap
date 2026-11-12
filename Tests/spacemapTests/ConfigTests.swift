@@ -110,6 +110,46 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(c.showExtraWindows)
     }
 
+    func testBackgroundStyleParsing() {
+        let c = AppConfig.parseConfig("""
+        [appearance]
+        backgroundStyle = "solid"
+        glassStyle = "tinted"
+        """)
+        XCTAssertEqual(c.backgroundStyle, .solid)
+        XCTAssertEqual(c.glassStyle, .tinted)
+
+        let c2 = AppConfig.parseConfig("""
+        [appearance]
+        backgroundStyle = "invalid"
+        glassStyle = "invalid"
+        """)
+        XCTAssertEqual(c2.backgroundStyle, GridConfig.default.backgroundStyle)
+        XCTAssertEqual(c2.glassStyle, GridConfig.default.glassStyle)
+    }
+
+    func testBackgroundStyleRoundTripsThroughDisk() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-config-bgstyle-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        AppConfig.silentMode = true
+        defer { AppConfig.silentMode = false }
+
+        let original = AppConfig.parseConfig("""
+        [appearance]
+        backgroundStyle = "glass"
+        glassStyle = "clear"
+        """)
+        AppConfig.saveConfig(original, to: path)
+        let reloaded = AppConfig.load(from: path)
+
+        XCTAssertEqual(reloaded.backgroundStyle, .glass)
+        XCTAssertEqual(reloaded.glassStyle, .clear)
+    }
+
     func testMissingFieldsUseDefaults() {
         let c = AppConfig.parseConfig("""
         [grid]

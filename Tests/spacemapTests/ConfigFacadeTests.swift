@@ -193,6 +193,8 @@ final class ConfigFacadeTests: XCTestCase {
         _ = values.displayNavigationWrap
         _ = values.maxSpaces
         _ = values.backgroundAlpha
+        _ = values.backgroundStyle
+        _ = values.glassStyle
         _ = values.mode
         _ = values.iconScale
         _ = values.showSpaceNumbers

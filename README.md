@@ -236,7 +236,9 @@ showIconStrip = true
 [appearance]
 theme = "default"
 uiScale = 0.5
-backgroundAlpha = 0.3
+backgroundAlpha = 0.3      # glass styles only; solid and transparent ignore it
+backgroundStyle = "glass"   # glass, solid, transparent
+glassStyle = "frosted"      # clear, tinted, frosted (glass only)
 hudShadow = true
 
 [behavior]
@@ -320,7 +322,7 @@ theme = ""                        # follow main HUD theme; or a theme name
 |---|---|
 | `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showSpaceLayout`, `showIconStrip`, `showMultiAppIcons` |
 | `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]` |
-| `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `hudShadow`, `uiScale`, `iconScale` |
+| `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `backgroundStyle`, `glassStyle`, `hudShadow`, `uiScale`, `iconScale` |
 | `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `hideMenuBarIcon`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
 | `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassAmount`, `useThemeTint`, `shape`, `backgroundOpacity`, `cornerRadius`, `margin`, `yOffset`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `xOffset`, `borderEnabled` |
 | `[advanced]` | `socketHealthInterval`, `showExtraWindows` |

@@ -6,6 +6,8 @@ struct SettingsAppearanceView: View {
     @Binding var theme: String
     @Binding var mode: ThemeMode
     @Binding var backgroundAlpha: Double
+    @Binding var backgroundStyle: HUDBackgroundStyle
+    @Binding var glassStyle: HUDGlassStyle
     @Binding var hudShadow: Bool
     @Binding var iconScale: Double
     @Binding var uiScale: Double
@@ -42,11 +44,29 @@ struct SettingsAppearanceView: View {
             ])
             .onChange(of: mode) { _ in onSave() }
 
-            VStack(alignment: .leading) {
-                Text("Background Transparency")
-                    .font(.subheadline)
-                CustomStepper(steps: backgroundTransparencySteps, value: $backgroundAlpha)
-                    .onChange(of: backgroundAlpha) { _ in onSave() }
+            GlassSegmentedPicker("Background Style", selection: $backgroundStyle, options: [
+                (title: "Glass", value: .glass),
+                (title: "Solid", value: .solid),
+                (title: "Transparent", value: .transparent),
+            ])
+            .onChange(of: backgroundStyle) { _ in onSave() }
+
+            if backgroundStyle == .glass {
+                GlassSegmentedPicker("Glass Style", selection: $glassStyle, options: [
+                    (title: "Clear", value: .clear),
+                    (title: "Tinted", value: .tinted),
+                    (title: "Frosted", value: .frosted),
+                ])
+                .onChange(of: glassStyle) { _ in onSave() }
+            }
+
+            if backgroundStyle == .glass {
+                VStack(alignment: .leading) {
+                    Text("Background Transparency")
+                        .font(.subheadline)
+                    CustomStepper(steps: backgroundTransparencySteps, value: $backgroundAlpha)
+                        .onChange(of: backgroundAlpha) { _ in onSave() }
+                }
             }
 
             Toggle("Draw HUD Shadow", isOn: $hudShadow)

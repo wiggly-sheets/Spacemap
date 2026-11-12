@@ -46,7 +46,9 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `glyphStripHotkey` | Hotkey | `none` | modifiers+key or `none` | Glyph-strip show/hide; session-only, never persisted |
 | `uiScale` / `iconScale` | Double | 0.5 / 0.5 | 0.0–1.0 | HUD scale (effective: 0.5×–4.0×) / icon size (effective: 0.2×–1.0×) |
 | `theme` / `mode` | String | `default` / `auto` | theme names / `light‖dark‖auto` | Color theme / appearance |
-| `backgroundAlpha` | Double | 0.3 | 0.0–1.0 | HUD background transparency |
+| `backgroundAlpha` | Double | 0.3 | 0.0–1.0 | HUD background transparency (glass styles only; solid and transparent ignore it) |
+| `backgroundStyle` | String | `glass` | `glass‖solid‖transparent` | HUD background style |
+| `glassStyle` | String | `frosted` | `clear‖tinted‖frosted` | Glass sub-type; only read when `backgroundStyle` is `glass` |
 | `hudShadow` | Bool | true | — | HUD panel shadow |
 | `autoHideTimeout` | Int | 5 | ≥ 0 | Seconds before HUD hides (0=never) |
 | `showMode` | String | `all` | `all‖active` | Show all or active-only spaces |
