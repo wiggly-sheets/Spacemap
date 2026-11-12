@@ -17,7 +17,7 @@ class YabaiClientImpl: YabaiService {
     private static var lastDropCounts: [String: Int] = [:]
     private static let dropLock = NSLock()
 
-    private func decodeTolerant<T: Decodable>(_ type: T.Type, from output: String, label: String) throws -> [T] {
+    func decodeTolerant<T: Decodable>(_ type: T.Type, from output: String, label: String) throws -> [T] {
         let decoded = try JSONDecoder().decode([Failable<T>].self, from: Data(output.utf8))
         let dropped = decoded.filter { $0.value == nil }.count
         if dropped > 0 {
@@ -33,7 +33,9 @@ class YabaiClientImpl: YabaiService {
     private enum YabaiError: LocalizedError {
         case commandFailed(arguments: [String], status: Int32, message: String)
         case commandTimedOut(arguments: [String], timeout: TimeInterval)
+        case outputDrainTimedOut(arguments: [String], timeout: TimeInterval)
         case spaceCreationMadeNoProgress(target: Int)
+        case spaceCreationTimedOut(target: Int, budget: TimeInterval)
 
         var errorDescription: String? {
             switch self {
@@ -42,13 +44,23 @@ class YabaiClientImpl: YabaiService {
                 return "yabai \(arguments.joined(separator: " ")) failed with status \(status): \(detail)"
             case .commandTimedOut(let arguments, let timeout):
                 return "yabai \(arguments.joined(separator: " ")) timed out after \(timeout) seconds"
+            case .outputDrainTimedOut(let arguments, let timeout):
+                return "yabai \(arguments.joined(separator: " ")) output drain timed out after \(timeout) seconds; a child process is still holding stdout/stderr"
             case .spaceCreationMadeNoProgress(let target):
                 return "yabai did not create the space needed for target index \(target)"
+            case .spaceCreationTimedOut(let target, let budget):
+                return "yabai did not create the space needed for target index \(target) within \(budget) seconds"
             }
         }
     }
 
     private static let commandTimeout: TimeInterval = 10
+    /// Bounded grace for draining stdout/stderr after the child exits.
+    private static let pipeDrainTimeout: TimeInterval = 1
+
+    /// Total monotonic-time budget for the create-loop, so 16 attempts cannot
+    /// occupy the serial yabai queue for minutes.
+    let spaceCreationBudget: TimeInterval
 
     private let yabaiQueue = DispatchQueue(label: "com.spacemap.yabai", qos: .userInitiated)
     // Keep interactive focus changes ahead of state refreshes.
@@ -62,13 +74,49 @@ class YabaiClientImpl: YabaiService {
         return arm
     }()
 
+    private var yabaiIsExecutable: Bool {
+#if DEBUG
+        if let override = yabaiExecutableOverride { return override }
+#endif
+        return FileManager.default.isExecutableFile(atPath: yabaiPath)
+    }
+
     private var _yabaiRunningCache: (result: Bool, checkedAt: TimeInterval)?
     private let yabaiCacheTTL: TimeInterval = 5.0
-    private let cacheLock = NSLock()
+    // NSCondition so snapshot single-flight can wake waiters without polling.
+    private let cacheLock = NSCondition()
 
-    var yabaiProcessCheck: () -> Bool = { false }
+    private var currentUptime: TimeInterval {
+#if DEBUG
+        if let override = uptimeOverride { return override() }
+#endif
+        return ProcessInfo.processInfo.systemUptime
+    }
 
-    init() {
+#if DEBUG
+    /// Test seam: lets cache/deadline tests advance time deterministically.
+    var uptimeOverride: (() -> TimeInterval)?
+    var commandRunnerOverride: ((_ executable: String, _ arguments: [String], _ timeout: TimeInterval) throws -> String)?
+    var yabaiExecutableOverride: Bool?
+#endif
+
+    private var _yabaiProcessCheck: () -> Bool = { false }
+
+    var yabaiProcessCheck: () -> Bool {
+        get {
+            cacheLock.lock()
+            defer { cacheLock.unlock() }
+            return _yabaiProcessCheck
+        }
+        set {
+            cacheLock.lock()
+            defer { cacheLock.unlock() }
+            _yabaiProcessCheck = newValue
+        }
+    }
+
+    init(spaceCreationBudget: TimeInterval = 20) {
+        self.spaceCreationBudget = spaceCreationBudget
         yabaiProcessCheck = { [weak self] in guard let self else { return false }; return self.defaultYabaiProcessCheck() }
         let path = yabaiPath
         DispatchQueue.global(qos: .utility).async {
@@ -79,7 +127,20 @@ class YabaiClientImpl: YabaiService {
     /// Refuse to execute the yabai binary when the trust check fails.
     /// Set from GridConfig.refuseUntrustedYabai at launch; default false
     /// (warn-only) so legit installs never brick.
-    static var refuseUntrustedBinaries = false
+    private static let refuseLock = NSLock()
+    private static var _refuseUntrustedBinaries = false
+    static var refuseUntrustedBinaries: Bool {
+        get {
+            refuseLock.lock()
+            defer { refuseLock.unlock() }
+            return _refuseUntrustedBinaries
+        }
+        set {
+            refuseLock.lock()
+            defer { refuseLock.unlock() }
+            _refuseUntrustedBinaries = newValue
+        }
+    }
 
     private static let trustLock = NSLock()
     private static var trustCache: (path: String, issue: String?, checkedAt: TimeInterval)?
@@ -159,7 +220,7 @@ class YabaiClientImpl: YabaiService {
 
     func isYabaiRunning(forceRefresh: Bool = false) -> Bool {
         cacheLock.lock()
-        let now = ProcessInfo.processInfo.systemUptime
+        let now = currentUptime
         if !forceRefresh,
            let cached = _yabaiRunningCache,
            now - cached.checkedAt < yabaiCacheTTL {
@@ -167,12 +228,12 @@ class YabaiClientImpl: YabaiService {
             cacheLock.unlock()
             return result
         }
-        let check = yabaiProcessCheck
         cacheLock.unlock()
+        let check = yabaiProcessCheck
         // pgrep outside lock: never hold cacheLock across process spawn.
         let result = check()
         cacheLock.lock()
-        _yabaiRunningCache = (result, ProcessInfo.processInfo.systemUptime)
+        _yabaiRunningCache = (result, currentUptime)
         cacheLock.unlock()
         return result
     }
@@ -191,7 +252,7 @@ class YabaiClientImpl: YabaiService {
 
     func querySpaces() throws -> [YabaiSpace] {
         guard isYabaiRunning() else { return [] }
-        return try querySpacesRaw()
+        return try cachedSpaces()
     }
 
     func queryDisplays() throws -> [YabaiDisplay] {
@@ -201,29 +262,235 @@ class YabaiClientImpl: YabaiService {
 
     func queryWindows() throws -> [YabaiWindow] {
         guard isYabaiRunning() else { return [] }
-        return try queryWindowsRaw()
+        return try cachedWindows()
     }
 
-    private func querySpacesRaw() throws -> [YabaiSpace] {
-        guard FileManager.default.isExecutableFile(atPath: yabaiPath) else { return [] }
-        let output = try shell(yabaiPath, "-m", "query", "--spaces")
+    private func querySpacesRaw(timeout: TimeInterval? = nil) throws -> [YabaiSpace] {
+        guard yabaiIsExecutable else {
+            throw YabaiError.commandFailed(arguments: ["-m", "query", "--spaces"], status: -1, message: "yabai not found")
+        }
+        let output = try shell([yabaiPath, "-m", "query", "--spaces"], timeout: timeout)
         return try decodeTolerant(YabaiSpace.self, from: output, label: "space")
     }
 
     private func queryDisplaysRaw() throws -> [YabaiDisplay] {
-        guard FileManager.default.isExecutableFile(atPath: yabaiPath) else { return [] }
+        guard yabaiIsExecutable else {
+            throw YabaiError.commandFailed(arguments: ["-m", "query", "--displays"], status: -1, message: "yabai not found")
+        }
         let output = try shell(yabaiPath, "-m", "query", "--displays")
         return try decodeTolerant(YabaiDisplay.self, from: output, label: "display")
     }
 
-    private func queryWindowsRaw() throws -> [YabaiWindow] {
-        guard FileManager.default.isExecutableFile(atPath: yabaiPath) else { return [] }
-        let output = try shell(yabaiPath, "-m", "query", "--windows")
+    private func queryWindowsRaw(timeout: TimeInterval? = nil) throws -> [YabaiWindow] {
+        guard yabaiIsExecutable else {
+            throw YabaiError.commandFailed(arguments: ["-m", "query", "--windows"], status: -1, message: "yabai not found")
+        }
+        let output = try shell([yabaiPath, "-m", "query", "--windows"], timeout: timeout)
         return try decodeTolerant(YabaiWindow.self, from: output, label: "window")
     }
 
+    // Short-lived snapshots coalesce the HUD/glyph/menubar fan-out that lands
+    // within a few milliseconds of one signal. Mutating commands invalidate
+    // them so a user-initiated refresh never re-reads pre-mutation state.
+    private var _spacesCache: (spaces: [YabaiSpace], cachedAt: TimeInterval)?
+    private var _windowsCache: (windows: [YabaiWindow], cachedAt: TimeInterval)?
+    private let snapshotCacheTTL: TimeInterval = 0.3
+    /// Last-good snapshots older than this must not be served: a permanently
+    /// failing yabai should surface its empty/error state, not pin a stale HUD.
+    private let snapshotStaleTTL: TimeInterval = 5
+    private var spacesFetchInFlight = false
+    private var windowsFetchInFlight = false
+    private var snapshotGeneration = 0
+
+    private func cachedSpaces(retryOnGenerationMismatch: Bool = true) throws -> [YabaiSpace] {
+        cacheLock.lock()
+        let cached = _spacesCache
+        let now = currentUptime
+        if let cached, now - cached.cachedAt < snapshotCacheTTL {
+            cacheLock.unlock()
+            return cached.spaces
+        }
+        if spacesFetchInFlight {
+            // Single-flight: concurrent callers wait for the one in-flight
+            // query instead of spawning duplicates or serving stale data.
+            let waitUntil = Date().addingTimeInterval(Self.commandTimeout + 1)
+            while spacesFetchInFlight && Date() < waitUntil {
+                cacheLock.wait(until: waitUntil)
+            }
+            let cachedNow = _spacesCache
+            let afterWait = currentUptime
+            if let cachedNow, afterWait - cachedNow.cachedAt < snapshotCacheTTL {
+                cacheLock.unlock()
+                return cachedNow.spaces
+            }
+            if spacesFetchInFlight {
+                // Bounded wait expired; fall back to our own query.
+                cacheLock.unlock()
+                return try querySpacesRaw()
+            }
+            // The in-flight fetch failed without producing a usable result.
+        }
+        let generation = snapshotGeneration
+        spacesFetchInFlight = true
+        cacheLock.unlock()
+
+        let fresh: Result<[YabaiSpace], Error>
+        do {
+            fresh = .success(try querySpacesRaw())
+        } catch {
+            fresh = .failure(error)
+        }
+
+        cacheLock.lock()
+        spacesFetchInFlight = false
+        cacheLock.broadcast()
+        let completedAt = currentUptime
+
+        if generation != snapshotGeneration {
+            // State changed while querying: never return pre-mutation data.
+            let cachedNow = _spacesCache
+            cacheLock.unlock()
+            if let cachedNow, completedAt - cachedNow.cachedAt < snapshotCacheTTL {
+                return cachedNow.spaces
+            }
+            if retryOnGenerationMismatch {
+                return try cachedSpaces(retryOnGenerationMismatch: false)
+            }
+            switch fresh {
+            case .success(let spaces):
+                return spaces
+            case .failure(let error):
+                if let cachedNow, completedAt - cachedNow.cachedAt < snapshotStaleTTL {
+                    return cachedNow.spaces
+                }
+                throw error
+            }
+        }
+
+        // A concurrent fill landed while querying: serve it instead.
+        if let cachedNow = _spacesCache,
+           completedAt - cachedNow.cachedAt < snapshotCacheTTL {
+            let spaces = cachedNow.spaces
+            cacheLock.unlock()
+            return spaces
+        }
+        switch fresh {
+        case .success(let spaces):
+            // A transient empty spaces result must not evict a good snapshot.
+            if spaces.isEmpty,
+               let existing = _spacesCache,
+               !existing.spaces.isEmpty,
+               completedAt - existing.cachedAt < snapshotStaleTTL {
+                let stale = existing.spaces
+                cacheLock.unlock()
+                return stale
+            }
+            _spacesCache = (spaces, completedAt)
+            cacheLock.unlock()
+            return spaces
+        case .failure(let error):
+            let staleEntry = _spacesCache ?? cached
+            cacheLock.unlock()
+            if let staleEntry, completedAt - staleEntry.cachedAt < snapshotStaleTTL {
+                return staleEntry.spaces
+            }
+            throw error
+        }
+    }
+
+    private func cachedWindows(retryOnGenerationMismatch: Bool = true) throws -> [YabaiWindow] {
+        cacheLock.lock()
+        let cached = _windowsCache
+        let now = currentUptime
+        if let cached, now - cached.cachedAt < snapshotCacheTTL {
+            cacheLock.unlock()
+            return cached.windows
+        }
+        if windowsFetchInFlight {
+            let waitUntil = Date().addingTimeInterval(Self.commandTimeout + 1)
+            while windowsFetchInFlight && Date() < waitUntil {
+                cacheLock.wait(until: waitUntil)
+            }
+            let cachedNow = _windowsCache
+            let afterWait = currentUptime
+            if let cachedNow, afterWait - cachedNow.cachedAt < snapshotCacheTTL {
+                cacheLock.unlock()
+                return cachedNow.windows
+            }
+            if windowsFetchInFlight {
+                cacheLock.unlock()
+                return try queryWindowsRaw()
+            }
+        }
+        let generation = snapshotGeneration
+        windowsFetchInFlight = true
+        cacheLock.unlock()
+
+        let fresh: Result<[YabaiWindow], Error>
+        do {
+            fresh = .success(try queryWindowsRaw())
+        } catch {
+            fresh = .failure(error)
+        }
+
+        cacheLock.lock()
+        windowsFetchInFlight = false
+        cacheLock.broadcast()
+        let completedAt = currentUptime
+
+        if generation != snapshotGeneration {
+            let cachedNow = _windowsCache
+            cacheLock.unlock()
+            if let cachedNow, completedAt - cachedNow.cachedAt < snapshotCacheTTL {
+                return cachedNow.windows
+            }
+            if retryOnGenerationMismatch {
+                return try cachedWindows(retryOnGenerationMismatch: false)
+            }
+            switch fresh {
+            case .success(let windows):
+                return windows
+            case .failure(let error):
+                if let cachedNow, completedAt - cachedNow.cachedAt < snapshotStaleTTL {
+                    return cachedNow.windows
+                }
+                throw error
+            }
+        }
+
+        if let cachedNow = _windowsCache,
+           completedAt - cachedNow.cachedAt < snapshotCacheTTL {
+            let windows = cachedNow.windows
+            cacheLock.unlock()
+            return windows
+        }
+        switch fresh {
+        case .success(let windows):
+            _windowsCache = (windows, completedAt)
+            cacheLock.unlock()
+            return windows
+        case .failure(let error):
+            let staleEntry = _windowsCache ?? cached
+            cacheLock.unlock()
+            if let staleEntry, completedAt - staleEntry.cachedAt < snapshotStaleTTL {
+                return staleEntry.windows
+            }
+            throw error
+        }
+    }
+
+    /// Called after any yabai command that can change spaces/windows/focus,
+    /// including mutations made outside Spacemap (socket onRefresh/onShow).
+    func invalidateSnapshotCaches() {
+        cacheLock.lock()
+        snapshotGeneration += 1
+        _spacesCache = nil
+        _windowsCache = nil
+        cacheLock.unlock()
+    }
+
     func queryFocusedWindow() throws -> Int? {
-        guard isYabaiRunning(), FileManager.default.isExecutableFile(atPath: yabaiPath) else { return nil }
+        guard isYabaiRunning(), yabaiIsExecutable else { return nil }
         let output = try shell(yabaiPath, "-m", "query", "--windows", "--window")
         guard let data = output.data(using: .utf8),
               let json = try? JSONDecoder().decode(YabaiWindow.self, from: data) else { return nil }
@@ -248,12 +515,18 @@ class YabaiClientImpl: YabaiService {
         refreshWindowGeometry: Bool = true
     ) {
         guard isYabaiRunning(forceRefresh: true) else { return }
+        // A nonce-less action is always dropped by the listener. Leave any
+        // existing working signals alone instead of replacing them with no-ops.
+        guard SpacemapCommand.currentNonceHex(for: socketPath) != nil else {
+            NSLog("spacemap/yabai: skipping signal registration — nonce missing")
+            return
+        }
         removeSignals()
         let action = spaceChangedSignalAction(
             socketPath: socketPath,
             showHUDOnSpaceChange: showHUDOnSpaceChange
         )
-        guard FileManager.default.isExecutableFile(atPath: yabaiPath) else { return }
+        guard yabaiIsExecutable else { return }
         _ = try? shell(yabaiPath, "-m", "signal", "--add",
                        "label=spacemap_space_changed",
                        "event=space_changed",
@@ -304,8 +577,11 @@ class YabaiClientImpl: YabaiService {
             NSLog("spacemap/yabai: refusing signal with untrusted socket path")
             return "/usr/bin/false"
         }
-        let nonce = SpacemapCommand.currentNonceHex().map { ":\($0)" } ?? ""
-        return "printf '\(command)\(nonce)' | /usr/bin/nc -U \(quoted)"
+        guard let nonce = SpacemapCommand.currentNonceHex(for: socketPath) else {
+            NSLog("spacemap/yabai: refusing signal without a nonce")
+            return "/usr/bin/false"
+        }
+        return "printf '\(command):\(nonce)' | /usr/bin/nc -U \(quoted)"
     }
 
     func refreshSignalAction(socketPath: String) -> String {
@@ -313,12 +589,15 @@ class YabaiClientImpl: YabaiService {
             NSLog("spacemap/yabai: refusing signal with untrusted socket path")
             return "/usr/bin/false"
         }
-        let nonce = SpacemapCommand.currentNonceHex().map { ":\($0)" } ?? ""
-        return "printf '\(SpacemapCommand.refresh.rawValue)\(nonce)' | /usr/bin/nc -U \(quoted)"
+        guard let nonce = SpacemapCommand.currentNonceHex(for: socketPath) else {
+            NSLog("spacemap/yabai: refusing signal without a nonce")
+            return "/usr/bin/false"
+        }
+        return "printf '\(SpacemapCommand.refresh.rawValue):\(nonce)' | /usr/bin/nc -U \(quoted)"
     }
 
     func removeSignals() {
-        guard isYabaiRunning(), FileManager.default.isExecutableFile(atPath: yabaiPath) else { return }
+        guard isYabaiRunning(), yabaiIsExecutable else { return }
         _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_space_changed")
         for event in workspacePreviewRefreshEvents {
             _ = try? shell(yabaiPath, "-m", "signal", "--remove", "spacemap_\(event)")
@@ -327,13 +606,15 @@ class YabaiClientImpl: YabaiService {
 
 
     func focusSpace(_ index: Int) {
-        guard FileManager.default.isExecutableFile(atPath: yabaiPath), isYabaiRunning() else { return }
+        guard yabaiIsExecutable, isYabaiRunning() else { return }
         _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(index)")
+        invalidateSnapshotCaches()
     }
 
     @discardableResult
     func focusSpace(_ target: SpaceFocusTarget) -> Bool {
-        guard FileManager.default.isExecutableFile(atPath: yabaiPath), isYabaiRunning() else { return false }
+        guard yabaiIsExecutable, isYabaiRunning() else { return false }
+        defer { invalidateSnapshotCaches() }
         do {
             _ = try shell(yabaiPath, "-m", "space", "--focus", target.value)
             return true
@@ -345,15 +626,16 @@ class YabaiClientImpl: YabaiService {
 
     func focusSpaceAsync(_ index: Int) {
         focusQueue.async { [weak self] in
-            guard let self = self, FileManager.default.isExecutableFile(atPath: self.yabaiPath), self.isYabaiRunning() else { return }
+            guard let self = self, self.yabaiIsExecutable, self.isYabaiRunning() else { return }
             _ = try? self.shell(yabaiPath, "-m", "space", "--focus", "\(index)")
+            self.invalidateSnapshotCaches()
         }
     }
 
 
     func createSpace() {
         focusQueue.async { [weak self] in
-            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            guard let self, self.yabaiIsExecutable else { return }
             self.runIgnoringFailure(["-m", "space", "--create"], "createSpace")
         }
     }
@@ -361,7 +643,7 @@ class YabaiClientImpl: YabaiService {
     func destroySpace(_ index: Int) {
         guard index > 0 else { return }
         focusQueue.async { [weak self] in
-            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            guard let self, self.yabaiIsExecutable else { return }
             self.runIgnoringFailure(["-m", "space", "--destroy", "\(index)"], "destroySpace(\(index))")
         }
     }
@@ -374,7 +656,7 @@ class YabaiClientImpl: YabaiService {
         guard index > 0 else { return }
         // An empty list means "the focused window", which is yabai's default target.
         focusQueue.async { [weak self] in
-            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            guard let self, self.yabaiIsExecutable else { return }
             if windowIDs.isEmpty {
                 self.runIgnoringFailure(["-m", "window", "--space", "\(index)"], "moveFocusedWindow")
                 return
@@ -390,21 +672,21 @@ class YabaiClientImpl: YabaiService {
 
     func toggleWindowFullscreen() {
         focusQueue.async { [weak self] in
-            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            guard let self, self.yabaiIsExecutable else { return }
             self.runIgnoringFailure(["-m", "window", "--toggle", "native-fullscreen"], "toggleFullscreen")
         }
     }
 
     func balanceWindows() {
         focusQueue.async { [weak self] in
-            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            guard let self, self.yabaiIsExecutable else { return }
             self.runIgnoringFailure(["-m", "space", "--balance"], "balanceWindows")
         }
     }
 
     func toggleWindowFloat() {
         focusQueue.async { [weak self] in
-            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            guard let self, self.yabaiIsExecutable else { return }
             self.runIgnoringFailure(["-m", "window", "--toggle", "float"], "toggleFloat")
         }
     }
@@ -415,7 +697,7 @@ class YabaiClientImpl: YabaiService {
         // same serial queue. On focusQueue the two orderings race and the
         // HUD re-renders the pre-layout snapshot.
         yabaiQueue.async { [weak self] in
-            guard let self, FileManager.default.isExecutableFile(atPath: self.yabaiPath) else { return }
+            guard let self, self.yabaiIsExecutable else { return }
             self.runIgnoringFailure(["-m", "space", "--layout", layout.rawValue], "setSpaceLayout(\(layout.rawValue))")
         }
     }
@@ -424,6 +706,7 @@ class YabaiClientImpl: YabaiService {
     /// logged rather than swallowed: these are driven by menu-bar clicks, so a
     /// silent no-op is indistinguishable from a broken action otherwise.
     private func runIgnoringFailure(_ arguments: [String], _ label: String) {
+        defer { invalidateSnapshotCaches() }
         do {
             _ = try shell([yabaiPath] + arguments)
         } catch {
@@ -449,7 +732,39 @@ class YabaiClientImpl: YabaiService {
                     throw YabaiError.spaceCreationMadeNoProgress(target: targetIndex)
                 }
 
-                var spaces = try self.querySpacesRaw()
+                let budget = self.spaceCreationBudget
+                guard budget > 0 else {
+                    throw YabaiError.spaceCreationTimedOut(target: targetIndex, budget: budget)
+                }
+                let deadline = self.currentUptime + budget
+
+                func remainingBudget() throws -> TimeInterval {
+                    let remaining = deadline - self.currentUptime
+                    guard remaining > 0 else {
+                        throw YabaiError.spaceCreationTimedOut(target: targetIndex, budget: budget)
+                    }
+                    return min(remaining, YabaiClientImpl.commandTimeout)
+                }
+
+                func querySpacesWithinBudget() throws -> [YabaiSpace] {
+                    let timeout = try remainingBudget()
+                    do {
+                        return try self.querySpacesRaw(timeout: timeout)
+                    } catch YabaiError.commandTimedOut(_, _) {
+                        throw YabaiError.spaceCreationTimedOut(target: targetIndex, budget: budget)
+                    }
+                }
+
+                func runWithinBudget(_ arguments: [String]) throws -> String {
+                    let timeout = try remainingBudget()
+                    do {
+                        return try self.shell([self.yabaiPath] + arguments, timeout: timeout)
+                    } catch YabaiError.commandTimedOut(_, _) {
+                        throw YabaiError.spaceCreationTimedOut(target: targetIndex, budget: budget)
+                    }
+                }
+
+                var spaces = try querySpacesWithinBudget()
                 var attempts = 0
                 while !spaces.contains(where: { $0.index == targetIndex }) {
                     guard attempts < 16 else {
@@ -457,24 +772,26 @@ class YabaiClientImpl: YabaiService {
                     }
                     attempts += 1
                     let previousIndices = Set(spaces.map(\.index))
-                    guard FileManager.default.isExecutableFile(atPath: self.yabaiPath) else {
+                    guard self.yabaiIsExecutable else {
                         throw YabaiError.commandFailed(arguments: ["space", "--create"], status: -1, message: "yabai not found")
                     }
-                    _ = try self.shell(yabaiPath, "-m", "space", "--create")
-                    spaces = try self.querySpacesRaw()
+                    _ = try runWithinBudget(["-m", "space", "--create"])
+                    self.invalidateSnapshotCaches()
+                    spaces = try querySpacesWithinBudget()
 
                     guard Set(spaces.map(\.index)) != previousIndices else {
                         throw YabaiError.spaceCreationMadeNoProgress(target: targetIndex)
                     }
                 }
 
-                guard FileManager.default.isExecutableFile(atPath: self.yabaiPath) else {
+                guard self.yabaiIsExecutable else {
                     throw YabaiError.commandFailed(arguments: ["window", "\(windowID)", "--space", "\(targetIndex)"], status: -1, message: "yabai not found")
                 }
-                _ = try self.shell(yabaiPath, "-m", "window", "\(windowID)", "--space", "\(targetIndex)")
+                _ = try runWithinBudget(["-m", "window", "\(windowID)", "--space", "\(targetIndex)"])
                 if focusDestination {
-                    _ = try self.shell(yabaiPath, "-m", "space", "--focus", "\(targetIndex)")
+                    _ = try runWithinBudget(["-m", "space", "--focus", "\(targetIndex)"])
                 }
+                self.invalidateSnapshotCaches()
                 DispatchQueue.main.async { completion(.success(())) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
@@ -491,9 +808,11 @@ class YabaiClientImpl: YabaiService {
         guard isYabaiRunning() else {
             return GridState(config: config, spaces: [], windows: [], displayBounds: displayBounds, focusedIndex: nil)
         }
-        let spaces = (try? querySpacesRaw()) ?? []
+        // Cached snapshots keep the last good result when a query fails, so a
+        // transient timeout never publishes an empty grid and blanks the HUD.
+        let spaces = (try? cachedSpaces()) ?? []
         let displays = cachedDisplays()
-        let windows = (try? queryWindowsRaw()) ?? []
+        let windows = (try? cachedWindows()) ?? []
         let resolvedFocus = focusedIndex ?? spaces.first { $0.hasFocus }?.index
         return GridState(config: config, spaces: spaces, windows: windows, displayBounds: displayBounds, focusedIndex: resolvedFocus, displays: displays)
     }
@@ -527,10 +846,10 @@ class YabaiClientImpl: YabaiService {
     private let displaysCacheTTL: TimeInterval = 5.0
     private var displaysFetchInFlight = false
 
-    private func cachedDisplays() -> [YabaiDisplay] {
+    func cachedDisplays() -> [YabaiDisplay] {
         cacheLock.lock()
         let cached = _displaysCache
-        let now = ProcessInfo.processInfo.systemUptime
+        let now = currentUptime
         if let cached, now - cached.cachedAt < displaysCacheTTL {
             cacheLock.unlock()
             return cached.displays
@@ -551,8 +870,9 @@ class YabaiClientImpl: YabaiService {
         cacheLock.lock()
         displaysFetchInFlight = false
         // Recheck under lock: a concurrent fill may have landed while querying.
+        let completedAt = currentUptime
         if let cachedNow = _displaysCache,
-           ProcessInfo.processInfo.systemUptime - cachedNow.cachedAt < displaysCacheTTL {
+           completedAt - cachedNow.cachedAt < displaysCacheTTL {
             let displays = cachedNow.displays
             cacheLock.unlock()
             return displays
@@ -562,7 +882,7 @@ class YabaiClientImpl: YabaiService {
             cacheLock.unlock()
             return stale
         }
-        _displaysCache = (fresh, ProcessInfo.processInfo.systemUptime)
+        _displaysCache = (fresh, completedAt)
         cacheLock.unlock()
         return fresh
     }
@@ -575,15 +895,21 @@ class YabaiClientImpl: YabaiService {
     /// Array form. `shell(path, args...)` cannot be spelled — a trailing `...`
     /// after an identifier parses as a postfix range, not a variadic spread — so
     /// callers that build their argument list dynamically use this instead.
-    private func shell(_ args: [String]) throws -> String {
+    private func shell(_ args: [String], timeout: TimeInterval? = nil) throws -> String {
         guard let executable = args.first else { throw YabaiError.commandFailed(arguments: [], status: -1, message: "empty command") }
         if executable == yabaiPath, Self.refuseUntrustedBinaries, let issue = Self.cachedTrustIssue(path: yabaiPath) {
             throw YabaiError.commandFailed(arguments: Array(args.dropFirst()), status: -1, message: "refusing untrusted yabai binary: \(issue)")
         }
+        let effectiveTimeout = timeout ?? Self.commandTimeout
+#if DEBUG
+        if let runner = commandRunnerOverride {
+            return try runner(executable, Array(args.dropFirst()), effectiveTimeout)
+        }
+#endif
         return try Self.runProcessImpl(
             executable: executable,
             arguments: Array(args.dropFirst()),
-            timeout: Self.commandTimeout
+            timeout: effectiveTimeout
         )
     }
 
@@ -604,20 +930,17 @@ class YabaiClientImpl: YabaiService {
         do {
             try process.run()
         } catch {
-            // Close pipes on throw: no readers were dispatched, no child runs.
-            try? outputPipe.fileHandleForWriting.close()
-            try? errorPipe.fileHandleForWriting.close()
-            try? outputPipe.fileHandleForReading.close()
-            try? errorPipe.fileHandleForReading.close()
+            // No readers were dispatched: let the pipes deallocate and close
+            // their fds rather than closing them from this thread.
             throw error
         }
         outputPipe.fileHandleForWriting.closeFile()
         errorPipe.fileHandleForWriting.closeFile()
 
         // Drain both pipes on dedicated threads while the process runs so a large
-        // output cannot fill the pipe and deadlock the child. Blocking reads are
-        // used instead of readabilityHandler callbacks: EOF is guaranteed once the
-        // child exits, so no data can be lost to a starved callback queue.
+        // output cannot fill the pipe and deadlock the child. Each reader owns its
+        // read handle and closes it only after the blocking read returns, so the
+        // waiting thread never closes an fd another thread is reading.
         let readers = DispatchGroup()
         let outputHandle = outputPipe.fileHandleForReading
         let errorHandle = errorPipe.fileHandleForReading
@@ -631,6 +954,7 @@ class YabaiClientImpl: YabaiService {
             outputLock.lock()
             outputData = data
             outputLock.unlock()
+            outputHandle.closeFile()
             readers.leave()
         }
         readers.enter()
@@ -639,6 +963,7 @@ class YabaiClientImpl: YabaiService {
             errorLock.lock()
             errorData = data
             errorLock.unlock()
+            errorHandle.closeFile()
             readers.leave()
         }
 
@@ -648,17 +973,25 @@ class YabaiClientImpl: YabaiService {
                 kill(process.processIdentifier, SIGKILL)
                 _ = termination.wait(timeout: .now() + 1)
             }
-            readers.wait()
-            outputHandle.closeFile()
-            errorHandle.closeFile()
+            // A grandchild can keep the pipe open after the child dies: never
+            // wait unbounded or the serial yabai queue wedges forever. Do not
+            // close here: the blocked reader owns the handle and will close it.
+            if readers.wait(timeout: .now() + Self.pipeDrainTimeout) == .timedOut {
+                NSLog("spacemap/yabai: abandoning blocked output readers after timeout")
+            }
             throw YabaiError.commandTimedOut(arguments: arguments, timeout: timeout)
         }
-        // The child is dead, so both pipes have hit EOF; the readers are guaranteed to finish.
-        readers.wait()
-        outputHandle.closeFile()
-        errorHandle.closeFile()
+        // The child is dead, so pipes normally hit EOF; a leftover grandchild
+        // holding the write end must still not block the queue forever.
+        guard readers.wait(timeout: .now() + Self.pipeDrainTimeout) == .success else {
+            NSLog("spacemap/yabai: abandoning blocked output readers held open by a child process")
+            throw YabaiError.outputDrainTimedOut(arguments: arguments, timeout: Self.pipeDrainTimeout)
+        }
         guard process.terminationStatus == 0 else {
-            let message = String(data: errorData, encoding: .utf8)?
+            errorLock.lock()
+            let data = errorData
+            errorLock.unlock()
+            let message = String(data: data, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             throw YabaiError.commandFailed(
                 arguments: arguments,
@@ -666,7 +999,10 @@ class YabaiClientImpl: YabaiService {
                 message: message
             )
         }
-        return String(data: outputData, encoding: .utf8) ?? ""
+        outputLock.lock()
+        let data = outputData
+        outputLock.unlock()
+        return String(data: data, encoding: .utf8) ?? ""
     }
 
 #if DEBUG
