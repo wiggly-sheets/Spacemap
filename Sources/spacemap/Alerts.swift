@@ -18,8 +18,6 @@ final class AlertsServiceImpl: AlertsService {
     }
 
     func showYabaiAlert() {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = NSLocalizedString("yabai is not running", comment: "")
@@ -27,7 +25,7 @@ final class AlertsServiceImpl: AlertsService {
         alert.addButton(withTitle: NSLocalizedString("Quit", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Open yabai", comment: ""))
 
-        let response = alert.runModal()
+        let response = present(alert)
         if response == .alertSecondButtonReturn {
             // Fixed allowlist destination — never open a computed URL here.
             if let url = URL(string: "https://github.com/koekeishiya/yabai"),
@@ -39,8 +37,6 @@ final class AlertsServiceImpl: AlertsService {
     }
 
     func showYabaiUntrustedAlert(detail: String, refusing: Bool) {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = NSLocalizedString("yabai binary is untrusted", comment: "")
@@ -50,14 +46,13 @@ final class AlertsServiceImpl: AlertsService {
         alert.informativeText = "\(detail). \(action)"
         alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Open yabai", comment: ""))
-        let response = alert.runModal()
+        let response = present(alert)
         if response == .alertSecondButtonReturn {
             if let url = URL(string: "https://github.com/koekeishiya/yabai"),
                url.scheme == "https", url.host == "github.com" {
                 _ = workspace.open(url)
             }
         }
-        NSApp.setActivationPolicy(.prohibited)
     }
 
     func isMRUSpacesEnabled() -> Bool {
@@ -79,8 +74,6 @@ final class AlertsServiceImpl: AlertsService {
     }
 
     func showMRUAlert() {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = NSLocalizedString("Spaces Auto-Rearrange Enabled", comment: "")
@@ -88,7 +81,7 @@ final class AlertsServiceImpl: AlertsService {
         alert.addButton(withTitle: NSLocalizedString("Leave as Is", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Fix It", comment: ""))
 
-        let response = alert.runModal()
+        let response = present(alert)
         if response == .alertSecondButtonReturn {
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
@@ -100,12 +93,9 @@ final class AlertsServiceImpl: AlertsService {
             dock.arguments = ["Dock"]
             try? dock.run()
         }
-        NSApp.setActivationPolicy(.prohibited)
     }
 
     func showSeparateSpacesAlert() {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = NSLocalizedString("Displays Have Separate Spaces Disabled", comment: "")
@@ -113,10 +103,32 @@ final class AlertsServiceImpl: AlertsService {
         alert.addButton(withTitle: NSLocalizedString("Leave as Is", comment: ""))
         alert.addButton(withTitle: NSLocalizedString("Open System Settings", comment: ""))
 
-        if alert.runModal() == .alertSecondButtonReturn {
+        if present(alert) == .alertSecondButtonReturn {
             _ = workspace.open(URL(fileURLWithPath: "/System/Applications/System Settings.app"))
         }
-        NSApp.setActivationPolicy(.prohibited)
+    }
+
+    /// Temporarily regular only when needed, then restore the previous policy.
+    /// If a Settings window is open, demoting to `.prohibited` would hide it,
+    /// so `shouldRestoreActivationPolicy` vetoes the restore in that case.
+    private func present(_ alert: NSAlert) -> NSApplication.ModalResponse {
+        let previous = NSApp.activationPolicy()
+        if previous != .regular {
+            NSApp.setActivationPolicy(.regular)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+
+        let response = alert.runModal()
+
+        let hasVisibleKeyWindow = (NSApp.keyWindow?.isVisible ?? false)
+            || (NSApp.mainWindow?.isVisible ?? false)
+        if ApplicationLifecycleService.shouldRestoreActivationPolicy(
+            previous: previous,
+            hasVisibleKeyWindow: hasVisibleKeyWindow
+        ) {
+            NSApp.setActivationPolicy(previous)
+        }
+        return response
     }
 }
 

@@ -25,4 +25,10 @@ final class AboutWindowControllerTests: XCTestCase {
             }
         )
     }
+
+    func testVersionDisplayFallsBackToUnknown() {
+        XCTAssertEqual(AppVersion.formatted(shortVersion: nil, build: nil), "vUnknown")
+        XCTAssertEqual(AppVersion.formatted(shortVersion: "1.1.1", build: "1.1.1"), "v1.1.1")
+        XCTAssertEqual(AppVersion.formatted(shortVersion: "1.1.1", build: "42"), "v1.1.1 (42)")
+    }
 }

@@ -4,7 +4,7 @@ import AppKit
 enum GlassSupport {
     /// Native Liquid Glass is usable only on macOS 26+ with Reduce Transparency off.
     static var isAvailable: Bool {
-        #if compiler(>=6.0)
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *) {
             return !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
         }
@@ -25,8 +25,8 @@ private struct LiquidGlassButtonStyleModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        #if compiler(>=6.0)
-        if #available(macOS 26.0, *) {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *), GlassSupport.isAvailable {
             if prominent {
                 content.buttonStyle(.glassProminent)
             } else {
