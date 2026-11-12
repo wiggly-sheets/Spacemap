@@ -30,6 +30,43 @@ public enum Hotkey {
         uniqueKeysWithValues: named.map { ($1, $0) }
     )
 
+    private static let functionKeyCodes: Set<CGKeyCode> = Set(
+        named.compactMap { (name, code) -> CGKeyCode? in
+            guard name.first == "f", Int(name.dropFirst()) != nil else { return nil }
+            return code
+        }
+    )
+
+    static let relevantModifierFlags: CGEventFlags = [
+        .maskControl,
+        .maskCommand,
+        .maskAlternate,
+        .maskShift,
+        .maskSecondaryFn
+    ]
+
+    static func isFunctionKey(_ keyCode: CGKeyCode) -> Bool {
+        functionKeyCodes.contains(keyCode)
+    }
+
+    /// Canonical identity for duplicate detection. Hardware reports the fn flag
+    /// for top-row function keys, so a binding without fn is treated as the
+    /// same physical binding as its explicit `fn+…` spelling.
+    static func bindingIdentity(_ hotkey: HotkeyConfig) -> String {
+        switch hotkey.key {
+        case .none:
+            return "none"
+        case .keyCode(let keyCode):
+            var flags = hotkey.modifiers.intersection(relevantModifierFlags)
+            if isFunctionKey(keyCode), !flags.contains(.maskSecondaryFn) {
+                flags.insert(.maskSecondaryFn)
+            }
+            return "key:\(keyCode):\(flags.rawValue)"
+        case .mediaKey(let mediaKey):
+            return "media:\(mediaKey.rawValue):\(hotkey.modifiers.intersection(relevantModifierFlags).rawValue)"
+        }
+    }
+
     private static let alphanumReverse: [String: CGKeyCode] = Dictionary(
         uniqueKeysWithValues: alphanum.map { ($1, $0) }
     )

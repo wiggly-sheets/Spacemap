@@ -250,6 +250,13 @@ struct SettingsBehavior: View {
               let right = Hotkey.parseHotkey(rhs),
               !left.isDisabled,
               !right.isDisabled else { return false }
-        return left.key == right.key && left.modifiers == right.modifiers
+        return hotkeyIdentity(left) == hotkeyIdentity(right)
+    }
+
+    /// Function keys report `.maskSecondaryFn` when pressed on some keyboards
+    /// but parse without it from `f1`; treat both spellings as the same
+    /// binding so duplicate detection stays consistent.
+    static func hotkeyIdentity(_ hotkey: HotkeyConfig) -> String {
+        Hotkey.bindingIdentity(hotkey)
     }
 }
