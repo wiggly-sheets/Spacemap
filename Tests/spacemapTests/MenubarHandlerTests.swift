@@ -110,6 +110,23 @@ final class MenubarHandlerTests: XCTestCase {
     }
 
 
+    func testProfileMenuSignatureTracksNamesAndActiveIndex() {
+        var config = GridConfig.default
+        config.spaceNameProfiles = [
+            SpaceNameProfile(name: "Work"),
+            SpaceNameProfile(name: "Play"),
+        ]
+        config.activeSpaceNameProfileIndex = 0
+        let initial = MenubarHandler.profileSignature(for: config)
+
+        config.spaceNameProfiles[1].name = "Games"
+        XCTAssertNotEqual(MenubarHandler.profileSignature(for: config), initial)
+
+        let renamed = MenubarHandler.profileSignature(for: config)
+        config.activeSpaceNameProfileIndex = 1
+        XCTAssertNotEqual(MenubarHandler.profileSignature(for: config), renamed)
+    }
+
     func testEveryMenuItemTargetsHandlerThatRespondsToItsAction() {
         let handler = makeHandler()
         let menu = handler.makeMenu(config: GridConfig.default)

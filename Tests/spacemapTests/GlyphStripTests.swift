@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 import CoreGraphics
 import CoreText
 @testable import spacemap
@@ -1696,5 +1697,152 @@ final class GlyphStripTests: XCTestCase {
         let reread = decodeGlyphStrip(toml)?.clamped()
 
         XCTAssertEqual(reread, original)
+    }
+}
+
+final class GlyphStripPanelPresentationTests: XCTestCase {
+
+    private func enabledConfig() -> GridConfig {
+        var config = GridConfig.default
+        config.glyphStrip.enabled = true
+        return config
+    }
+
+    func testContentOnlyRefreshRepaintsEvenWhenTheFrameIsUnchanged() throws {
+        _ = NSApplication.shared
+        let controller = GlyphStripPanelController(yabaiService: MockYabaiService())
+        controller.update(config: enabledConfig())
+        controller.present()
+
+        let panel = try XCTUnwrap(controller.panel)
+        let frame = panel.frame
+        // Drain the coalesced refresh scheduled by `update` so a late pass
+        // cannot add a second increment during this assertion.
+        controller.pendingRefresh?.cancel()
+        let repaintsBefore = controller.contentRepaintCount
+
+        controller.present()
+
+        XCTAssertEqual(panel.frame, frame, "the second present must reuse the frame")
+        XCTAssertEqual(
+            controller.contentRepaintCount,
+            repaintsBefore + 1,
+            "content changes must request a repaint without a frame move"
+        )
+    }
+
+    func testHidingInvalidatesInFlightRefreshAndStalePresentCannotShow() throws {
+        _ = NSApplication.shared
+        let controller = GlyphStripPanelController(yabaiService: MockYabaiService())
+        controller.update(config: enabledConfig())
+        controller.present()
+
+        let panel = try XCTUnwrap(controller.panel)
+        XCTAssertTrue(panel.isVisible)
+        let generationBeforeHide = controller.refreshGeneration
+
+        controller.toggleVisibilityByHotkey()
+
+        XCTAssertFalse(panel.isVisible)
+        XCTAssertGreaterThan(controller.refreshGeneration, generationBeforeHide)
+        XCTAssertNil(controller.pendingRefresh, "hide must cancel the coalesced refresh")
+
+        // A reply that was already in flight used to call present() and put the
+        // strip back on screen; the hidden guard must reject it.
+        controller.present()
+        XCTAssertFalse(panel.isVisible)
+    }
+
+    func testSettingsUpdateClearsAWedgeRefreshLatch() {
+        _ = NSApplication.shared
+        let controller = GlyphStripPanelController(yabaiService: MockYabaiService())
+        controller.update(config: enabledConfig())
+        controller.pendingRefresh?.cancel()
+        controller.markRefreshWedgedForTesting()
+        XCTAssertTrue(controller.refreshInFlight)
+        XCTAssertTrue(controller.needsFollowupRefresh)
+
+        controller.update(config: enabledConfig())
+
+        XCTAssertFalse(controller.refreshInFlight, "updateConfig cancellation must not wedge the strip")
+        XCTAssertFalse(controller.needsFollowupRefresh)
+        XCTAssertNotNil(controller.pendingRefresh, "a fresh refresh should be queued")
+    }
+
+    func testVerticallyStackedQuartzDisplaysResolveToAppKitScreens() {
+        let quartzMaxY: CGFloat = 1080
+        let appKitFrames = [
+            CGRect(x: 0, y: 0, width: 1920, height: 1080),
+            CGRect(x: 0, y: -1080, width: 1920, height: 1080),
+        ]
+        let topQuartz = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let bottomQuartz = CGRect(x: 0, y: 1080, width: 1920, height: 1080)
+
+        let topAppKit = GlyphStripPanelController.appKitFrame(
+            forQuartzFrame: topQuartz,
+            quartzMaxY: quartzMaxY
+        )
+        let bottomAppKit = GlyphStripPanelController.appKitFrame(
+            forQuartzFrame: bottomQuartz,
+            quartzMaxY: quartzMaxY
+        )
+
+        XCTAssertEqual(topAppKit, appKitFrames[0])
+        XCTAssertEqual(bottomAppKit, appKitFrames[1])
+        XCTAssertEqual(
+            GlyphStripPanelController.bestScreenIndex(for: topAppKit, screenFrames: appKitFrames),
+            0
+        )
+        XCTAssertEqual(
+            GlyphStripPanelController.bestScreenIndex(for: bottomAppKit, screenFrames: appKitFrames),
+            1
+        )
+        // The raw Quartz frame does not live in AppKit's coordinate space.
+        XCTAssertFalse(appKitFrames[0].intersects(bottomQuartz))
+    }
+
+    func testMenuBarRowUsesNotchSafeAreaInset() {
+        let screen = CGRect(x: 0, y: 0, width: 1710, height: 1112)
+        let visible = CGRect(x: 0, y: 0, width: 1710, height: 1075)
+
+        let notched = GlyphStripPanelController.menuBarRow(
+            screenFrame: screen,
+            visibleFrame: visible,
+            safeAreaTop: 37.5
+        )
+        XCTAssertEqual(notched, CGRect(x: 0, y: 1074.5, width: 1710, height: 37.5))
+
+        let plainVisible = CGRect(x: 0, y: 0, width: 1710, height: 1088)
+        let plain = GlyphStripPanelController.menuBarRow(
+            screenFrame: screen,
+            visibleFrame: plainVisible,
+            safeAreaTop: 0
+        )
+        XCTAssertEqual(plain, CGRect(x: 0, y: 1088, width: 1710, height: 24))
+    }
+
+    func testAccessibilityLabelsDescribeSpacesAppsAndControls() {
+        XCTAssertEqual(
+            GlyphStrip.accessibilityLabel(
+                for: .init(spaceIndex: 3, runs: [.index("3"), .app("Safari"), .app("Terminal")]),
+                focused: true
+            ),
+            "Space 3, Safari, Terminal, Current space"
+        )
+        XCTAssertEqual(
+            GlyphStrip.accessibilityLabel(
+                for: .init(spaceIndex: 2, runs: [.index("2"), .placeholder]),
+                focused: false
+            ),
+            "Space 2, Empty"
+        )
+        XCTAssertEqual(
+            GlyphStrip.accessibilityLabel(for: .init(spaceIndex: 4, runs: [.add]), focused: false),
+            "Add space"
+        )
+        XCTAssertEqual(
+            GlyphStrip.accessibilityLabel(for: .init(spaceIndex: nil, runs: [.separator]), focused: false),
+            "Display separator"
+        )
     }
 }

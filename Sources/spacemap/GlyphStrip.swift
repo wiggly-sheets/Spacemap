@@ -39,6 +39,49 @@ enum GlyphStrip {
         let runs: [Run]
     }
 
+    /// VoiceOver label for one painted segment. Pure so the wording can be
+    /// asserted without AppKit state; the view supplies the same segments.
+    static func accessibilityLabel(for segment: Segment, focused: Bool) -> String {
+        if segment.runs == [.add] {
+            return NSLocalizedString("Add space", comment: "VoiceOver action for the glyph strip add button")
+        }
+        if segment.runs == [.separator] {
+            return NSLocalizedString("Display separator", comment: "VoiceOver label for a display boundary in the glyph strip")
+        }
+
+        var parts: [String] = []
+        if let index = segment.spaceIndex {
+            parts.append(String(
+                format: NSLocalizedString("Space %d", comment: "VoiceOver label for a space number"),
+                index
+            ))
+        }
+        let appNames = segment.runs.compactMap { run -> String? in
+            switch run {
+            case .app(let name): return name
+            case .nativeIcon(let app, _, _): return app
+            default: return nil
+            }
+        }
+        if !appNames.isEmpty {
+            parts.append(appNames.joined(separator: ", "))
+        } else if segment.runs.contains(.placeholder) {
+            parts.append(NSLocalizedString("Empty", comment: "VoiceOver label for an empty space"))
+        }
+        for run in segment.runs {
+            if case .overflow(let count) = run {
+                parts.append(String(
+                    format: NSLocalizedString("%d more windows", comment: "VoiceOver overflow count for a space"),
+                    count
+                ))
+            }
+        }
+        if focused {
+            parts.append(NSLocalizedString("Current space", comment: "VoiceOver label for the focused space"))
+        }
+        return parts.joined(separator: ", ")
+    }
+
     // MARK: - Placement
 
     /// The shape a resolved backdrop asks the view to fill. Kept separate from

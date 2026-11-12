@@ -68,7 +68,12 @@ final class SpacemapServices {
     }
     var currentConfig: GridConfig {
         get { appConfig.load() }
-        set { appConfig.save(newValue) }
+        set {
+            guard AppConfig.saveConfigReportingResult(newValue) else {
+                showConfigSaveError()
+                return
+            }
+        }
     }
     var configPath: String { appConfig.configPath }
     func setupMenubar() { menubarService.setupMenubar() }
@@ -123,14 +128,33 @@ final class SpacemapServices {
     func showMRUAlert() { alertsService.showMRUAlert() }
     func showSeparateSpacesAlert() { alertsService.showSeparateSpacesAlert() }
     func changeSpaceNameProfile(index: Int) {
-        var config = currentConfig
-        guard (0..<config.spaceNameProfiles.count).contains(index) else { return }
-        config.activeSpaceNameProfileIndex = index
-        let profile = config.spaceNameProfiles[index]
-        config.spaceNames = profile.spaceNames
-        currentConfig = config
+        var updated: GridConfig?
+        let saved = AppConfig.updateConfig { config in
+            guard (0..<config.spaceNameProfiles.count).contains(index) else { return }
+            config.activeSpaceNameProfileIndex = index
+            config.spaceNames = config.spaceNameProfiles[index].spaceNames
+            updated = config
+        }
+        guard saved else {
+            showConfigSaveError()
+            return
+        }
+        guard let config = updated else { return }
         refreshMenubarPreview(config: config)
+        applyGlyphStrip(config: config)
+        refreshGlyphStrip()
         hud.reloadConfig()
+        NotificationCenter.default.post(name: .spaceNameProfileChanged, object: nil)
+    }
+
+    private func showConfigSaveError() {
+        // Reuse the lifecycle's policy-aware alert path (temporarily regular,
+        // then restore `.prohibited` unless another window needs it).
+        showCLIInstallAlert(
+            style: .warning,
+            message: NSLocalizedString("Could not save settings", comment: "Config save failure alert title"),
+            information: SettingsView.saveFailureMessage
+        )
     }
     func makeSocketListener(
         socketPath: String,

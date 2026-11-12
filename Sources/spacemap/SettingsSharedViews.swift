@@ -5,7 +5,10 @@ struct SettingsSectionHeader: View {
     let title: String
 
     var body: some View {
-        Text(title)
+        // The type is `String` because some call sites build names at runtime;
+        // routing through `LocalizedStringKey` still lets literal titles hit
+        // the strings table, which `Text(String)` would bypass.
+        Text(LocalizedStringKey(stringLiteral: title))
             .font(.title2.weight(.semibold))
             .textCase(nil)
             .foregroundStyle(.primary)
@@ -22,9 +25,9 @@ struct DiagnosticStatusRow: View {
             Circle()
                 .fill(statusColor)
                 .frame(width: 10, height: 10)
-            Text(title)
+            Text(LocalizedStringKey(stringLiteral: title))
             Spacer()
-            Text(statusText)
+            Text(LocalizedStringKey(stringLiteral: statusText))
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
@@ -45,15 +48,16 @@ struct SettingsFootnote: View {
     let text: String
 
     var body: some View {
-        Text(text)
+        Text(LocalizedStringKey(stringLiteral: text))
             .font(.footnote)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-/// Shared label so Grid and Glyph Strip panes stay in sync.
-let showSpaceNumbersTitle = "Show Space Numbers"
+/// Shared label so Grid and Glyph Strip panes stay in sync. Typed as a key so
+/// `Toggle` performs the lookup instead of treating it as verbatim text.
+let showSpaceNumbersTitle: LocalizedStringKey = "Show Space Numbers"
 
 func stepper(
     _ label: String,
@@ -227,22 +231,46 @@ struct HotkeyRecorder: View {
 final class HotkeyRecorderCoordinator {
     private(set) var activeRecorderID: UUID?
     private var cancelActiveRecorder: (() -> Void)?
+    /// IDs of every recorder currently active across coordinators. The tap's
+    /// global suppression flag is derived from this set, so a discarded or
+    /// replaced recorder cannot clear it while another one still records.
+    private static var activeRecorderIDs = Set<UUID>()
+
+    deinit {
+        if let activeRecorderID {
+            Self.setRecording(activeRecorderID, false)
+        }
+    }
 
     func activate(recorderID: UUID, onCancel: @escaping () -> Void) {
         if activeRecorderID != recorderID {
             let cancelPrevious = cancelActiveRecorder
+            if let previous = activeRecorderID {
+                Self.setRecording(previous, false)
+            }
             activeRecorderID = nil
             cancelActiveRecorder = nil
             cancelPrevious?()
         }
         activeRecorderID = recorderID
         cancelActiveRecorder = onCancel
+        Self.setRecording(recorderID, true)
     }
 
     func deactivate(recorderID: UUID) {
         guard activeRecorderID == recorderID else { return }
         activeRecorderID = nil
         cancelActiveRecorder = nil
+        Self.setRecording(recorderID, false)
+    }
+
+    private static func setRecording(_ recorderID: UUID, _ active: Bool) {
+        if active {
+            activeRecorderIDs.insert(recorderID)
+        } else {
+            activeRecorderIDs.remove(recorderID)
+        }
+        HotkeyTapRouter.isRecording = !activeRecorderIDs.isEmpty
     }
 }
 

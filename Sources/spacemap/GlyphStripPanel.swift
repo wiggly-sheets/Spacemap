@@ -28,12 +28,16 @@ final class GlyphStripPanelController: NSObject {
     /// cancels the pending one, so a burst paints once.
     private static let refreshCoalesceInterval: TimeInterval = 0.032
     /// Generation so a stale background reply never overwrites newer state.
-    private var refreshGeneration = 0
-    private var pendingRefresh: DispatchWorkItem?
+    /// Read-only to tests so hiding can be asserted without exposing writes.
+    private(set) var refreshGeneration = 0
+    private(set) var pendingRefresh: DispatchWorkItem?
     /// Serializes refresh bodies: a refresh landing mid-pass sets
     /// `needsFollowupRefresh` for one bounded follow-up instead of recursing.
-    private var refreshInFlight = false
-    private var needsFollowupRefresh = false
+    private(set) var refreshInFlight = false
+    private(set) var needsFollowupRefresh = false
+    /// Generation that owns the in-flight latch; stale completions must not
+    /// clear it for a refresh that replaced them.
+    private var inFlightGeneration = 0
     /// Resolved per refresh on the work queue and passed through — never
     /// held, since the updater invalidates the shared cache after install.
     private var didLogMissingFont = false
@@ -57,14 +61,18 @@ final class GlyphStripPanelController: NSObject {
         return loaded
     }
 
-    private var panel: NSPanel?
+    private(set) var panel: NSPanel?
     /// Drawing layer, retained so refreshes can invalidate it directly.
     private var glyphs: GlyphStripView?
+    /// Test seam: counts repaint requests made by `applyFrame(to:)`. AppKit may
+    /// clear `needsDisplay` synchronously during presentation, so the real
+    /// flag cannot be asserted reliably from a unit test.
+    private(set) var contentRepaintCount = 0
     private var config: GridConfig = .default
     /// Session-only visibility flag driven by the show/hide hotkey. Never
     /// persisted: every launch starts with the strip visible.
     private var hiddenByHotkey = false
-    private var segments: [GlyphStrip.Segment] = []
+    fileprivate var segments: [GlyphStrip.Segment] = []
     private var attributedRuns: [[NSAttributedString]] = []
     /// Extra advance before each run, parallel to `attributedRuns`.
     private var runGaps: [[CGFloat]] = []
@@ -76,8 +84,7 @@ final class GlyphStripPanelController: NSObject {
     /// Names with a background resolve already in flight. Stops a miss from
     /// re-triggering a refresh loop when the app has no bundle at all.
     private var nativeResolveInFlight = Set<String>()
-    private var settingsObserver: NSObjectProtocol?
-    private var focusedSpaceIndex: Int?
+    fileprivate var focusedSpaceIndex: Int?
     private var hoveredSegment: Int?
     private var screenObserver: NSObjectProtocol?
 
@@ -94,15 +101,6 @@ final class GlyphStripPanelController: NSObject {
         ) { [weak self] _ in
             self?.applyFrame()
         }
-        // Font installs land here right after the shared cache is dropped, so
-        // the next refresh re-reads disk instead of a stale face.
-        settingsObserver = NotificationCenter.default.addObserver(
-            forName: .settingsChanged,
-            object: nil,
-            queue: .main
-        ) { _ in
-            AppGlyphFont.invalidateCache()
-        }
     }
 
     deinit {
@@ -110,31 +108,49 @@ final class GlyphStripPanelController: NSObject {
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
         }
-        if let settingsObserver {
-            NotificationCenter.default.removeObserver(settingsObserver)
-        }
     }
 
     // MARK: - State
 
     func update(config: GridConfig) {
+        // The updater drops the cache itself on install, but a version written
+        // by another process only shows up here. Unrelated settings saves must
+        // not force the next refresh back to disk.
+        if config.appFont.installedVersion != self.config.appFont.installedVersion {
+            AppGlyphFont.invalidateCache()
+        }
         self.config = config
+        // The coordinator cancels any in-flight fetch when its config changes.
+        // If that cancellation completes without running our completion (or an
+        // older coordinator build did), the latch would stay set and every
+        // later refresh would collapse into a follow-up that never runs.
+        refreshInFlight = false
+        inFlightGeneration = 0
+        needsFollowupRefresh = false
         coordinator.updateConfig(config)
-        // Settings changes can carry a new `.smthemes` file or a new effective
-        // theme name; reloading here (settings-save frequency, not per refresh)
-        // is what keeps this controller's own ThemeManager from going stale.
-        themeService.reload()
+        // Settings changes can add or edit a `.smthemes` file; only re-read the
+        // directory when an entry actually changed. Theme-name-only changes
+        // need no reload (the file is already parsed), and this runs on every
+        // save.
+        themeService.reloadIfChanged()
         guard config.glyphStrip.enabled, !hiddenByHotkey else {
             hide()
             return
         }
-        // Material/shape/opacity switches keep the same frame, so applyFrame's
-        // early-return would leave the old glass/fill on screen. Invalidate
-        // both layers here; refresh() then recomputes content.
+        // Material/shape/opacity switches keep the same frame, so without a
+        // layout pass the old glass/fill would stay on screen. Invalidate both
+        // layers here; refresh() then recomputes content.
         panel?.contentView?.needsLayout = true
         panel?.contentView?.layout()
         glyphs?.needsDisplay = true
         refresh()
+    }
+
+    /// Simulates a fetch cancellation that left the serialization latch set, so
+    /// `update(config:)` can be tested for clearing it.
+    func markRefreshWedgedForTesting() {
+        refreshInFlight = true
+        needsFollowupRefresh = true
     }
 
     /// Toggles the session-only hotkey visibility. Disabled strip: the flag
@@ -171,6 +187,7 @@ final class GlyphStripPanelController: NSObject {
         }
         refreshInFlight = true
         let generation = refreshGeneration
+        inFlightGeneration = generation
         // Single config snapshot for the whole render pass.
         let strip = config.glyphStrip
         let options = GlyphStrip.Options(strip)
@@ -179,7 +196,7 @@ final class GlyphStripPanelController: NSObject {
             guard generation == self.refreshGeneration,
                   let state = self.coordinator.state else {
                 // Stale reply or no state: drop it, never paint over newer state.
-                self.finishRefresh()
+                self.finishRefresh(generation: generation)
                 return
             }
             let focused = state.focusedIndex
@@ -190,7 +207,7 @@ final class GlyphStripPanelController: NSObject {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     guard generation == self.refreshGeneration else {
-                        self.finishRefresh()
+                        self.finishRefresh(generation: generation)
                         return
                     }
                     let font = self.effectiveFont(from: loaded)
@@ -199,19 +216,32 @@ final class GlyphStripPanelController: NSObject {
                         options: options,
                         font: font
                     )
+                    let previousFocused = self.focusedSpaceIndex
                     self.segments = resolved
                     self.focusedSpaceIndex = focused
                     // Watchdog: a non-empty state must never paint an empty
                     // strip from a dropped pass — fall back to initials runs.
                     if resolved.isEmpty && !state.spaces.isEmpty {
                         NSLog("spacemap/GlyphStrip: empty segments for non-empty state; keeping last good frame")
-                        self.finishRefresh()
+                        self.finishRefresh(generation: generation)
+                        return
+                    }
+                    // Re-check immediately before painting: the strip may have
+                    // been disabled or hidden by hotkey while the font/state
+                    // work was in flight.
+                    guard generation == self.refreshGeneration,
+                          self.config.glyphStrip.enabled,
+                          !self.hiddenByHotkey else {
+                        self.finishRefresh(generation: generation)
                         return
                     }
                     self.rebuildRuns(strip: strip)
                     self.present()
+                    if previousFocused != focused, let glyphs = self.glyphs {
+                        NSAccessibility.post(element: glyphs, notification: .valueChanged)
+                    }
                     self.preloadNativeIcons()
-                    self.finishRefresh()
+                    self.finishRefresh(generation: generation)
                 }
             }
         }
@@ -219,8 +249,10 @@ final class GlyphStripPanelController: NSObject {
 
     /// Clears the in-flight flag and runs one collapsed follow-up when a
     /// refresh landed mid-pass. Stale generations never trigger follow-ups.
-    private func finishRefresh() {
+    private func finishRefresh(generation: Int) {
+        guard generation == inFlightGeneration else { return }
         refreshInFlight = false
+        inFlightGeneration = 0
         if needsFollowupRefresh {
             needsFollowupRefresh = false
             refresh()
@@ -303,14 +335,30 @@ final class GlyphStripPanelController: NSObject {
     /// Creates the panel on first use, then always lays it out. Ordering front
     /// happens only when the panel is not already visible, so steady-state
     /// refreshes do not re-order the panel on every yabai signal.
-    private func present() {
+    func present() {
+        guard config.glyphStrip.enabled, !hiddenByHotkey else {
+            hide()
+            return
+        }
         if panel == nil { panel = makePanel() }
         guard let panel else { return }
         applyFrame(to: panel)
         if !panel.isVisible { panel.orderFrontRegardless() }
+        if let glyphs {
+            NSAccessibility.post(element: glyphs, notification: .layoutChanged)
+        }
     }
 
     private func hide() {
+        // An in-flight refresh must not re-present a strip the user just hid or
+        // disabled. Bumping the generation makes every pending reply stale, and
+        // cancelling the coalesced work stops a queued pass from starting.
+        refreshGeneration += 1
+        pendingRefresh?.cancel()
+        pendingRefresh = nil
+        needsFollowupRefresh = false
+        refreshInFlight = false
+        inFlightGeneration = 0
         panel?.orderOut(nil)
     }
 
@@ -344,8 +392,8 @@ final class GlyphStripPanelController: NSObject {
         applyFrame(to: panel)
     }
 
-    private func applyFrame(to panel: NSPanel) {
-        let screen = Self.targetScreen()
+    private func applyFrame(to panel: NSPanel, screen explicitScreen: NSScreen? = nil) {
+        let screen = explicitScreen ?? targetScreen()
         let strip = config.glyphStrip
         let row = Self.menuBarRow(on: screen)
         let contentWidth = max(segmentWidths.reduce(0, +), 1)
@@ -359,9 +407,12 @@ final class GlyphStripPanelController: NSObject {
             yOffset: CGFloat(strip.yOffset),
             xOffset: CGFloat(strip.xOffset)
         )
-        // Steady-state refreshes with an unchanged frame repaint nothing.
-        guard panel.frame != frame else { return }
-        panel.setFrame(frame, display: true)
+        // Only move the window when the frame changed, but always repaint:
+        // content can change (new glyphs, focus, theme) at an identical frame.
+        if panel.frame != frame {
+            panel.setFrame(frame, display: true)
+        }
+        contentRepaintCount += 1
         glyphs?.needsDisplay = true
     }
 
@@ -386,41 +437,103 @@ final class GlyphStripPanelController: NSObject {
             width: startFrame.width,
             height: startFrame.height
         )
-        let offsets = GlyphStrip.customOffsets(for: candidate, menuBarRow: Self.menuBarRow(on: Self.targetScreen()))
+        let screen = panelScreen() ?? targetScreen()
+        let offsets = GlyphStrip.customOffsets(for: candidate, menuBarRow: Self.menuBarRow(on: screen))
         var strip = config.glyphStrip
         strip.position = .custom
         strip.xOffset = offsets.xOffset
         strip.yOffset = offsets.yOffset
         config.glyphStrip = strip.clamped()
-        applyFrame(to: panel)
+        applyFrame(to: panel, screen: screen)
     }
 
     /// Persists a finished drag so it survives refreshes and restarts. Same
     /// load-modify-save path `HUDDisplay.savePanelPosition` uses, so config
-    /// edits made elsewhere since the last save survive too. Silent: no
-    /// .settingsChanged post (position-only change must not drop font cache
-    /// or reload theme); the frame is applied directly.
+    /// edits made elsewhere since the last save survive too. Posts only the
+    /// dedicated position notification (not `.settingsChanged`, which would
+    /// drop the font cache and reload themes).
     fileprivate func persistDragPosition() {
         guard config.glyphStrip.enabled, !hiddenByHotkey, let panel else { return }
+        let screen = panelScreen() ?? targetScreen()
         let offsets = GlyphStrip.customOffsets(
             for: panel.frame,
-            menuBarRow: Self.menuBarRow(on: Self.targetScreen())
+            menuBarRow: Self.menuBarRow(on: screen)
         )
-        var saved = AppConfig.load()
-        var strip = saved.glyphStrip
-        strip.position = .custom
-        strip.xOffset = offsets.xOffset
-        strip.yOffset = offsets.yOffset
-        saved.glyphStrip = strip.clamped()
-        AppConfig.saveConfig(saved)
-        applyFrame(to: panel)
+        AppConfig.updateConfig { saved in
+            var strip = saved.glyphStrip
+            strip.position = .custom
+            strip.xOffset = offsets.xOffset
+            strip.yOffset = offsets.yOffset
+            saved.glyphStrip = strip.clamped()
+        }
+        applyFrame(to: panel, screen: screen)
+        // Position-only change: notify an open Settings window so its stale
+        // `glyphStrip` state cannot write the old position back on the next
+        // save. Deliberately not `.settingsChanged` (that would reload themes
+        // and drop the font cache).
+        NotificationCenter.default.post(name: .glyphStripPositionChanged, object: nil)
     }
 
-    /// `NSScreen.main` follows the key window, and Spacemap is usually never
-    /// active, so anchor the strip to the display the pointer is on — the one
-    /// whose menu bar the user is looking at.
+    /// The strip follows the display that owns yabai's focused space, falling
+    /// back to the display it is currently parked on, and only then to the
+    /// pointer. `NSScreen.main` follows the key window, which is usually not
+    /// Spacemap, so it is never the primary signal.
+    private func targetScreen() -> NSScreen? {
+        if let state = coordinator.state {
+            if let focused = state.focusedIndex,
+               let displayIndex = state.displayIndex(forSpace: focused),
+               let display = state.displays.first(where: { $0.index == displayIndex }),
+               let screen = Self.screen(containingQuartzFrame: display.frame.cgFrame) {
+                return screen
+            }
+            if let focusedDisplay = state.displays.first(where: \.hasFocus),
+               let screen = Self.screen(containingQuartzFrame: focusedDisplay.frame.cgFrame) {
+                return screen
+            }
+        }
+        return panelScreen() ?? Self.targetScreen()
+    }
+
+    /// The display the panel currently sits on, if any. Used by drags so a
+    /// strip being moved does not snap back to the focused-space display.
+    private func panelScreen() -> NSScreen? {
+        guard let panel else { return nil }
+        return NSScreen.screens.first { $0.frame.intersects(panel.frame) }
+    }
+
+    /// Pointer-based fallback for the first refresh before any state exists.
     static func targetScreen(mouseLocation: NSPoint = NSEvent.mouseLocation) -> NSScreen? {
         NSScreen.screens.first { $0.frame.contains(mouseLocation) } ?? NSScreen.main ?? NSScreen.screens.first
+    }
+
+    /// yabai reports Quartz display frames (top-left origin); `NSScreen.frame`
+    /// is AppKit (bottom-left). Flip through the main screen's maxY before
+    /// matching, otherwise vertically stacked displays never resolve.
+    static func appKitFrame(forQuartzFrame frame: CGRect, quartzMaxY: CGFloat) -> CGRect {
+        CGRect(
+            x: frame.minX,
+            y: quartzMaxY - frame.maxY,
+            width: frame.width,
+            height: frame.height
+        )
+    }
+
+    static func bestScreenIndex(for targetFrame: CGRect, screenFrames: [CGRect]) -> Int? {
+        HUDDisplay.bestScreenIndex(for: targetFrame, screenFrames: screenFrames)
+    }
+
+    static func screen(
+        containingQuartzFrame frame: CGRect,
+        screens: [NSScreen] = NSScreen.screens,
+        quartzMaxY: CGFloat? = nil
+    ) -> NSScreen? {
+        guard !screens.isEmpty else { return nil }
+        let maxY = quartzMaxY ?? HUDGeometry.mainScreenFrame(screens: screens).maxY
+        let appKitFrame = appKitFrame(forQuartzFrame: frame, quartzMaxY: maxY)
+        guard let index = bestScreenIndex(for: appKitFrame, screenFrames: screens.map(\.frame)) else {
+            return nil
+        }
+        return screens[index]
     }
 
     /// The top row of the display, derived from the notch-aware safe-area inset
@@ -429,11 +542,29 @@ final class GlyphStripPanelController: NSObject {
         guard let screen else {
             return CGRect(x: 0, y: 0, width: 0, height: fallbackMenuBarHeight)
         }
-        let frame = screen.frame
-        let visibleGap = frame.maxY - screen.visibleFrame.maxY
-        let height = screen.safeAreaInsets.top > 0 ? screen.safeAreaInsets.top : visibleGap
+        return menuBarRow(
+            screenFrame: screen.frame,
+            visibleFrame: screen.visibleFrame,
+            safeAreaTop: screen.safeAreaInsets.top
+        )
+    }
+
+    /// Pure geometry for `menuBarRow(on:)`: notched displays expose the row as
+    /// the top safe-area inset, plain displays as the gap above `visibleFrame`.
+    static func menuBarRow(
+        screenFrame: CGRect,
+        visibleFrame: CGRect,
+        safeAreaTop: CGFloat
+    ) -> CGRect {
+        let visibleGap = screenFrame.maxY - visibleFrame.maxY
+        let height = safeAreaTop > 0 ? safeAreaTop : visibleGap
         let resolved = height > 0 ? height : fallbackMenuBarHeight
-        return CGRect(x: frame.minX, y: frame.maxY - resolved, width: frame.width, height: resolved)
+        return CGRect(
+            x: screenFrame.minX,
+            y: screenFrame.maxY - resolved,
+            width: screenFrame.width,
+            height: resolved
+        )
     }
 
     // MARK: - Input
@@ -825,8 +956,8 @@ private final class GlyphStripContainerView: NSView {
 
     private let fallbackGlass = NSVisualEffectView()
     /// `NSGlassEffectView` on macOS 26+, stored untyped. Native-glass code is
-    /// additionally gated on `compiler(>=6.0)` (see `useNativeGlass`) because
-    /// pre-6.0 SDKs lack the type entirely, so it must not appear in source.
+    /// additionally gated on `compiler(>=6.2)` (see `useNativeGlass`) because
+    /// pre-6.2 SDKs lack the type entirely, so it must not appear in source.
     private var nativeGlass: NSView?
 
     init(controller: GlyphStripPanelController) {
@@ -847,12 +978,20 @@ private final class GlyphStripContainerView: NSView {
         return nil
     }
 
+    // The container is a transparent grouping wrapper, not an element itself;
+    // VoiceOver should descend to the drawing layer's segment children.
+    override func isAccessibilityElement() -> Bool { false }
+
+    override func accessibilityRole() -> NSAccessibility.Role? { .group }
+
+    override func accessibilityChildren() -> [Any]? { [glyphs] }
+
     /// Native glass whenever the OS has it, except under Reduce Transparency
     /// where the masked `NSVisualEffectView` stays legible. Also requires a
     /// 6.0+ compiler: the type only exists in post-5.9 SDKs (CI's macos-14
     /// toolchain cannot even name it), so it must be source-excluded there.
     private var useNativeGlass: Bool {
-        #if compiler(>=6.0)
+        #if compiler(>=6.2)
         if #available(macOS 26, *) {
             return !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
         }
@@ -884,7 +1023,7 @@ private final class GlyphStripContainerView: NSView {
     private func layoutNativeGlass(backdrop: GlyphStrip.Backdrop, controller: GlyphStripPanelController) {
         // Source-gated (not just availability-gated): pre-6.0 SDKs lack
         // `NSGlassEffectView` entirely, so any naming of it fails to compile.
-        #if compiler(>=6.0)
+        #if compiler(>=6.2)
         if #available(macOS 26, *) {
             let glass: NSGlassEffectView
             if let existing = nativeGlass as? NSGlassEffectView {
@@ -941,7 +1080,7 @@ private final class GlyphStripContainerView: NSView {
     /// Returns the drawing layer to a direct sibling above the fallback glass,
     /// detaching it from the native glass when it was embedded there.
     private func dockGlyphsAsSibling() {
-        #if compiler(>=6.0)
+        #if compiler(>=6.2)
         if #available(macOS 26, *) {
             if let native = nativeGlass as? NSGlassEffectView, native.contentView === glyphs {
                 native.contentView = nil
@@ -990,6 +1129,24 @@ private final class GlyphStripContainerView: NSView {
     }
 }
 
+/// One VoiceOver child per painted segment; pressing it runs the same command
+/// as a left click on that segment.
+private final class GlyphStripAccessibilityElement: NSAccessibilityElement {
+    weak var controller: GlyphStripPanelController?
+    var segmentIndex = 0
+
+    override func accessibilityActionNames() -> [NSAccessibility.Action] { [.press] }
+
+    override func accessibilityPerformPress() -> Bool {
+        guard let controller,
+              let command = controller.command(forSegment: segmentIndex, click: .left) else {
+            return false
+        }
+        controller.handle(command)
+        return true
+    }
+}
+
 private final class GlyphStripView: NSView {
 
     weak var controller: GlyphStripPanelController?
@@ -998,6 +1155,9 @@ private final class GlyphStripView: NSView {
     var insideGlass = false
 
     private var tracking: NSTrackingArea?
+    /// VoiceOver expects the vendor to keep its elements alive between
+    /// queries, so the last-built children are retained here.
+    private var accessibilitySegments: [GlyphStripAccessibilityElement] = []
 
     init(controller: GlyphStripPanelController) {
         self.controller = controller
@@ -1012,6 +1172,43 @@ private final class GlyphStripView: NSView {
 
     /// The panel is normally never key, so the first click must not be swallowed.
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    // MARK: - Accessibility
+
+    /// Exposes the strip as a group of button-like segments. Without this the
+    /// whole overlay is invisible to VoiceOver: it is custom-drawn and never
+    /// becomes key.
+    override func isAccessibilityElement() -> Bool { true }
+
+    override func accessibilityRole() -> NSAccessibility.Role? { .group }
+
+    override func accessibilityLabel() -> String? {
+        NSLocalizedString("Glyph strip", comment: "VoiceOver label for the menu-bar glyph strip")
+    }
+
+    override func accessibilityChildren() -> [Any]? {
+        guard let controller else { return nil }
+        accessibilitySegments = controller.segments.indices.compactMap { index in
+            let segment = controller.segments[index]
+            let label = GlyphStrip.accessibilityLabel(
+                for: segment,
+                focused: segment.spaceIndex != nil && segment.spaceIndex == controller.focusedSpaceIndex
+            )
+            guard !label.isEmpty else { return nil }
+            let element = GlyphStripAccessibilityElement()
+            element.controller = controller
+            element.segmentIndex = index
+            element.setAccessibilityParent(self)
+            element.setAccessibilityRole(.button)
+            element.setAccessibilityLabel(label)
+            if let rect = controller.segmentRect(index) {
+                let windowRect = convert(rect, to: nil)
+                element.setAccessibilityFrame(window?.convertToScreen(windowRect) ?? rect)
+            }
+            return element
+        }
+        return accessibilitySegments
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()

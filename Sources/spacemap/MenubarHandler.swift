@@ -9,6 +9,9 @@ class MenubarHandler: NSObject {
     private var statusItem: NSStatusItem?
     private var menubarRefreshWorkItem: DispatchWorkItem?
     private var menubarRefreshGeneration = 0
+    /// Names + active index of the profiles the current menu was built from.
+    /// Settings changes rebuild the submenu only when this moves.
+    private var profileMenuSignature: String?
 
     private let yabaiService: YabaiService
     private let onToggleHUD: () -> Void
@@ -51,6 +54,7 @@ class MenubarHandler: NSObject {
         applyMenubarIcon(to: item)
         let config = onGetConfig()
         item.menu = makeMenu(config: config)
+        profileMenuSignature = Self.profileSignature(for: config)
         statusItem = item
         refreshMenubarPreview(config: config)
     }
@@ -159,6 +163,7 @@ class MenubarHandler: NSObject {
             setupMenubar()
         }
         updateHotkeyMenuItem(config: config)
+        refreshProfileMenuIfNeeded(config: config)
         statusItem?.button?.performClick(nil)
         if hideAfterClosing {
             removeStatusItem()
@@ -178,6 +183,7 @@ class MenubarHandler: NSObject {
     func refreshMenubarPreview(config: GridConfig? = nil) {
         let config = config ?? onGetConfig()
         updateHotkeyMenuItem(config: config)
+        refreshProfileMenuIfNeeded(config: config)
         guard let item = statusItem else { return }
         menubarRefreshGeneration += 1
         let generation = menubarRefreshGeneration
@@ -188,6 +194,9 @@ class MenubarHandler: NSObject {
             return
         }
 
+        // `NSScreen` must be read on main; the global queue below only builds
+        // the state from this snapshot.
+        let displayBounds = NSScreen.main?.frame ?? .zero
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             DispatchQueue.global(qos: .utility).async {
@@ -196,7 +205,8 @@ class MenubarHandler: NSObject {
                     // Dots need no window query, keeping signal updates responsive.
                     state = Self.dotPreviewState(
                         config: config,
-                        spaces: (try? self.yabaiService.querySpaces()) ?? []
+                        spaces: (try? self.yabaiService.querySpaces()) ?? [],
+                        displayBounds: displayBounds
                     )
                 } else {
                     state = self.yabaiService.buildGridState(config: config, focusedIndex: nil)
@@ -219,14 +229,43 @@ class MenubarHandler: NSObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
     }
 
-    static func dotPreviewState(config: GridConfig, spaces: [YabaiSpace]) -> GridState {
+    static func dotPreviewState(
+        config: GridConfig,
+        spaces: [YabaiSpace],
+        displayBounds: CGRect
+    ) -> GridState {
         GridState(
             config: config,
             spaces: spaces,
             windows: [],
-            displayBounds: NSScreen.main?.frame ?? .zero,
+            displayBounds: displayBounds,
             focusedIndex: spaces.first(where: \.hasFocus)?.index
         )
+    }
+
+    /// Main-thread convenience for callers that already have AppKit context.
+    static func dotPreviewState(config: GridConfig, spaces: [YabaiSpace]) -> GridState {
+        dotPreviewState(
+            config: config,
+            spaces: spaces,
+            displayBounds: NSScreen.main?.frame ?? .zero
+        )
+    }
+
+    /// Rebuilds the whole menu when profile names or the active index changed.
+    /// The submenu is otherwise built once in `makeMenu` and would go stale
+    /// after Settings adds, renames, or deletes a profile.
+    private func refreshProfileMenuIfNeeded(config: GridConfig) {
+        let signature = Self.profileSignature(for: config)
+        guard signature != profileMenuSignature else { return }
+        profileMenuSignature = signature
+        guard let item = statusItem else { return }
+        item.menu = makeMenu(config: config)
+    }
+
+    static func profileSignature(for config: GridConfig) -> String {
+        "\(config.activeSpaceNameProfileIndex)|" +
+            config.spaceNameProfiles.map(\.name).joined(separator: "\u{1F}")
     }
 
     func applyMenubarIcon(to item: NSStatusItem) {
@@ -351,5 +390,6 @@ class MenubarHandler: NSObject {
         // Rebuild menu to update checkmarks
         let config = onGetConfig()
         statusItem?.menu = makeMenu(config: config)
+        profileMenuSignature = Self.profileSignature(for: config)
     }
 }
