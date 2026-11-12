@@ -206,6 +206,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationSplitView {
             SettingsSidebar(selectedSection: $selectedSection)
+                .background(Color.clear)
         } detail: {
             Form {
                 switch selectedSection {
@@ -295,8 +296,10 @@ struct SettingsView: View {
             }
             .id(selectedSection)
             .scrollContentBackground(.hidden)
+            .background(Color.clear)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background(Color.clear)
         .onReceive(NotificationCenter.default.publisher(for: .settingsChanged)) { _ in
             let config = AppConfig.load()
             lastCustomHUDX = config.customHUDX
