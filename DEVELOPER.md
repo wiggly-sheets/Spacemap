@@ -15,14 +15,14 @@ Technical deep-dive, debugging, and configuration details for contributors.
 ### Key Components
 | File | Responsibility |
 |------|----------------|
-| `App.swift` + `ApplicationLifecycleService.swift` | Entry point, menubar, settings window, yabai/accessibility checks |
+| `App.swift` + `ApplicationLifecycleService.swift` | Entry point, menubar, settings window, yabai/accessibility checks; one-instance guard forwards deep links and exits duplicate launches |
 | `HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`GridStateCoordinator` | NSPanel lifecycle, auto-hide timer, state management |
 | `GridView.swift` | SwiftUI grid container, cell layout, theme application |
 | `CellView.swift` | Per-cell rendering (rects/icons/thumbnails), space names display |
-| `GridLayout.swift` | Pure geometry (cell/gap/padding, slot frames, hit-test); guards: `cols > 0`, spaces clamped 0–16, zero-size frames return nil/empty |
+| `GridLayout.swift` | Pure geometry (cell/gap/padding, slot frames, hit-test); guards: `cols` clamped 1–32, spaces clamped 0–16, zero-size frames return nil/empty |
 | `YabaiClientImpl.swift` + `YabaiService.swift` | yabai CLI wrapper, signal management, space/window queries (10s timeout, async pipe drain) |
-| `AppConfig.swift` + `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues` | Grouped TOML load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup |
-| `HotkeyMonitor.swift` + `HotkeyService`/`HotkeyHandler` | Global CGEventTap for normal/pinned/glyph-strip hotkeys; fails open on Accessibility revocation |
+| `AppConfig.swift` + `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues` | Grouped TOML load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup, and repaired/clamped values are written back |
+| `HotkeyMonitor.swift` + `HotkeyService`/`HotkeyHandler` | Shared `CGEventTap` owned by `HotkeyTapRouter` and run on a private run-loop thread; routes normal/pinned/glyph-strip hotkeys to the main thread; fails open on Accessibility revocation |
 | `SocketListener.swift` | Unix domain socket server for yabai signals (mode 0600, non-blocking clients) |
 | `WindowDragHandler.swift` + `WindowDragService` | Drag-and-drop detection via CGEventTap |
 | `ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift` | Data structures (GridConfig, YabaiSpace, AppTheme) |
@@ -34,12 +34,12 @@ Technical deep-dive, debugging, and configuration details for contributors.
 ## Configuration System
 
 ### Config File Location
-`~/.config/spacemap/config.toml` — read on every HUD open. Invalid fields self-heal individually after backing up to `config.toml.bak`.
+`~/.config/spacemap/config.toml` — read on every HUD open. Invalid fields self-heal individually after backing up to `config.toml.bak`; the resolved/clamped values are written back so the same repair does not repeat.
 
 ### Config Keys (TOML tables; `ConfigValues` clamps numerics at the model boundary)
 | Key | Type | Default | Range | Description |
 |-----|------|--------|--------|-------------|
-| `cols` / `rows` | Int | 8 / 2 | > 0 | Grid columns / rows |
+| `cols` / `rows` | Int | 8 / 2 | 1–32 (oversize clamps, undersize resets) | Grid columns / rows |
 | `cellStyle` | String | `rects` | `rects‖hybrid‖icons‖thumbnails‖simple` | Window display style. `hybrid` adds centered app icons to rectangles; `thumbnails` requires macOS 14+ and Screen Recording permission |
 | `hotkey` | Hotkey | `ctrl+space` | modifiers+key | Toggle hotkey (applies immediately from Settings) |
 | `pinnedHotkey` | Hotkey | `none` | modifiers+key or `none` | Optional persistent-HUD toggle |
@@ -72,10 +72,10 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `socketHealthInterval` | Int | 60 | > 0 | Socket health check interval (seconds) |
 | `showExtraWindows` | Bool | false | — | Display utility/background window records |
 | `showHUDOnSpaceChange` | Bool | false | — | Auto-show HUD on yabai space change |
-| `updateMode` | String | `notify` | `auto‖notify‖off` | Sparkle update check behavior. `auto` downloads and installs; `notify` prompts; `off` disables |
+| `updateMode` | String | `notify` | `auto‖notify‖off` | Sparkle update check behavior. `auto` downloads and installs; `notify` prompts; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `focusSpaceOnWindowDrop` | WindowDropFocusMode | `never` | `never‖always‖modifier` | Focus the destination space after a successful window drop |
 | `focusSpaceOnWindowDropModifier` | WindowDropFocusModifier | `command` | `command‖fn‖option‖control‖shift` | Modifier required when drop focus is `modifier` (fn preserved) |
-| `[glyphStrip]` | — | — | — | Strip keys in REFERENCE.md; `matchHUDAppearance` copies the HUD appearance or the strip keeps its own. Numerics clamped (`iconSize`/`indexSize` 6–24, `backgroundOpacity`/`glass*Opacity`/`solidOpacity` 0.01–1, `cornerRadius` 0–40, `margin` 0–40, `iconSpacing`/`indexPadding` 0–20, `yOffset` -10–10, `xOffset` ±4000, `hoverPadding` 0–12, `hoverCornerRadius` 0–20, `maxIconsPerSpace` 0–16) |
+| `[glyphStrip]` | — | — | — | Strip keys in REFERENCE.md; legacy bare `glyphStrip = true` is accepted; `matchHUDAppearance` copies the HUD appearance or the strip keeps its own. Numerics clamped (`iconSize`/`indexSize` 6–24, `backgroundOpacity`/`glass*Opacity`/`solidOpacity` 0.01–1, `cornerRadius` 0–40, `margin` 0–40, `iconSpacing`/`indexPadding` 0–20, `yOffset` -10–10, `xOffset` ±4000, `hoverPadding` 0–12, `hoverCornerRadius` 0–20, `maxIconsPerSpace` 0–16) |
 | `[appFont]` | `updateMode` | `manual` | `manual‖auto` | Glyph-font update policy |
 
 ### Space Naming Support
@@ -108,7 +108,7 @@ name = "Default"
 - `@available(macOS 14.0, *)` — all callers must use `#available` guards
 
 ### Theme System
-Available themes with hex color values (9 roles: background, focused, text, dropTarget, cellBg, cellBgFocused, rect1, rect2, rect3):
+Available themes with hex color values (9 roles: background, focused, text, dropTarget, cellBg, cellBgFocused, rect1, rect2, rect3). Theme names match case-insensitively and accept hyphens, underscores, spaces, or compact forms:
 | Theme | background | focused | text | dropTarget | cellBg | cellBgFocused | rect1 | rect2 | rect3 |
 |-------|------------|---------|------|------------|--------|---------------|-------|-------|-------|
 | default | 0xf2f2f7 | 0x007aff | 0x333333 | 0x007aff | 0xe5e5ea | 0xd1d1d6 | 0x007aff | 0x5ac8fa | 0x34c759 |

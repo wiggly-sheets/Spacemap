@@ -17,6 +17,8 @@ APPCAST_URL="${APPCAST_URL:-https://wiggly-sheets.github.io/Spacemap/appcast.xml
 RELEASES_URL="${RELEASES_URL:-https://github.com/wiggly-sheets/Spacemap/releases/download/v${VERSION}}"
 MAX_ITEMS="${MAX_ITEMS:-5}"
 ALLOW_MISSING_APPCAST="${ALLOW_MISSING_APPCAST:-0}"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+INFO_PLIST="${INFO_PLIST:-${SCRIPT_DIR}/../../Sources/spacemap/Info.plist}"
 
 case "$MAX_ITEMS" in
     ''|*[!0-9]*|0)
@@ -33,6 +35,16 @@ case "$ALLOW_MISSING_APPCAST" in
         ;;
 esac
 
+# The deployment target shipped in Info.plist is the feed's minimum OS.
+MINIMUM_SYSTEM_VERSION="${MINIMUM_SYSTEM_VERSION:-}"
+if [ -z "$MINIMUM_SYSTEM_VERSION" ]; then
+    MINIMUM_SYSTEM_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$INFO_PLIST" 2>/dev/null || true)
+fi
+if ! [[ "$MINIMUM_SYSTEM_VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
+    echo "MINIMUM_SYSTEM_VERSION must look like 13.0 (set it or add LSMinimumSystemVersion to Info.plist)" >&2
+    exit 1
+fi
+
 if ! command -v xmllint >/dev/null 2>&1; then
     echo "xmllint is required to validate appcast history" >&2
     exit 1
@@ -46,6 +58,7 @@ NEW_ITEM=$(cat << ITEM_EOF
       <title>Version ${VERSION}</title>
       <sparkle:version>${VERSION}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>${MINIMUM_SYSTEM_VERSION}</sparkle:minimumSystemVersion>
       <sparkle:releaseNotesLink>https://github.com/wiggly-sheets/Spacemap/releases/tag/v${VERSION}</sparkle:releaseNotesLink>
       <enclosure url="${RELEASES_URL}/${DMG_FILE}"${SIGNATURE_ATTR} length="${DMG_SIZE}" type="application/octet-stream" sparkle:architecture="universal"/>
     </item>
@@ -71,20 +84,14 @@ generate_appcast_footer() {
 
 validate_appcast() {
     local appcast_path="$1"
+    local require_minimum_system_version="${2:-1}"
 
     if ! xmllint --noout "$appcast_path" >/dev/null 2>&1; then
         echo "Appcast is not valid XML: ${appcast_path}" >&2
         return 1
     fi
 
-    local is_valid
-    is_valid=$(xmllint --xpath '
-        boolean(
-            count(/rss) = 1 and
-            count(/rss/channel) = 1 and
-            count(/rss/channel/item) > 0 and
-            count(
-                /rss/channel/item[
+    local invalid_item='
                     count(*[
                         local-name() = "version" and
                         namespace-uri() = "http://www.andymatuschak.org/xml-namespaces/sparkle"
@@ -93,16 +100,42 @@ validate_appcast() {
                         local-name() = "shortVersionString" and
                         namespace-uri() = "http://www.andymatuschak.org/xml-namespaces/sparkle"
                     ]) != 1 or
-                    count(enclosure) != 1
-                ]
+                    count(enclosure) != 1'
+    if [ "$require_minimum_system_version" = "1" ]; then
+        invalid_item="${invalid_item} or
+                    count(*[
+                        local-name() = \"minimumSystemVersion\" and
+                        namespace-uri() = \"http://www.andymatuschak.org/xml-namespaces/sparkle\"
+                    ]) != 1"
+    fi
+
+    local is_valid
+    is_valid=$(xmllint --xpath "
+        boolean(
+            count(/rss) = 1 and
+            count(/rss/channel) = 1 and
+            count(/rss/channel/item) > 0 and
+            count(
+                /rss/channel/item[${invalid_item}]
             ) = 0
         )
-    ' "$appcast_path" 2>/dev/null || true)
+    " "$appcast_path" 2>/dev/null || true)
 
     if [ "$is_valid" != "true" ]; then
         echo "Appcast does not contain a valid Sparkle item history: ${appcast_path}" >&2
         return 1
     fi
+}
+
+# Older feed items predate the minimum-system-version element. Backfill them so
+# the generated feed validates strictly without dropping release history.
+backfill_minimum_system_version() {
+    local item_xml="$1"
+    if [[ "$item_xml" == *"<sparkle:minimumSystemVersion>"* ]]; then
+        printf '%s\n' "$item_xml"
+        return
+    fi
+    printf '%s\n' "$item_xml" | sed "s#</sparkle:shortVersionString>#</sparkle:shortVersionString><sparkle:minimumSystemVersion>${MINIMUM_SYSTEM_VERSION}</sparkle:minimumSystemVersion>#"
 }
 
 append_previous_items() {
@@ -123,7 +156,9 @@ append_previous_items() {
         ])" "$existing_path")
 
         if [ "$item_version" != "$VERSION" ]; then
-            xmllint --xpath "/rss/channel/item[${item_index}]" "$existing_path"
+            local item_xml
+            item_xml=$(xmllint --xpath "/rss/channel/item[${item_index}]" "$existing_path")
+            backfill_minimum_system_version "$item_xml"
             echo
             appended_count=$((appended_count + 1))
         fi
@@ -156,7 +191,7 @@ case "$APPCAST_URL" in
 esac
 
 if curl -fL --silent --show-error --max-time 30 "$APPCAST_URL" --output "$existing_appcast_path"; then
-    validate_appcast "$existing_appcast_path"
+    validate_appcast "$existing_appcast_path" 0
     generate_appcast "$existing_appcast_path" > "$generated_appcast_path"
 elif [ "$ALLOW_MISSING_APPCAST" = "1" ]; then
     echo "Existing appcast is unavailable; generating an explicitly allowed first-release feed" >&2

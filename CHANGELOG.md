@@ -24,6 +24,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The release workflow no longer writes a cask into the Homebrew tap. The consolidated `wiggly-sheets/homebrew-tap` renders its own cask from a template and follows the latest stable release, so a release needs no manual copy.
 - The release notes now come from the section of `CHANGELOG.md` for the released version. A version without a section fails the release.
 
+### Fixed
+- Align HUD drag-and-drop hit rectangles with the grid instead of shifting every target down one row.
+- Keep `recent` focus, space creation, and other yabai actions off the main thread.
+- Wire the HUD panel into the drag monitor so custom-position HUDs can be dragged and their position persisted.
+- Stop publishing an empty grid when a yabai query times out; serve the last good snapshot (bounded to 5s) instead.
+- Preserve the socket nonce across listener restarts and re-register yabai signals after a rebuild; fail closed rather than registering nonce-less actions.
+- Add single-instance protection and stop a second launch from unlinking the running instance's socket.
+- Make "Restart Spacemap" wait for the old process to exit before reopening, and retain the relaunch helper.
+- Keep a strong reference to `AppDelegate`; weak `NSApp.delegate` could otherwise leave the app running without lifecycle wiring.
+- Prevent config crashes from huge finite numbers (`Int(Double)` traps) and clamp `cols`/`rows` to 1...32 so grid math cannot overflow.
+- Stop a parse failure from overwriting the user's config with defaults; leave the file untouched and log the error even in silent mode.
+- Make config self-heal converge by persisting clamped values once instead of rewriting the file on every load.
+- Accept trailing commas, multi-line arrays, dotted keys, hex/underscored integers, and inline tables in TOML; round-trip U+2028/U+2029 and CR/CRLF files.
+- Preserve direct `[spaceNames]` entries and migrate the legacy bare `glyphStrip = true` form.
+- Serialize all config read-modify-write paths through `AppConfig.updateConfig`, including Settings, HUD/strip position, the font updater, and update mode.
+- Cap config reads and backups instead of materializing an oversized file.
+- Stop Settings saves from resetting `refuseUntrustedYabai` and disk-owned `appFont` state; surface save failures instead of silently succeeding.
+- Repaint the glyph strip when its content changes even if its frame does not.
+- Gate `NSGlassEffectView` on `compiler(>=6.2)` and Reduce Transparency everywhere so Swift 5.9/6.0 toolchains compile and accessibility settings are honoured.
+- Stop treating text selection, sliders, and edge resizes as window drags; require a title-bar start or real window movement.
+- Resolve drag targets by WindowServer owner PID and containing frame, and fall back to cached windows when the yabai snapshot arrives after mouse-up.
+- Consume media keys and key-up events through the shared tap without double-firing, normalize the hardware fn flag for function keys, and treat `f1`/`fn+f1` as duplicate bindings.
+- Pass all keys through while the hotkey recorder is active so bound media keys can be recorded.
+- Log and retry drag-tap creation failures; remove the `passRetained` ownership model so monitors deinitialize.
+- Clear hover and drag state when the tap is disabled, permission is revoked, or the HUD hides.
+- Refresh cached Accessibility trust on a low-frequency poll and on tap-disabled events instead of querying TCC per keystroke.
+- Stop rebuilding the entire HUD on every hovered-cell change; hover now only updates shared SwiftUI state.
+- Reuse HUD panels across hide/show, create panels from `updateState`, and prefer the panel's own screen when saving custom positions.
+- Avoid duplicate stacked panels for mirrored or stale displays.
+- Skip ScreenCaptureKit captures during launch prewarm; capture lazily on first show and cancel/clear thumbnails when the style leaves thumbnails.
+- Run Spotlight icon lookups concurrently with a 1.5s timeout and a negative cache instead of serializing behind one 5s process.
+- Keep glyph-strip refreshes alive across settings changes by clearing the wedge latch and delivering canceled fetch completions.
+- Apply space-name profile activation to the live inputs and glyph strip, flush pending edits before switching profiles, and notify an open Settings window.
+- Rebuild the menu-bar profiles submenu when profiles change.
+- Match hyphenated/underscored/compact theme names and reload `.smthemes` files when their mtime changes.
+- Replace verbatim Settings strings with localized keys and expose glyph-strip VoiceOver segments.
+- Keep manual update checks working with `updateMode = .off`; only automatic checks/downloads are disabled.
+- Restore the previous activation policy after alerts so an open Settings window remains usable.
+- Surface launch-at-login failures and treat `.requiresApproval` as pending rather than re-prompting every launch.
+- Persist the move-to-Applications decline and compare path components instead of prefix-matching `/Applications`.
+- Derive CLI/manpage symlink targets from `Bundle.main`, validate/quotes paths, and move the app via a staged atomic replace.
+- Reject unknown CLI flags instead of launching a second daemon; use one version source for `--version` and About.
+- Cap concurrent socket clients and queue bounded overflow instead of dropping commands after accepting them.
+- Retry socket bind/listen failures with bounded backoff and expose the terminal failure state.
+- Stop the nonce from rotating when another instance is live; rotate once per process otherwise.
+- Store the config minimum OS in both the bundle and the appcast, and source Xcode versions from `VERSION`.
+- Validate `make release` versions before writing any files, and regenerate the Xcode project after a version bump.
+- Bound and safely abandon yabai pipe readers, keep space creation within a monotonic 20s budget, and guard mutable process checks with locks.
+- Clear pending optimistic focus on a fresh fetch so a refresh cannot resurrect stale focus.
+- Guard event-tap recovery with a generation counter and keep the drag delivery queue generation-safe.
+- Add regression coverage for HUD geometry, config parsing/repair, socket nonce/liveness, drag evidence/fallbacks, hotkey routing, thumbnail policy, and appcast/version consistency.
+
 ## [1.1.1]
 
 ### Fixed

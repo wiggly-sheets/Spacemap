@@ -8,16 +8,38 @@ Creates an Xcode project with three targets:
   - spacemap-universal (fat binary, arm64 + x86_64)
 
 Run: python3 scripts/generate-xcodeproj.py
+Check: python3 scripts/generate-xcodeproj.py --check
 """
 
 import hashlib
 import os
 import json
+import re
+import sys
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCES_DIR = os.path.join(PROJECT_DIR, "Sources", "spacemap")
 XCODEPROJ_DIR = os.path.join(PROJECT_DIR, "spacemap.xcodeproj")
 PBXPROJ_PATH = os.path.join(XCODEPROJ_DIR, "project.pbxproj")
+VERSION_PATH = os.path.join(PROJECT_DIR, "VERSION")
+
+
+def read_version():
+    """Read the release version from the VERSION file (single source of truth)."""
+    try:
+        with open(VERSION_PATH, encoding="utf-8") as f:
+            version = f.read().strip()
+    except FileNotFoundError:
+        raise SystemExit(f"ERROR: {VERSION_PATH} not found")
+    if not re.fullmatch(r"\d+(\.\d+){0,2}", version):
+        raise SystemExit(
+            f"ERROR: {VERSION_PATH} must contain a version like 1.2.3 "
+            f"(got {version!r})"
+        )
+    return version
+
+
+VERSION = read_version()
 
 SOURCE_FILES = sorted([
     f for f in os.listdir(SOURCES_DIR)
@@ -169,9 +191,7 @@ def generate_build_config(target_id, name, is_debug):
     return "\n".join(lines)
 
 
-def generate():
-    os.makedirs(XCODEPROJ_DIR, exist_ok=True)
-
+def generate(check=False):
     all_target_configs = []
     for tid in NATIVE_TARGETS:
         all_target_configs.append(uid("config", f"{tid}.Debug"))
@@ -405,8 +425,8 @@ def generate():
             lines.append(f"\t\t\t\tSWIFT_OPTIMIZATION_LEVEL = {'-Onone' if is_debug else '-O'};")
             lines.append(f"\t\t\t\tSWIFT_VERSION = 5.0;")
             lines.append(f"\t\t\t\tVERSIONING_SYSTEM = \"apple-generic\";")
-            lines.append(f"\t\t\t\tMARKETING_VERSION = 1.0.0;")
-            lines.append(f"\t\t\t\tCURRENT_PROJECT_VERSION = 1;")
+            lines.append(f'\t\t\t\tMARKETING_VERSION = "{VERSION}";')
+            lines.append(f'\t\t\t\tCURRENT_PROJECT_VERSION = "{VERSION}";')
             lines.append(f"\t\t\t}};")
             lines.append(f"\t\t\tname = {name};")
             lines.append(f"\t\t}};")
@@ -450,8 +470,27 @@ def generate():
     lines.append(f"\trootObject = {proj_obj} /* Project object */;")
     lines.append("}")
 
+    content = "\n".join(lines)
+
+    if check:
+        try:
+            with open(PBXPROJ_PATH, encoding="utf-8") as f:
+                existing = f.read()
+        except FileNotFoundError:
+            existing = None
+        if existing != content:
+            print(
+                f"{PBXPROJ_PATH} is out of date. "
+                "Run: python3 scripts/generate-xcodeproj.py",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"{PBXPROJ_PATH} is up to date")
+        return 0
+
+    os.makedirs(XCODEPROJ_DIR, exist_ok=True)
     with open(PBXPROJ_PATH, "w") as f:
-        f.write("\n".join(lines))
+        f.write(content)
 
     print(f"Generated {PBXPROJ_PATH}")
     print(f"Targets:")
@@ -460,7 +499,11 @@ def generate():
     print(f"  spacemap-x86_64  — Intel only")
     print(f"  spacemap-universal — fat binary (arm64 + x86_64)")
     print(f"\nOpen with: open spacemap.xcodeproj")
+    return 0
 
 
 if __name__ == "__main__":
-    generate()
+    args = sys.argv[1:]
+    if args not in ([], ["--check"]):
+        raise SystemExit(f"usage: {sys.argv[0]} [--check]")
+    raise SystemExit(generate(check=args == ["--check"]))
