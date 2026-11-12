@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `[appearance] backgroundStyle` (`glass` default / `solid` / `transparent`) plus `[appearance] glassStyle` (`clear` / `tinted` / `frosted`, default `frosted`): configurable HUD background. Glass sub-types are clear (most transparent), frosted, or tinted with the theme color; solid fills with the theme background color; transparent draws no fill. Replaces the earlier flat `backgroundStyle`.
 - `[grid] showSpaceLayout` (default `false`): layout letter next to the space index (`f` float / `s` stack / `b` bsp; bsp is bare in the glyph strip). Requires `showSpaceNumbers`.
 
 ### Changed
+- Show the Background Transparency control only for the glass HUD background styles; solid and transparent ignore it.
 - The Makefile follows the shared build vocabulary now: `make` prints the list of targets, and the targets are `help`, `build`, `test`, `app`, `app-arm`, `app-intel`, `app-universal`, `dmg`, `dmg-arm`, `dmg-intel`, `dmg-universal`, `release-artifacts`, `release` and `clean`. The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work.
 - `make release VERSION=x.y.z` no longer pushes. It writes the VERSION file and the Info.plist, commits them, tags `v<x.y.z>` locally and prints the command that pushes the commit and the tag. The push is the release, and it belongs to the person who runs the target.
 - The release workflow no longer signs with a Developer ID identity and no longer notarizes, so every published build is ad-hoc signed. The published builds were already ad-hoc, because the Developer ID and notarization secrets were never set.

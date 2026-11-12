@@ -52,7 +52,12 @@ struct GridView: View {
         }
         .padding(effectivePadding)
         .background(
-            LiquidGlassBackground(cornerRadius: 10, alpha: state.config.backgroundAlpha, isDarkMode: isDarkMode, theme: theme)
+            HUDBackground(style: state.config.backgroundStyle,
+                          glassStyle: state.config.glassStyle,
+                          cornerRadius: 10,
+                          alpha: state.config.backgroundAlpha,
+                          isDarkMode: isDarkMode,
+                          themeColor: Color(hex: resolvedTheme.background))
         )
         .overlay(alignment: .topLeading) {
             displayBoundaryOverlay

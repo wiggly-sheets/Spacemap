@@ -16,6 +16,8 @@ final class ConfigValuesTests: XCTestCase {
         values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
         values.maxSpaces = 12
         values.backgroundAlpha = 0.5
+        values.backgroundStyle = .glass
+        values.glassStyle = .tinted
         values.hudShadow = false
         values.iconScale = 0.8
         values.uiScale = 0.75
@@ -64,6 +66,8 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.glyphStripHotkey, HotkeyConfig(key: .keyCode(100), modifiers: .maskShift))
         XCTAssertEqual(config.maxSpaces, 12)
         XCTAssertEqual(config.backgroundAlpha, 0.5, accuracy: 0.001)
+        XCTAssertEqual(config.backgroundStyle, .glass)
+        XCTAssertEqual(config.glassStyle, .tinted)
         XCTAssertFalse(config.hudShadow)
         XCTAssertEqual(config.iconScale, 0.8, accuracy: 0.001)
         XCTAssertEqual(config.uiScale, 0.75, accuracy: 0.001)
@@ -100,6 +104,43 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.appFont.lastCheck, 1700000000)
     }
 
+    func testBackgroundStyleRoundTrip() throws {
+        for style in HUDBackgroundStyle.allCases {
+            var values = ConfigValues()
+            values.backgroundStyle = style
+
+            let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+            let reread = try TOMLParser.parse(toml)
+
+            XCTAssertEqual(reread.backgroundStyle, style)
+
+            let (config, _) = reread.toGridConfig()
+            XCTAssertEqual(config.backgroundStyle, style)
+        }
+    }
+
+    func testGlassStyleRoundTrip() throws {
+        for style in HUDGlassStyle.allCases {
+            var values = ConfigValues()
+            values.glassStyle = style
+
+            let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+            let reread = try TOMLParser.parse(toml)
+
+            XCTAssertEqual(reread.glassStyle, style)
+
+            let (config, _) = reread.toGridConfig()
+            XCTAssertEqual(config.glassStyle, style)
+        }
+    }
+
+    func testBackgroundStyleDefaults() {
+        let values = ConfigValues()
+        let (config, _) = values.toGridConfig()
+        XCTAssertEqual(config.backgroundStyle, .glass)
+        XCTAssertEqual(config.glassStyle, .frosted)
+    }
+
     func testToGridConfigWithFullGlyphStripTable() {
         var values = ConfigValues()
         // Mirror testToGridConfigWithAllFieldsSet: nothing may be nil or the
@@ -121,6 +162,8 @@ final class ConfigValuesTests: XCTestCase {
         values.displayNavigationWrap = .within
         values.maxSpaces = 16
         values.backgroundAlpha = 0.3
+        values.backgroundStyle = .glass
+        values.glassStyle = .frosted
         values.hudShadow = true
         values.mode = .auto
         values.iconScale = 0.5
@@ -308,6 +351,8 @@ final class ConfigValuesTests: XCTestCase {
         values.displayNavigationWrap = .within
         values.maxSpaces = 8
         values.backgroundAlpha = 0.7
+        values.backgroundStyle = .glass
+        values.glassStyle = .frosted
         values.hudShadow = true
         values.iconScale = 0.6
         values.showSpaceNumbers = true

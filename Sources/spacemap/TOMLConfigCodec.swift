@@ -230,7 +230,8 @@ enum TOMLConfigDecoder {
             "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons"
         ])
         flatten("appearance", keys: [
-            "theme", "mode", "backgroundAlpha", "hudShadow", "iconScale", "uiScale"
+            "theme", "mode", "backgroundAlpha", "hudShadow", "iconScale", "uiScale",
+            "backgroundStyle", "glassStyle"
         ])
         // Legacy fallback: pre-[advanced] files keep showExtraWindows under
         // [behavior]. Capture before flatten drops the section; [advanced]
@@ -322,6 +323,12 @@ enum TOMLConfigDecoder {
         values.showSpaceLayout = value("showSpaceLayout")
         values.showIconStrip = value("showIconStrip")
         values.showMultiAppIcons = value("showMultiAppIcons")
+        if let name: String = value("backgroundStyle") {
+            values.backgroundStyle = parsedEnum(from: name)
+        }
+        if let name: String = value("glassStyle") {
+            values.glassStyle = parsedEnum(from: name)
+        }
 
         if let rawSpaceNames = object["spaceNames"] as? [String: Any] {
             var spaceNames: [Int: String] = [:]

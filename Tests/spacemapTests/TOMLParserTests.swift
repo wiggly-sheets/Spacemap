@@ -115,6 +115,41 @@ final class TOMLParserTests: XCTestCase {
         XCTAssertEqual(values?.showExtraWindows, true)
     }
 
+    func testParseBackgroundStyle() {
+        let toml = """
+        [appearance]
+        backgroundStyle = "solid"
+        """
+        let values = try? TOMLParser.parse(toml)
+        XCTAssertEqual(values?.backgroundStyle, .solid)
+        XCTAssertNil(values?.glassStyle)
+
+        let invalid = """
+        [appearance]
+        backgroundStyle = "invalid"
+        """
+        let invalidValues = try? TOMLParser.parse(invalid)
+        XCTAssertNil(invalidValues?.backgroundStyle)
+    }
+
+    func testParseGlassStyle() {
+        let toml = """
+        [appearance]
+        backgroundStyle = "glass"
+        glassStyle = "tinted"
+        """
+        let values = try? TOMLParser.parse(toml)
+        XCTAssertEqual(values?.backgroundStyle, .glass)
+        XCTAssertEqual(values?.glassStyle, .tinted)
+
+        let invalid = """
+        [appearance]
+        glassStyle = "invalid"
+        """
+        let invalidValues = try? TOMLParser.parse(invalid)
+        XCTAssertNil(invalidValues?.glassStyle)
+    }
+
     func testParseMissingFieldsAreNil() {
         let values = try? TOMLParser.parse("""
         [grid]

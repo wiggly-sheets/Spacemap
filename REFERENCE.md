@@ -69,7 +69,9 @@ Note: DEBUG builds (Xcode) skip CLI handling and always launch the HUD; `--versi
 | `[grid]` | `showSpaceLayout` | false | Layout letter next to the index: float `f`, stack `s`, bsp `b` (bsp is bare in the strip); requires `showSpaceNumbers` |
 | `[grid]` | `showIconStrip` / `showMultiAppIcons` | true / false | Per-cell app icons; per-window (true) or per-app (false) |
 | `[appearance]` | `theme` / `mode` | `default` / `auto` | Color theme; `light`, `dark`, or `auto` |
-| `[appearance]` | `backgroundAlpha` | 0.3 | HUD transparency 0–1 |
+| `[appearance]` | `backgroundAlpha` | 0.3 | HUD transparency 0–1 (glass styles only; solid and transparent ignore it) |
+| `[appearance]` | `backgroundStyle` | `glass` | `glass`, `solid`, or `transparent` |
+| `[appearance]` | `glassStyle` | `frosted` | Glass sub-type: `clear`, `tinted`, or `frosted` |
 | `[appearance]` | `hudShadow` | true | Draw HUD panel shadow |
 | `[appearance]` | `uiScale` / `iconScale` | 0.5 / 0.5 | HUD scale / icon size, 0–1 |
 | `[behavior]` | `hotkey` / `pinnedHotkey` | ctrl+space / none | Toggle hotkeys (applied immediately from Settings) |
@@ -118,6 +120,8 @@ Stores parsed configuration values.
 | `displayNavigationWrap` | `DisplayNavigationWrap` | `displayNavigationWrap` |
 | `maxSpaces` | `Int` | `maxSpaces` |
 | `backgroundAlpha` | `Double` | `backgroundAlpha` |
+| `backgroundStyle` | `HUDBackgroundStyle` | `backgroundStyle` |
+| `glassStyle` | `HUDGlassStyle` | `glassStyle` |
 | `hudShadow` | `Bool` | `hudShadow` |
 | `mode` | `ThemeMode` | `mode` |
 | `iconScale` | `Double` | `iconScale` |
