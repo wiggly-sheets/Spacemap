@@ -74,7 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Guard event-tap recovery with a generation counter and keep the drag delivery queue generation-safe.
 - Add regression coverage for HUD geometry, config parsing/repair, socket nonce/liveness, drag evidence/fallbacks, hotkey routing, thumbnail policy, and appcast/version consistency.
 
-## [1.1.2-rc.1] - 2026-11-13
+## [1.1.2] - 2026-11-13
 
 ### Added
 
