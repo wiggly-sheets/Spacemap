@@ -14,7 +14,7 @@ env:
 jobs:
   release:
     name: Build & Release
-    runs-on: macos-26
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,6 +24,23 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Select Xcode
+        run: |
+          xcode="$(find /Applications -maxdepth 1 -name 'Xcode_27*.app' -print 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$xcode" ]; then
+            echo "::error::no Xcode 27 installation on this runner"
+            ls /Applications
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+          sdk="$(xcrun --sdk macosx --show-sdk-version)"
+          echo "macOS SDK: $sdk"
+          case "$sdk" in
+            27.*) ;;
+            *) echo "::error::the macOS 27 SDK is required, found $sdk"; exit 1 ;;
+          esac
 
       - name: The tag must sit on the default branch
         run: |
