@@ -14,7 +14,7 @@ env:
 jobs:
   release:
     name: Build & Release
-    runs-on: macos-14
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,10 +33,6 @@ jobs:
             echo "::error::The tag ${GITHUB_REF_NAME} is not on origin/main; cut it from the default branch"
             exit 1
           fi
-
-      - uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: "5.9"
 
       - name: Install build tools
         run: |
