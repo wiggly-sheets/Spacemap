@@ -221,6 +221,8 @@ Read from the `[glyphStrip]` table. A legacy bare `glyphStrip = true` boolean is
 | `hoverCornerRadius` | `Double` | `4.0`, clamped 0...20; corner radius of the hover highlight, independent of `cornerRadius` |
 | `iconSpacing` | `Double` | `3.0`, clamped 0...20; gap between adjacent app glyphs, and between stacked icon lines when `verticalLayout = "stacked"` |
 | `indexPadding` | `Double` | `6.0`, clamped 0...20; gap between a space's index number and its first app glyph or placeholder, horizontal or stacked |
+| `autoResizeMaxLength` | `Double` | `0` (off), clamped 0...4000; target width when horizontal or height when vertical. Glyphs and spacing grow into spare room and shrink when over, with an 8pt floor |
+| `verticalPadding` | `Double` | `4.0`, clamped 0...40; extra top and bottom room in vertical layouts |
 | `showDisplaySeparators` | `Bool` | `true` |
 | `showAddSpaceButton` | `Bool` | `true` (drawn bold at `indexSize + 2`) |
 | `showPlaceholders` | `Bool` | `true` |
