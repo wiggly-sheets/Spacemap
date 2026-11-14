@@ -12,7 +12,7 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - Lets you click cells to jump to spaces
 - Supports five display styles: colored rectangles, Hybrid rectangles with centered app icons, app icons, plain, or thumbnails (ScreenCaptureKit)
 - Window drag-and-drop between cells (drag a window onto a cell to move it)
-- Menubar icon for manual show/hide (can be hidden)
+- Menubar and/or Dock presence for manual show/hide (`presence`: dock, menuBar, both, none)
 
 ## Quick Reference for Agents
 - **Entry point**: `Sources/spacemap/App.swift` – sets up menubar, hotkey monitor, socket listener, Sparkle updater.
@@ -20,17 +20,17 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **Sparkle updater**: `App.swift` initializes `SPUStandardUpdaterController` with `startingUpdater: false`; `start()` called after config load. Keys generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`.
 - **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
 - **Data**: `YabaiClientImpl.swift` (+ `YabaiService.swift` protocol) – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows, 10s command timeout with async pipe drain; `AppConfig.swift` (+ `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues`) – reads `~/.config/spacemap/config.toml`.
-- **Themes**: `ThemeManager.swift` – loads `.smthemes` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch.
+- **Themes**: `ThemeManager.swift` – loads `.smthemes` and `.toml` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch, saves edited themes as TOML.
 - **Hotkey**: `HotkeyMonitor.swift` (+ `HotkeyService`/`HotkeyHandler`) – global CGEventTap for normal, pinned, and glyph-strip bindings; fails open on revocation; fn preserved.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
 - **Signals**: `SocketListener.swift` – Unix domain socket (mode 0600) for yabai `space_changed` events.
 - **Models**: `ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift` – data structs (GridConfig, YabaiSpace, AppTheme with rect1/rect2/rect3, etc.).
 - **Settings**: `SettingsView.swift` (+ per-category `SettingsGrid`/`SettingsSpaceNames`/`SettingsAppearance`/`SettingsBehavior`/`SettingsGlyphStrip`/`SettingsAdvanced`) + `SettingsWindowController.swift` – permanent category sidebar with separate live-save detail forms.
-- **Glyph strip**: `GlyphStrip.swift` (pure model) + `GlyphStripPanel.swift` (panel/view) – menu-bar index+glyph strip, theme-driven, session-only hotkey toggle.
+- **Glyph strip**: `GlyphStrip.swift` (pure model) + `GlyphStripPanel.swift` (panel/view) – menu-bar index+glyph strip, theme-driven, notch anchors or free placement, horizontal or vertical layouts, optional fullscreen hiding, session-only hotkey toggle.
 - **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
 - **Config**: Stored at `~/.config/spacemap/config.toml`; reloads on HUD open, Settings applies hotkeys/update-mode/socket-health immediately (no restart).
-- **Permissions**: Requires Accessibility permission (prompted on first launch). Screen Recording permission required for thumbnail cell style.
+- **Permissions**: Accessibility (Device Control & Access on macOS 27) for hotkeys and window dragging; Screen Recording for thumbnail cells. Advanced shows status, deep links and a drag helper; `SystemPermissions.swift` owns the checks.
 - **Sparkle Keys**: Public key is in `sparklesigner.pub`; `sparklesigner.pem` is the matching local PEM private key. Both are `.gitignore`d. GitHub `SPARKLE_PUBLIC_KEY` stores the public key; `SPARKLE_PRIVATE_KEY` must contain the matching base64-encoded 32-byte Ed25519 seed (not the PEM file). The release workflow verifies the pair before building.
 
 ## Architecture
@@ -62,10 +62,11 @@ Sources/spacemap/
 ├── GlyphStripPanel.swift    # Strip panel/view (AppKit, notch-aware)
 ├── ThumbnailCache.swift   # ScreenCaptureKit capture, per-space caching (macOS 14+)
 ├── IconCache.swift         # App icon cache to avoid repeated NSWorkspace lookups
-├── ThemeManager.swift      # Loads .smthemes files, seeds built-in themes on first launch
+├── ThemeManager.swift      # Loads .smthemes/.toml themes, seeds built-ins, saves TOML
 ├── SettingsView.swift     # Fixed settings sidebar + category-specific live-save forms
 ├── SettingsGrid.swift / SettingsSpaceNames.swift / SettingsAppearance.swift
-│   ├── SettingsBehavior.swift / SettingsGlyphStrip.swift / SettingsAdvanced.swift
+│   ├── SettingsBehavior.swift / SettingsGlyphStrip.swift / SettingsThemeEditor.swift
+│   ├── SettingsAdvanced.swift / SettingsSubsection.swift
 ├── SettingsWindowController.swift # AppKit window wrapper for SettingsView
 └── Info.plist            # App bundle metadata
 ```
@@ -233,12 +234,12 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - Screen Recording permissions link in menubar
 - Cell opacity / inactive space dimming
 - Thumbnail cell style (ScreenCaptureKit, experimental)
-- File-based theme system (.smthemes files in ~/.config/spacemap/themes/)
+- File-based theme system (.smthemes and .toml files in ~/.config/spacemap/themes/, plus the in-app editor)
 - Grid-aware keyboard navigation (arrow keys + vim keys with wrapping)
 - Dynamic yabai path detection (ARM + Intel)
 - Xcode project generation (`scripts/generate-xcodeproj.py`, 4 targets)
 - Unit test suite: ~588 tests across 35 files (`Tests/spacemapTests/`)
-- Glyph strip: theme-driven menu-bar index+glyph strip (material/shape/glassStyle+per-style opacity, optional match-HUD appearance, notch-aware positions + custom drag, session-only hotkey)
+- Glyph strip: theme-driven menu-bar index+glyph strip (material/shape/glass style, per-style variant and opacity, optional match-HUD appearance, notch anchors or free placement, horizontal/vertical/stacked layouts, position lock, fullscreen hiding)
 - Space-name profiles with menu-bar switching; fn modifier preserved across hotkeys/drop-focus
 - Hardening: yabai 10s timeout + async pipe drain, socket mode 0600, release tag/appcast checks
 - GitHub Actions CI: swift test + build on push/PR

@@ -10,7 +10,7 @@
 - **focus** — the currently active space (the one with keyboard focus).
 - **drag-and-drop** — moving a window from one space to another by dragging it over the HUD grid.
 - **thumbnail** — a live ScreenCaptureKit capture of a space's windows, shown per-cell (macOS 14+, Screen Recording permission required).
-- **theme** — a `.smthemes` file that defines colors for the grid (background, focused, text, drop-target, cell backgrounds).
+- **theme** — a `.smthemes` or `.toml` file that defines colors for the grid and strip (background, focused, text, drop-target, cell backgrounds). Editable in Settings, which saves TOML.
 - **config** — `~/.config/spacemap/config.toml`; governs grid dimensions, cell style, hotkey, behavior, and appearance.
 - **hotkey** — a global CGEventTap binding (keyCode + modifiers, fn preserved) that toggles the HUD; the glyph-strip hotkey is session-only and never persisted.
 - **glyph strip** — the always-visible menu-bar strip showing each space's index plus a glyph per window; theme-driven, notch-aware (`leftOfNotch`/`rightOfNotch`/`center`/`custom`).

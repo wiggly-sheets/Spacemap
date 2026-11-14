@@ -6,6 +6,12 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Core Features & CLI
 
+- **Permissions Page**: Status, request buttons, deep links and a drag helper for Accessibility and Screen Recording
+- **TOML Themes + Editor**: Load `.toml` themes and edit or clone palettes in Settings
+- **HUD Feedback and Motion**: Number/action notices, previous-space return on delete, optional animations (natural, springy, fast)
+- **HUD and Cell Glass**: Per-style variants, tinted material, optional per-space glass layer, configurable HUD corner radius
+- **Thumbnail Wallpaper**: Optional desktop image behind captures, with off-space windows included
+
 - **CLI Options**: `--version`, `--help`, `--config`, `--trigger`, `--space <selector>`, `--show-menu`, `--settings`
 - **Settings Window**: Permanent System Settings-style sidebar with highlighted categories, separate live-save detail forms, space-name editor, and hotkey recorder
 - **Launch at Login**: Toggle with state indicator and first-launch prompt
@@ -29,11 +35,15 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Show Space Numbers Toggle**: Per-cell space number display with consistent scaled insets at every HUD size
 - **Show Space Names Toggle**: Per-cell custom name display
 - **Show Icon Strip Toggle**: Per-cell app icon strip at bottom
-- **Hide Menu Bar Icon Toggle**: Run headless, use hotkey or CLI
+- **Presence**: Choose Dock, menu bar, both or neither; Settings and About always show a Dock icon while open
 - **Menu Bar Workspace Previews**: Current, nearby, all-space, and compact dot-grid modes with live yabai layout updates
 - **Reliable Menu Bar Dot Updates**: Signal registration bypasses stale launch-time yabai process checks
 
 ### Glyph Strip & Profiles
+
+- **Free Placement**: Custom position anywhere on screen, horizontal or vertical, icons beside or under space numbers, optional position lock
+- **Fullscreen Hiding**: Optional hide while the focused space has a native-fullscreen window
+- **Glass Options for the Strip**: Clear/regular/tinted styles, raw variant choice and tinted material, matching the HUD
 
 - **Menu-Bar Glyph Strip**: Theme-driven per-space index + sketchybar-app-font glyphs with notch-aware placement (`leftOfNotch`/`rightOfNotch`/`center`/`custom` drag-to-move), liquid-glass/solid/none materials, gated Settings controls, and session-only show/hide hotkey
 - **Space-Name Profiles**: Named name sets with active index, Settings editor section, and menu-bar switching
@@ -62,7 +72,7 @@ A living list of planned features, known bugs, and future improvements for the p
 ### Theming & Customization
 
 - **Space Naming System**: Config-based `SPACE_NAMES=1:Name,2:Name` with settings UI editor
-- **File-based Theme System**: `.smthemes` files in `~/.config/spacemap/themes/`, editable text files, auto-seeded on first launch
+- **File-based Theme System**: `.smthemes` and `.toml` files in `~/.config/spacemap/themes/`, editable text files, auto-seeded on first launch
 - **Theme Bug Fix**: `dropTarget` case-insensitive matching in `.smthemes` parsing
 
 ### Window Features
