@@ -22,6 +22,9 @@ struct SettingsBehavior: View {
     @Binding var focusSpaceOnWindowDropModifier: WindowDropFocusModifier
     @Binding var showHUDOnSpaceChange: Bool
     @Binding var showHUDInteractionFeedback: Bool
+    @Binding var spaceDropMode: SpaceDropMode
+    @Binding var spaceDragFocus: DragFocusMode
+    @Binding var windowDragFocus: DragFocusMode
     @Binding var hudAnimationsEnabled: Bool
     @Binding var hudAnimationStyle: HUDAnimationStyle
     @Binding var hudEntranceStyle: HUDEntranceStyle
@@ -286,6 +289,7 @@ struct SettingsBehavior: View {
         isCheckingFont = true
         fontStatus = "Checking for updates…"
         let installedTag = AppConfig.load().appFont.installedVersion
+        let hadFace = AppGlyphFont.load() != nil
         installedFontVersion = installedTag
         Task {
             let status: String
@@ -300,6 +304,9 @@ struct SettingsBehavior: View {
                     AppFontUpdater.recordCheck(installedTag: info.tag)
                     status = "Updated to \(info.tag)"
                     installedFontVersion = info.tag
+                    if hadFace {
+                        AppFontUpdater.relaunchIfGlyphStripUsesFont(AppConfig.load())
+                    }
                 }
             } catch {
                 // Failures record nothing so the next check retries.

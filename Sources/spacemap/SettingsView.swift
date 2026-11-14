@@ -97,6 +97,9 @@ struct SettingsView: View {
     @State private var showStackLayoutBadge: Bool = true
     @State private var showFloatLayoutBadge: Bool = true
     @State private var showHUDInteractionFeedback: Bool = true
+    @State private var spaceDropMode: SpaceDropMode = .content
+    @State private var spaceDragFocus: DragFocusMode = .stay
+    @State private var windowDragFocus: DragFocusMode = .destination
     @State private var hudAnimationsEnabled: Bool = true
     @State private var hudAnimationStyle: HUDAnimationStyle = .natural
     @State private var hudEntranceStyle: HUDEntranceStyle = .fade
@@ -199,6 +202,9 @@ struct SettingsView: View {
         _showStackLayoutBadge = State(initialValue: config.showStackLayoutBadge)
         _showFloatLayoutBadge = State(initialValue: config.showFloatLayoutBadge)
         _showHUDInteractionFeedback = State(initialValue: config.showHUDInteractionFeedback)
+        _spaceDropMode = State(initialValue: config.spaceDropMode)
+        _spaceDragFocus = State(initialValue: config.spaceDragFocus)
+        _windowDragFocus = State(initialValue: config.windowDragFocus)
         _hudAnimationsEnabled = State(initialValue: config.hudAnimationsEnabled)
         _hudAnimationStyle = State(initialValue: config.hudAnimationStyle)
         _hudEntranceStyle = State(initialValue: config.hudEntranceStyle)
@@ -308,6 +314,9 @@ struct SettingsView: View {
             showStackLayoutBadge: showStackLayoutBadge,
             showFloatLayoutBadge: showFloatLayoutBadge,
             showHUDInteractionFeedback: showHUDInteractionFeedback,
+            spaceDropMode: spaceDropMode,
+            spaceDragFocus: spaceDragFocus,
+            windowDragFocus: windowDragFocus,
             showThumbnailWallpaper: showThumbnailWallpaper,
             hudAnimationsEnabled: hudAnimationsEnabled,
             hudAnimationStyle: hudAnimationStyle,
@@ -408,6 +417,9 @@ struct SettingsView: View {
                     focusSpaceOnWindowDropModifier: $focusSpaceOnWindowDropModifier,
                     showHUDOnSpaceChange: $showHUDOnSpaceChange,
                     showHUDInteractionFeedback: $showHUDInteractionFeedback,
+                    spaceDropMode: $spaceDropMode,
+                    spaceDragFocus: $spaceDragFocus,
+                    windowDragFocus: $windowDragFocus,
                     hudAnimationsEnabled: $hudAnimationsEnabled,
                     hudAnimationStyle: $hudAnimationStyle,
                     hudEntranceStyle: $hudEntranceStyle,

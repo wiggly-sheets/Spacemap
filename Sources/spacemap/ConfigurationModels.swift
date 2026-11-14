@@ -110,6 +110,41 @@ enum AppFontUpdateMode: String, CaseIterable, Identifiable, Equatable {
 
     var id: String { rawValue }
 }
+/// What a dragged space does when it lands on another space.
+enum SpaceDropMode: String, CaseIterable, Identifiable, Equatable {
+    /// Swap the windows between the two spaces. Works with any yabai build.
+    case content
+    /// Reorder the spaces themselves. Needs a yabai build that can move
+    /// spaces on this macOS version.
+    case spaces
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .content: return "Swap Contents"
+        case .spaces: return "Move Spaces"
+        }
+    }
+}
+
+/// Where focus goes after a drag moves an app or rearranges spaces.
+enum DragFocusMode: String, CaseIterable, Identifiable, Equatable {
+    case stay
+    case destination
+    case source
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .stay: return "Stay"
+        case .destination: return "Dropped-On Space"
+        case .source: return "Original Space"
+        }
+    }
+}
+
 enum AppPresence: String, CaseIterable, Identifiable, Equatable {
     case dock = "dock"
     case menuBar = "menuBar"
@@ -518,7 +553,9 @@ enum MediaKey: String, Codable, CaseIterable, Equatable {
 /// `[appFont]` table: how the glyph font gets updated, plus install state so
 /// auto mode does not re-download the release every launch.
 struct AppFontConfig: Equatable {
-    var updateMode: AppFontUpdateMode = .manual
+    /// Auto by default: the bundled ttf is a fallback, and a fresh install
+    /// should not stay on an old glyph set until someone opens Settings.
+    var updateMode: AppFontUpdateMode = .auto
     /// Release tag of the last font installed by the updater, e.g. "v3.0.5".
     /// Empty = only the bundled copy exists.
     var installedVersion: String = ""
@@ -620,6 +657,13 @@ struct GridConfig: Equatable {
     var showFloatLayoutBadge: Bool = true
     /// Draw number and action notices over the HUD. Actions still run when off.
     var showHUDInteractionFeedback: Bool = true
+    /// What dropping a dragged space does: swap window contents, or move the
+    /// spaces themselves.
+    var spaceDropMode: SpaceDropMode = .content
+    /// Focus after dragging a space.
+    var spaceDragFocus: DragFocusMode = .stay
+    /// Focus after dragging an app icon to another space.
+    var windowDragFocus: DragFocusMode = .destination
     /// Draw the desktop wallpaper behind thumbnail cells. Off renders windows
     /// over a transparent background, which is easier to read on busy desktops.
     var showThumbnailWallpaper: Bool = true
@@ -681,6 +725,9 @@ struct GridConfig: Equatable {
         showStackLayoutBadge: true,
         showFloatLayoutBadge: true,
         showHUDInteractionFeedback: true,
+        spaceDropMode: .content,
+        spaceDragFocus: .stay,
+        windowDragFocus: .destination,
         showThumbnailWallpaper: true,
         hudAnimationsEnabled: true,
         hudAnimationStyle: .natural,

@@ -44,6 +44,13 @@ final class HUDDisplay {
     /// Supplied by the controller: true while the user is dragging the panel.
     /// A signal-driven render mid-drag must not snap it back.
     var isPanelDragging: (() -> Bool)?
+    /// Drag feedback owned by the controller: suppress auto-hide, and resolve
+    /// a drop onto a space cell.
+    var onDragActive: ((Bool) -> Void)?
+    var onSpaceDrop: ((Int, NSPoint) -> Void)?
+    var onWindowDrop: (([Int], Int, NSPoint) -> Void)?
+    var onSpaceDragStart: ((Int) -> Void)?
+    var onWindowDragStart: ((Int) -> Void)?
 
     init(yabaiService: YabaiService, themeService: ThemeManager = .shared) {
         self.yabaiService = yabaiService
@@ -60,6 +67,13 @@ final class HUDDisplay {
         }
     }
 
+    /// Highlight the cell a drag would drop onto. Separate from pointer hover:
+    /// external drags own the highlight until they end.
+    func setExternalDropTarget(_ spaceIndex: Int?) {
+        guard hoverState.cell != spaceIndex else { return }
+        hoverState.cell = spaceIndex
+    }
+
     func updateDisplayNumber(_ feedback: HUDNumberFeedback?, clearAfter delay: TimeInterval? = nil) {
         guard currentConfig.showHUDInteractionFeedback else { return }
         numberState.update(feedback, clearAfter: delay)
@@ -71,6 +85,8 @@ final class HUDDisplay {
         noticeState.show(text)
     }
 
+    private var thumbnailClearWorkItem: DispatchWorkItem?
+
     func updateHoveredCell(_ cell: Int?) {
         guard hoveredCell != cell || hoverState.cell != cell else { return }
         hoveredCell = cell
@@ -78,6 +94,8 @@ final class HUDDisplay {
     }
 
     func show() {
+        thumbnailClearWorkItem?.cancel()
+        thumbnailClearWorkItem = nil
         delegate?.show()
     }
 
@@ -90,6 +108,18 @@ final class HUDDisplay {
         renderedState = nil
         if #available(macOS 14.0, *) {
             ThumbnailCache.shared.cancel()
+            // Captures are cancelled now, but the last frames are useful if the
+            // HUD reopens soon. Drop them after a delay to bound retention.
+            thumbnailClearWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                guard let self else { return }
+                let visible = (self.panel?.isVisible ?? false) ||
+                    self.displayPanels.values.contains { $0.isVisible }
+                if !visible { ThumbnailCache.shared.clear() }
+                self.thumbnailClearWorkItem = nil
+            }
+            thumbnailClearWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: work)
         }
         if let panel { dismiss(panel) }
         for displayPanel in displayPanels.values {
@@ -462,7 +492,9 @@ final class HUDDisplay {
             panel.orderFrontRegardless()
             return
         }
-        guard currentConfig.hudAnimationsEnabled else {
+        // NSAnimationContext needs a running app; unit tests create windows but
+        // do not spin an app event loop, so animate only in the real app.
+        guard currentConfig.hudAnimationsEnabled, NSApp != nil, NSApp.isRunning else {
             panel.alphaValue = 1
             panel.orderFrontRegardless()
             return
@@ -480,7 +512,7 @@ final class HUDDisplay {
     }
 
     private func dismiss(_ panel: NSPanel) {
-        guard panel.isVisible, currentConfig.hudAnimationsEnabled else {
+        guard panel.isVisible, currentConfig.hudAnimationsEnabled, NSApp != nil, NSApp.isRunning else {
             panel.orderOut(nil)
             return
         }
@@ -568,7 +600,12 @@ final class HUDDisplay {
         }, uiScale: currentConfig.uiScale, theme: currentConfig.theme,
            resolvedTheme: themeService.named(currentConfig.theme), spaceIndices: spaceIndices,
            usesNativeGlass: Self.nativeGlassAvailable && currentConfig.backgroundStyle == .glass,
-           hudAnimation: currentConfig.hudAnimationsEnabled ? currentConfig.hudAnimationStyle : nil)
+           hudAnimation: currentConfig.hudAnimationsEnabled ? currentConfig.hudAnimationStyle : nil,
+           onSpaceDrop: onSpaceDrop,
+           onWindowDrop: onWindowDrop,
+           onDragActive: onDragActive,
+           onSpaceDragStart: onSpaceDragStart,
+           onWindowDragStart: onWindowDragStart)
     }
 
     private func cellFrames(for cells: [Int], in panel: NSPanel) -> [(spaceIndex: Int, frame: CGRect)] {

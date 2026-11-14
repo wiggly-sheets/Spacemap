@@ -57,6 +57,7 @@ final class ConfigValuesTests: XCTestCase {
         values.showFloatLayoutBadge = true
 
         values.showHUDInteractionFeedback = true
+        values.spaceDropMode = .content
         values.showThumbnailWallpaper = true
         values.hudAnimationsEnabled = true
         values.hudAnimationStyle = .natural
@@ -301,6 +302,21 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertFalse(values.toGridConfig().config.showHUDInteractionFeedback)
     }
 
+    func testSpaceDropModeDefaultsToContentAndRoundTrips() {
+        XCTAssertEqual(GridConfig.default.spaceDropMode, .content)
+        XCTAssertEqual(GridConfig.default.spaceDragFocus, .stay)
+        XCTAssertEqual(GridConfig.default.windowDragFocus, .destination)
+        var values = ConfigValues(from: GridConfig.default)
+        XCTAssertEqual(values.spaceDropMode, .content)
+        values.spaceDropMode = .spaces
+        values.spaceDragFocus = .destination
+        values.windowDragFocus = .stay
+        let grid = values.toGridConfig().config
+        XCTAssertEqual(grid.spaceDropMode, .spaces)
+        XCTAssertEqual(grid.spaceDragFocus, .destination)
+        XCTAssertEqual(grid.windowDragFocus, .stay)
+    }
+
     func testPresenceDefaultsAndRoundTrips() {
         XCTAssertEqual(GridConfig.default.presence, .menuBar)
         var values = ConfigValues(from: GridConfig.default)
@@ -403,6 +419,7 @@ final class ConfigValuesTests: XCTestCase {
         values.showFloatLayoutBadge = true
 
         values.showHUDInteractionFeedback = false
+        values.spaceDropMode = .content
         values.hudAnimationsEnabled = true
         values.hudAnimationStyle = .natural
         values.updateMode = .notify
@@ -615,6 +632,7 @@ final class ConfigValuesTests: XCTestCase {
         values.showFloatLayoutBadge = true
 
         values.showHUDInteractionFeedback = true
+        values.spaceDropMode = .content
         values.showThumbnailWallpaper = true
         values.hudAnimationsEnabled = true
         values.hudAnimationStyle = .natural

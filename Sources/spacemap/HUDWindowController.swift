@@ -29,6 +29,10 @@ class HUDWindowController {
     /// Reduce Transparency changes which backing the HUD can use; SwiftUI
     /// reads that only when its body re-evaluates.
     private var accessibilityObserver: NSObjectProtocol?
+    /// Polls the pointer while an external drag is live. Strip drags are
+    /// delivered to the strip view even outside its panel, so no HUD-side
+    /// mouse tracking can see them; one timer covers strip and HUD drags.
+    private var externalDragPoll: Timer?
 
     init(services: SpacemapServices, coordinator: GridStateCoordinator? = nil) {
         self.services = services
@@ -52,6 +56,7 @@ class HUDWindowController {
     }
 
     deinit {
+        externalDragPoll?.invalidate()
         if let accessibilityObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver)
         }
@@ -61,6 +66,21 @@ class HUDWindowController {
         hudDisplay.delegate = self
         hudDisplay.isPanelDragging = { [weak hudInput = self.hudInput] in
             hudInput?.panelDragActive ?? false
+        }
+        hudDisplay.onDragActive = { [weak self] active in
+            self?.setExternalDragActive(active)
+        }
+        hudDisplay.onSpaceDragStart = { [weak self] source in
+            self?.setExternalDragSourceSpace(source)
+        }
+        hudDisplay.onSpaceDrop = { [weak self] source, _ in
+            self?.handleSpaceDrop(source: source)
+        }
+        hudDisplay.onWindowDragStart = { [weak self] source in
+            self?.setExternalDragSourceSpace(source)
+        }
+        hudDisplay.onWindowDrop = { [weak self] ids, source, _ in
+            self?.handleWindowDrop(ids: ids, source: source)
         }
         hudInput.quartzPointConverter = { [weak hudDisplay = self.hudDisplay] point in
             hudDisplay?.quartzPoint(fromAppKit: point) ?? point
@@ -260,6 +280,79 @@ class HUDWindowController {
             }
         }
     }
+    /// Space under an AppKit screen point while the HUD is up. Uses the same
+    /// Quartz cell frames as window drag, so hit testing follows the real grid.
+    private(set) var externalDropTarget: Int?
+    private var externalDragMonitor: Any?
+    /// The strip's space drag does not target its own source space.
+    private var externalDragSourceSpace: Int?
+
+    func spaceIndex(atAppKitScreenPoint point: NSPoint) -> Int? {
+        guard isVisible, let state else { return nil }
+        let quartz = hudDisplay.quartzPoint(fromAppKit: point)
+        let frames = hudDisplay.computeCellFrames(state: state)
+        // Only the cell directly under the pointer highlights, so the visual
+        // target matches the cursor position exactly.
+        return frames.first(where: { $0.frame.contains(quartz) })?.spaceIndex
+    }
+
+    /// Drags that start in the glyph strip or on a HUD cell must not let the
+    /// auto-hide timer close the HUD mid-drop.
+    func setExternalDragSourceSpace(_ space: Int?) {
+        externalDragSourceSpace = space
+        updateExternalDropTarget()
+    }
+
+    func setExternalDragActive(_ active: Bool) {
+        hudInput.setAutoHideSuppressed(active)
+        externalDragPoll?.invalidate()
+        externalDragPoll = nil
+        if let monitor = externalDragMonitor {
+            NSEvent.removeMonitor(monitor)
+            externalDragMonitor = nil
+        }
+        guard active else {
+            externalDropTarget = nil
+            externalDragSourceSpace = nil
+            hudDisplay.setExternalDropTarget(nil)
+            return
+        }
+        updateExternalDropTarget()
+        // Pointer events track the cursor exactly; the timer only covers a
+        // pointer that rests without moving.
+        externalDragMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.leftMouseDragged, .leftMouseUp]
+        ) { [weak self] event in
+            self?.updateExternalDropTarget()
+            return event
+        }
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            self?.updateExternalDropTarget()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        externalDragPoll = timer
+    }
+
+    private func updateExternalDropTarget() {
+        let hovered = spaceIndex(atAppKitScreenPoint: NSEvent.mouseLocation)
+        let target = hovered == externalDragSourceSpace ? nil : hovered
+        guard externalDropTarget != target else { return }
+        externalDropTarget = target
+        hudDisplay.setExternalDropTarget(target)
+    }
+
+    private func handleSpaceDrop(source: Int) {
+        // Same value the cell highlight is showing, so the swap always lands
+        // on the highlighted space.
+        guard let target = externalDropTarget, source != target else { return }
+        services.yabaiService.swapSpaces(source, target, mode: config.spaceDropMode, focusMode: config.spaceDragFocus)
+    }
+
+    private func handleWindowDrop(ids: [Int], source: Int) {
+        guard !ids.isEmpty, let target = externalDropTarget, source != target else { return }
+        services.yabaiService.moveWindows(ids, toSpace: target, focusMode: config.windowDragFocus, sourceSpace: source)
+    }
+
     func hide() {
         guard isVisible else { return }
         presentationGeneration += 1
@@ -271,6 +364,8 @@ class HUDWindowController {
         // still considers itself rendered. Ordering avoids a transient re-show.
         dragAutoHidePoll?.cancel()
         dragAutoHidePoll = nil
+        externalDropTarget = nil
+        externalDragSourceSpace = nil
         hudDisplay.hide()
         hudInput.stop()
         hoveredCell = nil; self.state = nil; hudInput.currentState = nil

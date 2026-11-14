@@ -81,6 +81,14 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(HotkeyRecorder.isCancelKey(optionEscape))
     }
 
+    func testHotkeyKeycapsSplitModifiersFromTheKey() {
+        XCTAssertEqual(HotkeyRecorder.keycaps(for: "ctrl+cmd+space"), ["⌃", "⌘", "Space"])
+        XCTAssertEqual(HotkeyRecorder.keycaps(for: "hyper+f5"), ["⌃", "⌘", "⌥", "⇧", "F5"])
+        XCTAssertEqual(HotkeyRecorder.keycaps(for: "none"), [])
+        XCTAssertEqual(HotkeyRecorder.keycaps(for: ""), [])
+        XCTAssertEqual(HotkeyRecorder.keycaps(for: "a"), ["A"])
+    }
+
     func testDuplicateHotkeyDetectionTreatsFunctionKeyFnModifierAsTheSameBinding() {
         XCTAssertTrue(SettingsBehavior.matches("f1", "fn+f1"))
         XCTAssertTrue(SettingsBehavior.matches("ctrl+f2", "fn+ctrl+f2"))

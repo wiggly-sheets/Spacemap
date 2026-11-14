@@ -412,7 +412,7 @@ enum TOMLConfigDecoder {
         let legacyShowExtra = (result["behavior"] as? [String: Any])?["showExtraWindows"]
         flatten("behavior", keys: [
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
-            "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange", "hudAnimationsEnabled", "hudAnimationStyle", "hudEntranceStyle", "showBSPLayoutBadge", "showStackLayoutBadge", "showFloatLayoutBadge", "showHUDInteractionFeedback",
+            "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange", "hudAnimationsEnabled", "hudAnimationStyle", "hudEntranceStyle", "showBSPLayoutBadge", "showStackLayoutBadge", "showFloatLayoutBadge", "showHUDInteractionFeedback", "spaceDropMode", "spaceDragFocus", "windowDragFocus",
             "focusSpaceOnWindowDropModifier", "presence", "hideMenuBarIcon", "showThumbnailWallpaper",
             "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode",
             // Inline `hotkey = { ... }` / `hudPosition = { ... }` under
@@ -597,6 +597,15 @@ enum TOMLConfigDecoder {
         values.showStackLayoutBadge = value("showStackLayoutBadge")
         values.showFloatLayoutBadge = value("showFloatLayoutBadge")
         values.showHUDInteractionFeedback = value("showHUDInteractionFeedback")
+        if let name: String = value("spaceDropMode") {
+            values.spaceDropMode = parsedEnum(from: name)
+        }
+        if let name: String = value("spaceDragFocus") {
+            values.spaceDragFocus = parsedEnum(from: name)
+        }
+        if let name: String = value("windowDragFocus") {
+            values.windowDragFocus = parsedEnum(from: name)
+        }
         values.showThumbnailWallpaper = value("showThumbnailWallpaper")
         values.hudAnimationsEnabled = value("hudAnimationsEnabled")
         if let name: String = value("hudAnimationStyle") {
@@ -882,7 +891,7 @@ enum TOMLConfigDecoder {
         guard let table = object["appFont"] as? [String: Any] else { return nil }
         var config = AppFontConfig.default
         if let name = table["updateMode"] as? String {
-            config.updateMode = parsedEnum(from: name) ?? .manual
+            config.updateMode = parsedEnum(from: name) ?? AppFontConfig.default.updateMode
         }
         if let value = table["installedVersion"] as? String {
             config.installedVersion = value

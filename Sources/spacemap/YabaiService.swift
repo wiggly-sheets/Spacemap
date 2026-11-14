@@ -24,6 +24,9 @@ protocol YabaiService {
     func querySpaces() throws -> [YabaiSpace]
     func queryDisplays() throws -> [YabaiDisplay]
     func queryWindows() throws -> [YabaiWindow]
+    /// Cheap fingerprint of window-to-space membership. yabai emits no signal
+    /// when a window moves to another space without changing focus.
+    func windowSpaceSignature() throws -> String
     /// Drops coalesced spaces/windows snapshots after an external mutation.
     func invalidateSnapshotCaches()
     func queryFocusedWindow() throws -> Int?
@@ -35,10 +38,15 @@ protocol YabaiService {
     func focusSpace(_ index: Int)
     func focusSpace(_ target: SpaceFocusTarget) -> Bool
     func focusSpaceAsync(_ index: Int)
+    /// Swaps two spaces on the same display. `.content` moves the windows;
+    /// `.spaces` moves the spaces themselves.
+    func swapSpaces(_ first: Int, _ second: Int, mode: SpaceDropMode, focusMode: DragFocusMode)
     func createSpace()
     func destroySpace(_ index: Int)
     func moveFocusedWindow(toSpace index: Int)
     func moveWindows(_ windowIDs: [Int], toSpace index: Int)
+    /// Move windows and then apply the configured focus behaviour.
+    func moveWindows(_ windowIDs: [Int], toSpace index: Int, focusMode: DragFocusMode, sourceSpace: Int?)
     func toggleWindowFullscreen()
     func toggleWindowFloat()
     func balanceWindows()
@@ -56,6 +64,11 @@ protocol YabaiService {
 }
 
 extension YabaiService {
+    func windowSpaceSignature() throws -> String { "" }
+    func swapSpaces(_ first: Int, _ second: Int, mode: SpaceDropMode, focusMode: DragFocusMode) {}
+    func moveWindows(_ windowIDs: [Int], toSpace index: Int, focusMode: DragFocusMode, sourceSpace: Int?) {
+        moveWindows(windowIDs, toSpace: index)
+    }
     func yabaiTrustIssue() -> String? { nil }
     func invalidateSnapshotCaches() {}
 }

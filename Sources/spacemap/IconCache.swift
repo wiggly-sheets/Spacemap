@@ -52,7 +52,7 @@ final class IconCache {
     static let didChange = Notification.Name("com.spacemap.iconsDidChange")
     /// Cap for `cache`. Running-app count bounds the lookup map; only the
     /// image map needs eviction.
-    static let maxEntries = 200
+    static let maxEntries = 64
     /// Concurrent Spotlight queue: bounded so a wedged mdfind holds at most
     /// one slot and cannot serialize every other app behind it.
     static let maxConcurrentSpotlightLookups = 3

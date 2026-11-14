@@ -35,9 +35,6 @@ REQUIRE_SPARKLE_KEY ?= 0
 # and the directory only exists after the build prerequisite fetches artifacts.
 SPARKLE_FRAMEWORK = $(firstword $(wildcard .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-*/Sparkle.framework))
 MAN_SOURCE = docs/spacemap.1.scd
-APP_FONT_SOURCE = ../sketchybar-app-font/dist/sketchybar-app-font.ttf
-APP_FONT_FALLBACK = $(HOME)/Library/Fonts/sketchybar-app-font.ttf
-APP_FONT_RESOURCE = Sources/spacemap/Resources/sketchybar-app-font.ttf
 MAN_PAGE = docs/spacemap.1
 LOCALIZATION_DIRS = $(wildcard Sources/spacemap/Resources/*.lproj)
 LOCALIZATION_NAMES = $(notdir $(LOCALIZATION_DIRS))
@@ -56,7 +53,6 @@ endif
 	install run dev uninstall config distconfig archive permissions \
 	install-cli uninstall-cli build-arm64 build-x86_64 build-universal \
 	app-arm64 app-x86_64 verify-localizations generate-xcodeproj man \
-	update-app-font
 
 .DEFAULT_GOAL := help
 
@@ -102,24 +98,6 @@ help:
 		'  The old names app-arm64, app-x86_64, dmg-arm64 and dmg-x86_64 still work.' \
 		'  create-dmg is required for the dmg targets: brew install create-dmg.' \
 		'  scdoc is required for the man page: brew install scdoc.'
-
-# The bundled ttf is committed; this target refreshes it from a local checkout
-# or an installed font. No network access.
-update-app-font:
-	@mkdir -p $(dir $(APP_FONT_RESOURCE))
-	@if [ -f "$(APP_FONT_SOURCE)" ]; then \
-		src="$(APP_FONT_SOURCE)"; \
-	elif [ -f "$(APP_FONT_FALLBACK)" ]; then \
-		src="$(APP_FONT_FALLBACK)"; \
-	else \
-		echo "ERROR: sketchybar-app-font.ttf not found at either:"; \
-		echo "  $(APP_FONT_SOURCE)"; \
-		echo "  $(APP_FONT_FALLBACK)"; \
-		echo "Clone https://github.com/kvndrsslr/sketchybar-app-font or install the font first."; \
-		exit 1; \
-	fi; \
-	cp "$$src" "$(APP_FONT_RESOURCE)" && \
-	echo "Copied $$src -> $(APP_FONT_RESOURCE)"
 
 build:
 	swift build -c release --product $(BINARY_NAME) $(DESIGN_LINK_FLAGS)
@@ -220,7 +198,6 @@ _assemble:
 	cp Assets/AppIcon/Assets.car $(BUNDLE)/Contents/Resources/Assets.car
 	cp -R $(LOCALIZATION_DIRS) $(BUNDLE)/Contents/Resources/
 	cp $(MAN_PAGE) $(BUNDLE)/Contents/Resources/spacemap.1
-	cp $(APP_FONT_RESOURCE) $(BUNDLE)/Contents/Resources/sketchybar-app-font.ttf
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(BUNDLE)
 	# Sign ad-hoc so every bundle, dev or release, is a valid update target.
 	codesign --force --sign - --options runtime \
@@ -353,7 +330,6 @@ install: app
 	cp Assets/AppIcon/Assets.car $(INSTALL_PATH)/Contents/Resources/Assets.car
 	cp -R $(APP_CONTENTS)/Resources/*.lproj $(INSTALL_PATH)/Contents/Resources/
 	cp $(MAN_PAGE) $(INSTALL_PATH)/Contents/Resources/spacemap.1
-	cp $(APP_FONT_RESOURCE) $(INSTALL_PATH)/Contents/Resources/sketchybar-app-font.ttf
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(INSTALL_PATH)
 	# Sign with Sparkle entitlements (ad-hoc for dev builds)
 	codesign --force --sign - --options runtime \

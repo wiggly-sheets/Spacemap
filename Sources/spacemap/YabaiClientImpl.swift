@@ -265,6 +265,14 @@ class YabaiClientImpl: YabaiService {
         return try cachedWindows()
     }
 
+    func windowSpaceSignature() throws -> String {
+        guard isYabaiRunning() else { return "" }
+        return try cachedWindows()
+            .sorted { $0.id < $1.id }
+            .map { "\($0.id):\($0.space)" }
+            .joined(separator: ",")
+    }
+
     private func querySpacesRaw(timeout: TimeInterval? = nil) throws -> [YabaiSpace] {
         guard yabaiIsExecutable else {
             throw YabaiError.commandFailed(arguments: ["-m", "query", "--spaces"], status: -1, message: "yabai not found")
@@ -633,6 +641,94 @@ class YabaiClientImpl: YabaiService {
     }
 
 
+    struct SpaceSwapStep: Equatable {
+        let windowID: Int
+        let target: Int
+    }
+
+    /// Each window moves to the opposite space. IDs are captured before any
+    /// move so a window never gets moved twice.
+    static func spaceSwapPlan(windows: [YabaiWindow], first: Int, second: Int) -> [SpaceSwapStep] {
+        let fromFirst = windows.filter { $0.space == first }
+            .map { SpaceSwapStep(windowID: $0.id, target: second) }
+        let fromSecond = windows.filter { $0.space == second }
+            .map { SpaceSwapStep(windowID: $0.id, target: first) }
+        return fromFirst + fromSecond
+    }
+
+    func swapSpaces(_ first: Int, _ second: Int, mode: SpaceDropMode, focusMode: DragFocusMode) {
+        guard first > 0, second > 0, first != second else { return }
+        focusQueue.async { [weak self] in
+            guard let self, self.yabaiIsExecutable, self.isYabaiRunning() else { return }
+            switch mode {
+            case .content: self.swapSpaceContents(first, second, focusMode: focusMode)
+            case .spaces: self.moveSpaces(first, second, focusMode: focusMode)
+            }
+            self.invalidateSnapshotCaches()
+        }
+    }
+
+    /// Swap the windows between two spaces. Mission Control order and empty
+    /// spaces stay unchanged; the visible content swaps.
+    private func swapSpaceContents(_ first: Int, _ second: Int, focusMode: DragFocusMode) {
+        guard let windows = try? queryWindowsRaw() else { return }
+        let plan = Self.spaceSwapPlan(windows: windows, first: first, second: second)
+        for step in plan {
+            _ = try? shell(yabaiPath, "-m", "window", "\(step.windowID)", "--space", "\(step.target)")
+        }
+        focusAfterSpaceDrag(focusMode, source: first, destination: second)
+    }
+
+    /// Reorder the spaces themselves. Requires a yabai build with macOS 27.2
+    /// space-move support. yabai can only swap the selected space, so focus
+    /// the source first and restore the original focus afterwards.
+    private func moveSpaces(_ first: Int, _ second: Int, focusMode: DragFocusMode) {
+        let originalUUID = focusedSpaceUUID()
+        _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(first)")
+        for _ in 0..<40 where focusedSpaceUUID() != spaceUUID(forIndex: first) {
+            Thread.sleep(forTimeInterval: 0.025)
+        }
+        _ = try? shell(yabaiPath, "-m", "space", "--swap", "\(second)")
+        switch focusMode {
+        case .stay:
+            if let originalUUID, let originalIndex = spaceIndex(forUUID: originalUUID) {
+                _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(originalIndex)")
+            }
+        case .destination:
+            _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(second)")
+        case .source:
+            _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(first)")
+        }
+    }
+
+    private func focusAfterSpaceDrag(_ mode: DragFocusMode, source: Int, destination: Int) {
+        switch mode {
+        case .stay: return
+        case .destination: _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(destination)")
+        case .source: _ = try? shell(yabaiPath, "-m", "space", "--focus", "\(source)")
+        }
+    }
+
+    private func spaceUUID(forIndex index: Int) -> String? {
+        guard let data = try? shell(yabaiPath, "-m", "query", "--spaces"),
+              let spaces = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [[String: Any]] else { return nil }
+        return spaces.first(where: { $0["index"] as? Int == index })?["uuid"] as? String
+    }
+
+    /// UUIDs are not in `YabaiSpace`, but the swap restore needs them: after a
+    /// swap the original space's index changes while its content stays.
+    private func focusedSpaceUUID() -> String? {
+        guard let data = try? shell(yabaiPath, "-m", "query", "--spaces"),
+              let spaces = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [[String: Any]] else { return nil }
+        return spaces.first(where: { $0["has-focus"] as? Bool == true })?["uuid"] as? String
+    }
+
+    private func spaceIndex(forUUID uuid: String) -> Int? {
+        guard let data = try? shell(yabaiPath, "-m", "query", "--spaces"),
+              let spaces = try? JSONSerialization.jsonObject(with: Data(data.utf8)) as? [[String: Any]] else { return nil }
+        return spaces.first(where: { $0["uuid"] as? String == uuid })?["index"] as? Int
+    }
+
     func createSpace() {
         focusQueue.async { [weak self] in
             guard let self, self.yabaiIsExecutable else { return }
@@ -666,6 +762,36 @@ class YabaiClientImpl: YabaiService {
                     ["-m", "window", "\(windowID)", "--space", "\(index)"],
                     "moveWindow(\(windowID))"
                 )
+            }
+        }
+    }
+
+    func moveWindows(_ windowIDs: [Int], toSpace index: Int, focusMode: DragFocusMode, sourceSpace: Int?) {
+        guard index > 0 else { return }
+        // An empty list means "the focused window", which is yabai's default target.
+        focusQueue.async { [weak self] in
+            guard let self, self.yabaiIsExecutable else { return }
+            if windowIDs.isEmpty {
+                self.runIgnoringFailure(["-m", "window", "--space", "\(index)"], "moveFocusedWindow")
+            } else {
+                for windowID in windowIDs {
+                    self.runIgnoringFailure(
+                        ["-m", "window", "\(windowID)", "--space", "\(index)"],
+                        "moveWindow(\(windowID))"
+                    )
+                }
+            }
+            switch focusMode {
+            case .destination:
+                _ = try? self.shell(self.yabaiPath, "-m", "space", "--focus", "\(index)")
+            case .source:
+                if let sourceSpace, sourceSpace > 0 {
+                    _ = try? self.shell(self.yabaiPath, "-m", "space", "--focus", "\(sourceSpace)")
+                }
+            case .stay:
+                if let sourceSpace, sourceSpace > 0 {
+                    _ = try? self.shell(self.yabaiPath, "-m", "space", "--focus", "\(sourceSpace)")
+                }
             }
         }
     }

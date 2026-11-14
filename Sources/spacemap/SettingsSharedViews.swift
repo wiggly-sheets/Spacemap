@@ -104,29 +104,15 @@ struct HotkeyRecorder: View {
     private var isRecording: Bool { recordingState.isRecording }
 
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
             Text(label)
             Spacer()
-            Text(isRecording ? "Press a key..." : hotkey)
-                .foregroundColor(isRecording ? .secondary : .primary)
-                .padding(6)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(isRecording ? Color.accentColor : Color.secondary.opacity(0.3),
-                                    lineWidth: 1)
-                )
-                .onTapGesture {
-                    if isRecording {
-                        cancelRecording()
-                    } else {
-                        startRecording()
-                    }
-                }
-
+            recorderField
             if Self.canClear(hotkey), !isRecording {
                 Button(action: clear) {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
                 .help("Clear \(label)")
@@ -134,6 +120,98 @@ struct HotkeyRecorder: View {
             }
         }
         .onDisappear { cancelRecording() }
+    }
+
+    private var recorderField: some View {
+        HStack(spacing: 5) {
+            if isRecording {
+                Text("Press a key…")
+                    .foregroundStyle(.secondary)
+            } else if keycaps.isEmpty {
+                Text("Not Set")
+                    .foregroundStyle(.tertiary)
+            } else {
+                ForEach(Array(keycaps.enumerated()), id: \.offset) { _, cap in
+                    Keycap(caption: cap)
+                }
+            }
+        }
+        .font(.system(size: 12, weight: .medium, design: .rounded))
+        .padding(.horizontal, 8)
+        .frame(minWidth: 84, minHeight: 28)
+        .background(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(isRecording ? Color.accentColor.opacity(0.14) : Color(nsColor: .controlBackgroundColor).opacity(0.7))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(
+                    isRecording ? Color.accentColor : Color(nsColor: .separatorColor).opacity(0.7),
+                    lineWidth: isRecording ? 1.5 : 0.5
+                )
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .onTapGesture {
+            if isRecording {
+                cancelRecording()
+            } else {
+                startRecording()
+            }
+        }
+        .help(isRecording ? "Press Escape to cancel" : "Click to record a shortcut")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(LocalizedStringKey(stringLiteral: label)))
+        .accessibilityValue(Text(isRecording ? "Recording" : hotkey))
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var keycaps: [String] {
+        Self.keycaps(for: hotkey)
+    }
+
+    /// Splits the stored shortcut into one caption per key, like a menu item.
+    static func keycaps(for hotkey: String) -> [String] {
+        let trimmed = hotkey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.lowercased() != "none" else { return [] }
+        var caps: [String] = []
+        for token in trimmed.lowercased().components(separatedBy: "+") {
+            switch token {
+            case "ctrl": caps.append("⌃")
+            case "cmd": caps.append("⌘")
+            case "alt": caps.append("⌥")
+            case "shift": caps.append("⇧")
+            case "fn": caps.append("fn")
+            case "hyper": caps.append(contentsOf: ["⌃", "⌘", "⌥", "⇧"])
+            case "space": caps.append("Space")
+            case "tab": caps.append("⇥")
+            case "return": caps.append("↩")
+            case "escape": caps.append("⎋")
+            case "delete": caps.append("⌫")
+            case "forward-delete": caps.append("⌦")
+            case "pgup": caps.append("⇞")
+            case "pgdn": caps.append("⇟")
+            case "home": caps.append("↖")
+            case "end": caps.append("↘")
+            case "left": caps.append("←")
+            case "right": caps.append("→")
+            case "down": caps.append("↓")
+            case "up": caps.append("↑")
+            case "help": caps.append("?")
+            case "backslash": caps.append("\\")
+            default:
+                if token.hasPrefix("f"), Int(token.dropFirst()) != nil {
+                    caps.append(token.uppercased())
+                } else if token.hasPrefix("keypad-") {
+                    caps.append("Keypad " + token.dropFirst("keypad-".count).capitalized)
+                } else if token.hasPrefix("play-") || token.hasPrefix("next-") || token.hasPrefix("previous-")
+                            || token.hasPrefix("volume-") || token.hasPrefix("brightness-") || token == "mute" {
+                    caps.append(token.replacingOccurrences(of: "-", with: " ").capitalized)
+                } else {
+                    caps.append(token.count == 1 ? token.uppercased() : token.capitalized)
+                }
+            }
+        }
+        return caps
     }
 
     private func startRecording() {
@@ -225,6 +303,27 @@ struct HotkeyRecorder: View {
             .function
         ])
         return event.type == .keyDown && event.keyCode == 53 && shortcutModifiers.isEmpty
+    }
+}
+
+/// One shortcut key, drawn as a compact physical keycap.
+private struct Keycap: View {
+    let caption: String
+
+    var body: some View {
+        Text(caption)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .padding(.horizontal, 4)
+            .frame(minWidth: 18, minHeight: 18)
+            .background(
+                RoundedRectangle(cornerRadius: 4.5, style: .continuous)
+                    .fill(Color(nsColor: .windowBackgroundColor).opacity(0.9))
+                    .shadow(color: .black.opacity(0.22), radius: 0.5, y: 0.5)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 4.5, style: .continuous)
+                    .strokeBorder(Color(nsColor: .separatorColor).opacity(0.8), lineWidth: 0.5)
+            )
     }
 }
 
