@@ -269,6 +269,9 @@ enum GlyphStripIconSource: String, CaseIterable, Identifiable, Equatable {
 /// `[glyphStrip]` table, strip only; HUD cells use `GridConfig.showSpaceNumbers`.
 struct GlyphStripConfig: Equatable {
     var enabled: Bool = false
+    /// Hide the strip while another app is in native fullscreen, so the strip
+    /// never floats over a fullscreen window or its menu bar reveal.
+    var hideInFullscreen: Bool = false
     var showSpaceNumbers: Bool = true
     var showLayoutSuffix: Bool = true
     var showAppIcons: Bool = true

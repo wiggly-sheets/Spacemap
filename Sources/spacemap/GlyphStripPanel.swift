@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import CoreText
 
 /// Always-visible overlay strip parked in the menu bar row, hugging the notch.
@@ -76,6 +77,10 @@ final class GlyphStripPanelController: NSObject {
     /// Session-only visibility flag driven by the show/hide hotkey. Never
     /// persisted: every launch starts with the strip visible.
     private var hiddenByHotkey = false
+    /// Session-only visibility flag for native fullscreen. Recomputed by a
+    /// timer: entering or leaving fullscreen need not produce a yabai signal.
+    private var hiddenByFullscreen = false
+    private var fullscreenTimer: Timer?
     fileprivate var segments: [GlyphStrip.Segment] = []
     private var attributedRuns: [[NSAttributedString]] = []
     /// Extra advance before each run, parallel to `attributedRuns`.
@@ -99,6 +104,11 @@ final class GlyphStripPanelController: NSObject {
         self.yabaiService = yabaiService
         self.coordinator = GridStateCoordinator(yabaiService: yabaiService)
         super.init()
+        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.reconcileFullscreenVisibility()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        fullscreenTimer = timer
         // A resolution change or a display being unplugged moves the notch and
         // resizes the menu bar row, so the cached frame has to be recomputed.
         screenObserver = NotificationCenter.default.addObserver(
@@ -107,6 +117,20 @@ final class GlyphStripPanelController: NSObject {
             queue: .main
         ) { [weak self] _ in
             self?.applyFrame()
+        }
+        // Polling alone leaves the strip visible for up to a tick after an app
+        // switch or fullscreen exit. These land the same pass immediately.
+        for name in [
+            NSWorkspace.didActivateApplicationNotification,
+            NSWorkspace.activeSpaceDidChangeNotification,
+        ] {
+            NSWorkspace.shared.notificationCenter.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.reconcileFullscreenVisibility()
+            }
         }
         accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
@@ -119,6 +143,7 @@ final class GlyphStripPanelController: NSObject {
 
     deinit {
         pendingRefresh?.cancel()
+        fullscreenTimer?.invalidate()
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
         }
@@ -158,7 +183,7 @@ final class GlyphStripPanelController: NSObject {
         // need no reload (the file is already parsed), and this runs on every
         // save.
         themeService.reloadIfChanged()
-        guard config.glyphStrip.enabled, !hiddenByHotkey else {
+        guard config.glyphStrip.enabled, !hiddenByHotkey, !hiddenByFullscreen else {
             hide()
             return
         }
@@ -176,6 +201,142 @@ final class GlyphStripPanelController: NSObject {
     func markRefreshWedgedForTesting() {
         refreshInFlight = true
         needsFollowupRefresh = true
+    }
+
+    /// Hides the strip while another app owns a native fullscreen window, and
+    /// brings it back when that app leaves fullscreen. Polled because the
+    /// window server gives no fullscreen notification; yabai signals alone miss
+    /// the green-button case.
+    private func reconcileFullscreenVisibility() {
+        guard config.glyphStrip.enabled, config.glyphStrip.hideInFullscreen else {
+            guard hiddenByFullscreen else { return }
+            hiddenByFullscreen = false
+            update(config: config)
+            return
+        }
+        let shouldHide = fullscreenWindowOnFocusedSpace() ?? Self.hasFullscreenAppInFront()
+        guard shouldHide != hiddenByFullscreen else { return }
+        hiddenByFullscreen = shouldHide
+        if shouldHide {
+            hide()
+        } else {
+            update(config: config)
+        }
+    }
+
+    /// Native fullscreen on the focused space, from yabai's own space model.
+    /// A fullscreen window on another space is invisible to the user, so the
+    /// window-server and Accessibility checks alone cannot tell them apart.
+    /// `nil` when the focused space or the field is unavailable.
+    private func fullscreenWindowOnFocusedSpace() -> Bool? {
+        guard let state = coordinator.state, let focused = state.focusedIndex else { return nil }
+        let windows = state.windows(forSpace: focused)
+        guard windows.contains(where: { $0.isNativeFullscreen != nil }) else { return nil }
+        return windows.contains { $0.isNativeFullscreen == true }
+    }
+
+    /// True when the app the user sees has a native fullscreen window.
+    ///
+    /// Accessibility reports this directly, so it survives the window resizes
+    /// of the fullscreen animation. Falls back to window geometry when
+    /// Accessibility is not granted. A menu-bar app can report itself as
+    /// frontmost, so that case resolves the app from the front layer-0 window.
+    static func hasFullscreenAppInFront() -> Bool {
+        guard AXIsProcessTrusted() else { return frontWindowCoversDisplay() }
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        var pid = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        if pid == nil || pid == ownPID {
+            pid = frontWindowOwner(excluding: ownPID)
+        }
+        guard let pid, pid != ownPID else { return false }
+        let app = AXUIElementCreateApplication(pid)
+        var window: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            app,
+            kAXFocusedWindowAttribute as CFString,
+            &window
+        ) == .success, let window else {
+            return frontWindowCoversDisplay()
+        }
+        var fullscreen: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            window as! AXUIElement,
+            "AXFullScreen" as CFString,
+            &fullscreen
+        ) == .success else {
+            return frontWindowCoversDisplay()
+        }
+        guard (fullscreen as? Bool) == true else { return false }
+        // `AXFocusedWindow` can still be the fullscreen window while the user
+        // looks at a different space of the same app. Only hide when that app
+        // also has a fullscreen-sized window on screen now.
+        return windowCoversDisplay(owner: pid)
+    }
+
+    /// Does `owner` have an on-screen layer-0 window as large as a display?
+    private static func windowCoversDisplay(owner pid: pid_t) -> Bool {
+        let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        for window in windows {
+            guard let owner = window[kCGWindowOwnerPID as String] as? Int,
+                  owner == Int(pid),
+                  let layer = window[kCGWindowLayer as String] as? Int, layer == 0,
+                  let rawBounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let bounds = CGRect(dictionaryRepresentation: rawBounds as CFDictionary) else {
+                continue
+            }
+            // Accessibility already said the window is fullscreen, so this is a
+            // space-membership check, not a shape test: accept the small height
+            // differences of the fullscreen animation and a hidden menu bar.
+            if NSScreen.screens.contains(where: {
+                abs($0.frame.width - bounds.width) <= 2 && bounds.height >= $0.frame.height - 60
+            }) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Owner of the frontmost layer-0 window that is not Spacemap's own.
+    private static func frontWindowOwner(excluding ownPID: pid_t) -> pid_t? {
+        let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        for window in windows {
+            guard let owner = window[kCGWindowOwnerPID as String] as? Int,
+                  owner != Int(ownPID),
+                  let layer = window[kCGWindowLayer as String] as? Int, layer == 0 else {
+                continue
+            }
+            return pid_t(owner)
+        }
+        return nil
+    }
+
+    /// Geometry fallback: does the frontmost normal window cover a display?
+    /// Fullscreen windows cover the display; zoomed windows stop below the menu
+    /// bar.
+    private static func frontWindowCoversDisplay() -> Bool {
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        for window in windows {
+            guard let owner = window[kCGWindowOwnerPID as String] as? Int, owner != Int(ownPID),
+                  let layer = window[kCGWindowLayer as String] as? Int, layer == 0,
+                  let rawBounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let bounds = CGRect(dictionaryRepresentation: rawBounds as CFDictionary) else {
+                continue
+            }
+            return NSScreen.screens.contains {
+                abs($0.frame.width - bounds.width) <= 2 && abs($0.frame.height - bounds.height) <= 2
+            }
+        }
+        return false
     }
 
     /// Toggles the session-only hotkey visibility. Disabled strip: the flag
@@ -363,7 +524,7 @@ final class GlyphStripPanelController: NSObject {
     /// happens only when the panel is not already visible, so steady-state
     /// refreshes do not re-order the panel on every yabai signal.
     func present() {
-        guard config.glyphStrip.enabled, !hiddenByHotkey else {
+        guard config.glyphStrip.enabled, !hiddenByHotkey, !hiddenByFullscreen else {
             hide()
             return
         }

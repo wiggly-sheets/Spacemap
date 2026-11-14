@@ -747,6 +747,7 @@ enum TOMLConfigDecoder {
         guard let table = object["glyphStrip"] as? [String: Any] else { return nil }
         var config = GlyphStripConfig.default
         if let value = table["enabled"] as? Bool { config.enabled = value }
+        if let value = table["hideInFullscreen"] as? Bool { config.hideInFullscreen = value }
         if let value = table["showSpaceNumbers"] as? Bool { config.showSpaceNumbers = value }
         if let value = table["showLayoutSuffix"] as? Bool { config.showLayoutSuffix = value }
         if let value = table["showAppIcons"] as? Bool { config.showAppIcons = value }

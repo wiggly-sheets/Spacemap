@@ -434,6 +434,7 @@ enum ConfigLoader {
         let glyphStrip = values.glyphStrip ?? defaults.glyphStrip
         lines += [
             "enabled = \(glyphStrip.enabled)",
+            "hideInFullscreen = \(glyphStrip.hideInFullscreen)",
             "theme = \(tomlString(glyphStrip.theme))",
             "showSpaceNumbers = \(glyphStrip.showSpaceNumbers)",
             "showLayoutSuffix = \(glyphStrip.showLayoutSuffix)",
