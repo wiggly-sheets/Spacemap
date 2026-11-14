@@ -72,6 +72,21 @@ final class SpacemapServices {
         self.process = process ?? Process()
         self.workspace = workspace ?? (NSWorkspace.shared as WorkspaceProtocol)
         self.alertsService = alertsService ?? AlertsServiceImpl()
+        // Cross-surface drag: the strip resolves drops onto HUD cells, and the
+        // HUD holds its auto-hide timer while the strip drag is live.
+        glyphStrip.hudSpaceAtPoint = { [weak self] _ in
+            self?.hud.externalDropTarget
+        }
+        glyphStrip.onDragActive = { [weak self] active in
+            self?.hud.setExternalDragActive(active)
+        }
+        glyphStrip.onDragSourceSpace = { [weak self] space in
+            self?.hud.setExternalDragSourceSpace(space)
+        }
+        glyphStrip.onDropCompleted = { [weak self] in
+            self?.hud.refresh()
+            self?.refreshMenubarPreview()
+        }
     }
     var currentConfig: GridConfig {
         get { appConfig.load() }

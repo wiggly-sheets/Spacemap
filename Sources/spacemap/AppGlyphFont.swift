@@ -49,55 +49,6 @@ final class AppGlyphFont {
         NSFont(name: fontName, size: 11) != nil
     }
 
-    /// Registers the bundled copy with CoreText when lookup fails (fresh
-    /// install before the updater ever runs). No-op when already resolvable.
-    /// Returns whether the face resolves afterwards.
-    @discardableResult
-    static func ensureRegistered() -> Bool {
-        if isFontAvailable() { return true }
-        guard let url = bundledURL() else { return false }
-        var error: Unmanaged<CFError>?
-        CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error)
-        if let unmanaged = error {
-            let cfError = unmanaged.takeRetainedValue()
-            if CFErrorGetCode(cfError) != CTFontManagerError.alreadyRegistered.rawValue {
-                NSLog("spacemap/GlyphStrip: could not register %@ — code \(CFErrorGetCode(cfError))", url.path)
-            }
-        }
-        return isFontAvailable()
-    }
-
-    /// Direct bundle probe without the filesystem walk: the copy the app
-    /// ships (auto-activated via ATSApplicationFontsPath, fallback here).
-    static func bundledURL() -> URL? {
-        let name = "\(resourceName).ttf"
-        let fm = FileManager.default
-        var roots: [URL?] = [
-            Bundle.main.resourceURL,
-            Bundle(for: AppGlyphFont.self).resourceURL,
-            findModuleBundle()?.resourceURL,
-        ]
-        roots.append(contentsOf: ancestorDirs(of: Bundle.main.executableURL, depth: 2))
-        for case let root? in roots {
-            for candidate in [
-                root.appendingPathComponent(name),
-                root.appendingPathComponent("spacemap_spacemap.bundle").appendingPathComponent(name),
-            ] where fm.fileExists(atPath: candidate.path) {
-                return candidate
-            }
-        }
-        return nil
-    }
-
-    /// Release tag of the bundled copy, if it parses. Lets a fresh install
-    /// skip a download it does not need.
-    static func bundledRelease() -> String? {
-        guard let url = bundledURL(),
-              let data = try? Data(contentsOf: url),
-              let font = parse(data: data, url: url) else { return nil }
-        return font.release
-    }
-
     let release: String
     /// File the metadata came from. The face is built from this exact file so
     /// drawn glyphs always match the parsed codepoints, even when several
@@ -202,11 +153,9 @@ final class AppGlyphFont {
 
     // MARK: - Loading
 
-    /// User-installed copies first: the updater writes to `~/Library/Fonts`,
-    /// so a newer downloaded font must beat the (possibly older) bundled one.
-    /// When both parse, the newer release tag wins instead of blindly taking
-    /// the first file. Thread-safe via cacheLock; file IO stays off-main
-    /// through prewarmInBackground.
+    /// The updater writes to `~/Library/Fonts`. A system-wide copy is the
+    /// fallback. When both parse, the newer release tag wins. Thread-safe via
+    /// cacheLock; file IO stays off-main through prewarmInBackground.
     static func load() -> AppGlyphFont? {
         cacheLock.lock()
         let cached = cachedFont
@@ -279,20 +228,14 @@ final class AppGlyphFont {
         return AppGlyphFont(metadata: metadata, sourceURL: url)
     }
 
-    /// `Bundle.module` is avoided by name: its generated accessor
-    /// `fatalError`s when the SwiftPM resource bundle is absent, which is the
-    /// case inside the hand-assembled `.app` where the ttf sits directly in
-    /// `Contents/Resources`. Direct probes only: user/system Fonts dirs plus
-    /// `bundledURL()` (no tree walk).
+    /// The font is not bundled: the updater downloads it on first launch.
+    /// Only the user and system Fonts folders are candidates.
     static func candidateURLs() -> [URL] {
         let name = "\(resourceName).ttf"
         var urls: [URL] = [
             URL(fileURLWithPath: NSString(string: "~/Library/Fonts/\(name)").expandingTildeInPath),
             URL(fileURLWithPath: "/Library/Fonts/\(name)")
         ]
-        if let bundled = bundledURL(), !urls.contains(bundled) {
-            urls.append(bundled)
-        }
         return urls
     }
 

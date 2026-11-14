@@ -22,6 +22,13 @@ struct GridView: View {
     /// True when the panel's AppKit content root supplies the Liquid Glass
     /// layer, so the SwiftUI background must stay clear.
     let usesNativeGlass: Bool
+    /// Drag between HUD cells: report the source space and the screen point at
+    /// release. Nil in tests and previews.
+    let onSpaceDrop: ((Int, NSPoint) -> Void)?
+    let onWindowDrop: (([Int], Int, NSPoint) -> Void)?
+    let onDragActive: ((Bool) -> Void)?
+    let onSpaceDragStart: ((Int) -> Void)?
+    let onWindowDragStart: ((Int) -> Void)?
     @ObservedObject private var hoverState: HUDHoverState
     private let usesHoverState: Bool
     
@@ -194,7 +201,12 @@ struct GridView: View {
             showSpaceNames: state.config.showSpaceNames,
             showIconStrip: state.config.showIconStrip,
             showMultiAppIcons: state.config.showMultiAppIcons,
-            showExtraWindows: state.config.showExtraWindows
+            showExtraWindows: state.config.showExtraWindows,
+            onDragActive: onDragActive,
+            onDragEnd: onSpaceDrop.map { drop in { point in drop(spaceIndex, point) } },
+            onSpaceDragStart: onSpaceDragStart,
+            onWindowDragStart: onWindowDragStart,
+            onWindowDrop: onWindowDrop.map { drop in { ids, source, point in drop(ids, source, point) } }
         )
         .scaleEffect(cellIsDropTarget ? 1.04 : 1)
         .animation(hudAnimation?.animation, value: cellIsDropTarget)
@@ -253,7 +265,12 @@ struct GridView: View {
         resolvedTheme: AppTheme,
         spaceIndices: [Int]? = nil,
         usesNativeGlass: Bool = false,
-        hudAnimation: HUDAnimationStyle? = .natural
+        hudAnimation: HUDAnimationStyle? = .natural,
+        onSpaceDrop: ((Int, NSPoint) -> Void)? = nil,
+        onWindowDrop: (([Int], Int, NSPoint) -> Void)? = nil,
+        onDragActive: ((Bool) -> Void)? = nil,
+        onSpaceDragStart: ((Int) -> Void)? = nil,
+        onWindowDragStart: ((Int) -> Void)? = nil
     ) {
         self.state = state
         self.hoveredCell = hoveredCell
@@ -261,6 +278,11 @@ struct GridView: View {
         self.noticeState = noticeState
         self.hudAnimation = hudAnimation
         self.usesNativeGlass = usesNativeGlass
+        self.onSpaceDrop = onSpaceDrop
+        self.onWindowDrop = onWindowDrop
+        self.onDragActive = onDragActive
+        self.onSpaceDragStart = onSpaceDragStart
+        self.onWindowDragStart = onWindowDragStart
         self.onSelect = onSelect
         self.uiScale = uiScale
         self.theme = theme

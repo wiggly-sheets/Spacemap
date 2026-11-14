@@ -105,9 +105,7 @@ struct AppFontUpdater {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    /// Empty installed tag = bundled copy only, which may already be current —
-    /// but the tag comparison is the only cheap way to know, so the first check
-    /// downloads once and tracks from then on.
+    /// Empty installed tag = nothing installed yet, so the first check downloads.
     static func needsUpdate(installedTag: String, latestTag: String) -> Bool {
         installedTag != latestTag
     }
@@ -192,8 +190,7 @@ struct AppFontUpdater {
         // The glyph strip caches its font lookup; a fresh install must make the
         // next refresh rebuild its runs against the new face.
         AppGlyphFont.invalidateCache()
-        AppGlyphFont.ensureRegistered()
-        NotificationCenter.default.post(name: .settingsChanged, object: nil)
+                NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
     /// Binary mirror of ConfigLoader.secureWrite: temp file born 0600 via
@@ -220,8 +217,7 @@ struct AppFontUpdater {
     }
 
     /// One check: fetch latest, download only when the tag differs. A fresh
-    /// install (empty tag) compares against the bundled copy's release, so an
-    /// already-current bundle never triggers a pointless download.
+    /// install (empty tag) falls back to any already-installed font's release.
     static func runCheck(installedTag: String) async throws -> CheckResult {
         let effectiveTag = installedTag.isEmpty
             ? (AppGlyphFont.load()?.release ?? "")
@@ -232,6 +228,16 @@ struct AppFontUpdater {
         }
         try await downloadAndInstall(latest)
         return .updated(latest)
+    }
+
+    /// CoreText keeps an already-registered face under its PostScript name, so
+    /// a replacement file can parse new codepoints while still drawing the old
+    /// glyphs. Only a new process reliably drops that face.
+    static func relaunchIfGlyphStripUsesFont(_ config: GridConfig) {
+        guard config.glyphStrip.enabled, config.glyphStrip.iconSource == .sbarFont else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            SystemPermissions.relaunch()
+        }
     }
 
     /// Persists check state into `[appFont]`; pass the tag only after a

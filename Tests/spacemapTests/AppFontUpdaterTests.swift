@@ -98,7 +98,7 @@ final class AppFontUpdaterTests: XCTestCase {
         XCTAssertNil(values.appFont, "missing section keeps the repair flag path intact")
         let config = values.gridConfig
         XCTAssertEqual(config.appFont, AppFontConfig.default)
-        XCTAssertEqual(config.appFont.updateMode, .manual)
+        XCTAssertEqual(config.appFont.updateMode, .auto)
         XCTAssertEqual(config.appFont.installedVersion, "")
         XCTAssertEqual(config.appFont.lastCheck, 0)
     }
@@ -121,24 +121,17 @@ final class AppFontUpdaterTests: XCTestCase {
         installedVersion = "v3.0.5"
         """)
 
-        XCTAssertEqual(values.appFont?.updateMode, .manual, "unknown mode falls back to the default")
+        XCTAssertEqual(values.appFont?.updateMode, .auto, "unknown mode falls back to the default")
         XCTAssertEqual(values.appFont?.installedVersion, "v3.0.5")
     }
 
     // MARK: - Font candidate order
 
-    func testUserInstalledFontCandidatesWinOverBundle() {
+    func testFontCandidatesAreOnlyInstalledCopies() {
         let paths = AppGlyphFont.candidateURLs().map(\.path)
-        let userInstalled = paths.enumerated().filter {
-            $0.element.hasSuffix("Library/Fonts/sketchybar-app-font.ttf")
-        }.map(\.offset)
-        let bundled = paths.enumerated().filter {
-            !$0.element.contains("Library/Fonts")
-        }.map(\.offset)
-
-        guard let lastUserInstalled = userInstalled.last, let firstBundled = bundled.first else {
-            return XCTFail("expected user-installed and bundled candidates, got \(paths)")
-        }
-        XCTAssertLessThan(lastUserInstalled, firstBundled, "user-installed font must load before the bundle copy")
+        XCTAssertEqual(paths.count, 2)
+        XCTAssertTrue(paths[0].hasSuffix("Library/Fonts/sketchybar-app-font.ttf"))
+        XCTAssertEqual(paths[1], "/Library/Fonts/sketchybar-app-font.ttf")
+        XCTAssertFalse(paths.contains { $0.contains(".app/") }, "font must not come from the bundle")
     }
 }

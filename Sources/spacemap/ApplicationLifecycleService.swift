@@ -57,6 +57,9 @@ final class ApplicationLifecycleService {
     private var settingsObserver: NSObjectProtocol?
     private var currentConfig: GridConfig?
     private let signalRegistrationCoordinator = YabaiSignalRegistrationCoordinator()
+    private var windowSpaceTimer: Timer?
+    private var windowSpaceSignature: String?
+    private var windowSpacePollInFlight = false
 
 
     init(services: SpacemapServices, hud: HUDWindowController) {
@@ -101,11 +104,8 @@ final class ApplicationLifecycleService {
 
         services.checkApplicationLocation()
 
-        // Off-main font warmup + bundled-face registration: first strip paint
-        // never blocks on font IO, and a fresh install resolves NSFont before
-        // any refresh runs.
+        // Off-main font warmup: first strip paint never blocks on font IO.
         DispatchQueue.global(qos: .utility).async {
-            AppGlyphFont.ensureRegistered()
             AppGlyphFont.prewarmInBackground()
         }
 
@@ -142,6 +142,7 @@ final class ApplicationLifecycleService {
             }
 
             AccessibilityHealthMonitor.shared.start()
+            self.startWindowSpaceWatcher()
             self.services.configureSparkleUpdater(updateMode: config.updateMode)
 
             if config.appFont.updateMode == .auto {
@@ -168,6 +169,7 @@ final class ApplicationLifecycleService {
             || now - config.appFont.lastCheck >= Int(AppFontUpdater.checkInterval) else { return }
 
         let installedTag = config.appFont.installedVersion
+        let hadFace = AppGlyphFont.load() != nil
         Task {
             do {
                 switch try await AppFontUpdater.runCheck(installedTag: installedTag) {
@@ -176,6 +178,9 @@ final class ApplicationLifecycleService {
                 case .updated(let info):
                     AppFontUpdater.recordCheck(installedTag: info.tag)
                     NSLog("spacemap/AppFont: updated sketchybar-app-font to \(info.tag)")
+                    if hadFace {
+                        AppFontUpdater.relaunchIfGlyphStripUsesFont(config)
+                    }
                 }
             } catch {
                 NSLog("spacemap/AppFont: update check failed — \(error.localizedDescription)")
@@ -185,6 +190,7 @@ final class ApplicationLifecycleService {
 
     func applicationWillTerminate(_ notification: Notification) {
         signalRegistrationCoordinator.invalidate()
+        stopWindowSpaceWatcher()
         services.yabaiService.removeSignals()
         socketListener?.stop()
         services.stopHotkeys()
@@ -229,6 +235,46 @@ final class ApplicationLifecycleService {
             scheduleYabaiSignalRegistration(config: config)
         } else {
             NSLog("spacemap/lifecycle: nonce unavailable — yabai signals not registered")
+        }
+    }
+
+    /// yabai signals cover window creation, focus, and frame changes but not a
+    /// window moving to another space. Poll a small membership fingerprint so
+    /// the strip and HUD repaint within half a second.
+    private func startWindowSpaceWatcher() {
+        guard windowSpaceTimer == nil else { return }
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            self?.pollWindowSpaces()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        windowSpaceTimer = timer
+    }
+
+    private func stopWindowSpaceWatcher() {
+        windowSpaceTimer?.invalidate()
+        windowSpaceTimer = nil
+        windowSpaceSignature = nil
+        windowSpacePollInFlight = false
+    }
+
+    private func pollWindowSpaces() {
+        guard !windowSpacePollInFlight, currentConfig?.needsWorkspacePreviews == true else { return }
+        windowSpacePollInFlight = true
+        services.yabaiService.runOnYabaiQueue { [weak self] in
+            guard let self else { return }
+            let signature = (try? self.services.yabaiService.windowSpaceSignature()) ?? nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.windowSpacePollInFlight = false
+                guard let signature else { return }
+                let previous = self.windowSpaceSignature
+                self.windowSpaceSignature = signature
+                guard let previous, previous != signature else { return }
+                self.services.yabaiService.invalidateSnapshotCaches()
+                self.hud.refresh()
+                self.services.refreshGlyphStrip()
+                self.services.refreshMenubarPreview()
+            }
         }
     }
 

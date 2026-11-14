@@ -666,6 +666,17 @@ enum GlyphStrip {
         return windows.filter { seen.insert($0.app).inserted }
     }
 
+    /// Windows a dragged icon represents. Dedupe means one icon per app, so
+    /// the drag carries every window of that app; otherwise it carries the
+    /// single window the icon was built from.
+    static func draggedWindows(
+        for icon: YabaiWindow,
+        allWindows: [YabaiWindow],
+        dedupe: Bool
+    ) -> [YabaiWindow] {
+        dedupe ? allWindows.filter { $0.app == icon.app } : [icon]
+    }
+
     /// Maps a configured click action onto a concrete command. Returns nil when
     /// the action is disabled or cannot apply to the clicked segment.
     static func command(
@@ -744,9 +755,14 @@ enum GlyphStrip {
             } else if let glyph = font?.glyph(forApp: window.app), !glyph.isEmpty {
                 runs.append(.app(glyph))
             } else {
-                // The font is missing or has no ligature for this app; initials
-                // keep the segment legible instead of leaving a hole.
-                runs.append(.index(AppGlyphFont.initials(forApp: window.app)))
+                // No glyph font or no ligature: use the app's real Finder
+                // icon. Initials remain the text fallback if the image cannot
+                // resolve, so the segment never becomes a hole.
+                runs.append(.nativeIcon(
+                    app: window.app,
+                    pid: window.pid.flatMap { Int32(exactly: $0) },
+                    glyph: AppGlyphFont.initials(forApp: window.app)
+                ))
             }
         }
         let overflow = shown.count - limit

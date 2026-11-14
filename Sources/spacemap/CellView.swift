@@ -36,6 +36,13 @@ struct CellView: View {
     private let showIconStrip: Bool
     private let showMultiAppIcons: Bool
     private let showExtraWindows: Bool
+    private let hudAnimation: HUDAnimationStyle?
+    private let onDragActive: ((Bool) -> Void)?
+    private let onDragEnd: ((NSPoint) -> Void)?
+    private let onSpaceDragStart: ((Int) -> Void)?
+    private let onWindowDragStart: ((Int) -> Void)?
+    private let onWindowDrop: (([Int], Int, NSPoint) -> Void)?
+    @State private var iconDragActive = false
 
     private var isDarkMode: Bool {
         switch mode {
@@ -92,7 +99,13 @@ init(spaceIndex: Int,
              showSpaceNames: Bool = true,
              showIconStrip: Bool = true,
              showMultiAppIcons: Bool = false,
-             showExtraWindows: Bool = false) {
+             showExtraWindows: Bool = false,
+             hudAnimation: HUDAnimationStyle? = .natural,
+             onDragActive: ((Bool) -> Void)? = nil,
+             onDragEnd: ((NSPoint) -> Void)? = nil,
+             onSpaceDragStart: ((Int) -> Void)? = nil,
+             onWindowDragStart: ((Int) -> Void)? = nil,
+             onWindowDrop: (([Int], Int, NSPoint) -> Void)? = nil) {
         self.spaceIndex = spaceIndex
         self.spaceLabel = spaceLabel
         self.spaceName = spaceName
@@ -117,6 +130,12 @@ init(spaceIndex: Int,
         self.showIconStrip = showIconStrip
         self.showMultiAppIcons = showMultiAppIcons
         self.showExtraWindows = showExtraWindows
+        self.hudAnimation = hudAnimation
+        self.onDragActive = onDragActive
+        self.onDragEnd = onDragEnd
+        self.onSpaceDragStart = onSpaceDragStart
+        self.onWindowDragStart = onWindowDragStart
+        self.onWindowDrop = onWindowDrop
     }
 
     
@@ -169,6 +188,22 @@ var body: some View {
         )
         .frame(width: GridLayout.cellSize(forEffectiveScale: uiScale).width, height: GridLayout.cellSize(forEffectiveScale: uiScale).height)
         .onTapGesture { onSelect(spaceIndex) }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 8)
+                .onChanged { _ in
+                    guard !iconDragActive else { return }
+                    onSpaceDragStart?(spaceIndex)
+                    onDragActive?(true)
+                }
+                .onEnded { _ in
+                    guard !iconDragActive else { return }
+                    // Resolve the drop before teardown clears the shared target.
+                    onDragEnd?(NSEvent.mouseLocation)
+                    onDragActive?(false)
+                }
+        )
+        .animation(hudAnimation?.animation, value: filteredWindows.map(\.id))
+        .animation(hudAnimation?.animation, value: showMultiAppIcons)
         .onReceive(NotificationCenter.default.publisher(for: IconCache.didChange)) { _ in
             iconGeneration += 1
         }
@@ -349,6 +384,8 @@ var body: some View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: layout.frame.width, height: layout.frame.height)
                 .offset(x: layout.frame.minX, y: layout.frame.minY)
+                .transition(.scale(scale: 0.8).combined(with: .opacity))
+                .highPriorityGesture(appDragGesture(windowID: layout.windowID, app: layout.app))
         }
     }
     
@@ -375,6 +412,8 @@ var body: some View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: finalIconSize, height: finalIconSize)
+                        .transition(.scale(scale: 0.8).combined(with: .opacity))
+                        .highPriorityGesture(appDragGesture(windowID: window.id, app: window.app))
                 }
             }
         }
@@ -384,6 +423,26 @@ var body: some View {
         .padding(.bottom, padding)
     }
     
+    private func appDragGesture(windowID: Int, app: String) -> some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { _ in
+                guard !iconDragActive else { return }
+                iconDragActive = true
+                onWindowDragStart?(spaceIndex)
+                onDragActive?(true)
+            }
+            .onEnded { _ in
+                // One icon per window moves that window; a deduped app icon
+                // moves every window of the app.
+                let ids = showMultiAppIcons
+                    ? [windowID]
+                    : windows.filter { $0.app == app }.map(\.id)
+                onWindowDrop?(ids, spaceIndex, NSEvent.mouseLocation)
+                onDragActive?(false)
+                iconDragActive = false
+            }
+    }
+
     static func iconStripWindows(
         _ displayedWindows: [YabaiWindow],
         showMultiAppIcons: Bool

@@ -31,6 +31,31 @@ final class YabaiClientImplTests: XCTestCase {
     }
 
 
+
+    func testSpaceSwapPlanMovesBothSidesBeforeAnythingRuns() {
+        func window(_ id: Int, space: Int) -> YabaiWindow {
+            YabaiWindow(
+                id: id,
+                app: "App",
+                space: space,
+                frame: .init(x: 0, y: 0, w: 100, h: 100),
+                isHidden: false,
+                isMinimized: false,
+                subLayer: "normal"
+            )
+        }
+        let plan = YabaiClientImpl.spaceSwapPlan(
+            windows: [window(1, space: 1), window(2, space: 1), window(3, space: 3), window(4, space: 4)],
+            first: 1,
+            second: 3
+        )
+        XCTAssertEqual(plan, [
+            .init(windowID: 1, target: 3),
+            .init(windowID: 2, target: 3),
+            .init(windowID: 3, target: 1),
+        ])
+    }
+
     func testIsYabaiRunningReturnsTrueWhenRunning() {
         client.yabaiProcessCheck = { true }
         XCTAssertTrue(client.isYabaiRunning())

@@ -6,16 +6,20 @@ import CoreText
 
 final class AppGlyphFontTests: XCTestCase {
 
-    private func bundledFontData() throws -> Data {
-        let bundle = Bundle.module
-        let url = try XCTUnwrap(
-            bundle.url(forResource: AppGlyphFont.resourceName, withExtension: "ttf"),
-            "sketchybar-app-font.ttf missing from the test bundle"
-        )
-        return try Data(contentsOf: url)
+    private func installedFontURL() throws -> URL {
+        guard let url = AppGlyphFont.candidateURLs().first(where: {
+            FileManager.default.fileExists(atPath: $0.path)
+        }) else {
+            throw XCTSkip("sketchybar-app-font is not installed")
+        }
+        return url
     }
 
-    func testBundledFontHasAppMetadataRecord() throws {
+    private func bundledFontData() throws -> Data {
+        try Data(contentsOf: try installedFontURL())
+    }
+
+    func testInstalledFontHasAppMetadataRecord() throws {
         let payload = try XCTUnwrap(
             AppGlyphFont.appMetadataPayload(in: try bundledFontData()),
             "meta/APPM table not found"
@@ -25,9 +29,7 @@ final class AppGlyphFontTests: XCTestCase {
     }
 
     func testFaceMatchesParsedFontFile() throws {
-        let url = try XCTUnwrap(
-            Bundle.module.url(forResource: AppGlyphFont.resourceName, withExtension: "ttf")
-        )
+        let url = try installedFontURL()
         let font = try XCTUnwrap(AppGlyphFont.parse(data: Data(contentsOf: url), url: url))
         let face = try XCTUnwrap(font.face(size: 11))
         let faceURL = CTFontCopyAttribute(face as CTFont, kCTFontURLAttribute) as? URL
@@ -35,7 +37,7 @@ final class AppGlyphFontTests: XCTestCase {
     }
 
     func testKnownLigaturesMapToExpectedAppNames() throws {
-        let font = try XCTUnwrap(AppGlyphFont.load(), "bundled font failed to load")
+        let font = try XCTUnwrap(AppGlyphFont.load(), "sketchybar-app-font failed to load")
 
         // Names below are copied from sketchybar-app-font/mappings/.
         XCTAssertEqual(font.appNames(forLigature: ":finder:"), ["Finder", "访达", "Bloom", "FlowFinder"])
@@ -548,7 +550,7 @@ final class GlyphStripTests: XCTestCase {
             font: nil
         )
 
-        XCTAssertEqual(segments[0].runs, [.index("1b"), .index("GC")])
+        XCTAssertEqual(segments[0].runs, [.index("1b"), .nativeIcon(app: "Google Chrome", pid: nil, glyph: "GC")])
     }
 
     // MARK: - [glyphStrip] table
@@ -601,7 +603,7 @@ final class GlyphStripTests: XCTestCase {
         options.maxIconsPerSpace = 2
 
         let runs = singleSegment(options, windows: mixedWindows).runs
-        XCTAssertEqual(runs, [.index("1b"), .index("S"), .index("S"), .overflow(1)],
+        XCTAssertEqual(runs, [.index("1b"), .nativeIcon(app: "Safari", pid: nil, glyph: "S"), .nativeIcon(app: "Safari", pid: nil, glyph: "S"), .overflow(1)],
                        "two of three windows fit, the third becomes +1")
     }
 
@@ -896,6 +898,16 @@ final class GlyphStripTests: XCTestCase {
     /// A frame flung past the allowed range derives out-of-range offsets;
     /// `clamped()` — the same bounds the settings steppers use — must bound
     /// them before they reach config.
+    func testDraggedIconCarriesOneWindowOrEveryWindowOfItsApp() {
+        let first = YabaiWindow(id: 1, app: "Safari", space: 1, frame: .init(x: 0, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal")
+        let second = YabaiWindow(id: 2, app: "Safari", space: 1, frame: .init(x: 20, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal")
+        let other = YabaiWindow(id: 3, app: "Notes", space: 1, frame: .init(x: 40, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal")
+        let all = [first, second, other]
+
+        XCTAssertEqual(GlyphStrip.draggedWindows(for: first, allWindows: all, dedupe: false).map(\.id), [1])
+        XCTAssertEqual(GlyphStrip.draggedWindows(for: first, allWindows: all, dedupe: true).map(\.id), [1, 2])
+    }
+
     func testDraggedOffsetsClampThroughTheExistingBounds() {
         let flung = CGRect(x: row.minX + 9000, y: row.minY - 100, width: 200, height: row.height)
         let offsets = GlyphStrip.customOffsets(for: flung, area: row)
@@ -1531,18 +1543,12 @@ final class GlyphStripTests: XCTestCase {
     }
 
     /// The width sum must use each glyph's real advance from the font rather than a
-    /// hardcoded per-glyph estimate. Measured on the bundled font: every app
+    /// hardcoded per-glyph estimate. Measured on the installed font: every app
     /// glyph occupies the same 15.521pt cell at 11pt, which is precisely why
     /// adjacent icons touch and why `iconSpacing` has to supply the tracking.
     func testAppGlyphAdvanceIsReadFromTheFontAndIsUniform() throws {
         let font = try XCTUnwrap(AppGlyphFont.load())
-        // The bundled ttf is a resource, not an installed font, so register it
-        // with the process font manager before NSFont(name:) can resolve it.
-        let fontURL = try XCTUnwrap(
-            Bundle.module.url(forResource: AppGlyphFont.resourceName, withExtension: "ttf")
-        )
-        CTFontManagerRegisterFontURLs([fontURL] as CFArray, .process, true, nil)
-        let nsFont = try XCTUnwrap(NSFont(name: "sketchybar-app-font", size: 11))
+        let nsFont = try XCTUnwrap(font.face(size: 11))
         func advance(_ app: String) -> CGFloat {
             NSAttributedString(
                 string: font.glyph(forApp: app),

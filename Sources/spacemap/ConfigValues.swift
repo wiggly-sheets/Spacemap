@@ -68,6 +68,9 @@ struct ConfigValues {
     var showStackLayoutBadge: Bool?
     var showFloatLayoutBadge: Bool?
     var showHUDInteractionFeedback: Bool?
+    var spaceDropMode: SpaceDropMode?
+    var spaceDragFocus: DragFocusMode?
+    var windowDragFocus: DragFocusMode?
     var showThumbnailWallpaper: Bool?
     var hudAnimationsEnabled: Bool?
     var hudAnimationStyle: HUDAnimationStyle?
@@ -150,6 +153,9 @@ struct ConfigValues {
         self.showStackLayoutBadge = config.showStackLayoutBadge
         self.showFloatLayoutBadge = config.showFloatLayoutBadge
         self.showHUDInteractionFeedback = config.showHUDInteractionFeedback
+        self.spaceDropMode = config.spaceDropMode
+        self.spaceDragFocus = config.spaceDragFocus
+        self.windowDragFocus = config.windowDragFocus
         self.showThumbnailWallpaper = config.showThumbnailWallpaper
         self.hudAnimationsEnabled = config.hudAnimationsEnabled
         self.hudAnimationStyle = config.hudAnimationStyle
@@ -328,6 +334,9 @@ struct ConfigValues {
             showStackLayoutBadge: orDefault(showStackLayoutBadge, defaults.showStackLayoutBadge),
             showFloatLayoutBadge: orDefault(showFloatLayoutBadge, defaults.showFloatLayoutBadge),
             showHUDInteractionFeedback: orDefault(showHUDInteractionFeedback, defaults.showHUDInteractionFeedback),
+            spaceDropMode: spaceDropMode ?? defaults.spaceDropMode,
+            spaceDragFocus: spaceDragFocus ?? defaults.spaceDragFocus,
+            windowDragFocus: windowDragFocus ?? defaults.windowDragFocus,
             showThumbnailWallpaper: orDefault(showThumbnailWallpaper, defaults.showThumbnailWallpaper),
             hudAnimationsEnabled: orDefault(hudAnimationsEnabled, defaults.hudAnimationsEnabled),
             hudAnimationStyle: hudAnimationStyle ?? defaults.hudAnimationStyle,

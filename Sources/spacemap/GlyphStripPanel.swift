@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import CoreText
+import QuartzCore
 
 /// Always-visible overlay strip parked in the menu bar row, hugging the notch.
 ///
@@ -86,6 +87,13 @@ final class GlyphStripPanelController: NSObject {
     /// Extra advance before each run, parallel to `attributedRuns`.
     private var runGaps: [[CGFloat]] = []
     private var segmentWidths: [CGFloat] = []
+    /// Windows behind each painted icon run, parallel to `attributedRuns`.
+    /// Empty for the space number, overflow, and non-icon runs. Dedupe expands
+    /// an icon to every window of its app.
+    private var runWindows: [[[YabaiWindow]]] = []
+    /// Painted frame of each run in view coordinates; zero when not drawn.
+    /// Drag-and-drop hit-tests these, so it follows the same layout as `draw`.
+    private var runFrames: [[CGRect]] = []
     /// Memory-only native icons, parallel to `segments` runs (nil for
     /// non-native runs and cache misses). One array drives measuring and
     /// drawing, so the frame can never disagree with what is painted.
@@ -95,6 +103,17 @@ final class GlyphStripPanelController: NSObject {
     private var nativeResolveInFlight = Set<String>()
     fileprivate var focusedSpaceIndex: Int?
     private var hoveredSegment: Int?
+    fileprivate var dragTargetSegment: Int?
+    /// Resolves a drop onto a HUD cell in AppKit screen coordinates. Set by
+    /// `SpacemapServices`; nil keeps strip-only dragging.
+    var hudSpaceAtPoint: ((NSPoint) -> Int?)?
+    /// Tells the HUD to hold its auto-hide timer while a strip drag is live.
+    var onDragActive: ((Bool) -> Void)?
+    /// Space being dragged, so the HUD does not highlight it as its own target.
+    var onDragSourceSpace: ((Int?) -> Void)?
+    /// Fired after a drop changes space contents or order, so every surface
+    /// repaints from fresh yabai state.
+    var onDropCompleted: (() -> Void)?
     private var screenObserver: NSObjectProtocol?
     /// Reduce Transparency changes swap the native glass for the legacy
     /// effect view; nothing else reassigns the material while the strip is up.
@@ -556,6 +575,38 @@ final class GlyphStripPanelController: NSObject {
                 indexPadding: CGFloat(strip.indexPadding)
             )
         }
+        let state = coordinator.state
+        runWindows = segments.map { segment in
+            guard let spaceIndex = segment.spaceIndex, let state else {
+                return Array(repeating: [YabaiWindow](), count: segment.runs.count)
+            }
+            let all = GlyphStrip.windows(forSpace: spaceIndex, in: state)
+            let shown = GlyphStrip.windowsToShow(all, dedupe: strip.dedupeAppsPerSpace)
+            let limit = strip.maxIconsPerSpace == 0 ? shown.count : min(strip.maxIconsPerSpace, shown.count)
+            let icons = Array(shown.prefix(limit))
+            var windows: [[YabaiWindow]] = []
+            var iconOffset = 0
+            for run in segment.runs {
+                switch run {
+                case .app, .nativeIcon:
+                    if icons.indices.contains(iconOffset) {
+                        windows.append(GlyphStrip.draggedWindows(
+                            for: icons[iconOffset],
+                            allWindows: all,
+                            dedupe: strip.dedupeAppsPerSpace
+                        ))
+                    } else {
+                        windows.append([])
+                    }
+                    iconOffset += 1
+                default:
+                    windows.append([])
+                }
+            }
+            return windows
+        }
+        runFrames = attributedRuns.map { Array(repeating: .zero, count: $0.count) }
+        glyphs?.animateContentChange()
         segmentWidths = segments.indices.map { offset in
             let runs = attributedRuns[offset]
             let gaps = runGaps[offset]
@@ -584,7 +635,7 @@ final class GlyphStripPanelController: NSObject {
         guard let panel else { return }
         applyFrame(to: panel)
         if !panel.isVisible {
-            if config.hudAnimationsEnabled {
+            if config.hudAnimationsEnabled, NSApp != nil, NSApp.isRunning {
                 panel.alphaValue = 0
                 panel.orderFrontRegardless()
                 NSAnimationContext.runAnimationGroup { context in
@@ -615,7 +666,7 @@ final class GlyphStripPanelController: NSObject {
             panel?.orderOut(nil)
             return
         }
-        guard config.hudAnimationsEnabled else {
+        guard config.hudAnimationsEnabled, NSApp != nil, NSApp.isRunning else {
             panel.orderOut(nil)
             return
         }
@@ -1023,6 +1074,98 @@ final class GlyphStripPanelController: NSObject {
         }
     }
 
+    /// Painted run frame recorded by the draw loop. Nil when the point is not
+    /// on a run (padding, gap, or an empty segment).
+    fileprivate func runHit(at point: NSPoint) -> (segment: Int, run: Int)? {
+        for (segment, frames) in runFrames.enumerated() {
+            if let run = frames.firstIndex(where: { $0.contains(point) }) {
+                return (segment, run)
+            }
+        }
+        return nil
+    }
+
+    /// Space number run: the strip's first run in a numbered segment. App
+    /// initials use the same `.index` case, so position matters.
+    fileprivate func isSpaceNumber(segment: Int, run: Int) -> Bool {
+        guard segments.indices.contains(segment) else { return false }
+        let runs = segments[segment].runs
+        return run == 0
+            && segments[segment].spaceIndex != nil
+            && config.glyphStrip.showSpaceNumbers
+            && !runs.isEmpty
+            && { if case .index = runs[0] { return true } else { return false } }()
+    }
+
+    fileprivate func spaceNumber(at point: NSPoint) -> Int? {
+        guard let hit = runHit(at: point), isSpaceNumber(segment: hit.segment, run: hit.run) else { return nil }
+        return segments[hit.segment].spaceIndex
+    }
+
+    fileprivate func draggedWindows(at point: NSPoint) -> (ids: [Int], source: Int)? {
+        guard let hit = runHit(at: point),
+              runWindows.indices.contains(hit.segment),
+              runWindows[hit.segment].indices.contains(hit.run),
+              let source = segments[hit.segment].spaceIndex else { return nil }
+        let windows = runWindows[hit.segment][hit.run]
+        return windows.isEmpty ? nil : (windows.map(\.id), source)
+    }
+
+    /// Segment directly under the pointer. Gaps, display separators, and the
+    /// add button are not drop targets, so only real spaces highlight.
+    fileprivate func dropSegment(at point: NSPoint) -> Int? {
+        guard viewBounds.contains(point) else { return nil }
+        for index in segments.indices where segments[index].spaceIndex != nil {
+            guard let rect = segmentRect(index), rect.contains(point) else { continue }
+            return index
+        }
+        return nil
+    }
+
+    /// The space currently highlighted as the drop destination. Drop uses
+    /// this same value so highlight and result cannot diverge.
+    fileprivate var dragTargetSpace: Int? {
+        dragTargetSegment.flatMap { segments.indices.contains($0) ? segments[$0].spaceIndex : nil }
+    }
+
+    fileprivate func setDragTarget(_ segment: Int?) {
+        guard dragTargetSegment != segment else { return }
+        dragTargetSegment = segment
+        glyphs?.needsDisplay = true
+    }
+
+    fileprivate func recordRunFrame(_ frame: CGRect, segment: Int, run: Int) {
+        guard runFrames.indices.contains(segment), runFrames[segment].indices.contains(run) else { return }
+        runFrames[segment][run] = frame
+    }
+
+    fileprivate func performSpaceSwap(from source: Int, to target: Int) {
+        // A space can disappear between drag start and drop; do not ask yabai
+        // to swap an index that no longer exists.
+        let live = Set(segments.compactMap(\.spaceIndex))
+        guard source > 0, target > 0, source != target,
+              live.contains(source), live.contains(target) else { return }
+        yabaiService.swapSpaces(source, target, mode: config.spaceDropMode, focusMode: config.spaceDragFocus)
+        refreshAfterDrag()
+    }
+
+    fileprivate func performWindowMove(ids: [Int], to target: Int, source: Int) {
+        guard target > 0 else { return }
+        yabaiService.moveWindows(ids, toSpace: target, focusMode: config.windowDragFocus, sourceSpace: source)
+        refreshAfterDrag()
+    }
+
+    private func refreshAfterDrag() {
+        // yabai applies the change asynchronously; a single early repaint can
+        // still show the old order. Repaint a few times as the swap settles.
+        for delay in [0.15, 0.5, 1.0] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.refresh()
+                self?.onDropCompleted?()
+            }
+        }
+    }
+
     fileprivate func command(forSegment index: Int, click: GlyphStripClick) -> GlyphStrip.Command? {
         guard segments.indices.contains(index) else { return nil }
         let segment = segments[index]
@@ -1137,6 +1280,7 @@ final class GlyphStripPanelController: NSObject {
         return GlyphStrip.baselineLift(for: segments[offset].runs[index])
     }
     fileprivate var hovered: Int? { hoveredSegment }
+    fileprivate var isPositionLocked: Bool { config.glyphStrip.isPositionLocked }
     fileprivate var backgroundMaterial: GlyphStripBackgroundMaterial {
         config.glyphStrip.resolvedBackgroundMaterial(hud: config)
     }
@@ -1693,14 +1837,46 @@ private final class GlyphStripView: NSView {
     private var pressPoint: NSPoint?
     private var didDrag = false
 
+    /// Locked strips give up panel dragging: a press on a space number or an
+    /// app icon starts a reorder instead.
+    private enum DragPayload {
+        case space(Int)
+        case windows([Int], source: Int)
+    }
+    private var dragPayload: DragPayload?
+    /// Hover pop: the segment eases to 1.07 and back. Custom drawing has no
+    /// animatable property, so a short timer interpolates the scale.
+    private var hoverAnimationTimer: Timer?
+    private var hoverScale: CGFloat = 1
+    private var scalingSegment: Int?
+    /// Content pop after a yabai refresh, so an icon moving between spaces
+    /// visibly lands instead of teleporting.
+    private var contentAnimationStart: CFTimeInterval?
+    private var contentAnimationTimer: Timer?
+
     override func mouseDown(with event: NSEvent) {
         guard let controller else { return }
         // Screen coordinates, not window ones: the panel moves under the
         // pointer during a drag, and window-space locations drift with it.
         pressScreenLocation = NSEvent.mouseLocation
         pressFrame = controller.panelFrame
-        pressPoint = convert(event.locationInWindow, from: nil)
+        let point = convert(event.locationInWindow, from: nil)
+        pressPoint = point
         didDrag = false
+        dragPayload = nil
+        if controller.isPositionLocked {
+            if let space = controller.spaceNumber(at: point) {
+                dragPayload = .space(space)
+            } else if let dragged = controller.draggedWindows(at: point) {
+                dragPayload = .windows(dragged.ids, source: dragged.source)
+            }
+            if dragPayload != nil {
+                if case .space(let source)? = dragPayload {
+                    controller.onDragSourceSpace?(source)
+                }
+                controller.onDragActive?(true)
+            }
+        }
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -1709,6 +1885,21 @@ private final class GlyphStripView: NSView {
               let startFrame = pressFrame else { return }
         let location = NSEvent.mouseLocation
         let delta = CGVector(dx: location.x - start.x, dy: location.y - start.y)
+        if dragPayload != nil {
+            guard didDrag || GlyphStrip.exceedsDragThreshold(delta) else { return }
+            didDrag = true
+            let point = convert(event.locationInWindow, from: nil)
+            guard let target = controller.dropSegment(at: point) else {
+                controller.setDragTarget(nil)
+                return
+            }
+            // `setDragTarget` takes a segment index, not a space index.
+            var sourceSpace: Int?
+            if case .space(let source)? = dragPayload { sourceSpace = source }
+            let targetSpace = controller.segments[target].spaceIndex
+            controller.setDragTarget(targetSpace == sourceSpace ? nil : target)
+            return
+        }
         if !didDrag {
             guard GlyphStrip.exceedsDragThreshold(delta) else { return }
             didDrag = true
@@ -1722,10 +1913,37 @@ private final class GlyphStripView: NSView {
     override func mouseUp(with event: NSEvent) {
         let dragged = didDrag
         let point = pressPoint
+        let payload = dragPayload
         didDrag = false
         pressPoint = nil
         pressScreenLocation = nil
         pressFrame = nil
+        dragPayload = nil
+        if payload != nil {
+            let hudTarget = controller?.hudSpaceAtPoint?(NSEvent.mouseLocation)
+            let target = controller?.dragTargetSpace
+            controller?.onDragSourceSpace?(nil)
+            controller?.onDragActive?(false)
+            controller?.setDragTarget(nil)
+            if dragged, target != nil || hudTarget != nil {
+                switch payload {
+                case .space(let source):
+                    if let hudTarget {
+                        controller?.performSpaceSwap(from: source, to: hudTarget)
+                    } else if let target {
+                        controller?.performSpaceSwap(from: source, to: target)
+                    }
+                case .windows(let ids, let source):
+                    if let hudTarget {
+                        controller?.performWindowMove(ids: ids, to: hudTarget, source: source)
+                    } else if let target {
+                        controller?.performWindowMove(ids: ids, to: target, source: source)
+                    }
+                case .none: break
+                }
+            }
+            if dragged { return }
+        }
         if dragged {
             controller?.persistDragPosition()
             return
@@ -1783,6 +2001,13 @@ private final class GlyphStripView: NSView {
             )
         }
 
+        // Drop target: the same capsule as hover, brighter so it reads as an
+        // active drop while the pointer is away from the segment.
+        if let target = controller.dragTargetSegment,
+           let highlight = controller.hoverBackdrop(target) {
+            GlyphStrip.fill(highlight, color: controller.hoverColor, opacity: 0.45)
+        }
+
         // `segmentWidths` charges every segment a leading *and* a trailing
         // `horizontalPadding`, so the pen has to spend both or the drawn content
         // ends up short of the frame and drifts left of the slot centres the
@@ -1791,6 +2016,18 @@ private final class GlyphStripView: NSView {
             // Vertical placement stacks one segment per line; horizontal keeps
             // every segment on the one menu-bar row.
             guard let slot = controller.segmentRect(offset) else { continue }
+            let scale = (offset == scalingSegment ? hoverScale : 1) * contentScale(for: offset)
+            let context = NSGraphicsContext.current?.cgContext
+            let scaled = scale != 1 && context != nil
+            if scaled, let context {
+                context.saveGState()
+                context.translateBy(x: slot.midX, y: slot.midY)
+                context.scaleBy(x: scale, y: scale)
+                context.translateBy(x: -slot.midX, y: -slot.midY)
+            }
+            // Restores at the end of this loop iteration, including the
+            // stacked branch's `continue`.
+            defer { if scaled { context?.restoreGState() } }
             if controller.isStackedVertical {
                 // Number on top, one icon per line underneath, each centred.
                 let lines = GlyphStrip.stackedLines(
@@ -1805,7 +2042,12 @@ private final class GlyphStripView: NSView {
                     let x = controller.nativeIcon(segment: offset, run: index) == nil
                         ? Self.inkCenteredX(for: run, in: line)
                         : line.midX - run.size().width / 2
-                    draw(run, x: x, in: line, controller: controller, segment: offset, index: index)
+                    let advance = draw(run, x: x, in: line, controller: controller, segment: offset, index: index)
+                    controller.recordRunFrame(
+                        CGRect(x: x, y: line.minY, width: advance, height: line.height),
+                        segment: offset,
+                        run: index
+                    )
                 }
                 continue
             }
@@ -1818,9 +2060,41 @@ private final class GlyphStripView: NSView {
                 : slot.minX + GlyphStripPanelController.horizontalPadding
             for (index, run) in runs.enumerated() {
                 if index > 0 { x += gaps[index] }
-                x += draw(run, x: x, in: slot, controller: controller, segment: offset, index: index)
+                let advance = draw(run, x: x, in: slot, controller: controller, segment: offset, index: index)
+                controller.recordRunFrame(
+                    CGRect(x: x, y: slot.minY, width: advance, height: slot.height),
+                    segment: offset,
+                    run: index
+                )
+                x += advance
             }
         }
+    }
+
+    fileprivate func animateContentChange() {
+        contentAnimationStart = CACurrentMediaTime()
+        contentAnimationTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            let elapsed = CACurrentMediaTime() - (self.contentAnimationStart ?? 0)
+            self.needsDisplay = true
+            if elapsed >= 0.24 {
+                timer.invalidate()
+                self.contentAnimationTimer = nil
+                self.contentAnimationStart = nil
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        contentAnimationTimer = timer
+        needsDisplay = true
+    }
+
+    private func contentScale(for segment: Int) -> CGFloat {
+        guard let start = contentAnimationStart else { return 1 }
+        let elapsed = CACurrentMediaTime() - start - Double(segment) * 0.015
+        let progress = min(max(elapsed / 0.18, 0), 1)
+        let eased = 1 - pow(1 - progress, 3)
+        return 0.9 + 0.1 * eased
     }
 
     /// Pen x that centres the run's **ink**, not its advance box. App-font
