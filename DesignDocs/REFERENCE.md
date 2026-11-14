@@ -244,7 +244,7 @@ Glyph verticals: every run draws from one shared baseline at a 1pt drop (`glyphD
 
 The strip is theme-driven: every layer resolves to one of the theme's colours (`focused`, `text`, `cellBg`), with no hex codes and no per-element colour keys. Older configs that still carry colour keys have them dropped on the next repair.
 
-`showDisplaySeparators` draws a `│` between spaces on different displays. Every space from every display is rendered on the single strip, in global-index order, and indexes are never renumbered per display — matching the SketchyBar config this replaces, which set `ignore_association = true` so secondary-display spaces still appeared on the main bar.
+Window icons come from [sketchybar-app-font](https://github.com/kvndrsslr/sketchybar-app-font) (CC0-1.0), bundled with the app; `iconSource = "native"` uses the app's own icon instead. `showDisplaySeparators` draws a `│` between spaces on different displays. Every space from every display is rendered on the single strip, in global-index order, and indexes are never renumbered per display — matching the SketchyBar config this replaces, which set `ignore_association = true` so secondary-display spaces still appeared on the main bar.
 
 `highlightCurrentSpace` off does not merely recolour the focused space: it removes the focused state entirely, so the current space resolves to the same colour, alpha and fill as every other space and hovering it behaves like hovering any other segment.
 
