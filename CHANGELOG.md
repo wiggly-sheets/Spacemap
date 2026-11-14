@@ -47,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `[behavior] spaceDropMode` (default `content`): choose whether dragging a space swaps window contents or moves the spaces themselves. Swap Contents works with any yabai build; Move Spaces needs space-move support.
 - `[behavior] spaceDragFocus` (default `stay`) and `windowDragFocus` (default `destination`): choose whether focus stays, follows the drop, or returns to the original space after rearranging spaces or moving an app icon.
 - Drag app icons in the HUD itself, not only in the glyph strip. A deduped app icon moves every window of that app; one-icon-per-window mode moves only the dragged window.
-- HUD and glyph strip animate content arriving and leaving after a drop or reorder: HUD icons scale and fade into their new cell, and strip glyphs pop in with a short stagger.
+- HUD and glyph strip animate content arriving and leaving after a drop or reorder: HUD icons scale and fade into their new cell, and only the strip segments whose content changed pop in with a short stagger.
 - `[behavior] presence` (`dock`, `menuBar`, `both`, `none`; default `menuBar`) replaces `hideMenuBarIcon` and adds the Dock as a place to show Spacemap. The menu-bar display pickers appear whenever the menu bar is included. Legacy `hideMenuBarIcon` still loads.
 - `[grid] showThumbnailWallpaper` (default `true`): draw the desktop wallpaper behind thumbnail cells, or leave it transparent.
 - The Advanced pane now reports Accessibility and Screen Recording status with request buttons and deep links into the matching System Settings panes. Thumbnail cells request Screen Recording the first time they are selected, and the app asks on launch when thumbnails are already configured.

@@ -91,6 +91,18 @@ final class GlyphStripPanelController: NSObject {
     /// Empty for the space number, overflow, and non-icon runs. Dedupe expands
     /// an icon to every window of its app.
     private var runWindows: [[[YabaiWindow]]] = []
+    private var lastPaintedSegments: [GlyphStrip.Segment]?
+
+    /// Segments whose painted content changed. A first build animates nothing;
+    /// a count change animates the visible set because indices shifted.
+    static func changedSegments(
+        previous: [GlyphStrip.Segment]?,
+        current: [GlyphStrip.Segment]
+    ) -> [Int] {
+        guard let previous else { return [] }
+        guard previous.count == current.count else { return Array(current.indices) }
+        return current.indices.filter { previous[$0] != current[$0] }
+    }
     /// Painted frame of each run in view coordinates; zero when not drawn.
     /// Drag-and-drop hit-tests these, so it follows the same layout as `draw`.
     private var runFrames: [[CGRect]] = []
@@ -606,7 +618,11 @@ final class GlyphStripPanelController: NSObject {
             return windows
         }
         runFrames = attributedRuns.map { Array(repeating: .zero, count: $0.count) }
-        glyphs?.animateContentChange()
+        let changed = Self.changedSegments(previous: lastPaintedSegments, current: segments)
+        lastPaintedSegments = segments
+        if !changed.isEmpty {
+            glyphs?.animateContentChange(segments: changed)
+        }
         segmentWidths = segments.indices.map { offset in
             let runs = attributedRuns[offset]
             let gaps = runGaps[offset]
@@ -1853,6 +1869,7 @@ private final class GlyphStripView: NSView {
     /// visibly lands instead of teleporting.
     private var contentAnimationStart: CFTimeInterval?
     private var contentAnimationTimer: Timer?
+    private var contentAnimationSegments: [Int] = []
 
     override func mouseDown(with event: NSEvent) {
         guard let controller else { return }
@@ -2071,7 +2088,8 @@ private final class GlyphStripView: NSView {
         }
     }
 
-    fileprivate func animateContentChange() {
+    fileprivate func animateContentChange(segments: [Int]) {
+        contentAnimationSegments = segments
         contentAnimationStart = CACurrentMediaTime()
         contentAnimationTimer?.invalidate()
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
@@ -2082,6 +2100,7 @@ private final class GlyphStripView: NSView {
                 timer.invalidate()
                 self.contentAnimationTimer = nil
                 self.contentAnimationStart = nil
+                self.contentAnimationSegments = []
             }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -2090,8 +2109,9 @@ private final class GlyphStripView: NSView {
     }
 
     private func contentScale(for segment: Int) -> CGFloat {
-        guard let start = contentAnimationStart else { return 1 }
-        let elapsed = CACurrentMediaTime() - start - Double(segment) * 0.015
+        guard let start = contentAnimationStart,
+              let order = contentAnimationSegments.firstIndex(of: segment) else { return 1 }
+        let elapsed = CACurrentMediaTime() - start - Double(order) * 0.015
         let progress = min(max(elapsed / 0.18, 0), 1)
         let eased = 1 - pow(1 - progress, 3)
         return 0.9 + 0.1 * eased

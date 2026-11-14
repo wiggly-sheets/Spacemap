@@ -993,6 +993,29 @@ final class GlyphStripTests: XCTestCase {
 
     // MARK: - Vertical layout
 
+
+    func testOnlyChangedSegmentsAnimate() {
+        let a = GlyphStrip.Segment(spaceIndex: 1, runs: [.index("1"), .app("Safari")])
+        let b = GlyphStrip.Segment(spaceIndex: 2, runs: [.index("2")])
+        XCTAssertEqual(
+            GlyphStripPanelController.changedSegments(previous: nil, current: [a, b]),
+            []
+        )
+        XCTAssertEqual(
+            GlyphStripPanelController.changedSegments(previous: [a, b], current: [a, b]),
+            []
+        )
+        let moved = GlyphStrip.Segment(spaceIndex: 2, runs: [.index("1"), .app("Safari")])
+        XCTAssertEqual(
+            GlyphStripPanelController.changedSegments(previous: [a, b], current: [moved, b]),
+            [0]
+        )
+        XCTAssertEqual(
+            GlyphStripPanelController.changedSegments(previous: [a, b], current: [a]),
+            [0]
+        )
+    }
+
     func testVerticalSlotsStackFromTheTopInSpaceOrder() {
         let bounds = CGRect(x: 0, y: 0, width: 80, height: 120)
         let slots = GlyphStrip.verticalSlots(heights: [50, 30, 40], in: bounds)
