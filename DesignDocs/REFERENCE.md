@@ -97,6 +97,10 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[behavior]` | `showBSPLayoutBadge` / `showStackLayoutBadge` / `showFloatLayoutBadge` | true | Which layout letters the HUD badge draws. Read only when `showSpaceLayout` is on |
 | `[behavior]` | `hudAnimationsEnabled` / `hudAnimationStyle` / `hudEntranceStyle` | `Bool` / `HUDAnimationStyle` / `HUDEntranceStyle` | `true` / `natural` / `fade`; timing styles `natural`, `springy`, `fast`; entrances `fade`, `slideFromLeft`, `slideFromRight`, `slideFromTop`, `slideFromBottom`, `scale`. Off makes HUD and strip fades instant |
 | `[behavior]` | `showHUDInteractionFeedback` | true | Draw typed-number and action notices over the HUD. Off hides the overlays only; actions still run |
+| `[behavior]` | `spaceDropMode` | `content` | What a space drag does: `content` swaps the windows between spaces (any yabai build), `spaces` reorders the spaces themselves (needs a yabai build with space-move support) |
+| `[behavior]` | `spaceDragFocus` | `stay` | Focus after rearranging spaces: `stay`, `destination`, or `source` |
+| `[behavior]` | `windowDragFocus` | `destination` | Focus after moving an app icon to another space: `stay`, `destination`, or `source` |
+| HUD drag | — | — | Drag a cell to rearrange spaces; drag an app icon to move its windows. Deduped icons move every window of the app, one-icon-per-window moves only that window |
 | `[behavior]` | `showThumbnailWallpaper` | true | Draw the desktop wallpaper behind thumbnail cells. Off leaves the desktop transparent behind the windows |
 | `[behavior]` | `presence` / `updateMode` | `menuBar` / `notify` | Where Spacemap appears: `dock`, `menuBar`, `both`, or `none`. `none` and `menuBar` use an accessory policy, so no Dock icon. Legacy `hideMenuBarIcon` reads as `none` when true and `menuBar` when false. Sparkle `auto‖notify‖off`; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `[behavior]` | `menuBarDisplayMode` (+ `menuBarNearbyCount`) | `icon` (3) | `icon‖dots‖current‖nearby‖all`; nearby count clamped 1–16 |
@@ -165,6 +169,9 @@ Stores parsed configuration values.
 | `showHUDOnSpaceChange` | `Bool` | `showHUDOnSpaceChange` |
 | `showBSPLayoutBadge` / `showStackLayoutBadge` / `showFloatLayoutBadge` | `Bool` | same |
 | `showHUDInteractionFeedback` | `Bool` | `showHUDInteractionFeedback` |
+| `spaceDropMode` | `SpaceDropMode` | `spaceDropMode` |
+| `spaceDragFocus` | `DragFocusMode` | `spaceDragFocus` |
+| `windowDragFocus` | `DragFocusMode` | `windowDragFocus` |
 | `showThumbnailWallpaper` | `Bool` | `showThumbnailWallpaper` |
 | `updateMode` | `UpdateMode` | `updateMode` |
 | `appFont` | `AppFontConfig` | `[appFont]` |
@@ -246,7 +253,7 @@ Appearance is theme-driven: the strip resolves a fixed role palette against its 
 
 `position` is notch-aware. `auxiliaryTopLeftArea` is the unobscured strip to the **left** of the notch, so its `maxX` is the notch's left edge; `auxiliaryTopRightArea` is symmetric. `leftOfNotch` puts the strip's **right** edge `margin` short of that left edge, and `rightOfNotch` puts its **left** edge `margin` past the right edge, so the strip always sits *beside* the camera housing rather than inside it. `center` centres the strip on the midpoint of the notch gap. AppKit reports empty auxiliary rects on displays without a notch, so the two notch positions fall back to the corresponding screen edge and `center` falls back to the row's midpoint. `custom` places the strip `xOffset` points right of the screen's left edge and `yOffset` points below its top edge, and clamps it inside the screen rather than the menu bar row. Anchored positions are clamped inside the menu bar row and centred vertically in it.
 
-`orientation` chooses the layout direction for `.custom` placement: `horizontal` is one row, `vertical` is one block per space stacked from the top of the panel. A vertical strip uses the usable screen height, not the menu bar row, so it can sit along a screen edge; when it no longer fits it wraps into more columns instead of drawing off screen. Custom placement avoids the menu bar, Dock and edge-anchored accessory windows such as third-party docks. `verticalLayout` then decides how a space's contents sit on its block: `inline` keeps the number and its icons on one line, `stacked` puts the number on the first line and one icon on each line below it, all centred. Each stacked line costs the line box; `indexPadding` separates the number from the first icon and `iconSpacing` separates icon lines, and the hover highlight wraps the whole block in stacked mode. `lockPosition` (default `false`) stops drags from moving a `.custom` strip: unlock, drag, relock, or leave it unlocked to move freely.
+`orientation` chooses the layout direction for `.custom` placement: `horizontal` is one row, `vertical` is one block per space stacked from the top of the panel. A vertical strip uses the usable screen height, not the menu bar row, so it can sit along a screen edge; when it no longer fits it wraps into more columns instead of drawing off screen. Custom placement avoids the menu bar, Dock and edge-anchored accessory windows such as third-party docks. `verticalLayout` then decides how a space's contents sit on its block: `inline` keeps the number and its icons on one line, `stacked` puts the number on the first line and one icon on each line below it, all centred. Each stacked line costs the line box; `indexPadding` separates the number from the first icon and `iconSpacing` separates icon lines, and the hover highlight wraps the whole block in stacked mode. `lockPosition` (default `false`) stops drags from moving a `.custom` strip: unlock, drag, relock, or leave it unlocked to move freely. A locked strip turns drags into reordering: drag a space number onto another segment to swap the spaces, or drag an app icon onto another segment or a visible HUD cell to move that app's windows. With `dedupeAppsPerSpace` on, one icon carries every window of its app; with it off, only the window that icon represents. Hovering a segment highlights it and eases its content to 1.07 for 0.13 s. While dragging, only the destination segment or HUD cell directly under the pointer stays highlighted; gaps and padding clear it. On macOS 27.2 upstream yabai cannot reorder spaces, so a space drag swaps the two spaces' window contents. Empty spaces and Mission Control order do not change until a yabai build with macOS 27 space support is installed.
 
 `yOffset` is measured in screen-reading terms: positive moves the strip **down**. Anchored positions treat it as a nudge from the row's centre, clamped -10...10. Custom placement treats it as an inset from the screen's top edge, clamped 0...4000. Anchored panels are ordered at `.statusBar` level; custom panels use `.floating` so a strip parked mid-screen does not cover the menu bar.
 
@@ -318,7 +325,7 @@ Window icons come from [sketchybar-app-font](https://github.com/kvndrsslr/sketch
 | `SettingsView.swift` + `SettingsGrid`/`SettingsSpaceNames`/`SettingsAppearance`/`SettingsBehavior`/`SettingsGlyphStrip`/`SettingsAdvanced` | `SettingsView` | Permanent category sidebar with separate live-save detail forms |
 | `SettingsWindowController.swift` | `SettingsWindowController` | AppKit window wrapper for SettingsView |
 | `ThumbnailCache.swift` + `ThumbnailCompositor`/`ThumbnailRequestBuilder` | `ThumbnailCache` | ScreenCaptureKit capture, per-space caching (macOS 14+) |
-| `IconCache.swift` | `IconCache` | App icon cache to avoid repeated NSWorkspace lookups |
+| `IconCache.swift` | `IconCache` | App icon cache (64-entry MRU) to avoid repeated NSWorkspace lookups |
 | `ThemeManager.swift` | `ThemeManager` | Loads `.smthemes` and `.toml` files, seeds built-in themes on first launch, saves edited themes as TOML |
 
 ## Yabai Integration (`YabaiClientImpl.swift`)
@@ -327,6 +334,7 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 
 - `querySpaces() -> [YabaiSpace]`
 - `queryWindows() -> [YabaiWindow]`
+- `windowSpaceSignature() -> String` — sorted window id and space fingerprint for polling
 - `buildGridState(config:focusedIndex:) -> GridState`
 - `focusSpace(_ index: Int)` — switches to a space
 - `moveWindowCreatingSpacesIfNeeded(_:toSpace:focusDestination:completion:)` — creates missing spaces, moves the window, and optionally focuses the destination
@@ -345,6 +353,10 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 - `reloadConfig()` — clears cached config, forces re-read on next access
 
 ## Event Systems
+
+### Window-space polling
+
+yabai has no signal for a window moving to another space without focus changing (`window --space` does not emit `window_moved`). When previews are needed, the app polls a window-id/space fingerprint every 0.5 s and refreshes the HUD and glyph strip when it changes.
 
 ### `HotkeyMonitor.swift`
 - `CGEvent.tapCreate` with `.headInsertEventTap`
