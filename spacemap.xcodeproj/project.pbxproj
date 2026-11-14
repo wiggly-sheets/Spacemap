@@ -47,6 +47,7 @@
 		85165dd4-714f-22be-fa9a-5d839ec28762 /* MenuBarPreviewPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ba1cf71-1074-783e-d41c-95a88f73fc44 /* MenuBarPreviewPolicy.swift */; };
 		306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8dcbf9e9-bdbb-2cae-be48-583060f2c4cf /* MenuBarPreviewRenderer.swift */; };
 		ba7f5687-de48-3ff4-645f-9a31d956cf94 /* MenubarHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = b680105e-135c-6e7f-b7f6-ad7d3925e622 /* MenubarHandler.swift */; };
+		6affc72a-c3fe-c8d1-1d9d-ccb409303e29 /* PermissionDragWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = d8218521-055b-cb67-e29d-1d41f973f788 /* PermissionDragWindow.swift */; };
 		04e357ef-fb7a-2446-4f94-a795ebd9c308 /* ServiceProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06008a90-c18d-2622-b9ac-3d4432981d49 /* ServiceProtocols.swift */; };
 		591b840d-8586-0fee-f954-f12d6af3c8ce /* SettingsAdvanced.swift in Sources */ = {isa = PBXBuildFile; fileRef = f2c4d021-d11e-b45c-413e-1921c2f16383 /* SettingsAdvanced.swift */; };
 		cdb95993-8b08-886f-53f8-9fe3d53ad60e /* SettingsAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5e1f4a53-55c4-e3a0-d36e-eebf9b5e2658 /* SettingsAppearance.swift */; };
@@ -127,6 +128,7 @@
 		9ba1cf71-1074-783e-d41c-95a88f73fc44 /* MenuBarPreviewPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPreviewPolicy.swift; sourceTree = "<group>"; };
 		8dcbf9e9-bdbb-2cae-be48-583060f2c4cf /* MenuBarPreviewRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPreviewRenderer.swift; sourceTree = "<group>"; };
 		b680105e-135c-6e7f-b7f6-ad7d3925e622 /* MenubarHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenubarHandler.swift; sourceTree = "<group>"; };
+		d8218521-055b-cb67-e29d-1d41f973f788 /* PermissionDragWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionDragWindow.swift; sourceTree = "<group>"; };
 		06008a90-c18d-2622-b9ac-3d4432981d49 /* ServiceProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProtocols.swift; sourceTree = "<group>"; };
 		f2c4d021-d11e-b45c-413e-1921c2f16383 /* SettingsAdvanced.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsAdvanced.swift; sourceTree = "<group>"; };
 		5e1f4a53-55c4-e3a0-d36e-eebf9b5e2658 /* SettingsAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsAppearance.swift; sourceTree = "<group>"; };
@@ -263,6 +265,7 @@
 				9ba1cf71-1074-783e-d41c-95a88f73fc44 /* MenuBarPreviewPolicy.swift */,
 				8dcbf9e9-bdbb-2cae-be48-583060f2c4cf /* MenuBarPreviewRenderer.swift */,
 				b680105e-135c-6e7f-b7f6-ad7d3925e622 /* MenubarHandler.swift */,
+				d8218521-055b-cb67-e29d-1d41f973f788 /* PermissionDragWindow.swift */,
 				06008a90-c18d-2622-b9ac-3d4432981d49 /* ServiceProtocols.swift */,
 				f2c4d021-d11e-b45c-413e-1921c2f16383 /* SettingsAdvanced.swift */,
 				5e1f4a53-55c4-e3a0-d36e-eebf9b5e2658 /* SettingsAppearance.swift */,
@@ -502,6 +505,7 @@
 				85165dd4-714f-22be-fa9a-5d839ec28762 /* MenuBarPreviewPolicy.swift in Sources */,
 				306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */,
 				ba7f5687-de48-3ff4-645f-9a31d956cf94 /* MenubarHandler.swift in Sources */,
+				6affc72a-c3fe-c8d1-1d9d-ccb409303e29 /* PermissionDragWindow.swift in Sources */,
 				04e357ef-fb7a-2446-4f94-a795ebd9c308 /* ServiceProtocols.swift in Sources */,
 				591b840d-8586-0fee-f954-f12d6af3c8ce /* SettingsAdvanced.swift in Sources */,
 				cdb95993-8b08-886f-53f8-9fe3d53ad60e /* SettingsAppearance.swift in Sources */,
@@ -583,6 +587,7 @@
 				85165dd4-714f-22be-fa9a-5d839ec28762 /* MenuBarPreviewPolicy.swift in Sources */,
 				306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */,
 				ba7f5687-de48-3ff4-645f-9a31d956cf94 /* MenubarHandler.swift in Sources */,
+				6affc72a-c3fe-c8d1-1d9d-ccb409303e29 /* PermissionDragWindow.swift in Sources */,
 				04e357ef-fb7a-2446-4f94-a795ebd9c308 /* ServiceProtocols.swift in Sources */,
 				591b840d-8586-0fee-f954-f12d6af3c8ce /* SettingsAdvanced.swift in Sources */,
 				cdb95993-8b08-886f-53f8-9fe3d53ad60e /* SettingsAppearance.swift in Sources */,
@@ -664,6 +669,7 @@
 				85165dd4-714f-22be-fa9a-5d839ec28762 /* MenuBarPreviewPolicy.swift in Sources */,
 				306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */,
 				ba7f5687-de48-3ff4-645f-9a31d956cf94 /* MenubarHandler.swift in Sources */,
+				6affc72a-c3fe-c8d1-1d9d-ccb409303e29 /* PermissionDragWindow.swift in Sources */,
 				04e357ef-fb7a-2446-4f94-a795ebd9c308 /* ServiceProtocols.swift in Sources */,
 				591b840d-8586-0fee-f954-f12d6af3c8ce /* SettingsAdvanced.swift in Sources */,
 				cdb95993-8b08-886f-53f8-9fe3d53ad60e /* SettingsAppearance.swift in Sources */,
@@ -745,6 +751,7 @@
 				85165dd4-714f-22be-fa9a-5d839ec28762 /* MenuBarPreviewPolicy.swift in Sources */,
 				306af09c-9003-b12f-8ca0-13bf7e4eaf9e /* MenuBarPreviewRenderer.swift in Sources */,
 				ba7f5687-de48-3ff4-645f-9a31d956cf94 /* MenubarHandler.swift in Sources */,
+				6affc72a-c3fe-c8d1-1d9d-ccb409303e29 /* PermissionDragWindow.swift in Sources */,
 				04e357ef-fb7a-2446-4f94-a795ebd9c308 /* ServiceProtocols.swift in Sources */,
 				591b840d-8586-0fee-f954-f12d6af3c8ce /* SettingsAdvanced.swift in Sources */,
 				cdb95993-8b08-886f-53f8-9fe3d53ad60e /* SettingsAppearance.swift in Sources */,
