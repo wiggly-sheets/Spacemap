@@ -232,8 +232,8 @@ final class HUDInputTests: XCTestCase {
         )
     }
 
-    func testUnpinnedHUDConsumesKeyboardEventsWhileVisible() {
-        XCTAssertTrue(
+    func testHUDOnlyConsumesKeysItActsOn() {
+        XCTAssertFalse(
             HUDInput.shouldConsumeKeyboardEvent(
                 isTrusted: true,
                 isVisible: true,
@@ -242,13 +242,22 @@ final class HUDInputTests: XCTestCase {
                 action: .none
             )
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             HUDInput.shouldConsumeKeyboardEvent(
                 isTrusted: true,
                 isVisible: true,
                 isPinned: false,
                 type: .keyUp,
                 action: .none
+            )
+        )
+        XCTAssertTrue(
+            HUDInput.shouldConsumeKeyboardEvent(
+                isTrusted: true,
+                isVisible: true,
+                isPinned: false,
+                type: .keyDown,
+                action: .navigate(direction: .left)
             )
         )
     }
