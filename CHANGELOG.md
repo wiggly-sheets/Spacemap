@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- A locked glyph strip can reorder spaces by dragging a space number onto another segment, or move an app by dragging its icon onto a segment or a visible HUD cell. Dedupe moves every window of the app; one-icon-per-window mode moves only the dragged window. Hovering a segment highlights it and eases its content up briefly. Drop destinations highlight only the segment or HUD cell directly under the pointer, so the highlight matches the cursor and gaps clear it. Display separators and the add button are never drop targets, a space deleted mid-drag cancels the swap, the dragged space is not offered as its own HUD target, and the HUD and strip repaint again as yabai applies the reorder. On macOS 27.2 upstream yabai cannot move spaces, so Spacemap swaps their window contents instead; empty spaces and Mission Control order stay unchanged until a patched yabai is installed.
 - Glyph strip `[glyphStrip] autoResizeMaxLength` (default 0, off): target width or height. Icon, number, and spacing sizes grow when there is spare room and shrink when over the target, with an 8pt legibility floor.
 - Custom glyph-strip placement now uses the usable screen area (menu bar and Dock excluded) and also gives way to edge-anchored accessory windows such as third-party docks. A vertical strip that runs out of height wraps space blocks into extra columns instead of drawing off screen.
 - HUD entrance styles: `fade`, slide from each screen edge, or scale, chosen with `hudEntranceStyle` and timed by `hudAnimationStyle`. Space cells now animate on insert and animate a slight scale on the drop target; the glyph strip fades in and out with the same motion setting.
@@ -31,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Thumbnails now draw the desktop wallpaper beneath the window captures, and off-screen windows are queried so spaces that are not visible still show their windows.
 
 ### Changed
+- Settings shortcut recorders use native-looking keycaps: each modifier and key draws as its own small key, the field shows a focus ring while recording, and an unset shortcut reads “Not Set”.
+- The app no longer bundles sketchybar-app-font. It downloads the current release on first launch, then checks daily under the automatic update mode; manual checks remain available. Font updates default to automatic, and replacing an already-loaded face restarts Spacemap because CoreText caches it by PostScript name.
+- Memory trim: the window-space poll runs every second instead of every half second, the icon cache keeps 64 icons instead of 200, and hidden HUD thumbnail frames are dropped after 30 seconds unless the HUD reopens.
 - Background Opacity now applies to every HUD background: glass uses it as the effect's own opacity, the way macOS menu-bar overlays do, and solid uses it as a plain see-through fill with no blur. Opacity is remembered per style unless “Use Same Opacity for All Styles” is on. Glass styles clamp to a floor so the lowest setting still shows glass (clear 35%, regular 40%, tinted 45%); solid may fade to zero.
 - The HUD and glyph strip no longer offer a separate transparent style. Solid at zero opacity is the same result, so `transparent` in an existing config loads as `solid` with its old opacity.
 - The glyph strip gains the same glass sub-types (`clear` / `regular` / `tinted` via `[glyphStrip] glassStyle`) and applies opacity to both solid and liquid-glass backdrops. The continuous `glassAmount` slider and `useThemeTint` toggle are replaced by the sub-type picker; both old keys still decode onto the closest sub-type. Opacities are per style unless linked, and the strip can match the HUD appearance instead of using its own.
@@ -40,11 +44,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The release workflow no longer writes a cask into the Homebrew tap. The consolidated `wiggly-sheets/homebrew-tap` renders its own cask from a template and follows the latest stable release, so a release needs no manual copy.
 - The release notes now come from the section of `CHANGELOG.md` for the released version. A version without a section fails the release.
 - `[behavior] showHUDInteractionFeedback` (default `true`): hide the typed-number readout and action notices over the HUD. Every action still runs; only the overlays disappear.
+- `[behavior] spaceDropMode` (default `content`): choose whether dragging a space swaps window contents or moves the spaces themselves. Swap Contents works with any yabai build; Move Spaces needs space-move support.
+- `[behavior] spaceDragFocus` (default `stay`) and `windowDragFocus` (default `destination`): choose whether focus stays, follows the drop, or returns to the original space after rearranging spaces or moving an app icon.
+- Drag app icons in the HUD itself, not only in the glyph strip. A deduped app icon moves every window of that app; one-icon-per-window mode moves only the dragged window.
+- HUD and glyph strip animate content arriving and leaving after a drop or reorder: HUD icons scale and fade into their new cell, and strip glyphs pop in with a short stagger.
 - `[behavior] presence` (`dock`, `menuBar`, `both`, `none`; default `menuBar`) replaces `hideMenuBarIcon` and adds the Dock as a place to show Spacemap. The menu-bar display pickers appear whenever the menu bar is included. Legacy `hideMenuBarIcon` still loads.
 - `[grid] showThumbnailWallpaper` (default `true`): draw the desktop wallpaper behind thumbnail cells, or leave it transparent.
 - The Advanced pane now reports Accessibility and Screen Recording status with request buttons and deep links into the matching System Settings panes. Thumbnail cells request Screen Recording the first time they are selected, and the app asks on launch when thumbnails are already configured.
 
 ### Fixed
+- After a sketchybar-app-font update the glyph strip reloads the new file in place. The updater clears the metadata cache and the strip rebuilds its face from the new font URL, so no relaunch is needed.
+- The HUD and glyph strip now notice a window moving to another space. yabai emits no signal for `window --space`, so a lightweight window-to-space fingerprint is polled twice a second and triggers a refresh on change.
 - Permission checks no longer run on the main thread. TCC can stall while Spacemap is removed from Device Control & Access; the probe times out and tears its event taps down instead of freezing every click and key. Event taps are disabled before their run-loop source is detached, and a revoked HUD tap relaunches Spacemap so the WindowServer always releases the old tap.
 - The HUD no longer swallows every key while visible. It captures only key presses it acts on, so a stale or revoked Accessibility tap cannot lock out the keyboard.
 - A glyph strip can be dragged to any screen edge again; the safe area now only decides when a tall strip wraps, not where the pointer may place it.

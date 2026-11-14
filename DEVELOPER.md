@@ -82,6 +82,9 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `showExtraWindows` | Bool | false | — | Display utility/background window records |
 | `showHUDOnSpaceChange` | Bool | false | — | Auto-show HUD on yabai space change |
 | `showHUDInteractionFeedback` | Bool | true | — | Draw typed-number and action notices over the HUD |
+| `spaceDropMode` | `SpaceDropMode` | `content` | — | Space drag action: swap contents or move spaces |
+| `spaceDragFocus` | `DragFocusMode` | `stay` | — | Focus after rearranging spaces |
+| `windowDragFocus` | `DragFocusMode` | `destination` | — | Focus after moving an app icon |
 | `hudAnimationsEnabled` / `hudAnimationStyle` | Bool / String | true / `natural` | `natural‖springy‖fast` | HUD fade and cell-change motion; off is instant |
 | `showThumbnailWallpaper` | Bool | true | — | Draw the desktop wallpaper behind thumbnail cells |
 | `updateMode` | String | `notify` | `auto‖notify‖off` | Sparkle update check behavior. `auto` downloads and installs; `notify` prompts; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
