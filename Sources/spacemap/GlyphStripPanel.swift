@@ -423,6 +423,7 @@ final class GlyphStripPanelController: NSObject {
                         return
                     }
                     self.rebuildRuns(strip: strip)
+                    self.shrinkToMaximumLength(strip: strip)
                     self.present()
                     if previousFocused != focused, let glyphs = self.glyphs {
                         NSAccessibility.post(element: glyphs, notification: .valueChanged)
@@ -469,6 +470,28 @@ final class GlyphStripPanelController: NSObject {
                     }
                 }
             }
+        }
+    }
+
+    /// Shrink glyph sizes until the strip fits `autoResizeMaxLength` along its
+    /// layout axis. Gaps and padding stay put, so a few passes converge even
+    /// when they dominate the footprint.
+    private func shrinkToMaximumLength(strip: GlyphStripConfig) {
+        let maximum = CGFloat(strip.autoResizeMaxLength)
+        guard maximum > 0 else { return }
+        var scale: CGFloat = 1
+        for _ in 0..<4 {
+            let length = isVerticalLayout
+                ? verticalTotalHeight
+                : segmentWidths.reduce(0, +)
+            guard length > maximum, length > 0 else { break }
+            // A readable floor: below this the strip would be pointless, so
+            // stop shrinking and let it exceed the requested maximum instead.
+            scale = max(scale * (maximum / length), 0.6)
+            var scaled = strip
+            scaled.iconSize = max(CGFloat(strip.iconSize) * scale, 8)
+            scaled.indexSize = max(CGFloat(strip.indexSize) * scale, 8)
+            rebuildRuns(strip: scaled)
         }
     }
 
@@ -531,7 +554,19 @@ final class GlyphStripPanelController: NSObject {
         if panel == nil { panel = makePanel() }
         guard let panel else { return }
         applyFrame(to: panel)
-        if !panel.isVisible { panel.orderFrontRegardless() }
+        if !panel.isVisible {
+            if config.hudAnimationsEnabled {
+                panel.alphaValue = 0
+                panel.orderFrontRegardless()
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = config.hudAnimationStyle.fadeDuration
+                    panel.animator().alphaValue = 1
+                }
+            } else {
+                panel.alphaValue = 1
+                panel.orderFrontRegardless()
+            }
+        }
         if let glyphs {
             NSAccessibility.post(element: glyphs, notification: .layoutChanged)
         }
@@ -547,7 +582,27 @@ final class GlyphStripPanelController: NSObject {
         needsFollowupRefresh = false
         refreshInFlight = false
         inFlightGeneration = 0
-        panel?.orderOut(nil)
+        guard let panel, panel.isVisible else {
+            panel?.orderOut(nil)
+            return
+        }
+        guard config.hudAnimationsEnabled else {
+            panel.orderOut(nil)
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = config.hudAnimationStyle.fadeDuration
+            panel.animator().alphaValue = 0
+        } completionHandler: {
+            // A present during the fade animates back to 1; never order out
+            // a strip the user just showed again.
+            guard panel.alphaValue < 0.01 else {
+                panel.alphaValue = 1
+                return
+            }
+            panel.orderOut(nil)
+            panel.alphaValue = 1
+        }
     }
 
     private func makePanel() -> NSPanel {
@@ -590,10 +645,18 @@ final class GlyphStripPanelController: NSObject {
         let row = Self.menuBarRow(on: screen)
         // Free placement can leave the menu bar row, so `presentationFrame`
         // there is the whole display. Anchored positions keep the row.
+        // Dragging stays free: the pointer can reach any screen edge. The safe
+        // area only decides when a tall strip wraps into more columns.
         let area = strip.position == .custom ? Self.screenFrame(on: screen) : row
+        let availableHeight = strip.position == .custom
+            ? safeScreenFrame(on: screen).height
+            : row.height
         panel.level = strip.position == .custom ? .floating : .statusBar
         let frame = GlyphStrip.frame(
-            contentSize: stripContentSize(rowHeight: row.height),
+            contentSize: stripContentSize(
+                rowHeight: row.height,
+                availableHeight: availableHeight
+            ),
             menuBarRow: row,
             screenFrame: area,
             leftNotchArea: screen?.auxiliaryTopLeftArea,
@@ -614,7 +677,7 @@ final class GlyphStripPanelController: NSObject {
 
     /// Slot size for the panel: one horizontal row in the menu bar, or one
     /// stacked block per space when `.custom` renders vertically.
-    private func stripContentSize(rowHeight: CGFloat) -> CGSize {
+    private func stripContentSize(rowHeight: CGFloat, availableHeight: CGFloat) -> CGSize {
         guard isVerticalLayout else {
             return CGSize(width: max(segmentWidths.reduce(0, +), 1), height: rowHeight)
         }
@@ -628,14 +691,26 @@ final class GlyphStripPanelController: NSObject {
         } else {
             width = segmentWidths.max() ?? 0
         }
-        let height = max(verticalTotalHeight, 1)
-        return CGSize(width: max(width, 1), height: height)
+        let padding = CGFloat(config.glyphStrip.verticalPadding)
+        let total = verticalTotalHeight
+        let available = max(availableHeight - padding * 2, 1)
+        let columns = GlyphStrip.verticalColumnCount(totalHeight: total, available: available)
+        let columnsWidth = columns > 1
+            ? width * CGFloat(columns) + Self.verticalColumnGap * CGFloat(columns - 1)
+            : width
+        let height = columns > 1 ? available : total
+        return CGSize(width: max(columnsWidth, 1), height: max(height + padding * 2, 1))
     }
 
     /// Vertical stacking only applies to free placement; anchored positions
     /// stay in the single menu-bar row.
     fileprivate var isVerticalLayout: Bool {
         config.glyphStrip.position == .custom && config.glyphStrip.orientation == .vertical
+    }
+
+    /// Top and bottom breathing room for a vertical strip.
+    fileprivate var verticalContentBounds: CGRect {
+        viewBounds.insetBy(dx: 0, dy: CGFloat(config.glyphStrip.verticalPadding))
     }
 
     /// Icons under the number, one per line, instead of beside it.
@@ -679,6 +754,64 @@ final class GlyphStripPanelController: NSObject {
 
     static func screenFrame(on screen: NSScreen?) -> CGRect {
         screen?.frame ?? NSScreen.main?.frame ?? .zero
+    }
+
+    /// Gap between wrapped vertical columns.
+    fileprivate static let verticalColumnGap: CGFloat = 8
+
+    /// Usable area for a free-placed strip. Starts from the visible frame, then
+    /// gives back space taken by edge-anchored accessory windows such as a
+    /// third-party Dock. Menu-bar extras sit above the visible frame, and normal
+    /// app windows are ignored.
+    private func safeScreenFrame(on screen: NSScreen?) -> CGRect {
+        guard let screen else { return .zero }
+        let full = screen.frame
+        var safe = screen.visibleFrame
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        for window in windows {
+            guard let owner = window[kCGWindowOwnerPID as String] as? Int, owner != Int(ownPID),
+                  let layer = window[kCGWindowLayer as String] as? Int, layer >= 3,
+                  let raw = window[kCGWindowBounds as String] as? [String: Any],
+                  let rect = CGRect(dictionaryRepresentation: raw as CFDictionary),
+                  rect.intersects(full) else { continue }
+            // Only edge furniture: a floating app window in the middle must not
+            // push the strip around.
+            let touchesBottom = abs(rect.minY - full.minY) <= 2
+            let touchesTop = abs(rect.maxY - full.maxY) <= 2
+            let touchesLeft = abs(rect.minX - full.minX) <= 2
+            let touchesRight = abs(rect.maxX - full.maxX) <= 2
+            // Dock-like only: one edge, thin along that edge, long across it.
+            let edges = [touchesBottom, touchesTop, touchesLeft, touchesRight].filter { $0 }.count
+            guard edges == 1 else { continue }
+            let horizontal = touchesBottom || touchesTop
+            let thin = horizontal ? rect.height <= full.height * 0.4 : rect.width <= full.width * 0.4
+            let long = horizontal ? rect.width >= full.width * 0.25 : rect.height >= full.height * 0.25
+            guard thin, long else { continue }
+            // Only an obstacle that reaches into the usable area matters. The
+            // menu bar itself sits above it, so its extras must not keep
+            // shrinking the area.
+            if touchesBottom, rect.maxY > safe.minY {
+                safe.origin.y = max(safe.minY, rect.maxY + 4)
+                safe.size.height = max(safe.maxY - safe.minY, 1)
+            }
+            if touchesTop, rect.minY < safe.maxY {
+                let top = min(safe.maxY, rect.minY - 4)
+                safe.size.height = max(top - safe.minY, 1)
+            }
+            if touchesLeft, rect.maxX > safe.minX {
+                safe.origin.x = max(safe.minX, rect.maxX + 4)
+                safe.size.width = max(safe.maxX - safe.minX, 1)
+            }
+            if touchesRight, rect.minX < safe.maxX {
+                let right = min(safe.maxX, rect.minX - 4)
+                safe.size.width = max(right - safe.minX, 1)
+            }
+        }
+        return safe
     }
 
     // MARK: - Drag
@@ -894,7 +1027,18 @@ final class GlyphStripPanelController: NSObject {
         guard !viewBounds.isEmpty, segmentWidths.indices.contains(index) else { return nil }
         if isVerticalLayout {
             let heights = segmentWidths.indices.map { verticalSegmentHeight($0) }
-            let slots = GlyphStrip.verticalSlots(heights: heights, in: viewBounds)
+            let bounds = verticalContentBounds
+            let total = heights.reduce(0, +)
+            if total > bounds.height {
+                let slots = GlyphStrip.verticalColumnSlots(
+                    heights: heights,
+                    in: bounds,
+                    available: bounds.height,
+                    columnGap: Self.verticalColumnGap
+                )
+                return slots.indices.contains(index) ? slots[index] : nil
+            }
+            let slots = GlyphStrip.verticalSlots(heights: heights, in: bounds)
             return slots.indices.contains(index) ? slots[index] : nil
         }
         let x = segmentWidths.prefix(index).reduce(0, +)

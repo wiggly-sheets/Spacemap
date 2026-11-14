@@ -211,6 +211,39 @@ enum GlyphStrip {
         }
     }
 
+    /// Column count needed when a vertical strip is taller than `available`.
+    static func verticalColumnCount(totalHeight: CGFloat, available: CGFloat) -> Int {
+        guard totalHeight > available, available > 0 else { return 1 }
+        return Int(ceil(totalHeight / available))
+    }
+
+    /// Slots for a vertical strip that may wrap into several columns. Each
+    /// column fills top-down; a segment that would pass the bottom starts the
+    /// next column, so the strip grows sideways instead of off screen.
+    static func verticalColumnSlots(
+        heights: [CGFloat],
+        in bounds: CGRect,
+        available: CGFloat,
+        columnGap: CGFloat
+    ) -> [CGRect] {
+        guard !heights.isEmpty, available > 0 else { return [] }
+        let columns = verticalColumnCount(totalHeight: heights.reduce(0, +), available: available)
+        let width = max((bounds.width - columnGap * CGFloat(columns - 1)) / CGFloat(columns), 1)
+        var column = 0
+        var top = bounds.maxY
+        var slots: [CGRect] = []
+        for height in heights {
+            if top - height < bounds.minY - 0.5, column + 1 < columns {
+                column += 1
+                top = bounds.maxY
+            }
+            let x = bounds.minX + CGFloat(column) * (width + columnGap)
+            slots.append(CGRect(x: x, y: top - height, width: width, height: height))
+            top -= height
+        }
+        return slots
+    }
+
     /// One rect per stacked line, filled from the top of `slot` downward.
     /// `indexGap` separates the number line from the first icon line;
     /// `iconGap` separates icon lines from each other.
@@ -490,6 +523,9 @@ enum GlyphStrip {
     struct Options: Equatable {
         var showSpaceNumbers = true
         var showLayoutSuffix = true
+        var showBSPLayoutBadge = true
+        var showStackLayoutBadge = true
+        var showFloatLayoutBadge = true
         var showAppIcons = true
         var iconSource: GlyphStripIconSource = .sbarFont
         var dedupeAppsPerSpace = true
@@ -502,6 +538,9 @@ enum GlyphStrip {
         init(_ config: GlyphStripConfig) {
             showSpaceNumbers = config.showSpaceNumbers
             showLayoutSuffix = config.showLayoutSuffix
+            showBSPLayoutBadge = config.showBSPLayoutBadge
+            showStackLayoutBadge = config.showStackLayoutBadge
+            showFloatLayoutBadge = config.showFloatLayoutBadge
             showAppIcons = config.showAppIcons
             iconSource = config.iconSource
             dedupeAppsPerSpace = config.dedupeAppsPerSpace
@@ -516,10 +555,16 @@ enum GlyphStrip {
     static let placeholderGlyph = "—"
 
     /// Layout suffix: bsp draws bare, float and stack get a letter.
-    static func layoutSuffix(forSpaceType type: String?) -> String {
+    static func layoutSuffix(
+        forSpaceType type: String?,
+        showBSP: Bool = true,
+        showStack: Bool = true,
+        showFloat: Bool = true
+    ) -> String {
         switch type {
-        case "float": return "f"
-        case "stack": return "s"
+        case "float": return showFloat ? "f" : ""
+        case "stack": return showStack ? "s" : ""
+        case "bsp": return showBSP ? "b" : ""
         default: return ""
         }
     }
@@ -661,7 +706,14 @@ enum GlyphStrip {
     ) -> [Run] {
         var runs: [Run] = []
         if options.showSpaceNumbers {
-            let suffix = options.showLayoutSuffix ? layoutSuffix(forSpaceType: layoutType) : ""
+            let suffix = options.showLayoutSuffix
+                ? layoutSuffix(
+                    forSpaceType: layoutType,
+                    showBSP: options.showBSPLayoutBadge,
+                    showStack: options.showStackLayoutBadge,
+                    showFloat: options.showFloatLayoutBadge
+                )
+                : ""
             runs.append(.index("\(index)\(suffix)"))
         }
         if !options.showAppIcons { return runs }

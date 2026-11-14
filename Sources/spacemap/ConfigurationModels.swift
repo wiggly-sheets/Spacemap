@@ -274,6 +274,9 @@ struct GlyphStripConfig: Equatable {
     var hideInFullscreen: Bool = false
     var showSpaceNumbers: Bool = true
     var showLayoutSuffix: Bool = true
+    var showBSPLayoutBadge: Bool = true
+    var showStackLayoutBadge: Bool = true
+    var showFloatLayoutBadge: Bool = true
     var showAppIcons: Bool = true
     var iconSource: GlyphStripIconSource = .sbarFont
     var dedupeAppsPerSpace: Bool = true
@@ -299,6 +302,8 @@ struct GlyphStripConfig: Equatable {
     var margin: Double = 6
     var hoverPadding: Double = 1
     var hoverCornerRadius: Double = 4
+    var autoResizeMaxLength: Double = 0
+    var verticalPadding: Double = 4
     var iconSpacing: Double = 3
     var indexPadding: Double = 6
     var showDisplaySeparators: Bool = true
@@ -340,6 +345,8 @@ struct GlyphStripConfig: Equatable {
         copy.margin = min(max(margin, 0), 40)
         copy.hoverPadding = min(max(hoverPadding, 0), 12)
         copy.hoverCornerRadius = min(max(hoverCornerRadius, 0), 20)
+        copy.autoResizeMaxLength = min(max(autoResizeMaxLength, 0), 4000)
+        copy.verticalPadding = min(max(verticalPadding, 0), 40)
         copy.iconSpacing = min(max(iconSpacing, 0), 20)
         copy.indexPadding = min(max(indexPadding, 0), 20)
         copy.xOffset = min(max(xOffset, -4000), 4000)
@@ -619,6 +626,7 @@ struct GridConfig: Equatable {
     /// Fade panels and animate cell changes. Off keeps every HUD change instant.
     var hudAnimationsEnabled: Bool = true
     var hudAnimationStyle: HUDAnimationStyle = .natural
+    var hudEntranceStyle: HUDEntranceStyle = .fade
     var updateMode: UpdateMode
     var appFont: AppFontConfig = .default
     /// Refuse to execute a yabai binary that fails the ownership/signature
@@ -676,6 +684,7 @@ struct GridConfig: Equatable {
         showThumbnailWallpaper: true,
         hudAnimationsEnabled: true,
         hudAnimationStyle: .natural,
+        hudEntranceStyle: .fade,
         updateMode: .notify
     )
 }

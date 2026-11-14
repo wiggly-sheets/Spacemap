@@ -71,6 +71,7 @@ struct ConfigValues {
     var showThumbnailWallpaper: Bool?
     var hudAnimationsEnabled: Bool?
     var hudAnimationStyle: HUDAnimationStyle?
+    var hudEntranceStyle: HUDEntranceStyle?
     var updateMode: UpdateMode?
     var appFont: AppFontConfig?
     var refuseUntrustedYabai: Bool?
@@ -152,6 +153,7 @@ struct ConfigValues {
         self.showThumbnailWallpaper = config.showThumbnailWallpaper
         self.hudAnimationsEnabled = config.hudAnimationsEnabled
         self.hudAnimationStyle = config.hudAnimationStyle
+        self.hudEntranceStyle = config.hudEntranceStyle
         self.updateMode = config.updateMode
         self.appFont = config.appFont
         self.refuseUntrustedYabai = config.refuseUntrustedYabai
@@ -329,6 +331,7 @@ struct ConfigValues {
             showThumbnailWallpaper: orDefault(showThumbnailWallpaper, defaults.showThumbnailWallpaper),
             hudAnimationsEnabled: orDefault(hudAnimationsEnabled, defaults.hudAnimationsEnabled),
             hudAnimationStyle: hudAnimationStyle ?? defaults.hudAnimationStyle,
+            hudEntranceStyle: hudEntranceStyle ?? defaults.hudEntranceStyle,
             updateMode: resolvedUpdateMode,
             appFont: orDefault(appFont, defaults.appFont),
             // New flag: absent in old files heals silently without forcing a

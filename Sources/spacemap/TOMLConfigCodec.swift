@@ -412,7 +412,7 @@ enum TOMLConfigDecoder {
         let legacyShowExtra = (result["behavior"] as? [String: Any])?["showExtraWindows"]
         flatten("behavior", keys: [
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
-            "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange", "hudAnimationsEnabled", "hudAnimationStyle", "showBSPLayoutBadge", "showStackLayoutBadge", "showFloatLayoutBadge", "showHUDInteractionFeedback",
+            "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange", "hudAnimationsEnabled", "hudAnimationStyle", "hudEntranceStyle", "showBSPLayoutBadge", "showStackLayoutBadge", "showFloatLayoutBadge", "showHUDInteractionFeedback",
             "focusSpaceOnWindowDropModifier", "presence", "hideMenuBarIcon", "showThumbnailWallpaper",
             "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode",
             // Inline `hotkey = { ... }` / `hudPosition = { ... }` under
@@ -602,6 +602,9 @@ enum TOMLConfigDecoder {
         if let name: String = value("hudAnimationStyle") {
             values.hudAnimationStyle = parsedEnum(from: name)
         }
+        if let name: String = value("hudEntranceStyle") {
+            values.hudEntranceStyle = parsedEnum(from: name)
+        }
         if let name: String = value("presence") {
             values.presence = parsedEnum(from: name)
         } else if let hide: Bool = value("hideMenuBarIcon") {
@@ -750,6 +753,11 @@ enum TOMLConfigDecoder {
         if let value = table["hideInFullscreen"] as? Bool { config.hideInFullscreen = value }
         if let value = table["showSpaceNumbers"] as? Bool { config.showSpaceNumbers = value }
         if let value = table["showLayoutSuffix"] as? Bool { config.showLayoutSuffix = value }
+        if let value = table["showBSPLayoutBadge"] as? Bool { config.showBSPLayoutBadge = value }
+        if let value = table["showStackLayoutBadge"] as? Bool { config.showStackLayoutBadge = value }
+        if let value = table["showFloatLayoutBadge"] as? Bool { config.showFloatLayoutBadge = value }
+        if let value = number(table["autoResizeMaxLength"]) { config.autoResizeMaxLength = value }
+        if let value = number(table["verticalPadding"]) { config.verticalPadding = value }
         if let value = table["showAppIcons"] as? Bool { config.showAppIcons = value }
         if let name = table["iconSource"] as? String,
            let source = GlyphStripIconSource.iconSource(from: name) { config.iconSource = source }
