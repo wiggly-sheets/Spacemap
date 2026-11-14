@@ -36,8 +36,9 @@ enum HUDGlassStyle: String, CaseIterable, Identifiable, Codable, Equatable {
         }
     }
 
-    /// Whether this style uses the native clear glass material.
-    var usesClearMaterial: Bool { self == .clear }
+    /// Whether this style draws with the clear glass material. Tinted glass is
+    /// clear glass plus an accent tint; only opaque uses the frosted material.
+    var usesClearMaterial: Bool { self != .opaque }
 }
 enum ShowMode: String, CaseIterable, Identifiable, Equatable { case all, active; var id: String { rawValue } }
 enum MultiMonitorHUDMode: String, CaseIterable, Identifiable, Equatable {
@@ -183,6 +184,25 @@ enum GlyphStripPosition: String, CaseIterable, Identifiable, Equatable {
     var id: String { rawValue }
 }
 
+/// How the strip stacks its spaces. `horizontal` is the menu-bar row;
+/// `vertical` stacks one space per row for a side-of-screen strip.
+enum GlyphStripOrientation: String, CaseIterable, Identifiable, Equatable {
+    case horizontal
+    case vertical
+
+    var id: String { rawValue }
+}
+
+/// How a vertical strip lays out one space. `inline` keeps the index and its
+/// icons on one line; `stacked` puts the index on top and stacks the icons
+/// underneath it.
+enum GlyphStripVerticalLayout: String, CaseIterable, Identifiable, Equatable {
+    case inline
+    case stacked
+
+    var id: String { rawValue }
+}
+
 /// Where the strip's per-window icons come from. `sbarFont` draws
 /// sketchybar-app-font glyphs (current look, default); `native` draws the app's
 /// own icon via IconCache with sbar-glyph-then-initials fallback.
@@ -226,8 +246,9 @@ struct GlyphStripConfig: Equatable {
     /// Shared/legacy fill opacity. Used when `matchBackgroundOpacity`, and as
     /// the fallback for per-style values in older configs.
     var backgroundOpacity: Double = 0.35
-    /// Per-style fill opacities. Used unless `matchBackgroundOpacity`.
-    var glassClearOpacity: Double = 0.35
+    /// Per-style fill opacities. Used unless `matchBackgroundOpacity`. Clear
+    /// glass carries almost no backing, so its default is much lower.
+    var glassClearOpacity: Double = 0.05
     var glassOpaqueOpacity: Double = 0.35
     var glassTintedOpacity: Double = 0.35
     var solidOpacity: Double = 0.35
@@ -236,7 +257,8 @@ struct GlyphStripConfig: Equatable {
     var cornerRadius: Double = 20
     /// Gap between the strip and the notch edge it hugs, in points.
     var margin: Double = 6
-    /// Vertical nudge in points; positive moves the strip down, away from the top edge.
+    /// Anchored: nudge in points, positive moves the strip down from the row.
+    /// `.custom`: inset from the screen's top edge.
     var yOffset: Double = 0
     /// Gap grown around the hovered segment's glyphs, on both axes, in points.
     var hoverPadding: Double = 1
@@ -253,8 +275,19 @@ struct GlyphStripConfig: Equatable {
     var rightClickAction: GlyphStripAction = .destroySpace
     var middleClickAction: GlyphStripAction = .none
     var position: GlyphStripPosition = .leftOfNotch
-    /// Horizontal offset from the menu bar row's left edge; only for `.custom`.
+    /// Row direction. Only `.custom` placement reads this; anchored positions
+    /// stay in the menu bar row.
+    var orientation: GlyphStripOrientation = .horizontal
+    /// Icon arrangement inside a vertical space. Only read when `.custom`
+    /// renders `orientation = vertical`.
+    var verticalLayout: GlyphStripVerticalLayout = .inline
+    /// Free-placement X, from the screen's left edge; only for `.custom`.
     var xOffset: Int = 0
+    /// Stops drags from moving a `.custom` strip. Anchored positions ignore it,
+    /// since their placement is already fixed by the notch anchor.
+    var lockPosition: Bool = false
+    /// True when the current placement must not follow a drag.
+    var isPositionLocked: Bool { position == .custom && lockPosition }
     /// Hairline border around the strip; shape `.none` with no background means no outline.
     var borderEnabled: Bool = true
     /// Copy the HUD's material, glass type, opacity, and theme. When false the
@@ -330,9 +363,14 @@ struct GlyphStripConfig: Equatable {
         copy.margin = min(max(margin, 0), 40)
         copy.iconSpacing = min(max(iconSpacing, 0), 20)
         copy.indexPadding = min(max(indexPadding, 0), 20)
-        copy.yOffset = min(max(yOffset, -10), 10)
         // Bounded so a hand-edited config cannot hold a silly number.
         copy.xOffset = min(max(xOffset, -4000), 4000)
+        copy.yOffset = min(max(yOffset, -10), 10)
+        if copy.position == .custom {
+            // Free placement: both offsets measure from the screen's top-left,
+            // so the strip can leave the menu bar row.
+            copy.yOffset = min(max(yOffset, 0), 4000)
+        }
         copy.hoverPadding = min(max(hoverPadding, 0), 12)
         copy.hoverCornerRadius = min(max(hoverCornerRadius, 0), 20)
         return copy
@@ -475,7 +513,7 @@ struct GridConfig: Equatable {
     /// Glass sub-type, only read when `backgroundStyle == .glass`.
     var glassStyle: HUDGlassStyle = .opaque
     /// Per-style background opacities. Used unless `matchBackgroundOpacity`.
-    var glassClearOpacity: Double = 0.15
+    var glassClearOpacity: Double = 0.05
     var glassOpaqueOpacity: Double = 0.3
     var glassTintedOpacity: Double = 0.3
     var solidOpacity: Double = 1.0

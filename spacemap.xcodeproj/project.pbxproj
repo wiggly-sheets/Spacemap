@@ -25,6 +25,7 @@
 		fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34ad3dc0-23a8-e44b-c9f2-c235ec20a03e /* DeepLinkService.swift */; };
 		9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2da676f1-f422-0aaf-c90c-b29616ebe8e2 /* GlassCompat.swift */; };
 		b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0617c682-0f6f-aaa2-62d1-caadb21bbf38 /* GlassSegmentedControl.swift */; };
+		91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */ = {isa = PBXBuildFile; fileRef = dd9eb7f9-0c7b-a1ff-d4eb-45ea1e1c1d53 /* GlassVariant.swift */; };
 		b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */; };
 		c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */; };
 		a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */; };
@@ -97,6 +98,7 @@
 		34ad3dc0-23a8-e44b-c9f2-c235ec20a03e /* DeepLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkService.swift; sourceTree = "<group>"; };
 		2da676f1-f422-0aaf-c90c-b29616ebe8e2 /* GlassCompat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCompat.swift; sourceTree = "<group>"; };
 		0617c682-0f6f-aaa2-62d1-caadb21bbf38 /* GlassSegmentedControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSegmentedControl.swift; sourceTree = "<group>"; };
+		dd9eb7f9-0c7b-a1ff-d4eb-45ea1e1c1d53 /* GlassVariant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassVariant.swift; sourceTree = "<group>"; };
 		f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip.swift; sourceTree = "<group>"; };
 		f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanel.swift; sourceTree = "<group>"; };
 		5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridLayout.swift; sourceTree = "<group>"; };
@@ -225,6 +227,7 @@
 				34ad3dc0-23a8-e44b-c9f2-c235ec20a03e /* DeepLinkService.swift */,
 				2da676f1-f422-0aaf-c90c-b29616ebe8e2 /* GlassCompat.swift */,
 				0617c682-0f6f-aaa2-62d1-caadb21bbf38 /* GlassSegmentedControl.swift */,
+				dd9eb7f9-0c7b-a1ff-d4eb-45ea1e1c1d53 /* GlassVariant.swift */,
 				f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */,
 				f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */,
 				5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */,
@@ -456,6 +459,7 @@
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
 				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
 				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
+				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
@@ -529,6 +533,7 @@
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
 				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
 				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
+				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
@@ -602,6 +607,7 @@
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
 				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
 				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
+				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
@@ -675,6 +681,7 @@
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
 				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
 				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
+				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,

@@ -155,9 +155,11 @@ struct ConfigValues {
         let resolvedGlassStyle = orDefault(glassStyle, defaults.glassStyle)
         let resolvedBackgroundAlpha = valid(backgroundAlpha, defaults.backgroundAlpha) { (0...1).contains($0) }
         // Per-style keys are new: absent values inherit `backgroundAlpha` so
-        // older configs keep their look without triggering a repair.
+        // older configs keep their look without triggering a repair. Clear used
+        // to be painted at 15% of its value, so inherit that effective share.
+        let legacyClearOpacity = resolvedBackgroundAlpha * 0.15
         let resolvedGlassClearOpacity = valid(
-            glassClearOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
+            glassClearOpacity ?? legacyClearOpacity, defaults.glassClearOpacity
         ) { (0...1).contains($0) }
         let resolvedGlassOpaqueOpacity = valid(
             glassOpaqueOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha

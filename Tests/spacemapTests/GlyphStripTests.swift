@@ -24,6 +24,16 @@ final class AppGlyphFontTests: XCTestCase {
         XCTAssertNoThrow(try JSONSerialization.jsonObject(with: payload))
     }
 
+    func testFaceMatchesParsedFontFile() throws {
+        let url = try XCTUnwrap(
+            Bundle.module.url(forResource: AppGlyphFont.resourceName, withExtension: "ttf")
+        )
+        let font = try XCTUnwrap(AppGlyphFont.parse(data: Data(contentsOf: url), url: url))
+        let face = try XCTUnwrap(font.face(size: 11))
+        let faceURL = CTFontCopyAttribute(face as CTFont, kCTFontURLAttribute) as? URL
+        XCTAssertEqual(faceURL?.standardizedFileURL, url.standardizedFileURL)
+    }
+
     func testKnownLigaturesMapToExpectedAppNames() throws {
         let font = try XCTUnwrap(AppGlyphFont.load(), "bundled font failed to load")
 
@@ -846,27 +856,31 @@ final class GlyphStripTests: XCTestCase {
     /// to the exact frame they came from — otherwise the strip jumps the
     /// moment the drag's config lands.
     func testCustomOffsetsInvertTheFrameMath() {
-        let frame = placed(width: 200, position: .custom, yOffset: 8, xOffset: 300)
-        let offsets = GlyphStrip.customOffsets(for: frame, menuBarRow: row)
+        func customFrame(yOffset: CGFloat) -> CGRect {
+            GlyphStrip.frame(
+                contentSize: CGSize(width: 200, height: 20),
+                menuBarRow: row,
+                leftNotchArea: nil,
+                rightNotchArea: nil,
+                position: .custom,
+                margin: 0,
+                yOffset: yOffset,
+                xOffset: 300
+            )
+        }
+        let frame = customFrame(yOffset: 6)
+        let offsets = GlyphStrip.customOffsets(for: frame, area: row)
 
         XCTAssertEqual(offsets.xOffset, 300)
-        XCTAssertEqual(offsets.yOffset, 8, accuracy: 0.001)
-        XCTAssertEqual(
-            placed(
-                width: 200,
-                position: .custom,
-                yOffset: CGFloat(offsets.yOffset),
-                xOffset: CGFloat(offsets.xOffset)
-            ),
-            frame
-        )
+        XCTAssertEqual(offsets.yOffset, 6, accuracy: 0.001)
+        XCTAssertEqual(customFrame(yOffset: CGFloat(offsets.yOffset)), frame)
     }
 
     /// A drag can start from any anchored position, and the offsets derived
     /// from that anchored frame must land the strip back on it as `.custom`.
     func testCustomOffsetsRecoverAnAnchoredFrame() {
         let frame = placed(width: 200, position: .leftOfNotch, margin: 6)
-        let offsets = GlyphStrip.customOffsets(for: frame, menuBarRow: row)
+        let offsets = GlyphStrip.customOffsets(for: frame, area: row)
 
         XCTAssertEqual(
             placed(
@@ -884,7 +898,7 @@ final class GlyphStripTests: XCTestCase {
     /// them before they reach config.
     func testDraggedOffsetsClampThroughTheExistingBounds() {
         let flung = CGRect(x: row.minX + 9000, y: row.minY - 100, width: 200, height: row.height)
-        let offsets = GlyphStrip.customOffsets(for: flung, menuBarRow: row)
+        let offsets = GlyphStrip.customOffsets(for: flung, area: row)
         var strip = GlyphStripConfig.default
         strip.position = .custom
         strip.xOffset = offsets.xOffset
@@ -892,7 +906,133 @@ final class GlyphStripTests: XCTestCase {
 
         let clamped = strip.clamped()
         XCTAssertEqual(clamped.xOffset, 4000)
-        XCTAssertEqual(clamped.yOffset, 10)
+        XCTAssertEqual(clamped.yOffset, 100)
+    }
+
+    /// Free placement must reach any row of the display, not just the menu bar.
+    func testCustomPlacementUsesTheWholeScreen() {
+        let screen = CGRect(x: 0, y: 0, width: 1728, height: 1117)
+        let frame = GlyphStrip.frame(
+            contentSize: CGSize(width: 200, height: 30),
+            menuBarRow: row,
+            screenFrame: screen,
+            leftNotchArea: nil,
+            rightNotchArea: nil,
+            position: .custom,
+            margin: 0,
+            yOffset: 500,
+            xOffset: 100
+        )
+        XCTAssertEqual(frame.minX, 100)
+        XCTAssertEqual(frame.maxY, screen.maxY - 500)
+        XCTAssertEqual(frame.height, 30, "custom must not clamp to the menu bar row height")
+    }
+
+    /// The drag inverse must replay through the same screen-relative area.
+    func testCustomOffsetsRoundTripOnTheScreen() {
+        let screen = CGRect(x: 0, y: 0, width: 1728, height: 1117)
+        let frame = GlyphStrip.frame(
+            contentSize: CGSize(width: 200, height: 300),
+            menuBarRow: row,
+            screenFrame: screen,
+            leftNotchArea: nil,
+            rightNotchArea: nil,
+            position: .custom,
+            margin: 0,
+            yOffset: 700,
+            xOffset: 40
+        )
+        let offsets = GlyphStrip.customOffsets(for: frame, area: screen)
+        XCTAssertEqual(
+            GlyphStrip.frame(
+                contentSize: frame.size,
+                menuBarRow: row,
+                screenFrame: screen,
+                leftNotchArea: nil,
+                rightNotchArea: nil,
+                position: .custom,
+                margin: 0,
+                yOffset: CGFloat(offsets.yOffset),
+                xOffset: CGFloat(offsets.xOffset)
+            ),
+            frame
+        )
+    }
+
+    /// Custom placement stores a top-inset, so the menu bar's small nudge
+    /// bound must not throw the value away.
+    func testCustomPositionKeepsItsVerticalOffset() {
+        var strip = GlyphStripConfig.default
+        strip.position = .custom
+        strip.yOffset = 640
+        XCTAssertEqual(strip.clamped().yOffset, 640)
+    }
+
+    func testLockPositionDefaultsOffAndOnlyLocksCustomPlacement() {
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.lockPosition, false)
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nlockPosition = true")?.lockPosition, true)
+
+        var strip = GlyphStripConfig.default
+        strip.lockPosition = true
+        XCTAssertFalse(strip.isPositionLocked, "anchored positions ignore the lock")
+        strip.position = .custom
+        XCTAssertTrue(strip.isPositionLocked)
+    }
+
+    // MARK: - Vertical layout
+
+    func testVerticalSlotsStackFromTheTopInSpaceOrder() {
+        let bounds = CGRect(x: 0, y: 0, width: 80, height: 120)
+        let slots = GlyphStrip.verticalSlots(heights: [50, 30, 40], in: bounds)
+
+        XCTAssertEqual(slots.map(\.height), [50, 30, 40])
+        XCTAssertEqual(slots[0].maxY, bounds.maxY, "first space owns the top slot")
+        XCTAssertEqual(slots[0].minY, slots[1].maxY)
+        XCTAssertEqual(slots[1].minY, slots[2].maxY)
+        XCTAssertEqual(slots[2].minY, bounds.minY)
+        XCTAssertTrue(slots.allSatisfy { $0.width == bounds.width && $0.minX == bounds.minX })
+    }
+
+    func testStackedLinesFillTheSlotTopDown() {
+        let slot = CGRect(x: 4, y: 10, width: 40, height: 96)
+        let lines = GlyphStrip.stackedLines(
+            count: 3,
+            lineHeight: 30,
+            indexGap: 4,
+            iconGap: 2,
+            in: slot
+        )
+
+        XCTAssertEqual(lines.count, 3)
+        XCTAssertEqual(lines[0].maxY, slot.maxY)
+        XCTAssertEqual(lines[1].maxY, lines[0].minY - 4, "index padding separates the number line")
+        XCTAssertEqual(lines[2].maxY, lines[1].minY - 2, "icon spacing separates icon lines")
+        XCTAssertEqual(lines[2].minY, slot.minY)
+        XCTAssertTrue(lines.allSatisfy { $0.width == slot.width && $0.minX == slot.minX })
+    }
+
+    func testVerticalLayoutDefaultsToInlineAndDecodesBothModes() {
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.verticalLayout, .inline)
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\nverticalLayout = \"stacked\"")?.verticalLayout,
+            .stacked
+        )
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\nverticalLayout = \"nonsense\"")?.verticalLayout,
+            .inline
+        )
+    }
+
+    func testOrientationDefaultsToHorizontalAndDecodesBothDirections() {
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.orientation, .horizontal)
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\norientation = \"vertical\"")?.orientation,
+            .vertical
+        )
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\norientation = \"sideways\"")?.orientation,
+            .horizontal
+        )
     }
 
     func testDragThresholdSeparatesClickFromDrag() {
@@ -1485,20 +1625,10 @@ final class GlyphStripTests: XCTestCase {
         )
     }
 
-    func testGlassFillOpacityAndFallbackMaterial() {
-        XCTAssertEqual(
-            GlyphStrip.glassFillOpacity(for: .clear, backgroundOpacity: 0.5),
-            0.075,
-            accuracy: 1e-9
-        )
-        XCTAssertEqual(
-            GlyphStrip.glassFillOpacity(for: .opaque, backgroundOpacity: 0.5),
-            0.5,
-            accuracy: 1e-9
-        )
+    func testGlassFallbackMaterialsAreDistinctPerStyle() {
         XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .tinted), .popover)
         XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .opaque), .headerView)
-        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .clear), .headerView)
+        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .clear), .underWindowBackground)
     }
 
     func testPerStyleOpacityResolvesAndSharedModeOverrides() {
@@ -1526,7 +1656,8 @@ final class GlyphStripTests: XCTestCase {
 
     func testLegacyBackgroundOpacityFeedsPerStyleValues() {
         let config = decodeGlyphStrip("[glyphStrip]\nbackgroundOpacity = 0.6")
-        XCTAssertEqual(config?.glassClearOpacity, 0.6)
+        // Clear used to be painted at 15% of its value; inherit that share.
+        XCTAssertEqual(config?.glassClearOpacity ?? -1, 0.09, accuracy: 1e-9)
         XCTAssertEqual(config?.glassOpaqueOpacity, 0.6)
         XCTAssertEqual(config?.glassTintedOpacity, 0.6)
         XCTAssertEqual(config?.solidOpacity, 0.6)

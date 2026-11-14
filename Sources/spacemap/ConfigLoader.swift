@@ -447,6 +447,9 @@ enum ConfigLoader {
             "rightClickAction = \(tomlString(glyphStrip.rightClickAction.rawValue))",
             "middleClickAction = \(tomlString(glyphStrip.middleClickAction.rawValue))",
             "position = \(tomlString(glyphStrip.position.rawValue))",
+            "orientation = \(tomlString(glyphStrip.orientation.rawValue))",
+            "verticalLayout = \(tomlString(glyphStrip.verticalLayout.rawValue))",
+            "lockPosition = \(glyphStrip.lockPosition)",
             "xOffset = \(glyphStrip.xOffset)",
             "borderEnabled = \(glyphStrip.borderEnabled)"
         ]

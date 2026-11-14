@@ -1,13 +1,19 @@
 import SwiftUI
 import AppKit
 
+/// Tinted glass keeps some translucency even at full opacity: a solid accent
+/// wash would hide the glass instead of tinting it.
 struct HUDBackground: View {
     let style: HUDBackgroundStyle
     let glassStyle: HUDGlassStyle
     let cornerRadius: CGFloat
-    let alpha: Double          // config.backgroundAlpha 0...1
+    /// Effective per-style opacity, already resolved by the caller.
+    let alpha: Double
     let isDarkMode: Bool
     let themeColor: Color      // Color(hex: resolvedTheme.background)
+    /// Accent used for the tinted sub-type, so the tint cannot collapse into
+    /// the same dark/light surface as the opaque style.
+    let tintColor: Color
 
     /// Neutral scrim that keeps dark/light HUDs legible over any wallpaper.
     private var scrim: Color {
@@ -22,7 +28,8 @@ struct HUDBackground: View {
         if #available(macOS 26.0, *), GlassSupport.isAvailable {
             ModernHUDBackground(
                 style: style, glassStyle: glassStyle, cornerRadius: cornerRadius,
-                alpha: alpha, scrim: scrim, themeColor: themeColor
+                alpha: alpha, themeColor: themeColor, tintColor: tintColor,
+                backing: glassStyle == .tinted ? tintColor : scrim
             )
         } else {
             fallbackBody
@@ -42,11 +49,11 @@ struct HUDBackground: View {
         case .glass:
             switch glassStyle {
             case .clear:
-                glassBody(material: .ultraThinMaterial, backing: scrim, backingOpacity: alpha * 0.15)
+                glassBody(material: .ultraThinMaterial, backing: scrim, backingOpacity: alpha)
             case .opaque:
                 glassBody(material: .regularMaterial, backing: scrim, backingOpacity: alpha)
             case .tinted:
-                glassBody(material: .regularMaterial, backing: themeColor, backingOpacity: alpha)
+                glassBody(material: .regularMaterial, backing: tintColor, backingOpacity: alpha)
             }
         }
     }
@@ -56,11 +63,14 @@ struct HUDBackground: View {
         backing: Color,
         backingOpacity: Double
     ) -> some View {
+        // The backing sits *over* the material: Liquid Glass samples the
+        // window backdrop, not sibling layers, so a fill underneath it is
+        // invisible and the opacity control would do nothing.
         ZStack {
             Rectangle()
-                .fill(backing.opacity(backingOpacity))
-            Rectangle()
                 .fill(material)
+            Rectangle()
+                .fill(backing.opacity(backingOpacity))
         }
         .overlay(HUDBorder(cornerRadius: cornerRadius))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
@@ -74,8 +84,9 @@ private struct ModernHUDBackground: View {
     let glassStyle: HUDGlassStyle
     let cornerRadius: CGFloat
     let alpha: Double
-    let scrim: Color
     let themeColor: Color
+    let tintColor: Color
+    let backing: Color
 
     var body: some View {
         switch style {
@@ -84,55 +95,27 @@ private struct ModernHUDBackground: View {
         case .solid:
             HUDSolidFill(cornerRadius: cornerRadius, color: themeColor, opacity: alpha)
         case .glass:
-            switch glassStyle {
-            case .clear:
-                clearGlass
-            case .opaque:
-                glassBody(
-                    backing: scrim,
-                    backingOpacity: alpha,
-                    material: .regular.interactive()
-                )
-            case .tinted:
-                glassBody(
-                    backing: themeColor,
-                    backingOpacity: alpha,
-                    material: .regular.interactive()
-                )
+            // SwiftUI's own glass modifier, not a hosting wrapper: an
+            // `NSGlassEffectView` inside `.background` only composites against
+            // the cells above it, so the panel outside them stayed flat.
+            // The scrim sits UNDER the material; a fill above it washes the
+            // glass out, and the opacity slider still scales it.
+            ZStack {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(backing.opacity(alpha))
+                Color.clear
+                    .glassEffect(glass, in: RoundedRectangle(cornerRadius: cornerRadius))
             }
+            .overlay(HUDBorder(cornerRadius: cornerRadius))
         }
     }
 
-    @ViewBuilder
-    private var clearGlass: some View {
-        #if compiler(>=6.2)
-        glassBody(
-            backing: scrim,
-            backingOpacity: alpha * 0.15,
-            material: .clear.interactive()
-        )
-        #else
-        glassBody(
-            backing: scrim,
-            backingOpacity: alpha * 0.15,
-            material: .regular.interactive()
-        )
-        #endif
-    }
-
-    private func glassBody(
-        backing: Color,
-        backingOpacity: Double,
-        material: Glass
-    ) -> some View {
-        ZStack {
-            Rectangle()
-                .fill(backing.opacity(backingOpacity))
-            Rectangle()
-                .glassEffect(material, in: .rect(cornerRadius: cornerRadius))
+    private var glass: Glass {
+        switch glassStyle {
+        case .clear: return .clear
+        case .opaque: return .regular
+        case .tinted: return .clear.tint(tintColor)
         }
-        .overlay(HUDBorder(cornerRadius: cornerRadius))
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
 }
 #endif

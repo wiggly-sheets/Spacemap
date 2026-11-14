@@ -94,12 +94,18 @@ final class AppGlyphFont {
     static func bundledRelease() -> String? {
         guard let url = bundledURL(),
               let data = try? Data(contentsOf: url),
-              let font = parse(data: data) else { return nil }
+              let font = parse(data: data, url: url) else { return nil }
         return font.release
     }
 
     let release: String
+    /// File the metadata came from. The face is built from this exact file so
+    /// drawn glyphs always match the parsed codepoints, even when several
+    /// releases share the family name in the process.
+    let sourceURL: URL?
 
+    private let descriptor: CTFontDescriptor?
+    private var faceCache: [CGFloat: NSFont] = [:]
     private let exact: [String: String]
     private let prefixes: [(prefix: String, glyph: String)]
     private let defaultGlyph: String
@@ -107,7 +113,7 @@ final class AppGlyphFont {
     private let instanceLock = NSLock()
     private var cache: [String: String] = [:]
 
-    private init(metadata: Metadata) {
+    private init(metadata: Metadata, sourceURL: URL?) {
         var exact: [String: String] = [:]
         var prefixes: [(prefix: String, glyph: String)] = []
         var defaultGlyph = ""
@@ -133,6 +139,13 @@ final class AppGlyphFont {
         prefixes.sort { $0.prefix.count > $1.prefix.count }
 
         self.release = metadata.release
+        self.sourceURL = sourceURL
+        if let sourceURL,
+           let descriptors = CTFontManagerCreateFontDescriptorsFromURL(sourceURL as CFURL) as? [CTFontDescriptor] {
+            self.descriptor = descriptors.first
+        } else {
+            self.descriptor = nil
+        }
         self.exact = exact
         self.prefixes = prefixes
         self.defaultGlyph = defaultGlyph
@@ -161,6 +174,23 @@ final class AppGlyphFont {
         return resolved
     }
 
+    /// The face that belongs to `sourceURL`, so codepoints and glyph shapes are
+    /// always from the same release. Falls back to the family name only when the
+    /// file had no usable font descriptor.
+    func face(size: CGFloat) -> NSFont? {
+        instanceLock.lock()
+        defer { instanceLock.unlock() }
+        if let cached = faceCache[size] { return cached }
+        let resolved: NSFont?
+        if let descriptor {
+            resolved = CTFontCreateWithFontDescriptor(descriptor, size, nil) as NSFont
+        } else {
+            resolved = NSFont(name: Self.fontName, size: size)
+        }
+        if let resolved { faceCache[size] = resolved }
+        return resolved
+    }
+
     /// Used when the font cannot be loaded at all, so the strip still shows
     /// something identifiable instead of blank glyphs.
     static func initials(forApp app: String) -> String {
@@ -185,7 +215,7 @@ final class AppGlyphFont {
         var best: AppGlyphFont?
         for url in candidateURLs() {
             guard let data = try? Data(contentsOf: url) else { continue }
-            guard let font = parse(data: data) else {
+            guard let font = parse(data: data, url: url) else {
                 // A font that exists but will not parse is a real fault, not a
                 // missing optional, so say so instead of falling through silently.
                 NSLog("spacemap/GlyphStrip: %@ has no readable APPM metadata", url.path)
@@ -243,10 +273,10 @@ final class AppGlyphFont {
         }
     }
 
-    static func parse(data: Data) -> AppGlyphFont? {
+    static func parse(data: Data, url: URL? = nil) -> AppGlyphFont? {
         guard let payload = appMetadataPayload(in: data),
               let metadata = try? JSONDecoder().decode(Metadata.self, from: payload) else { return nil }
-        return AppGlyphFont(metadata: metadata)
+        return AppGlyphFont(metadata: metadata, sourceURL: url)
     }
 
     /// `Bundle.module` is avoided by name: its generated accessor

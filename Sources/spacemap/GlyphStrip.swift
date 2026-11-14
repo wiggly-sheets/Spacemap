@@ -126,17 +126,18 @@ enum GlyphStrip {
     ///     with no notch (AppKit reports an empty rect there).
     ///   - rightNotchArea: `NSScreen.auxiliaryTopRightArea`, likewise `nil`.
     ///   - margin: gap between the strip and the notch edge, in points.
+    ///   - screenFrame: the display's whole frame for `.custom`, which may sit
+    ///     anywhere on screen. Anchored positions ignore it.
     ///   - yOffset: vertical nudge in screen-reading terms. **Positive moves the
     ///     strip DOWN, into the screen interior.** AppKit's origin is bottom-left,
-    ///     so the subtraction is deliberate rather than a naive `+`.
-    ///   - xOffset: horizontal offset from `menuBarRow.minX`, only used by
-    ///     `.custom`; the other positions anchor to the notch or row edges.
+    ///     so the subtraction is deliberate rather than a naive `+`. For
+    ///     `.custom` it is the inset from the screen's top edge.
+    ///   - xOffset: horizontal offset from the placement area's left edge, only
+    ///     used by `.custom`; the other positions anchor to the notch or row
+    ///     edges.
     ///
-    /// Unlike `x`, `yOffset` is not clamped back into the row: the panel is
-    /// ordered at `.statusBar` level and a user who asks to nudge the strip down
-    /// gets it moved. Clamping would silently ignore the one thing the key is
-    /// for, and the panel is only a few points tall, so the worst case is that it
-    /// briefly overlaps the first row of menu bar items.
+    /// Anchored positions clamp to the menu bar row. `.custom` clamps to the
+    /// whole screen instead, so a dragged strip can reach any row.
     ///
     /// Overflow: content wider than the row shrinks to the row width,
     /// left-aligned at `menuBarRow.minX`. Clamping x alone would hang the
@@ -144,6 +145,7 @@ enum GlyphStrip {
     static func frame(
         contentSize: CGSize,
         menuBarRow: CGRect,
+        screenFrame: CGRect? = nil,
         leftNotchArea: CGRect?,
         rightNotchArea: CGRect?,
         position: GlyphStripPosition,
@@ -151,8 +153,12 @@ enum GlyphStrip {
         yOffset: CGFloat = 0,
         xOffset: CGFloat = 0
     ) -> CGRect {
-        let height = min(contentSize.height, menuBarRow.height)
-        let width = min(max(contentSize.width, 0), menuBarRow.width)
+        // `.custom` may sit anywhere on the display, so it uses the whole
+        // screen and measures from the top-left. Anchored positions stay in
+        // the menu bar row.
+        let area = position == .custom ? (screenFrame ?? menuBarRow) : menuBarRow
+        let height = position == .custom ? min(contentSize.height, area.height) : min(contentSize.height, menuBarRow.height)
+        let width = min(max(contentSize.width, 0), area.width)
         let x: CGFloat
         switch position {
         case .leftOfNotch:
@@ -175,32 +181,69 @@ enum GlyphStrip {
             let area = notchArea(left: leftNotchArea, right: rightNotchArea, menuBarRow: menuBarRow)
             x = area.midX - width / 2
         case .custom:
-            x = menuBarRow.minX + xOffset
+            x = area.minX + xOffset
         }
-        // Never let the strip hang off the side of the row.
-        let clampedX = min(max(x, menuBarRow.minX), max(menuBarRow.minX, menuBarRow.maxX - width))
-        return CGRect(
-            x: clampedX,
+        // Never let the strip hang off the side of its area.
+        let clampedX = min(max(x, area.minX), max(area.minX, area.maxX - width))
+        let y: CGFloat
+        if position == .custom {
+            // Top-down inset from the screen's top edge, so any row is reachable.
+            let desired = area.maxY - yOffset - height
+            y = min(max(desired, area.minY), max(area.minY, area.maxY - height))
+        } else {
             // Vertical centring inside the row, then the user's nudge. AppKit y
             // grows upward, so subtracting is what moves the strip DOWN.
             // yOffset 0 is centered: positive moves down, negative moves up.
-            y: menuBarRow.minY + (menuBarRow.height - height) / 2 - yOffset,
-            width: width,
-            height: height
-        )
+            y = menuBarRow.minY + (menuBarRow.height - height) / 2 - yOffset
+        }
+        return CGRect(x: clampedX, y: y, width: width, height: height)
     }
 
-    /// The `.custom` offsets that reproduce `frame` relative to `menuBarRow` —
-    /// the inverse of `frame(...)` for the geometry it was given. Used to turn
-    /// a dragged panel frame back into config keys.
+    /// Vertical placement rects, laid out top-down inside `bounds` from the
+    /// height of each segment. The first height owns the top slot, so a
+    /// vertical strip reads in space order from the top edge.
+    static func verticalSlots(heights: [CGFloat], in bounds: CGRect) -> [CGRect] {
+        var top = bounds.maxY
+        return heights.map { height in
+            let slot = CGRect(x: bounds.minX, y: top - height, width: bounds.width, height: height)
+            top -= height
+            return slot
+        }
+    }
+
+    /// One rect per stacked line, filled from the top of `slot` downward.
+    /// `indexGap` separates the number line from the first icon line;
+    /// `iconGap` separates icon lines from each other.
+    static func stackedLines(
+        count: Int,
+        lineHeight: CGFloat,
+        indexGap: CGFloat,
+        iconGap: CGFloat,
+        in slot: CGRect
+    ) -> [CGRect] {
+        guard count > 0, lineHeight > 0 else { return [] }
+        var top = slot.maxY
+        return (0..<count).map { index in
+            if index > 0 {
+                top -= index == 1 ? indexGap : iconGap
+            }
+            let rect = CGRect(x: slot.minX, y: top - lineHeight, width: slot.width, height: lineHeight)
+            top = rect.minY
+            return rect
+        }
+    }
+
+    /// The `.custom` offsets that reproduce `frame` inside `area` — the inverse
+    /// of `frame(...)` for the geometry it was given. `area` is the menu bar
+    /// row for anchored placements and the whole screen for `.custom`.
+    /// Used to turn a dragged panel frame back into config keys.
     ///
     /// `xOffset` is an `Int` in config, so x is rounded; replaying the result
-    /// can land up to half a point from `frame`, which `frame`'s own row clamp
-    /// absorbs. `yOffset` uses `frame.height` because that is the height
-    /// `frame(...)` placed the strip at (content height clamped to the row).
-    static func customOffsets(for frame: CGRect, menuBarRow: CGRect) -> (xOffset: Int, yOffset: Double) {
-        let x = frame.minX - menuBarRow.minX
-        let y = menuBarRow.minY + (menuBarRow.height - frame.height) / 2 - frame.minY
+    /// can land up to half a point from `frame`, which `frame`'s own clamp
+    /// absorbs.
+    static func customOffsets(for frame: CGRect, area: CGRect) -> (xOffset: Int, yOffset: Double) {
+        let x = frame.minX - area.minX
+        let y = area.maxY - frame.maxY
         return (Int(x.rounded()), y)
     }
 
@@ -373,31 +416,20 @@ enum GlyphStrip {
         return false
     }
 
-    /// Flat backing opacity for the glass path. Clear gets a light scrim so
-    /// the opacity control still has a gentle effect without defeating the
-    /// clear material; opaque and tinted map the value straight through.
-    static func glassFillOpacity(for style: HUDGlassStyle, backgroundOpacity: Double) -> Double {
-        switch style {
-        case .clear: return backgroundOpacity * 0.15
-        case .opaque, .tinted: return backgroundOpacity
-        }
-    }
-
-    /// Neutral backing colour for the opaque style: no theme hue. Tinted skips
-    /// this and uses the theme's `cellBg` instead.
-    static func neutralGlassColor(isDark: Bool) -> NSColor {
-        isDark ? NSColor(white: 0.06, alpha: 1) : NSColor(white: 0.97, alpha: 1)
-    }
-
     /// Neutral hairline for clear/opaque. Tinted uses `glassStrokeColor`, whose
     /// theme blend matches the tinted backing.
     static func neutralGlassStrokeColor() -> NSColor { NSColor(white: 0.5, alpha: 1) }
 
-    /// Fallback `NSVisualEffectView` material. Tinted keeps the saturated
-    /// `.popover`; neutral styles use `.headerView`, the least
-    /// wallpaper-saturated stock material, so no wallpaper warmth leaks in.
+    /// Fallback `NSVisualEffectView` material, one per sub-type so clear and
+    /// opaque stay distinct without native glass (pre-26, Reduce Transparency).
+    /// Tinted keeps the saturated `.popover`; opaque uses the menu bar's own
+    /// material; clear uses the least opaque stock blur.
     static func glassFallbackMaterial(for style: HUDGlassStyle) -> NSVisualEffectView.Material {
-        style == .tinted ? .popover : .headerView
+        switch style {
+        case .clear: return .underWindowBackground
+        case .opaque: return .headerView
+        case .tinted: return .popover
+        }
     }
 
     /// Fills a resolved backdrop, or strokes it for the glass edge. The only
