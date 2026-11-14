@@ -57,6 +57,7 @@ struct YabaiWindow: Decodable, Equatable {
     var isFloating: Bool? = nil
     var opacity: Double? = nil
     var isSticky: Bool? = nil
+    var isNativeFullscreen: Bool? = nil
 
     struct WindowFrame: Decodable, Equatable {
         let x: CGFloat
@@ -76,6 +77,7 @@ struct YabaiWindow: Decodable, Equatable {
         case isFloating = "is-floating"
         case opacity
         case isSticky = "is-sticky"
+        case isNativeFullscreen = "is-native-fullscreen"
     }
 
     func shouldDisplay(showExtraWindows: Bool) -> Bool {

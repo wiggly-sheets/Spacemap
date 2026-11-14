@@ -1023,6 +1023,11 @@ final class GlyphStripTests: XCTestCase {
         )
     }
 
+    func testHideInFullscreenDefaultsOffAndDecodes() {
+        XCTAssertEqual(GlyphStripConfig.default.hideInFullscreen, false)
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nhideInFullscreen = true")?.hideInFullscreen, true)
+    }
+
     func testOrientationDefaultsToHorizontalAndDecodesBothDirections() {
         XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.orientation, .horizontal)
         XCTAssertEqual(

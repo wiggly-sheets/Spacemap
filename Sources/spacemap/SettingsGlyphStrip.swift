@@ -35,6 +35,9 @@ struct SettingsGlyphStrip: View {
             Toggle("Enabled", isOn: $glyphStrip.enabled)
                 .onChange(of: glyphStrip.enabled) { _ in onSave() }
             SettingsFootnote(text: "Each space shows its index plus a glyph per window.")
+            Toggle("Hide in Fullscreen", isOn: $glyphStrip.hideInFullscreen)
+                .onChange(of: glyphStrip.hideInFullscreen) { _ in onSave() }
+            SettingsFootnote(text: "Hides the strip while another app is in native fullscreen, such as after clicking a window's green button.")
 
             Picker("Position", selection: $glyphStrip.position) {
                 Text("Left of Notch").tag(GlyphStripPosition.leftOfNotch)
