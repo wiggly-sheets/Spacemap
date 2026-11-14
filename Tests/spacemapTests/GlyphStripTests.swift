@@ -1606,14 +1606,14 @@ final class GlyphStripTests: XCTestCase {
 
     func testGlassStyleDecodesAndDefaultsToOpaque() {
         XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nglassStyle = \"tinted\"")?.glassStyle, .tinted)
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nglassStyle = \"frosted\"")?.glassStyle, .opaque)
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.glassStyle, .opaque)
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nglassStyle = \"frosted\"")?.glassStyle, .regular)
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.glassStyle, .regular)
     }
 
     func testLegacyGlassAmountAndTintMapToGlassStyle() {
         XCTAssertEqual(
             decodeGlyphStrip("[glyphStrip]\nuseThemeTint = false")?.glassStyle,
-            .opaque
+            .regular
         )
         XCTAssertEqual(
             decodeGlyphStrip("[glyphStrip]\nuseThemeTint = true\nglassAmount = 0.0")?.glassStyle,
@@ -1626,15 +1626,41 @@ final class GlyphStripTests: XCTestCase {
     }
 
     func testGlassFallbackMaterialsAreDistinctPerStyle() {
-        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .tinted), .popover)
-        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .opaque), .headerView)
-        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .clear), .underWindowBackground)
+        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .tinted, tintedMaterial: .clear), .popover)
+        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .tinted, tintedMaterial: .regular), .headerView)
+        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .regular, tintedMaterial: .clear), .headerView)
+        XCTAssertEqual(GlyphStrip.glassFallbackMaterial(for: .clear, tintedMaterial: .regular), .underWindowBackground)
+    }
+
+    func testPerStyleGlassVariantsClampAndFollowHUD() {
+        var strip = GlyphStripConfig.default
+        XCTAssertEqual(strip.glassClearVariant, 11)
+        XCTAssertEqual(strip.glassRegularVariant, 5)
+        XCTAssertEqual(strip.glassTintedVariant, 2)
+
+        strip.glassClearVariant = 99
+        strip.glassRegularVariant = -4
+        let clamped = strip.clamped()
+        XCTAssertEqual(clamped.glassClearVariant, 21)
+        XCTAssertEqual(clamped.glassRegularVariant, 0)
+
+        var hud = GridConfig.default
+        hud.glassStyle = .regular
+        hud.glassRegularVariant = 16
+        strip.glassStyle = .regular
+        strip.glassRegularVariant = 15
+        strip.matchHUDAppearance = true
+        XCTAssertEqual(strip.resolvedGlassVariant(hud: hud), 16)
+        strip.matchHUDAppearance = false
+        XCTAssertEqual(strip.resolvedGlassVariant(hud: hud), 15)
+
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nglassClearVariant = 15")?.glassClearVariant, 15)
     }
 
     func testPerStyleOpacityResolvesAndSharedModeOverrides() {
         var config = GlyphStripConfig.default
         config.glassClearOpacity = 0.1
-        config.glassOpaqueOpacity = 0.2
+        config.glassRegularOpacity = 0.2
         config.glassTintedOpacity = 0.7
         config.solidOpacity = 0.9
         config.backgroundOpacity = 0.4
@@ -1643,22 +1669,22 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(config.effectiveBackgroundOpacity(for: .solid), 0.9)
         config.backgroundMaterial = .liquidGlass
         config.glassStyle = .clear
-        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.1)
-        config.glassStyle = .opaque
-        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.2)
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.35)
+        config.glassStyle = .regular
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.40)
         config.glassStyle = .tinted
         XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.7)
 
         config.matchBackgroundOpacity = true
         XCTAssertEqual(config.effectiveBackgroundOpacity(for: .solid), 0.4)
-        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.4)
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .liquidGlass), 0.45)
     }
 
     func testLegacyBackgroundOpacityFeedsPerStyleValues() {
         let config = decodeGlyphStrip("[glyphStrip]\nbackgroundOpacity = 0.6")
         // Clear used to be painted at 15% of its value; inherit that share.
         XCTAssertEqual(config?.glassClearOpacity ?? -1, 0.09, accuracy: 1e-9)
-        XCTAssertEqual(config?.glassOpaqueOpacity, 0.6)
+        XCTAssertEqual(config?.glassRegularOpacity, 0.6)
         XCTAssertEqual(config?.glassTintedOpacity, 0.6)
         XCTAssertEqual(config?.solidOpacity, 0.6)
     }
@@ -1689,7 +1715,7 @@ final class GlyphStripTests: XCTestCase {
 
         strip.matchHUDAppearance = false
         XCTAssertEqual(strip.resolvedBackgroundMaterial(hud: hud), .none)
-        XCTAssertEqual(strip.resolvedGlassStyle(hud: hud), .opaque)
+        XCTAssertEqual(strip.resolvedGlassStyle(hud: hud), .regular)
         XCTAssertEqual(strip.resolvedThemeName(hud: hud), "dracula")
     }
 
@@ -1801,7 +1827,7 @@ final class GlyphStripTests: XCTestCase {
         original.shape = .pill
         original.backgroundOpacity = 0.6
         original.glassClearOpacity = 0.2
-        original.glassOpaqueOpacity = 0.4
+        original.glassRegularOpacity = 0.4
         original.glassTintedOpacity = 0.8
         original.solidOpacity = 0.9
         original.matchBackgroundOpacity = true

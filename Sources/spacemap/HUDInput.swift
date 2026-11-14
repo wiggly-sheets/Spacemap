@@ -74,6 +74,7 @@ final class HUDInput {
     weak var hudDisplay: HUDDisplay?
     var isPollingFocusedSpace = false
     private var pollTimer: Timer?
+    private var trustWatchdog: Timer?
     private var pollTicks = 0
     var onRefresh: (() -> Void)?
     var onAutoHide: (() -> Void)?
@@ -129,9 +130,11 @@ final class HUDInput {
 
     func start() {
         startSettingsKeyMonitor()
+        startTrustWatchdog()
     }
 
     func stop() {
+        stopTrustWatchdog()
         stopSettingsKeyMonitor()
         stopPanelDragMonitor()
         autoHideTimer?.invalidate()
@@ -409,7 +412,13 @@ final class HUDInput {
     private func startSettingsKeyMonitor() {
         let trusted = accessibilityTrustProvider()
         cachedAccessibilityTrusted = trusted
-        guard keyboardEventTap == nil, trusted else { return }
+        guard trusted else {
+            // Revoked while a tap was installed: remove it. A stale default tap
+            // can sit at the head of the session stream and stall every key.
+            stopSettingsKeyMonitor()
+            return
+        }
+        guard keyboardEventTap == nil else { return }
         let mask = CGEventMask(
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.keyUp.rawValue)
@@ -472,6 +481,33 @@ final class HUDInput {
 
     func reconcileSettingsKeyMonitor() {
         handleAccessibilityState(isTrusted: accessibilityTrustProvider())
+    }
+
+    /// Polls trust independently of HUD visibility. The event tap outlives a
+    /// hidden HUD, and the visibility-gated poll cannot notice a revocation
+    /// while it is hidden, so the tap would keep its cached permission until
+    /// the next presentation. Runs on the main run loop at one second.
+    private func startTrustWatchdog() {
+        guard trustWatchdog == nil else { return }
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            let trusted = self.accessibilityTrustProvider()
+            guard trusted != self.cachedAccessibilityTrusted else {
+                // Untrusted but still cached true? The tap must go regardless.
+                if !trusted, self.keyboardEventTap != nil {
+                    self.handleAccessibilityState(isTrusted: false)
+                }
+                return
+            }
+            self.handleAccessibilityState(isTrusted: trusted)
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        trustWatchdog = timer
+    }
+
+    private func stopTrustWatchdog() {
+        trustWatchdog?.invalidate()
+        trustWatchdog = nil
     }
 
     /// Poll-driven reconciliation. Skip the never-trusted startup state so a

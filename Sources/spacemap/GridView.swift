@@ -16,6 +16,9 @@ struct GridView: View {
     let theme: String
     let displayNumber: Int?
     let resolvedTheme: AppTheme
+    /// True when the panel's AppKit content root supplies the Liquid Glass
+    /// layer, so the SwiftUI background must stay clear.
+    let usesNativeGlass: Bool
     @ObservedObject private var hoverState: HUDHoverState
     private let usesHoverState: Bool
     
@@ -64,11 +67,13 @@ struct GridView: View {
         .background(
             HUDBackground(style: state.config.backgroundStyle,
                           glassStyle: state.config.glassStyle,
-                          cornerRadius: 10,
+                          cornerRadius: CGFloat(state.config.hudCornerRadius),
                           alpha: state.config.effectiveBackgroundOpacity(for: state.config.backgroundStyle),
                           isDarkMode: isDarkMode,
                           themeColor: Color(hex: resolvedTheme.background),
-                          tintColor: Color(hex: resolvedTheme.focused))
+                          tintColor: Color(hex: resolvedTheme.focused),
+                          glassTintedMaterial: state.config.glassTintedMaterial,
+                          usesNativeGlass: usesNativeGlass)
         )
         .overlay(alignment: .topLeading) {
             displayBoundaryOverlay
@@ -169,6 +174,8 @@ struct GridView: View {
             windows: cellWindows,
             displayBounds: cellDisplayBounds,
             cellStyle: cellStyle,
+            spaceBackground: spaceBackground,
+            spaceCornerRadius: CGFloat(state.config.spacesCornerRadius),
             onSelect: onSelect,
             uiScale: GridLayout.effectiveScale(for: uiScale),
             resolvedTheme: resolvedTheme,
@@ -183,6 +190,29 @@ struct GridView: View {
         )
     }
     
+    private var spaceBackground: CellSpaceBackground {
+        let config = state.config
+        guard !config.spacesMatchBackground else { return .theme }
+        switch config.spacesBackgroundStyle {
+        case .none:
+            return .none
+        case .solid:
+            return .solid(Color(hex: resolvedTheme.cellBg), config.spacesOpacity)
+        case .glass:
+            let style = config.spacesGlassStyle
+            let variant = style == .clear
+                ? config.spacesGlassClearVariant
+                : (style == .regular ? config.spacesGlassRegularVariant : config.spacesGlassTintedVariant)
+            return .glass(SpaceGlassAppearance(
+                material: style.material(tintedMaterial: config.spacesGlassTintedMaterial),
+                variant: variant,
+                tint: style == .tinted ? GlyphStrip.color(for: "focused", theme: resolvedTheme) : nil,
+                opacity: CGFloat(config.spacesOpacity),
+                cornerRadius: CGFloat(config.spacesCornerRadius)
+            ))
+        }
+    }
+
     private var effectiveScale: CGFloat { GridLayout.effectiveScale(for: uiScale) }
     var effectiveCellWidth: CGFloat { GridLayout.cellSize(for: uiScale).width }
     var effectiveCellHeight: CGFloat { GridLayout.cellSize(for: uiScale).height }
@@ -204,11 +234,13 @@ struct GridView: View {
         uiScale: Double = 1.0,
         theme: String = "default",
         resolvedTheme: AppTheme,
-        spaceIndices: [Int]? = nil
+        spaceIndices: [Int]? = nil,
+        usesNativeGlass: Bool = false
     ) {
         self.state = state
         self.hoveredCell = hoveredCell
         self.displayNumber = displayNumber
+        self.usesNativeGlass = usesNativeGlass
         self.onSelect = onSelect
         self.uiScale = uiScale
         self.theme = theme

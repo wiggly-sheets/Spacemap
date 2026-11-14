@@ -47,13 +47,27 @@ struct SettingsView: View {
     @State private var gridLayoutIndex: Int = 0
     @State private var backgroundAlpha: Double = 0.3
     @State private var backgroundStyle: HUDBackgroundStyle = .glass
-    @State private var glassStyle: HUDGlassStyle = .opaque
+    @State private var glassStyle: HUDGlassStyle = .regular
+    @State private var glassClearVariant: Int = 11
+    @State private var glassRegularVariant: Int = 5
+    @State private var glassTintedVariant: Int = 2
+    @State private var glassTintedMaterial: HUDGlassMaterial = .clear
     @State private var glassClearOpacity: Double = 0.15
-    @State private var glassOpaqueOpacity: Double = 0.3
+    @State private var glassRegularOpacity: Double = 0.3
     @State private var glassTintedOpacity: Double = 0.3
     @State private var solidOpacity: Double = 1.0
     @State private var matchBackgroundOpacity: Bool = false
     @State private var hudShadow: Bool = true
+    @State private var hudCornerRadius: Double = 10
+    @State private var spacesMatchBackground: Bool = true
+    @State private var spacesBackgroundStyle: SpacesBackgroundStyle = .glass
+    @State private var spacesGlassStyle: HUDGlassStyle = .clear
+    @State private var spacesGlassClearVariant: Int = 11
+    @State private var spacesGlassRegularVariant: Int = 5
+    @State private var spacesGlassTintedVariant: Int = 2
+    @State private var spacesGlassTintedMaterial: HUDGlassMaterial = .clear
+    @State private var spacesOpacity: Double = 0.5
+    @State private var spacesCornerRadius: Double = 4
     @State private var mode: ThemeMode = .auto
     @State private var iconScale: Double = 1.0
     @State private var showSpaceNumbers: Bool = true
@@ -122,12 +136,26 @@ struct SettingsView: View {
         _backgroundAlpha = State(initialValue: config.backgroundAlpha)
         _backgroundStyle = State(initialValue: config.backgroundStyle)
         _glassStyle = State(initialValue: config.glassStyle)
+        _glassClearVariant = State(initialValue: config.glassClearVariant)
+        _glassRegularVariant = State(initialValue: config.glassRegularVariant)
+        _glassTintedVariant = State(initialValue: config.glassTintedVariant)
+        _glassTintedMaterial = State(initialValue: config.glassTintedMaterial)
         _glassClearOpacity = State(initialValue: config.glassClearOpacity)
-        _glassOpaqueOpacity = State(initialValue: config.glassOpaqueOpacity)
+        _glassRegularOpacity = State(initialValue: config.glassRegularOpacity)
         _glassTintedOpacity = State(initialValue: config.glassTintedOpacity)
         _solidOpacity = State(initialValue: config.solidOpacity)
         _matchBackgroundOpacity = State(initialValue: config.matchBackgroundOpacity)
         _hudShadow = State(initialValue: config.hudShadow)
+        _hudCornerRadius = State(initialValue: config.hudCornerRadius)
+        _spacesMatchBackground = State(initialValue: config.spacesMatchBackground)
+        _spacesBackgroundStyle = State(initialValue: config.spacesBackgroundStyle)
+        _spacesGlassStyle = State(initialValue: config.spacesGlassStyle)
+        _spacesGlassClearVariant = State(initialValue: config.spacesGlassClearVariant)
+        _spacesGlassRegularVariant = State(initialValue: config.spacesGlassRegularVariant)
+        _spacesGlassTintedVariant = State(initialValue: config.spacesGlassTintedVariant)
+        _spacesGlassTintedMaterial = State(initialValue: config.spacesGlassTintedMaterial)
+        _spacesOpacity = State(initialValue: config.spacesOpacity)
+        _spacesCornerRadius = State(initialValue: config.spacesCornerRadius)
         _mode = State(initialValue: config.mode)
         _iconScale = State(initialValue: config.iconScale)
         _showSpaceNumbers = State(initialValue: config.showSpaceNumbers)
@@ -209,12 +237,26 @@ struct SettingsView: View {
             backgroundAlpha: backgroundAlpha,
             backgroundStyle: backgroundStyle,
             glassStyle: glassStyle,
+            glassClearVariant: glassClearVariant,
+            glassRegularVariant: glassRegularVariant,
+            glassTintedVariant: glassTintedVariant,
+            glassTintedMaterial: glassTintedMaterial,
             glassClearOpacity: glassClearOpacity,
-            glassOpaqueOpacity: glassOpaqueOpacity,
+            glassRegularOpacity: glassRegularOpacity,
             glassTintedOpacity: glassTintedOpacity,
             solidOpacity: solidOpacity,
+            spacesMatchBackground: spacesMatchBackground,
+            spacesBackgroundStyle: spacesBackgroundStyle,
+            spacesGlassStyle: spacesGlassStyle,
+            spacesGlassClearVariant: spacesGlassClearVariant,
+            spacesGlassRegularVariant: spacesGlassRegularVariant,
+            spacesGlassTintedVariant: spacesGlassTintedVariant,
+            spacesGlassTintedMaterial: spacesGlassTintedMaterial,
+            spacesOpacity: spacesOpacity,
+            spacesCornerRadius: spacesCornerRadius,
             matchBackgroundOpacity: matchBackgroundOpacity,
             hudShadow: hudShadow,
+            hudCornerRadius: hudCornerRadius,
             mode: mode,
             iconScale: iconScale,
             showSpaceNumbers: showSpaceNumbers,
@@ -288,22 +330,7 @@ struct SettingsView: View {
                 )
 
             case .appearance:
-                SettingsAppearanceView(
-                    theme: $theme,
-                    mode: $mode,
-                    backgroundAlpha: $backgroundAlpha,
-                    backgroundStyle: $backgroundStyle,
-                    glassStyle: $glassStyle,
-                    glassClearOpacity: $glassClearOpacity,
-                    glassOpaqueOpacity: $glassOpaqueOpacity,
-                    glassTintedOpacity: $glassTintedOpacity,
-                    solidOpacity: $solidOpacity,
-                    matchBackgroundOpacity: $matchBackgroundOpacity,
-                    hudShadow: $hudShadow,
-                    iconScale: $iconScale,
-                    uiScale: $uiScale,
-                    onSave: saveConfig
-                )
+                appearancePane
 
             case .behavior:
                 SettingsBehavior(
@@ -406,6 +433,39 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 500)
+    }
+
+    private var appearancePane: some View {
+        SettingsAppearanceView(
+                    theme: $theme,
+                    mode: $mode,
+                    backgroundAlpha: $backgroundAlpha,
+                    backgroundStyle: $backgroundStyle,
+                    glassStyle: $glassStyle,
+                    glassClearVariant: $glassClearVariant,
+                    glassRegularVariant: $glassRegularVariant,
+                    glassTintedVariant: $glassTintedVariant,
+                    glassTintedMaterial: $glassTintedMaterial,
+                    glassClearOpacity: $glassClearOpacity,
+                    glassRegularOpacity: $glassRegularOpacity,
+                    glassTintedOpacity: $glassTintedOpacity,
+                    solidOpacity: $solidOpacity,
+                    matchBackgroundOpacity: $matchBackgroundOpacity,
+                    hudShadow: $hudShadow,
+                    hudCornerRadius: $hudCornerRadius,
+                    iconScale: $iconScale,
+                    uiScale: $uiScale,
+                    spacesMatchBackground: $spacesMatchBackground,
+                    spacesBackgroundStyle: $spacesBackgroundStyle,
+                    spacesGlassStyle: $spacesGlassStyle,
+                    spacesGlassClearVariant: $spacesGlassClearVariant,
+                    spacesGlassRegularVariant: $spacesGlassRegularVariant,
+                    spacesGlassTintedVariant: $spacesGlassTintedVariant,
+                    spacesGlassTintedMaterial: $spacesGlassTintedMaterial,
+                    spacesOpacity: $spacesOpacity,
+                    spacesCornerRadius: $spacesCornerRadius,
+                    onSave: saveConfig
+                )
     }
 
     /// Profile state to re-seed from a menu-bar profile switch. Pure so the

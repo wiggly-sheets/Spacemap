@@ -237,11 +237,20 @@ showIconStrip = true
 theme = "default"
 uiScale = 0.5
 backgroundAlpha = 0.3       # shared opacity when matchBackgroundOpacity is on
-backgroundStyle = "glass"   # glass, solid, transparent
-glassStyle = "opaque"       # clear | opaque | tinted (glass only; legacy frosted = opaque)
+backgroundStyle = "glass"   # glass, solid
+glassStyle = "regular"      # clear | regular | tinted (glass only)
+glassClearVariant = 11      # private glass finish per style, 0...21
+glassRegularVariant = 5
+glassTintedVariant = 2
+glassTintedMaterial = "clear"   # clear | regular (under the tint)
 glassClearOpacity = 0.15    # per-style opacity; used unless matching
-glassOpaqueOpacity = 0.3
+glassRegularOpacity = 0.3
 glassTintedOpacity = 0.3
+spacesMatchBackground = true    # false gives cells their own layer
+spacesBackgroundStyle = "glass" # none | solid | glass
+spacesGlassStyle = "clear"      # clear | regular | tinted
+spacesOpacity = 0.5
+spacesCornerRadius = 4
 solidOpacity = 1.0          # solid fill, no blur
 matchBackgroundOpacity = false  # true = all styles share backgroundAlpha
 hudShadow = true
@@ -280,13 +289,17 @@ iconSize = 11.0                   # glyph point size, clamped 6...24
 indexSize = 11.0                  # space-number point size, clamped 6...24
 highlightCurrentSpace = true
 backgroundMaterial = "none"       # none (Transparent) | solid | liquidGlass
-glassStyle = "opaque"             # liquidGlass only: clear | opaque | tinted
-matchHUDAppearance = false        # true = copy HUD material, glass type, opacity, theme
+glassStyle = "regular"            # liquidGlass only: clear | regular | tinted
+glassClearVariant = 11            # finish per style, 0...21
+glassRegularVariant = 5
+glassTintedVariant = 2
+glassTintedMaterial = "clear"
+matchHUDAppearance = false        # true = copy HUD material, glass type, finish, opacity, theme
 shape = "none"                    # none | pill | roundedRect | bar (none = no background, no outline)
 backgroundOpacity = 0.35          # shared opacity when matchBackgroundOpacity is on
 matchBackgroundOpacity = false    # true = all strip styles share backgroundOpacity
 glassClearOpacity = 0.35          # per-style glass backing opacity
-glassOpaqueOpacity = 0.35
+glassRegularOpacity = 0.35
 glassTintedOpacity = 0.35
 solidOpacity = 0.35               # solid backing opacity, no blur
 cornerRadius = 20.0               # roundedRect only, 0...40
@@ -331,9 +344,9 @@ theme = ""                        # follow main HUD theme; or a theme name
 |---|---|
 | `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showSpaceLayout`, `showIconStrip`, `showMultiAppIcons` |
 | `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]` |
-| `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `backgroundStyle`, `glassStyle`, `glassClearOpacity`, `glassOpaqueOpacity`, `glassTintedOpacity`, `solidOpacity`, `matchBackgroundOpacity`, `hudShadow`, `uiScale`, `iconScale` |
+| `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `backgroundStyle`, `glassStyle`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `matchBackgroundOpacity`, `hudShadow`, `hudCornerRadius`, `spacesMatchBackground`, `spacesBackgroundStyle`, `spacesGlassStyle`, `spacesGlassClearVariant`, `spacesGlassRegularVariant`, `spacesGlassTintedVariant`, `spacesGlassTintedMaterial`, `spacesOpacity`, `spacesCornerRadius`, `uiScale`, `iconScale` |
 | `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `hideMenuBarIcon`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
-| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `shape`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearOpacity`, `glassOpaqueOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `yOffset`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `xOffset`, `borderEnabled` |
+| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `shape`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `yOffset`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `xOffset`, `borderEnabled` |
 | `[advanced]` | `socketHealthInterval`, `showExtraWindows` |
 
 Space names example:
@@ -440,6 +453,12 @@ make app-universal
 - [WindowMaker](https://www.windowmaker.org/)
 - [YabaiGridSpaces](https://codeberg.org/mikkelricky/hammerspoon/src/branch/main/Spoons/YabaiGridSpaces.spoon)
 - [skhd](https://github.com/koekeishiya/skhd) and [skhd.zig](https://github.com/jackielii/skhd.zig)
+
+---
+
+## Thank you
+
+- [JulianWindeck/liquid-glass](https://github.com/JulianWindeck/liquid-glass) — `NSGlassEffectView` variant reference used for the HUD and glyph strip glass finishes.
 
 ---
 

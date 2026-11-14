@@ -48,7 +48,13 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `theme` / `mode` | String | `default` / `auto` | theme names / `light‖dark‖auto` | Color theme / appearance |
 | `backgroundAlpha` | Double | 0.3 | 0.0–1.0 | Shared HUD opacity when `matchBackgroundOpacity` is on; legacy fallback otherwise |
 | `backgroundStyle` | String | `glass` | `glass‖solid‖transparent` | HUD background style |
-| `glassStyle` | String | `opaque` | `clear‖opaque‖tinted` | Glass sub-type; only read when `backgroundStyle` is `glass`. Legacy `frosted` reads as `opaque` |
+| `glassStyle` | String | `regular` | `clear‖regular‖tinted` | Glass sub-type; only read when `backgroundStyle` is `glass` |
+| `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` | Int | 11 / 5 / 2 | 0...21 | Private glass finish per style |
+| `glassTintedMaterial` | String | `clear` | `clear‖regular` | Material under the tint |
+| `spacesMatchBackground` | Bool | true | — | Clear cells over the panel material |
+| `spacesBackgroundStyle` | String | `glass` | `none‖solid‖glass` | Per-cell fill when not matching |
+| `spacesGlassStyle` | String | `clear` | `clear‖regular‖tinted` | Cell glass sub-type |
+| `spacesOpacity` / `spacesCornerRadius` | Double | 0.5 / 4 | 0...1 / 0...60 | Cell fill opacity and radius |
 | `glassClearOpacity` / `glassOpaqueOpacity` / `glassTintedOpacity` / `solidOpacity` | Double | inherits `backgroundAlpha` (clear: 15% of it) | 0.0–1.0 | Per-style HUD opacity. Transparent ignores opacity |
 | `matchBackgroundOpacity` | Bool | false | — | Link every HUD style to `backgroundAlpha` instead of per-style values |
 | `hudShadow` | Bool | true | — | HUD panel shadow |
