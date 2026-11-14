@@ -459,6 +459,7 @@ make app-universal
 ## Thank you
 
 - [JulianWindeck/liquid-glass](https://github.com/JulianWindeck/liquid-glass) — `NSGlassEffectView` variant reference used for the HUD and glyph strip glass finishes.
+- [kvndrsslr/sketchybar-app-font](https://github.com/kvndrsslr/sketchybar-app-font) (CC0-1.0) — app icon glyph font and app-name metadata. The Glyph Strip draws every window icon from it by default; the font and its lookup data are bundled with the app.
 
 ---
 
