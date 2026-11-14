@@ -138,7 +138,11 @@ Stores parsed configuration values.
 | `backgroundAlpha` | `Double` | `backgroundAlpha` |
 | `backgroundStyle` | `HUDBackgroundStyle` | `backgroundStyle` |
 | `glassStyle` | `HUDGlassStyle` | `glassStyle` |
-| `glassClearOpacity` / `glassOpaqueOpacity` / `glassTintedOpacity` | `Double` | same |
+| `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` | `Double` | same |
+| `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` | `Int` | same |
+| `glassTintedMaterial` | `HUDGlassMaterial` | `glassTintedMaterial` |
+| `hudCornerRadius` | `Double` | `hudCornerRadius` |
+| `spaces*` | — | `spacesMatchBackground`, `spacesBackgroundStyle`, `spacesGlassStyle`, `spacesGlass*Variant`, `spacesGlassTintedMaterial`, `spacesOpacity`, `spacesCornerRadius` |
 | `solidOpacity` | `Double` | `solidOpacity` |
 | `matchBackgroundOpacity` | `Bool` | `matchBackgroundOpacity` |
 | `hudShadow` | `Bool` | `hudShadow` |

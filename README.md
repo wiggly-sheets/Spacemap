@@ -442,7 +442,7 @@ make app-universal
 | [Security policy](SECURITY.md) | Report a vulnerability responsibly |
 | [Contributing](CONTRIBUTING.md) | Contribute code or documentation |
 | [Developer guide](DEVELOPER.md) | Technical implementation notes |
-| [Reference](REFERENCE.md) | Detailed config and command reference |
+| [Reference](DesignDocs/REFERENCE.md) | Detailed config and command reference |
 | [Roadmap](DesignDocs/TASKS.md) | Planned work and known issues |
 | [Changelog](CHANGELOG.md) | Release history |
 
