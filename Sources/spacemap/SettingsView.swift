@@ -99,6 +99,7 @@ struct SettingsView: View {
     @State private var showHUDInteractionFeedback: Bool = true
     @State private var hudAnimationsEnabled: Bool = true
     @State private var hudAnimationStyle: HUDAnimationStyle = .natural
+    @State private var hudEntranceStyle: HUDEntranceStyle = .fade
     @State private var lastCustomHUDX: Double = 0.5
     @State private var lastCustomHUDY: Double = 0.5
 
@@ -200,6 +201,7 @@ struct SettingsView: View {
         _showHUDInteractionFeedback = State(initialValue: config.showHUDInteractionFeedback)
         _hudAnimationsEnabled = State(initialValue: config.hudAnimationsEnabled)
         _hudAnimationStyle = State(initialValue: config.hudAnimationStyle)
+        _hudEntranceStyle = State(initialValue: config.hudEntranceStyle)
         _spaceNameInputs = State(initialValue: config.spaceNames)
         _spaceNameProfiles = State(initialValue: config.spaceNameProfiles)
         _activeSpaceNameProfileIndex = State(initialValue: config.activeSpaceNameProfileIndex)
@@ -309,6 +311,7 @@ struct SettingsView: View {
             showThumbnailWallpaper: showThumbnailWallpaper,
             hudAnimationsEnabled: hudAnimationsEnabled,
             hudAnimationStyle: hudAnimationStyle,
+            hudEntranceStyle: hudEntranceStyle,
             updateMode: updateMode,
             spaceNameProfiles: spaceNameProfiles,
             activeSpaceNameProfileIndex: activeSpaceNameProfileIndex
@@ -407,6 +410,7 @@ struct SettingsView: View {
                     showHUDInteractionFeedback: $showHUDInteractionFeedback,
                     hudAnimationsEnabled: $hudAnimationsEnabled,
                     hudAnimationStyle: $hudAnimationStyle,
+                    hudEntranceStyle: $hudEntranceStyle,
                     presence: $presence,
                     menuBarDisplayMode: $menuBarDisplayMode,
                     menuBarNearbyCount: $menuBarNearbyCount,

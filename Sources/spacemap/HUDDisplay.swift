@@ -467,10 +467,14 @@ final class HUDDisplay {
             panel.orderFrontRegardless()
             return
         }
+        let target = panel.frame
+        let start = entranceFrame(currentConfig.hudEntranceStyle, for: panel) ?? target
         panel.alphaValue = 0
+        panel.setFrame(start, display: false)
         panel.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = currentConfig.hudAnimationStyle.fadeDuration
+            panel.animator().setFrame(target, display: true)
             panel.animator().alphaValue = 1
         }
     }
@@ -480,12 +484,39 @@ final class HUDDisplay {
             panel.orderOut(nil)
             return
         }
+        let target = panel.frame
+        let end = entranceFrame(currentConfig.hudEntranceStyle, for: panel) ?? target
         NSAnimationContext.runAnimationGroup { context in
             context.duration = currentConfig.hudAnimationStyle.fadeDuration
+            panel.animator().setFrame(end, display: true)
             panel.animator().alphaValue = 0
         } completionHandler: {
             panel.orderOut(nil)
+            panel.setFrame(target, display: false)
             panel.alphaValue = 1
+        }
+    }
+
+    /// Frame the panel animates from or to for an entrance style. `nil` means
+    /// a plain fade. Slides leave the screen from a chosen edge; scale grows
+    /// from a slightly smaller frame.
+    private func entranceFrame(_ style: HUDEntranceStyle, for panel: NSPanel) -> CGRect? {
+        guard let screen = panel.screen ?? NSScreen.main else { return nil }
+        let frame = panel.frame
+        let area = screen.frame
+        switch style {
+        case .fade:
+            return nil
+        case .slideFromLeft:
+            return frame.offsetBy(dx: area.minX - frame.maxX, dy: 0)
+        case .slideFromRight:
+            return frame.offsetBy(dx: area.maxX - frame.minX, dy: 0)
+        case .slideFromTop:
+            return frame.offsetBy(dx: 0, dy: area.maxY - frame.minY)
+        case .slideFromBottom:
+            return frame.offsetBy(dx: 0, dy: area.minY - frame.maxY)
+        case .scale:
+            return frame.insetBy(dx: frame.width * 0.04, dy: frame.height * 0.04)
         }
     }
 

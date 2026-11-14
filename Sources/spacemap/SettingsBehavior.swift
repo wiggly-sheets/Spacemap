@@ -24,6 +24,7 @@ struct SettingsBehavior: View {
     @Binding var showHUDInteractionFeedback: Bool
     @Binding var hudAnimationsEnabled: Bool
     @Binding var hudAnimationStyle: HUDAnimationStyle
+    @Binding var hudEntranceStyle: HUDEntranceStyle
     @Binding var presence: AppPresence
     @Binding var menuBarDisplayMode: MenuBarDisplayMode
     @Binding var menuBarNearbyCount: Int
@@ -178,6 +179,15 @@ struct SettingsBehavior: View {
             Toggle("HUD Animations", isOn: $hudAnimationsEnabled)
                 .onChange(of: hudAnimationsEnabled) { _ in onSave() }
             if hudAnimationsEnabled {
+                Picker("Entrance", selection: $hudEntranceStyle) {
+                    ForEach(HUDEntranceStyle.allCases) { style in
+                        Text(style.label).tag(style)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: hudEntranceStyle) { _ in onSave() }
+                SettingsFootnote(text: "How the HUD arrives and leaves. Slide starts it just outside that screen edge; Scale grows it from a slightly smaller frame.")
+
                 Picker("Motion", selection: $hudAnimationStyle) {
                     ForEach(HUDAnimationStyle.allCases) { style in
                         Text(style.label).tag(style)
@@ -185,6 +195,7 @@ struct SettingsBehavior: View {
                 }
                 .pickerStyle(.menu)
                 .onChange(of: hudAnimationStyle) { _ in onSave() }
+                SettingsFootnote(text: "Natural is a calm ease. Springy overshoots and bounces back. Fast is the quickest.")
             }
             SettingsFootnote(text: "Animates the HUD fade, space highlights, and add or delete changes. Off makes every change instant.")
 

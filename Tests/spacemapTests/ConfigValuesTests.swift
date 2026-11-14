@@ -279,12 +279,15 @@ final class ConfigValuesTests: XCTestCase {
     func testHUDAnimationDefaultsAndRoundTrips() {
         XCTAssertTrue(GridConfig.default.hudAnimationsEnabled)
         XCTAssertEqual(GridConfig.default.hudAnimationStyle, .natural)
+        XCTAssertEqual(GridConfig.default.hudEntranceStyle, .fade)
         var values = ConfigValues()
         values.hudAnimationsEnabled = false
         values.hudAnimationStyle = .springy
+        values.hudEntranceStyle = .slideFromLeft
         let grid = values.toGridConfig().config
         XCTAssertFalse(grid.hudAnimationsEnabled)
         XCTAssertEqual(grid.hudAnimationStyle, .springy)
+        XCTAssertEqual(grid.hudEntranceStyle, .slideFromLeft)
     }
 
     func testHUDInteractionFeedbackDefaultsOnAndRoundTrips() {
