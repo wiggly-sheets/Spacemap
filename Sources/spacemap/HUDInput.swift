@@ -424,6 +424,8 @@ final class HUDInput {
         onNumberEntry?(nil)
     }
 
+    /// Never swallow a key the HUD does not act on. A stale or revoked tap
+    /// then cannot lock out the keyboard; only HUD shortcuts are captured.
     static func shouldConsumeKeyboardEvent(
         isTrusted: Bool,
         isVisible: Bool,
@@ -432,8 +434,6 @@ final class HUDInput {
         action: InputAction
     ) -> Bool {
         guard isTrusted, isVisible else { return false }
-        guard type == .keyDown || type == .keyUp else { return false }
-        guard isPinned else { return true }
         guard type == .keyDown else { return false }
         switch action {
         case .none:
@@ -492,7 +492,7 @@ final class HUDInput {
                     return Unmanaged.passUnretained(event)
                 }
                 if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                    input.handleDisabledKeyboardTap()
+                    input.handleDisabledKeyboardTap(reason: type)
                     return Unmanaged.passUnretained(event)
                 }
                 guard input.isVisible else { return Unmanaged.passUnretained(event) }
@@ -571,7 +571,19 @@ final class HUDInput {
     /// Rare path: the system disabled the tap (timeout/user input). Re-check
     /// trust instead of blindly re-enabling, so a revocation disables capture
     /// and notifies the owner; a re-grant re-installs via reconciliation.
-    func handleDisabledKeyboardTap() {
+    func handleDisabledKeyboardTap(reason: CGEventType = .tapDisabledByTimeout) {
+        // A tap the system disabled on behalf of the user is suspect. Drop it
+        // and build a fresh one only when trust still reads true; a revoked
+        // permission makes that creation fail and leaves the keyboard free.
+        if reason == .tapDisabledByUserInput {
+            stopSettingsKeyMonitor()
+            if accessibilityTrustProvider() {
+                startSettingsKeyMonitor()
+            } else {
+                handleAccessibilityState(isTrusted: false)
+            }
+            return
+        }
         guard accessibilityTrustProvider() else {
             DispatchQueue.main.async { [weak self] in
                 self?.handleAccessibilityState(isTrusted: false)
