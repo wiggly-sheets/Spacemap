@@ -196,6 +196,14 @@ struct GridView: View {
             showMultiAppIcons: state.config.showMultiAppIcons,
             showExtraWindows: state.config.showExtraWindows
         )
+        .scaleEffect(cellIsDropTarget ? 1.04 : 1)
+        .animation(hudAnimation?.animation, value: cellIsDropTarget)
+        .transition(
+            .asymmetric(
+                insertion: .scale(scale: 0.85).combined(with: .opacity),
+                removal: .opacity
+            )
+        )
     }
     
     private var spaceBackground: CellSpaceBackground {
