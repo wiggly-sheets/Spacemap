@@ -206,7 +206,7 @@ final class GlyphStripTests: XCTestCase {
 
         let space4 = try XCTUnwrap(segments.first)
         XCTAssertEqual(space4.spaceIndex, 4, "a real empty space is a space, not a missing one")
-        XCTAssertEqual(space4.runs, [.index("4"), .placeholder])
+        XCTAssertEqual(space4.runs, [.index("4b"), .placeholder])
     }
 
     func testDisplaySeparatorComparesRenderedNeighboursWithGappedIndexes() {
@@ -473,7 +473,7 @@ final class GlyphStripTests: XCTestCase {
             font: nil
         )
 
-        XCTAssertEqual(segments[0].runs, [.index("1"), .placeholder])
+        XCTAssertEqual(segments[0].runs, [.index("1b"), .placeholder])
     }
 
     func testFloatAndStackSpacesGetLayoutSuffix() {
@@ -486,7 +486,7 @@ final class GlyphStripTests: XCTestCase {
             font: nil
         )
 
-        XCTAssertEqual(segments.map { $0.runs.first }, [.index("1"), .index("2f"), .index("3s"), .add])
+        XCTAssertEqual(segments.map { $0.runs.first }, [.index("1b"), .index("2f"), .index("3s"), .add])
     }
 
     func testSeparatorAppearsOnlyBetweenDisplays() {
@@ -548,7 +548,7 @@ final class GlyphStripTests: XCTestCase {
             font: nil
         )
 
-        XCTAssertEqual(segments[0].runs, [.index("1"), .index("GC")])
+        XCTAssertEqual(segments[0].runs, [.index("1b"), .index("GC")])
     }
 
     // MARK: - [glyphStrip] table
@@ -601,7 +601,7 @@ final class GlyphStripTests: XCTestCase {
         options.maxIconsPerSpace = 2
 
         let runs = singleSegment(options, windows: mixedWindows).runs
-        XCTAssertEqual(runs, [.index("1"), .index("S"), .index("S"), .overflow(1)],
+        XCTAssertEqual(runs, [.index("1b"), .index("S"), .index("S"), .overflow(1)],
                        "two of three windows fit, the third becomes +1")
     }
 
@@ -634,7 +634,7 @@ final class GlyphStripTests: XCTestCase {
         var options = GlyphStrip.Options(.default)
         options.showPlaceholders = false
 
-        XCTAssertEqual(singleSegment(options, windows: []).runs, [.index("1")])
+        XCTAssertEqual(singleSegment(options, windows: []).runs, [.index("1b")])
     }
 
     // MARK: - Click actions
@@ -993,6 +993,40 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertTrue(slots.allSatisfy { $0.width == bounds.width && $0.minX == bounds.minX })
     }
 
+    func testAutoResizeMaxLengthDefaultsOffAndDecodes() {
+        var strip = GlyphStripConfig.default
+        XCTAssertEqual(strip.autoResizeMaxLength, 0)
+
+        strip.autoResizeMaxLength = 6000
+        XCTAssertEqual(strip.clamped().autoResizeMaxLength, 4000)
+        strip.autoResizeMaxLength = -10
+        XCTAssertEqual(strip.clamped().autoResizeMaxLength, 0)
+
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nautoResizeMaxLength = 420")?.autoResizeMaxLength, 420)
+    }
+
+    func testVerticalColumnSlotsWrapInsteadOfOverflowing() {
+        let bounds = CGRect(x: 0, y: 0, width: 100, height: 50)
+        let slots = GlyphStrip.verticalColumnSlots(
+            heights: [20, 20, 20],
+            in: bounds,
+            available: 50,
+            columnGap: 8
+        )
+        XCTAssertEqual(GlyphStrip.verticalColumnCount(totalHeight: 60, available: 50), 2)
+        XCTAssertEqual(slots.count, 3)
+        XCTAssertEqual(slots[0].maxY, 50)
+        XCTAssertEqual(slots[1].maxY, 30)
+        XCTAssertEqual(slots[2].maxY, 50)
+        XCTAssertGreaterThan(slots[2].minX, slots[0].minX)
+        XCTAssertEqual(slots[0].width, 46)
+    }
+
+    func testVerticalColumnCountStaysOneWhenItFits() {
+        XCTAssertEqual(GlyphStrip.verticalColumnCount(totalHeight: 40, available: 50), 1)
+        XCTAssertEqual(GlyphStrip.verticalColumnCount(totalHeight: 50, available: 50), 1)
+    }
+
     func testStackedLinesFillTheSlotTopDown() {
         let slot = CGRect(x: 4, y: 10, width: 40, height: 96)
         let lines = GlyphStrip.stackedLines(
@@ -1021,6 +1055,22 @@ final class GlyphStripTests: XCTestCase {
             decodeGlyphStrip("[glyphStrip]\nverticalLayout = \"nonsense\"")?.verticalLayout,
             .inline
         )
+    }
+
+    func testLayoutSuffixFiltersEachSpaceType() {
+        XCTAssertEqual(GlyphStrip.layoutSuffix(forSpaceType: "bsp"), "b")
+        XCTAssertEqual(GlyphStrip.layoutSuffix(forSpaceType: "bsp", showBSP: false), "")
+        XCTAssertEqual(GlyphStrip.layoutSuffix(forSpaceType: "stack", showStack: false), "")
+        XCTAssertEqual(GlyphStrip.layoutSuffix(forSpaceType: "float", showFloat: false), "")
+        XCTAssertEqual(GlyphStrip.layoutSuffix(forSpaceType: "float", showStack: false), "f")
+
+        var strip = GlyphStripConfig.default
+        XCTAssertTrue(strip.showBSPLayoutBadge)
+        strip.showBSPLayoutBadge = false
+        strip.verticalPadding = 99
+        XCTAssertFalse(GlyphStrip.Options(strip.clamped()).showBSPLayoutBadge)
+        XCTAssertEqual(strip.clamped().verticalPadding, 40)
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nverticalPadding = 12")?.verticalPadding, 12)
     }
 
     func testHideInFullscreenDefaultsOffAndDecodes() {
@@ -1904,6 +1954,11 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         let generationBeforeHide = controller.refreshGeneration
 
         controller.toggleVisibilityByHotkey()
+        // Hide fades before ordering out.
+        let deadline = Date().addingTimeInterval(1)
+        while panel.isVisible, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
 
         XCTAssertFalse(panel.isVisible)
         XCTAssertGreaterThan(controller.refreshGeneration, generationBeforeHide)

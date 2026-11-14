@@ -60,6 +60,9 @@ struct SettingsGlyphStrip: View {
                     }
                     .onChange(of: glyphStrip.verticalLayout) { _ in onSave() }
                     SettingsFootnote(text: "Beside Numbers keeps each space on one row. Under Numbers puts the space number on top and stacks its icons beneath it.")
+                    stepper("Vertical Padding", value: $glyphStrip.verticalPadding, range: 0...40, step: 1)
+                        .onChange(of: glyphStrip.verticalPadding) { _ in onSave() }
+                    SettingsFootnote(text: "Space above and below the strip contents. Only applies to vertical layouts.")
                 }
                 SettingsFootnote(text: "Vertical stacks one space per row, for a strip on a screen edge. Drag the strip to place it anywhere on screen; its position is saved automatically.")
                 Toggle("Lock Position", isOn: $glyphStrip.lockPosition)
@@ -76,9 +79,17 @@ struct SettingsGlyphStrip: View {
             Section(header: SettingsSectionHeader(title: "Contents").settingsAnchor("glyphStrip.contents")) {
                 Toggle(showSpaceNumbersTitle, isOn: $glyphStrip.showSpaceNumbers)
                     .onChange(of: glyphStrip.showSpaceNumbers) { _ in onSave() }
-                Toggle("Show Layout Suffix (f / s)", isOn: $glyphStrip.showLayoutSuffix)
+                Toggle("Show Layout Suffix (f / s / b)", isOn: $glyphStrip.showLayoutSuffix)
                     .onChange(of: glyphStrip.showLayoutSuffix) { _ in onSave() }
-                SettingsFootnote(text: "Floating spaces are marked f, stack spaces s, bsp spaces unmarked.")
+                if glyphStrip.showLayoutSuffix {
+                    Toggle("Show BSP Layout (b)", isOn: $glyphStrip.showBSPLayoutBadge)
+                        .onChange(of: glyphStrip.showBSPLayoutBadge) { _ in onSave() }
+                    Toggle("Show Stack Layout (s)", isOn: $glyphStrip.showStackLayoutBadge)
+                        .onChange(of: glyphStrip.showStackLayoutBadge) { _ in onSave() }
+                    Toggle("Show Float Layout (f)", isOn: $glyphStrip.showFloatLayoutBadge)
+                        .onChange(of: glyphStrip.showFloatLayoutBadge) { _ in onSave() }
+                }
+                SettingsFootnote(text: "Floating spaces are marked f, stack spaces s, bsp spaces b. Each letter can be hidden.")
                 Toggle("Show App Icons", isOn: $glyphStrip.showAppIcons)
                     .onChange(of: glyphStrip.showAppIcons) { _ in onSave() }
                 Picker("Icon Source", selection: $glyphStrip.iconSource) {
@@ -131,6 +142,9 @@ struct SettingsGlyphStrip: View {
                 stepper("Index Padding", value: $glyphStrip.indexPadding, range: 0...20, step: 0.5)
                     .onChange(of: glyphStrip.indexPadding) { _ in onSave() }
                 SettingsFootnote(text: "Icon Spacing is the gap between two app icons, and between stacked icon lines. Index Padding is the gap between a space's number and its first icon, horizontal or stacked.")
+                stepper("Maximum Length", value: $glyphStrip.autoResizeMaxLength, range: 0...2000, step: 25)
+                    .onChange(of: glyphStrip.autoResizeMaxLength) { _ in onSave() }
+                SettingsFootnote(text: "Shrinks glyphs to keep the strip inside this length (width when horizontal, height when vertical). 0 keeps the configured sizes however long the strip grows.")
                 Toggle("Highlight Current Space", isOn: $glyphStrip.highlightCurrentSpace)
                     .onChange(of: glyphStrip.highlightCurrentSpace) { _ in onSave() }
                 SettingsFootnote(text: "Colours come from the \(effectiveThemeName.capitalized) theme — the current space, the + button and the hover highlight use focused, everything else uses text. No per-element colour keys.")
