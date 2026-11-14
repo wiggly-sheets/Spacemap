@@ -359,6 +359,26 @@ final class HUDInputTests: XCTestCase {
         XCTAssertFalse(input.cachedAccessibilityTrusted)
     }
 
+    func testPermissionProbeReportsAStallInsteadOfBlockingTheCaller() {
+        let probe = PermissionProbe()
+        let first = expectation(description: "hung provider eventually answers")
+        probe.check(timeout: 0.05, provider: { Thread.sleep(forTimeInterval: 0.2); return true }) { trusted in
+            XCTAssertTrue(trusted)
+            first.fulfill()
+        }
+
+        let stalled = expectation(description: "second call reports no permission")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+            probe.check(timeout: 0.05, provider: { true }) { trusted in
+                XCTAssertFalse(trusted)
+                XCTAssertTrue(probe.isStalled)
+                stalled.fulfill()
+            }
+        }
+
+        wait(for: [first, stalled], timeout: 2)
+    }
+
     func testDisabledKeyboardTapRechecksTrustAndNotifiesRevocation() {
         let input = HUDInput(panel: nil)
         input.updateVisibility(true)

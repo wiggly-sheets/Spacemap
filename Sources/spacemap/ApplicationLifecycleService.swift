@@ -141,6 +141,7 @@ final class ApplicationLifecycleService {
                 SystemPermissions.requestScreenRecording()
             }
 
+            AccessibilityHealthMonitor.shared.start()
             self.services.configureSparkleUpdater(updateMode: config.updateMode)
 
             if config.appFont.updateMode == .auto {

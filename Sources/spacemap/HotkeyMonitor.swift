@@ -281,6 +281,27 @@ final class HotkeyTapRouter {
 
     /// Main-thread only: the tap, its run loop, and the health timer are all
     /// main-thread state. The tap callback itself runs on `tapThread`.
+    /// Timer path: ask TCC off the main thread so a revocation cannot block
+    /// the event stream, then apply the answer here.
+    private func probeTrustAndReconcile() {
+        let provider = trustProvider
+        PermissionProbe.shared.check(provider: provider) { [weak self] isTrusted in
+            guard let self else { return }
+            self.setTrustState(isTrusted)
+            if self.lastTrustState != isTrusted {
+                NSLog(isTrusted
+                    ? "Spacemap/Hotkey: accessibility granted"
+                    : "Spacemap/Hotkey: accessibility unavailable; waiting for permission")
+                self.lastTrustState = isTrusted
+            }
+            guard isTrusted else {
+                self.tearDownEventTap()
+                return
+            }
+            self.reconcileEventTap()
+        }
+    }
+
     func reconcile(promptIfNeeded: Bool) {
         dispatchPrecondition(condition: .onQueue(.main))
         guard hasBindings else {
@@ -345,7 +366,7 @@ final class HotkeyTapRouter {
     private func startHealthTimer() {
         guard healthTimer == nil else { return }
         let timer = Timer(timeInterval: Self.healthCheckInterval, repeats: true) { [weak self] _ in
-            self?.reconcile(promptIfNeeded: false)
+            self?.probeTrustAndReconcile()
         }
         RunLoop.main.add(timer, forMode: .common)
         healthTimer = timer

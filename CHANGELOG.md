@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Advanced pane now reports Accessibility and Screen Recording status with request buttons and deep links into the matching System Settings panes. Thumbnail cells request Screen Recording the first time they are selected, and the app asks on launch when thumbnails are already configured.
 
 ### Fixed
+- Permission checks no longer run on the main thread. TCC can stall while Spacemap is removed from Device Control & Access; the probe times out and tears its event taps down instead of freezing every click and key. Event taps are disabled before their run-loop source is detached, and a revoked HUD tap relaunches Spacemap so the WindowServer always releases the old tap.
 - The HUD no longer swallows every key while visible. It captures only key presses it acts on, so a stale or revoked Accessibility tap cannot lock out the keyboard.
 - A glyph strip can be dragged to any screen edge again; the safe area now only decides when a tall strip wraps, not where the pointer may place it.
 - Auto-resize stops shrinking at 60% and 8pt type instead of collapsing to 4pt, so a short Maximum Length cannot make the strip unreadable.

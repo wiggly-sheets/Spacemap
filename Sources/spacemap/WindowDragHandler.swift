@@ -211,10 +211,22 @@ class WindowDragHandler: WindowDragService {
     private func startHealthTimer() {
         guard healthTimer == nil else { return }
         let timer = Timer(timeInterval: Self.healthCheckInterval, repeats: true) { [weak self] _ in
-            self?.reconcileEventTap()
+            self?.probePermissionAndReconcile()
         }
         RunLoop.main.add(timer, forMode: .common)
         healthTimer = timer
+    }
+
+    /// Timer path: the permission check can block while TCC is being edited,
+    /// so run it off-main and only touch the tap here.
+    private func probePermissionAndReconcile() {
+        let provider = permissionCheck
+        PermissionProbe.shared.check(provider: provider) { [weak self] permitted in
+            guard let self else { return }
+            self.lastPermissionCheckTime = ProcessInfo.processInfo.systemUptime
+            self.cachedPermission = permitted
+            self.reconcileEventTap()
+        }
     }
 
     private func installEventTap() {
@@ -263,14 +275,16 @@ class WindowDragHandler: WindowDragService {
     }
 
     private func tearDownEventTap() {
-        if let source = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        }
+        // Disable before detaching the source; a tap with no callback stalls
+        // the session event stream.
         if let tap = eventTap {
             if CFMachPortIsValid(tap) {
                 CGEvent.tapEnable(tap: tap, enable: false)
             }
             CFMachPortInvalidate(tap)
+        }
+        if let source = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         }
         eventTap = nil
         runLoopSource = nil

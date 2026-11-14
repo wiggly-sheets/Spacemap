@@ -539,15 +539,18 @@ final class HUDInput {
         guard trustWatchdog == nil else { return }
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self else { return }
-            let trusted = self.accessibilityTrustProvider()
-            guard trusted != self.cachedAccessibilityTrusted else {
-                // Untrusted but still cached true? The tap must go regardless.
-                if !trusted, self.keyboardEventTap != nil {
-                    self.handleAccessibilityState(isTrusted: false)
+            let provider = self.accessibilityTrustProvider
+            PermissionProbe.shared.check(provider: provider) { [weak self] trusted in
+                guard let self else { return }
+                guard trusted != self.cachedAccessibilityTrusted else {
+                    // Untrusted but still cached true? The tap must go regardless.
+                    if !trusted, self.keyboardEventTap != nil {
+                        self.handleAccessibilityState(isTrusted: false)
+                    }
+                    return
                 }
-                return
+                self.handleAccessibilityState(isTrusted: trusted)
             }
-            self.handleAccessibilityState(isTrusted: trusted)
         }
         RunLoop.main.add(timer, forMode: .common)
         trustWatchdog = timer
@@ -563,9 +566,11 @@ final class HUDInput {
     /// (which would hide a mouse-usable HUD). Once trusted, any transition in
     /// either direction is applied.
     private func reconcileAccessibilityFromPoll() {
-        let trustedNow = accessibilityTrustProvider()
-        guard trustedNow || cachedAccessibilityTrusted || keyboardEventTap != nil else { return }
-        handleAccessibilityState(isTrusted: trustedNow)
+        guard cachedAccessibilityTrusted || keyboardEventTap != nil else { return }
+        PermissionProbe.shared.check(provider: accessibilityTrustProvider) { [weak self] trustedNow in
+            guard let self, trustedNow || self.cachedAccessibilityTrusted || self.keyboardEventTap != nil else { return }
+            self.handleAccessibilityState(isTrusted: trustedNow)
+        }
     }
 
     /// Rare path: the system disabled the tap (timeout/user input). Re-check
@@ -577,30 +582,42 @@ final class HUDInput {
         // permission makes that creation fail and leaves the keyboard free.
         if reason == .tapDisabledByUserInput {
             stopSettingsKeyMonitor()
-            if accessibilityTrustProvider() {
-                startSettingsKeyMonitor()
-            } else {
-                handleAccessibilityState(isTrusted: false)
+            PermissionProbe.shared.check(provider: accessibilityTrustProvider) { [weak self] trusted in
+                guard let self else { return }
+                if trusted {
+                    self.startSettingsKeyMonitor()
+                } else {
+                    self.handleAccessibilityState(isTrusted: false)
+                }
             }
             return
         }
-        guard accessibilityTrustProvider() else {
-            DispatchQueue.main.async { [weak self] in
-                self?.handleAccessibilityState(isTrusted: false)
+        PermissionProbe.shared.check(provider: accessibilityTrustProvider) { [weak self] trusted in
+            guard let self else { return }
+            guard trusted else {
+                self.handleAccessibilityState(isTrusted: false)
+                return
             }
-            return
-        }
-        if let tap = keyboardEventTap, CFMachPortIsValid(tap) {
-            CGEvent.tapEnable(tap: tap, enable: true)
+            if let tap = self.keyboardEventTap, CFMachPortIsValid(tap) {
+                CGEvent.tapEnable(tap: tap, enable: true)
+            }
         }
     }
 
     func handleAccessibilityState(isTrusted: Bool) {
         cachedAccessibilityTrusted = isTrusted
         guard isTrusted else {
-            if keyboardEventTap != nil {
+            let hadTap = keyboardEventTap != nil
+            if hadTap {
                 NSLog("spacemap/HUDInput: Accessibility revoked; releasing keyboard capture")
                 stopSettingsKeyMonitor()
+                // A revoked TCC entry can leave the WindowServer-side tap
+                // registered even after invalidation. Replacing the process is
+                // the only reliable release, and it is what a manual restart
+                // does today.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    SystemPermissions.relaunch()
+                }
             }
             if isVisible, !didNotifyAccessibilityRevocation {
                 didNotifyAccessibilityRevocation = true
@@ -636,14 +653,17 @@ final class HUDInput {
     }
 
     private func stopSettingsKeyMonitor() {
-        if let source = keyboardRunLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        }
+        // Disable while the source is still attached. Removing the source first
+        // leaves a window where the WindowServer waits for a callback that can
+        // no longer run, which freezes the whole input stream.
         if let tap = keyboardEventTap {
             if CFMachPortIsValid(tap) {
                 CGEvent.tapEnable(tap: tap, enable: false)
             }
             CFMachPortInvalidate(tap)
+        }
+        if let source = keyboardRunLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
         }
         keyboardRunLoopSource = nil
         keyboardEventTap = nil

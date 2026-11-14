@@ -214,7 +214,19 @@ final class GlyphStripPanelController: NSObject {
             update(config: config)
             return
         }
-        let shouldHide = fullscreenWindowOnFocusedSpace() ?? Self.hasFullscreenAppInFront()
+        if let yabaiAnswer = fullscreenWindowOnFocusedSpace() {
+            applyFullscreenVisibility(yabaiAnswer)
+            return
+        }
+        // Accessibility can stall while permissions are edited. Never ask on
+        // the main thread; fall back to geometry when the probe is unhealthy.
+        PermissionProbe.shared.check(provider: { AXIsProcessTrusted() }) { [weak self] trusted in
+            guard let self else { return }
+            self.applyFullscreenVisibility(Self.hasFullscreenAppInFront(trusted: trusted))
+        }
+    }
+
+    private func applyFullscreenVisibility(_ shouldHide: Bool) {
         guard shouldHide != hiddenByFullscreen else { return }
         hiddenByFullscreen = shouldHide
         if shouldHide {
@@ -241,8 +253,9 @@ final class GlyphStripPanelController: NSObject {
     /// of the fullscreen animation. Falls back to window geometry when
     /// Accessibility is not granted. A menu-bar app can report itself as
     /// frontmost, so that case resolves the app from the front layer-0 window.
-    static func hasFullscreenAppInFront() -> Bool {
-        guard AXIsProcessTrusted() else { return frontWindowCoversDisplay() }
+    static func hasFullscreenAppInFront(trusted: Bool? = nil) -> Bool {
+        let isTrusted = trusted ?? (PermissionProbe.shared.isStalled ? false : AXIsProcessTrusted())
+        guard isTrusted else { return frontWindowCoversDisplay() }
         let ownPID = ProcessInfo.processInfo.processIdentifier
         var pid = NSWorkspace.shared.frontmostApplication?.processIdentifier
         if pid == nil || pid == ownPID {
