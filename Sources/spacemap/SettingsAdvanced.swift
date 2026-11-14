@@ -28,16 +28,30 @@ struct SettingsAdvanced: View {
                     title: "Accessibility",
                     detail: "Needed for hotkeys and window dragging. macOS 27 shows this as Device Control & Access.",
                     isGranted: hasAccessibility,
-                    request: { SystemPermissions.requestAccessibility(); refresh() },
-                    openSettings: { SystemPermissions.openAccessibilitySettings() }
+                    request: {
+                        SystemPermissions.requestAccessibility()
+                        PermissionDragWindowController.shared.show()
+                        refresh()
+                    },
+                    openSettings: {
+                        SystemPermissions.openAccessibilitySettings()
+                        PermissionDragWindowController.shared.show()
+                    }
                 )
 
                 PermissionRow(
                     title: "Screen Recording",
                     detail: "Needed for thumbnail cells. Without it, thumbnails stay empty.",
                     isGranted: hasScreenRecording,
-                    request: { SystemPermissions.requestScreenRecordingOrOpenSettings(); refresh() },
-                    openSettings: { SystemPermissions.openScreenRecordingSettings() }
+                    request: {
+                        SystemPermissions.requestScreenRecordingOrOpenSettings()
+                        PermissionDragWindowController.shared.show()
+                        refresh()
+                    },
+                    openSettings: {
+                        SystemPermissions.openScreenRecordingSettings()
+                        PermissionDragWindowController.shared.show()
+                    }
                 )
 
                 SettingsFootnote(text: "After changing a permission in System Settings, come back to this window; the status refreshes automatically. macOS only shows its own prompt once, so a later request opens System Settings instead.")

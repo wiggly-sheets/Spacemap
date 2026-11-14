@@ -132,6 +132,11 @@ final class ApplicationLifecycleService {
 
             self.setupSettingsObserver()
 
+            if !SystemPermissions.hasAccessibility {
+                SystemPermissions.requestAccessibility()
+                PermissionDragWindowController.shared.show()
+            }
+
             if config.cellStyle == .thumbnails, !SystemPermissions.hasScreenRecording {
                 SystemPermissions.requestScreenRecording()
             }
