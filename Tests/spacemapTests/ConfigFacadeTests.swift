@@ -201,7 +201,7 @@ final class ConfigFacadeTests: XCTestCase {
         _ = values.showSpaceNames
         _ = values.showIconStrip
         _ = values.showMultiAppIcons
-        _ = values.hideMenuBarIcon
+        _ = values.presence
         _ = values.menuBarDisplayMode
         _ = values.menuBarNearbyCount
         _ = values.spaceNames

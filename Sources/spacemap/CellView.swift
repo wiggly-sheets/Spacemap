@@ -50,11 +50,16 @@ struct CellView: View {
     }
 
     /// HUD badge for a space layout type: float->f, stack->s, bsp->b.
-    static func spaceLayoutBadge(for type: String?) -> String {
+    static func spaceLayoutBadge(
+        for type: String?,
+        showBSP: Bool = true,
+        showStack: Bool = true,
+        showFloat: Bool = true
+    ) -> String {
         switch type {
-        case "float": return "f"
-        case "stack": return "s"
-        case "bsp": return "b"
+        case "float": return showFloat ? "f" : ""
+        case "stack": return showStack ? "s" : ""
+        case "bsp": return showBSP ? "b" : ""
         default: return ""
         }
     }
@@ -202,7 +207,14 @@ var body: some View {
         case .solid(let color, let opacity):
             RoundedRectangle(cornerRadius: cellCornerRadius).fill(color.opacity(opacity))
         case .glass(let appearance):
-            SpaceGlassView(appearance: appearance)
+            // Thumbnails use SwiftUI glass: a native NSGlassEffectView composites
+            // over SwiftUI drawing and hid the capture. SwiftUI glass keeps the
+            // thumbnail on top; it cannot apply the private AppKit variant.
+            if case .thumbnails = cellStyle {
+                thumbnailGlass(appearance)
+                    .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
+            } else {
+                SpaceGlassView(appearance: appearance)
                 .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
                 .overlay {
                     // Focus and drop still read over the glass; the glass
@@ -210,7 +222,35 @@ var body: some View {
                     RoundedRectangle(cornerRadius: cellCornerRadius)
                         .fill(backgroundColor.opacity(0.45))
                 }
+            }
         }
+    }
+
+    @ViewBuilder
+    private func thumbnailGlass(_ appearance: SpaceGlassAppearance) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cellCornerRadius)
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *), GlassSupport.isAvailable {
+            Color.clear
+                .glassEffect(glassValue(appearance), in: shape)
+                .opacity(appearance.opacity)
+        } else {
+            shape
+                .fill(appearance.material == .clear ? Material.ultraThinMaterial : Material.regularMaterial)
+                .opacity(appearance.opacity)
+        }
+        #else
+        shape
+            .fill(appearance.material == .clear ? Material.ultraThinMaterial : Material.regularMaterial)
+            .opacity(appearance.opacity)
+        #endif
+    }
+
+    @available(macOS 26.0, *)
+    private func glassValue(_ appearance: SpaceGlassAppearance) -> Glass {
+        let base: Glass = appearance.material == .clear ? .clear : .regular
+        guard let tint = appearance.tint else { return base }
+        return base.tint(Color(nsColor: tint))
     }
 
     private var backgroundColor: Color {

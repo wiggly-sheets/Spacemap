@@ -1,63 +1,100 @@
 import SwiftUI
 
+/// Sidebar with one expandable group per pane, mirroring IINA's settings
+/// sidebar. The open group follows the pane's scroll position; clicking a
+/// subsection scrolls the detail pane to that section.
 struct SettingsSidebar: View {
     @Binding var selectedSection: SettingsView.SidebarSection
+    @Binding var currentSubsection: String?
+    let onSelectSection: (SettingsView.SidebarSection) -> Void
+    let onSelectSubsection: (SettingsSubsection) -> Void
+    @State private var expanded: Set<SettingsView.SidebarSection> = [.grid]
 
     var body: some View {
-        #if compiler(>=6.0)
-        if #available(macOS 26.0, *) {
-            List(selection: $selectedSection) {
-                ForEach(SettingsView.SidebarSection.allCases) { section in
-                    row(for: section)
-                        .tag(section)
-                }
-            }
-            .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
-        } else {
-            legacyList
-        }
-        #else
-        legacyList
-        #endif
-    }
-
-    /// Pre-26 sidebar: plain buttons with the hand-drawn accent selection.
-    private var legacyList: some View {
         List {
             ForEach(SettingsView.SidebarSection.allCases) { section in
-                Button {
-                    selectedSection = section
-                } label: {
-                    row(for: section)
+                sectionRow(section)
+                if expanded.contains(section) {
+                    ForEach(section.subsections) { subsection in
+                        subsectionRow(subsection, in: section)
+                    }
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(selectedSection == section ? Color.accentColor : Color.primary)
-                .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
-                .listRowBackground(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(selectedSection == section ? Color.accentColor.opacity(0.18) : Color.clear)
-                )
             }
         }
         .listStyle(.sidebar)
-        .frame(width: 260)
+        .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 320)
+        .background(Color.clear)
+        .onChange(of: selectedSection) { section in
+            expanded = [section]
+        }
+        .onChange(of: currentSubsection) { id in
+            guard let id,
+                  let section = SettingsView.SidebarSection.allCases.first(where: {
+                      $0.subsections.contains(where: { $0.id == id })
+                  }) else { return }
+            expanded = [section]
+        }
     }
 
-    private func row(for section: SettingsView.SidebarSection) -> some View {
-        let isSelected = selectedSection == section
-        return HStack(spacing: 10) {
+    private func sectionRow(_ section: SettingsView.SidebarSection) -> some View {
+        HStack(spacing: 8) {
             Image(systemName: sidebarIcon(for: section))
                 .font(.system(size: 15, weight: .medium))
+                .frame(width: 22)
             Text(section.rawValue)
                 .font(.system(size: 15, weight: .medium))
+            Spacer(minLength: 4)
+            if section.subsections.count > 1 {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(expanded.contains(section) ? 90 : 0))
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, 4)
-        .padding(.vertical, 6)
         .contentShape(Rectangle())
-        .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .onTapGesture {
+            selectedSection = section
+            onSelectSection(section)
+            if expanded.contains(section) {
+                expanded.remove(section)
+            } else {
+                expanded = [section]
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 5, leading: 8, bottom: 5, trailing: 8))
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(selectedSection == section
+                      ? Color.accentColor.opacity(0.18)
+                      : Color.clear)
+        )
+        .accessibilityAddTraits(selectedSection == section ? .isSelected : [])
+        .accessibilityLabel(section.rawValue)
+    }
+
+    private func subsectionRow(
+        _ subsection: SettingsSubsection,
+        in section: SettingsView.SidebarSection
+    ) -> some View {
+        let isCurrent = selectedSection == section && currentSubsection == subsection.id
+        return HStack(spacing: 8) {
+            Text(subsection.title)
+                .font(.system(size: 13))
+                .foregroundStyle(isCurrent ? Color.accentColor : Color.secondary)
+            Spacer(minLength: 0)
+        }
+        .padding(.leading, 30)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selectedSection = section
+            onSelectSubsection(subsection)
+        }
+        .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
+        .listRowBackground(
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(isCurrent ? Color.accentColor.opacity(0.14) : Color.clear)
+        )
+        .accessibilityLabel("\(section.rawValue), \(subsection.title)")
     }
 
     private func sidebarIcon(for section: SettingsView.SidebarSection) -> String {

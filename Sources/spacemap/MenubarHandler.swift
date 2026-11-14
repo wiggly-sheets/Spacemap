@@ -158,7 +158,7 @@ class MenubarHandler: NSObject {
 
     func showMenubarMenu() {
         let config = onGetConfig()
-        let hideAfterClosing = config.hideMenuBarIcon
+        let hideAfterClosing = !config.presence.showsMenuBar
         if statusItem == nil {
             setupMenubar()
         }
@@ -171,7 +171,7 @@ class MenubarHandler: NSObject {
     }
 
     func applyMenubarVisibility(config: GridConfig) {
-        if config.hideMenuBarIcon {
+        if !config.presence.showsMenuBar {
             removeStatusItem()
         } else if statusItem == nil {
             setupMenubar()
@@ -356,13 +356,11 @@ class MenubarHandler: NSObject {
     @objc private func menubarRestartApp() { onRestartApp() }
 
     @objc private func menubarOpenAccessibility() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-        _ = NSWorkspace.shared.open(url)
+        SystemPermissions.openAccessibilitySettings()
     }
 
     @objc private func menubarOpenScreenRecording() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
-        _ = NSWorkspace.shared.open(url)
+        SystemPermissions.openScreenRecordingSettings()
     }
 
     @objc private func menubarToggleLoginAtLabelImpl() {

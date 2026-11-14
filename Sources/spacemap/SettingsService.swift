@@ -6,6 +6,9 @@ final class SettingsService {
     /// Called after the app drops back to an accessory (menu-bar-only) policy,
     /// which orders status-level panels out. The strip re-presents itself here.
     private let restoreFloatingPanels: () -> Void
+    /// Policy to return to when the last regular window closes. Dock presence
+    /// keeps `.regular`; menu-bar-only and hidden modes use `.accessory`.
+    private let restingActivationPolicy: () -> NSApplication.ActivationPolicy
     private var settingsWindowController: SettingsWindowController?
     private var settingsWindowCloseObserver: NSObjectProtocol?
     private(set) var aboutWindowController: AboutWindowController?
@@ -13,11 +16,13 @@ final class SettingsService {
     init(
         yabaiService: YabaiService,
         checkForUpdates: @escaping () -> Void,
-        restoreFloatingPanels: @escaping () -> Void = {}
+        restoreFloatingPanels: @escaping () -> Void = {},
+        restingActivationPolicy: @escaping () -> NSApplication.ActivationPolicy = { .accessory }
     ) {
         self.yabaiService = yabaiService
         self.checkForUpdates = checkForUpdates
         self.restoreFloatingPanels = restoreFloatingPanels
+        self.restingActivationPolicy = restingActivationPolicy
     }
 
     deinit {
@@ -53,7 +58,7 @@ final class SettingsService {
                         $0.isVisible && $0.canBecomeKey
                     }
                     if !hasOtherWindow {
-                        NSApp.setActivationPolicy(.prohibited)
+                        NSApp.setActivationPolicy(self.restingActivationPolicy())
                         self.restoreFloatingPanels()
                     }
                 }
@@ -73,14 +78,17 @@ final class SettingsService {
         let controller = AboutWindowController(
             onCheckForUpdates: { [weak self] in self?.checkForUpdates() },
             onClose: { [weak self] in
-                self?.aboutWindowController = nil
+                guard let self else { return }
+                self.aboutWindowController = nil
+                let policy = self.restingActivationPolicy()
+                let restore = self.restoreFloatingPanels
                 DispatchQueue.main.async {
                     let hasOtherWindow = NSApp.windows.contains {
                         $0.isVisible && $0.canBecomeKey
                     }
                     if !hasOtherWindow {
-                        NSApp.setActivationPolicy(.prohibited)
-                        self?.restoreFloatingPanels()
+                        NSApp.setActivationPolicy(policy)
+                        restore()
                     }
                 }
             }

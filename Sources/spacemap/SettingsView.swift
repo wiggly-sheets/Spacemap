@@ -23,7 +23,7 @@ struct SettingsView: View {
         case appearance = "Appearance"
         case behavior = "Behavior"
         case glyphStrip = "Glyph Strip"
-        case advanced = "Debug/Advanced"
+        case advanced = "Advanced"
 
         var id: String { rawValue }
     }
@@ -75,7 +75,7 @@ struct SettingsView: View {
     @State private var showSpaceNames: Bool = true
     @State private var showIconStrip: Bool = true
     @State private var showMultiAppIcons: Bool = false
-    @State private var hideMenuBarIcon: Bool = false
+    @State private var presence: AppPresence = .menuBar
     @State private var glyphStrip: GlyphStripConfig = .default
     @State private var menuBarDisplayMode: MenuBarDisplayMode = .icon
     @State private var menuBarNearbyCount: Int = 3
@@ -89,9 +89,16 @@ struct SettingsView: View {
     @State private var pendingSpaceNameEdit = SpaceNamePendingEdit()
     @State private var activeSpaceNameProfileIndex: Int = 0
     @State private var showExtraWindows: Bool = false
+    @State private var showThumbnailWallpaper: Bool = true
     @State private var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
     @State private var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
     @State private var showHUDOnSpaceChange: Bool = false
+    @State private var showBSPLayoutBadge: Bool = true
+    @State private var showStackLayoutBadge: Bool = true
+    @State private var showFloatLayoutBadge: Bool = true
+    @State private var showHUDInteractionFeedback: Bool = true
+    @State private var hudAnimationsEnabled: Bool = true
+    @State private var hudAnimationStyle: HUDAnimationStyle = .natural
     @State private var lastCustomHUDX: Double = 0.5
     @State private var lastCustomHUDY: Double = 0.5
 
@@ -106,7 +113,15 @@ struct SettingsView: View {
 
     @State private var updateMode: UpdateMode = .notify
     @State private var appFontUpdateMode: AppFontUpdateMode = .manual
+    /// Coordinate space the detail pane's section anchors report into.
+    static let detailSpace = "settingsDetail"
     @State private var selectedSection: SidebarSection = .grid
+    @State private var currentSubsection: String?
+    @State private var scrollTarget: String?
+    @State private var scrollToken = 0
+    /// Scroll tracking pauses briefly after a click so the pane's old offset
+    /// cannot pull the highlight back to the section it just left.
+    @State private var trackingSuppressed = false
     @State private var isYabaiHealthy: Bool?
     @State private var isSocketHealthy: Bool?
     @State private var isRefreshingDiagnostics = false
@@ -163,7 +178,7 @@ struct SettingsView: View {
         _showSpaceNames = State(initialValue: config.showSpaceNames)
         _showIconStrip = State(initialValue: config.showIconStrip)
         _showMultiAppIcons = State(initialValue: config.showMultiAppIcons)
-        _hideMenuBarIcon = State(initialValue: config.hideMenuBarIcon)
+        _presence = State(initialValue: config.presence)
         _glyphStrip = State(initialValue: config.glyphStrip.clamped())
         _menuBarDisplayMode = State(initialValue: config.menuBarDisplayMode)
         _menuBarNearbyCount = State(initialValue: config.menuBarNearbyCount)
@@ -175,9 +190,16 @@ struct SettingsView: View {
         _lastCustomHUDX = State(initialValue: config.customHUDX)
         _lastCustomHUDY = State(initialValue: config.customHUDY)
         _showExtraWindows = State(initialValue: config.showExtraWindows)
+        _showThumbnailWallpaper = State(initialValue: config.showThumbnailWallpaper)
         _focusSpaceOnWindowDrop = State(initialValue: config.focusSpaceOnWindowDrop)
         _focusSpaceOnWindowDropModifier = State(initialValue: config.focusSpaceOnWindowDropModifier)
         _showHUDOnSpaceChange = State(initialValue: config.showHUDOnSpaceChange)
+        _showBSPLayoutBadge = State(initialValue: config.showBSPLayoutBadge)
+        _showStackLayoutBadge = State(initialValue: config.showStackLayoutBadge)
+        _showFloatLayoutBadge = State(initialValue: config.showFloatLayoutBadge)
+        _showHUDInteractionFeedback = State(initialValue: config.showHUDInteractionFeedback)
+        _hudAnimationsEnabled = State(initialValue: config.hudAnimationsEnabled)
+        _hudAnimationStyle = State(initialValue: config.hudAnimationStyle)
         _spaceNameInputs = State(initialValue: config.spaceNames)
         _spaceNameProfiles = State(initialValue: config.spaceNameProfiles)
         _activeSpaceNameProfileIndex = State(initialValue: config.activeSpaceNameProfileIndex)
@@ -264,7 +286,7 @@ struct SettingsView: View {
             showSpaceNames: showSpaceNames,
             showIconStrip: showIconStrip,
             showMultiAppIcons: showMultiAppIcons,
-            hideMenuBarIcon: hideMenuBarIcon,
+            presence: presence,
             glyphStrip: glyphStrip.clamped(),
             menuBarDisplayMode: menuBarDisplayMode,
             menuBarNearbyCount: menuBarNearbyCount,
@@ -280,6 +302,13 @@ struct SettingsView: View {
             focusSpaceOnWindowDrop: focusSpaceOnWindowDrop,
             focusSpaceOnWindowDropModifier: focusSpaceOnWindowDropModifier,
             showHUDOnSpaceChange: showHUDOnSpaceChange,
+            showBSPLayoutBadge: showBSPLayoutBadge,
+            showStackLayoutBadge: showStackLayoutBadge,
+            showFloatLayoutBadge: showFloatLayoutBadge,
+            showHUDInteractionFeedback: showHUDInteractionFeedback,
+            showThumbnailWallpaper: showThumbnailWallpaper,
+            hudAnimationsEnabled: hudAnimationsEnabled,
+            hudAnimationStyle: hudAnimationStyle,
             updateMode: updateMode,
             spaceNameProfiles: spaceNameProfiles,
             activeSpaceNameProfileIndex: activeSpaceNameProfileIndex
@@ -293,11 +322,35 @@ struct SettingsView: View {
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
+    /// Ignore offset updates until a programmatic scroll has landed.
+    private func suppressTracking() {
+        trackingSuppressed = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            trackingSuppressed = false
+        }
+    }
+
     var body: some View {
         NavigationSplitView {
-            SettingsSidebar(selectedSection: $selectedSection)
-                .background(Color.clear)
+            SettingsSidebar(
+                selectedSection: $selectedSection,
+                currentSubsection: $currentSubsection,
+                onSelectSection: { section in
+                    guard let first = section.subsections.first else { return }
+                    suppressTracking()
+                    scrollTarget = first.id
+                    scrollToken += 1
+                    currentSubsection = first.id
+                },
+                onSelectSubsection: { subsection in
+                    suppressTracking()
+                    scrollTarget = subsection.id
+                    scrollToken += 1
+                    currentSubsection = subsection.id
+                }
+            )
         } detail: {
+            ScrollViewReader { proxy in
             Form {
                 switch selectedSection {
             case .grid:
@@ -313,8 +366,12 @@ struct SettingsView: View {
                     cellStyle: $cellStyle,
                     showSpaceNumbers: $showSpaceNumbers,
                     showSpaceLayout: $showSpaceLayout,
+                    showBSPLayoutBadge: $showBSPLayoutBadge,
+                    showStackLayoutBadge: $showStackLayoutBadge,
+                    showFloatLayoutBadge: $showFloatLayoutBadge,
                     showIconStrip: $showIconStrip,
                     showMultiAppIcons: $showMultiAppIcons,
+                    showThumbnailWallpaper: $showThumbnailWallpaper,
                     onSave: saveConfig
                 )
 
@@ -347,7 +404,10 @@ struct SettingsView: View {
                     focusSpaceOnWindowDrop: $focusSpaceOnWindowDrop,
                     focusSpaceOnWindowDropModifier: $focusSpaceOnWindowDropModifier,
                     showHUDOnSpaceChange: $showHUDOnSpaceChange,
-                    hideMenuBarIcon: $hideMenuBarIcon,
+                    showHUDInteractionFeedback: $showHUDInteractionFeedback,
+                    hudAnimationsEnabled: $hudAnimationsEnabled,
+                    hudAnimationStyle: $hudAnimationStyle,
+                    presence: $presence,
                     menuBarDisplayMode: $menuBarDisplayMode,
                     menuBarNearbyCount: $menuBarNearbyCount,
                     updateMode: $updateMode,
@@ -376,9 +436,37 @@ struct SettingsView: View {
                 }
             }
             .id(selectedSection)
+            .coordinateSpace(name: Self.detailSpace)
+            .onPreferenceChange(SettingsSectionOffsetKey.self) { offsets in
+                guard !trackingSuppressed else { return }
+                // Only this pane's anchors count. A rebuilt Form can report
+                // the previous pane's offsets for a frame, and those must not
+                // steal the highlight back to another section.
+                let ids = Set(selectedSection.subsections.map(\.id))
+                let scoped = offsets.filter { ids.contains($0.key) }
+                guard !scoped.isEmpty else { return }
+                // The section whose header is the last one to cross the top
+                // band is the one being read; before any header reaches it,
+                // the nearest header wins.
+                let passed = scoped.filter { $0.value <= 120 }
+                let active = passed.max { $0.value < $1.value }?.key
+                    ?? scoped.min { $0.value < $1.value }?.key
+                if let active, active != currentSubsection {
+                    currentSubsection = active
+                }
+            }
+            .onChange(of: scrollToken) { _ in
+                guard let target = scrollTarget else { return }
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(target, anchor: .top)
+                    }
+                }
+            }
             .scrollContentBackground(.hidden)
             .background(Color.clear)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .background(Color.clear)
         .onReceive(NotificationCenter.default.publisher(for: .settingsChanged)) { _ in

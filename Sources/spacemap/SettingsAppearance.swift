@@ -36,7 +36,7 @@ struct SettingsAppearanceView: View {
     private let themeManager = ThemeManager.shared
 
     var body: some View {
-        Section(header: SettingsSectionHeader(title: "Appearance")) {
+        Section(header: SettingsSectionHeader(title: "Appearance").settingsAnchor("appearance.hud")) {
             Picker("Theme", selection: $theme) {
                 ForEach(themeManager.allNames(), id: \.self) { name in
                     Text(name.capitalized).tag(name)
@@ -135,7 +135,7 @@ struct SettingsAppearanceView: View {
             }
         }
 
-        Section(header: SettingsSectionHeader(title: "HUD Spaces")) {
+        Section(header: SettingsSectionHeader(title: "HUD Spaces").settingsAnchor("appearance.spaces")) {
             Toggle("Match HUD Background", isOn: $spacesMatchBackground)
                 .onChange(of: spacesMatchBackground) { _ in onSave() }
             SettingsFootnote(text: "On, the space cells stay clear so the panel material shows through. Off, give the cells their own fill drawn on top of the panel.")
@@ -178,6 +178,8 @@ struct SettingsAppearanceView: View {
                 }
             }
         }
+
+        SettingsThemeEditor(theme: $theme, onSave: onSave)
     }
 
     private func variantPicker(_ label: String, selection: Binding<Int>) -> some View {

@@ -350,6 +350,10 @@ final class HUDDisplayTests: XCTestCase {
         XCTAssertNil(hudDisplay.renderedState, "hide must drop the rendered state")
         XCTAssertTrue(hudDisplay.unifiedPanel === panel,
             "the panel must survive hide so show does not rebuild it")
+        let deadline = Date().addingTimeInterval(1)
+        while panel.isVisible, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.02))
+        }
         XCTAssertFalse(panel.isVisible, "the retained panel must be ordered out")
     }
 

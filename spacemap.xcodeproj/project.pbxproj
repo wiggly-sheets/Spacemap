@@ -31,10 +31,12 @@
 		a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */; };
 		452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87e490e7-f6d1-5951-be31-b380c3522d0a /* GridStateCoordinator.swift */; };
 		b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */; };
+		ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 970df8b8-abde-03c6-77aa-d4dd5252b5f1 /* HUDAnimation.swift */; };
 		d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25098097-bef9-e19d-b77d-2e47d3d4f9af /* HUDDisplay.swift */; };
 		184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = b2228477-9db4-4dbf-f163-74005a2233f6 /* HUDGeometry.swift */; };
 		820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = e2fa5d65-5ddc-c228-1a56-566d108d7869 /* HUDGlassContainerView.swift */; };
 		e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4a70cbf7-c01a-ebf5-2845-7ab32d1d3388 /* HUDInput.swift */; };
+		ea5a9827-6c01-b0cd-57e6-de6b220888b6 /* HUDNumberState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5c29806b-f8d1-72d8-a6b0-ca5d864a935a /* HUDNumberState.swift */; };
 		e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */; };
 		29269064-2581-8b8b-d3ab-b77551a100b0 /* Hotkey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4a1f23af-4733-d1b0-97d8-1e6ef4cfa6ce /* Hotkey.swift */; };
 		7fafda9a-8017-4786-a5de-fe36db6711c7 /* HotkeyHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3dfa8ea8-afa0-d7e6-5729-496b761de18c /* HotkeyHandler.swift */; };
@@ -55,6 +57,8 @@
 		dd307cee-a988-85bd-a624-239a2b41ed3e /* SettingsSharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5a8631a2-7da1-60d0-0f2e-7eb13b2b3b45 /* SettingsSharedViews.swift */; };
 		e4c54b98-a19a-aa28-7543-990412c21286 /* SettingsSidebar.swift in Sources */ = {isa = PBXBuildFile; fileRef = e555b47e-581c-bf36-bc84-4dd3bfa29e74 /* SettingsSidebar.swift */; };
 		f00ed040-dc96-3caa-c1bd-5284ea557428 /* SettingsSpaceNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 818b71ab-ff56-2a62-6c20-9d8cff2f1291 /* SettingsSpaceNames.swift */; };
+		3a105004-9b97-1c6b-e8d6-2d7a39f6d982 /* SettingsSubsection.swift in Sources */ = {isa = PBXBuildFile; fileRef = d506c702-7a51-9228-78af-4242fdbe71a9 /* SettingsSubsection.swift */; };
+		cbcdbfe2-fa4e-f515-debb-b62701e8215a /* SettingsThemeEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6615d080-84ca-3cc3-7fcf-11e1e9ce93bf /* SettingsThemeEditor.swift */; };
 		95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9b213277-b71b-97d3-8e88-990f027afab9 /* SettingsView.swift */; };
 		a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ed77dc76-6db0-2684-66da-9c57949ba5fb /* SettingsWindowController.swift */; };
 		519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = d878303f-7daf-a37e-d75c-e2800de38284 /* SocketListener.swift */; };
@@ -64,6 +68,7 @@
 		551ba457-c566-341e-d8cc-6b7585386424 /* SpacemapCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77637a0d-e654-b9ed-6643-84b77d6e17d2 /* SpacemapCommand.swift */; };
 		d8bd279c-e3a1-8d8f-c970-af94bf034610 /* SpacemapServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8dc32c3e-1fcf-2e3a-5d5b-e94570ed823b /* SpacemapServices.swift */; };
 		9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = b7d3314c-155f-dbe8-85f2-1906777a55d4 /* SparkleConfig.swift */; };
+		bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40546599-37b2-62c3-e39d-badc4bbf56b7 /* SystemPermissions.swift */; };
 		8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = bbc9b464-a604-f50f-1c8e-a58e58234834 /* TOMLConfigCodec.swift */; };
 		4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */; };
 		fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4eecec1f-2ada-c349-e8bd-4e2c27e5fec5 /* ThemeModels.swift */; };
@@ -106,10 +111,12 @@
 		5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridLayout.swift; sourceTree = "<group>"; };
 		87e490e7-f6d1-5951-be31-b380c3522d0a /* GridStateCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridStateCoordinator.swift; sourceTree = "<group>"; };
 		e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridView.swift; sourceTree = "<group>"; };
+		970df8b8-abde-03c6-77aa-d4dd5252b5f1 /* HUDAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDAnimation.swift; sourceTree = "<group>"; };
 		25098097-bef9-e19d-b77d-2e47d3d4f9af /* HUDDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDDisplay.swift; sourceTree = "<group>"; };
 		b2228477-9db4-4dbf-f163-74005a2233f6 /* HUDGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDGeometry.swift; sourceTree = "<group>"; };
 		e2fa5d65-5ddc-c228-1a56-566d108d7869 /* HUDGlassContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDGlassContainerView.swift; sourceTree = "<group>"; };
 		4a70cbf7-c01a-ebf5-2845-7ab32d1d3388 /* HUDInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDInput.swift; sourceTree = "<group>"; };
+		5c29806b-f8d1-72d8-a6b0-ca5d864a935a /* HUDNumberState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDNumberState.swift; sourceTree = "<group>"; };
 		f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDWindowController.swift; sourceTree = "<group>"; };
 		4a1f23af-4733-d1b0-97d8-1e6ef4cfa6ce /* Hotkey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hotkey.swift; sourceTree = "<group>"; };
 		3dfa8ea8-afa0-d7e6-5729-496b761de18c /* HotkeyHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyHandler.swift; sourceTree = "<group>"; };
@@ -130,6 +137,8 @@
 		5a8631a2-7da1-60d0-0f2e-7eb13b2b3b45 /* SettingsSharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSharedViews.swift; sourceTree = "<group>"; };
 		e555b47e-581c-bf36-bc84-4dd3bfa29e74 /* SettingsSidebar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSidebar.swift; sourceTree = "<group>"; };
 		818b71ab-ff56-2a62-6c20-9d8cff2f1291 /* SettingsSpaceNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSpaceNames.swift; sourceTree = "<group>"; };
+		d506c702-7a51-9228-78af-4242fdbe71a9 /* SettingsSubsection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSubsection.swift; sourceTree = "<group>"; };
+		6615d080-84ca-3cc3-7fcf-11e1e9ce93bf /* SettingsThemeEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsThemeEditor.swift; sourceTree = "<group>"; };
 		9b213277-b71b-97d3-8e88-990f027afab9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		ed77dc76-6db0-2684-66da-9c57949ba5fb /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		d878303f-7daf-a37e-d75c-e2800de38284 /* SocketListener.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketListener.swift; sourceTree = "<group>"; };
@@ -139,6 +148,7 @@
 		77637a0d-e654-b9ed-6643-84b77d6e17d2 /* SpacemapCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacemapCommand.swift; sourceTree = "<group>"; };
 		8dc32c3e-1fcf-2e3a-5d5b-e94570ed823b /* SpacemapServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacemapServices.swift; sourceTree = "<group>"; };
 		b7d3314c-155f-dbe8-85f2-1906777a55d4 /* SparkleConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleConfig.swift; sourceTree = "<group>"; };
+		40546599-37b2-62c3-e39d-badc4bbf56b7 /* SystemPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPermissions.swift; sourceTree = "<group>"; };
 		bbc9b464-a604-f50f-1c8e-a58e58234834 /* TOMLConfigCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TOMLConfigCodec.swift; sourceTree = "<group>"; };
 		49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		4eecec1f-2ada-c349-e8bd-4e2c27e5fec5 /* ThemeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeModels.swift; sourceTree = "<group>"; };
@@ -237,10 +247,12 @@
 				5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */,
 				87e490e7-f6d1-5951-be31-b380c3522d0a /* GridStateCoordinator.swift */,
 				e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */,
+				970df8b8-abde-03c6-77aa-d4dd5252b5f1 /* HUDAnimation.swift */,
 				25098097-bef9-e19d-b77d-2e47d3d4f9af /* HUDDisplay.swift */,
 				b2228477-9db4-4dbf-f163-74005a2233f6 /* HUDGeometry.swift */,
 				e2fa5d65-5ddc-c228-1a56-566d108d7869 /* HUDGlassContainerView.swift */,
 				4a70cbf7-c01a-ebf5-2845-7ab32d1d3388 /* HUDInput.swift */,
+				5c29806b-f8d1-72d8-a6b0-ca5d864a935a /* HUDNumberState.swift */,
 				f89b2335-ae44-9967-a09a-bf38036122b8 /* HUDWindowController.swift */,
 				4a1f23af-4733-d1b0-97d8-1e6ef4cfa6ce /* Hotkey.swift */,
 				3dfa8ea8-afa0-d7e6-5729-496b761de18c /* HotkeyHandler.swift */,
@@ -261,6 +273,8 @@
 				5a8631a2-7da1-60d0-0f2e-7eb13b2b3b45 /* SettingsSharedViews.swift */,
 				e555b47e-581c-bf36-bc84-4dd3bfa29e74 /* SettingsSidebar.swift */,
 				818b71ab-ff56-2a62-6c20-9d8cff2f1291 /* SettingsSpaceNames.swift */,
+				d506c702-7a51-9228-78af-4242fdbe71a9 /* SettingsSubsection.swift */,
+				6615d080-84ca-3cc3-7fcf-11e1e9ce93bf /* SettingsThemeEditor.swift */,
 				9b213277-b71b-97d3-8e88-990f027afab9 /* SettingsView.swift */,
 				ed77dc76-6db0-2684-66da-9c57949ba5fb /* SettingsWindowController.swift */,
 				d878303f-7daf-a37e-d75c-e2800de38284 /* SocketListener.swift */,
@@ -270,6 +284,7 @@
 				77637a0d-e654-b9ed-6643-84b77d6e17d2 /* SpacemapCommand.swift */,
 				8dc32c3e-1fcf-2e3a-5d5b-e94570ed823b /* SpacemapServices.swift */,
 				b7d3314c-155f-dbe8-85f2-1906777a55d4 /* SparkleConfig.swift */,
+				40546599-37b2-62c3-e39d-badc4bbf56b7 /* SystemPermissions.swift */,
 				bbc9b464-a604-f50f-1c8e-a58e58234834 /* TOMLConfigCodec.swift */,
 				49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */,
 				4eecec1f-2ada-c349-e8bd-4e2c27e5fec5 /* ThemeModels.swift */,
@@ -471,10 +486,12 @@
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
 				452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
+				ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */,
 				d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */,
 				184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */,
 				820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */,
 				e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */,
+				ea5a9827-6c01-b0cd-57e6-de6b220888b6 /* HUDNumberState.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
 				29269064-2581-8b8b-d3ab-b77551a100b0 /* Hotkey.swift in Sources */,
 				7fafda9a-8017-4786-a5de-fe36db6711c7 /* HotkeyHandler.swift in Sources */,
@@ -495,6 +512,8 @@
 				dd307cee-a988-85bd-a624-239a2b41ed3e /* SettingsSharedViews.swift in Sources */,
 				e4c54b98-a19a-aa28-7543-990412c21286 /* SettingsSidebar.swift in Sources */,
 				f00ed040-dc96-3caa-c1bd-5284ea557428 /* SettingsSpaceNames.swift in Sources */,
+				3a105004-9b97-1c6b-e8d6-2d7a39f6d982 /* SettingsSubsection.swift in Sources */,
+				cbcdbfe2-fa4e-f515-debb-b62701e8215a /* SettingsThemeEditor.swift in Sources */,
 				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
 				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
 				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
@@ -504,6 +523,7 @@
 				551ba457-c566-341e-d8cc-6b7585386424 /* SpacemapCommand.swift in Sources */,
 				d8bd279c-e3a1-8d8f-c970-af94bf034610 /* SpacemapServices.swift in Sources */,
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
+				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */,
@@ -547,10 +567,12 @@
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
 				452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
+				ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */,
 				d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */,
 				184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */,
 				820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */,
 				e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */,
+				ea5a9827-6c01-b0cd-57e6-de6b220888b6 /* HUDNumberState.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
 				29269064-2581-8b8b-d3ab-b77551a100b0 /* Hotkey.swift in Sources */,
 				7fafda9a-8017-4786-a5de-fe36db6711c7 /* HotkeyHandler.swift in Sources */,
@@ -571,6 +593,8 @@
 				dd307cee-a988-85bd-a624-239a2b41ed3e /* SettingsSharedViews.swift in Sources */,
 				e4c54b98-a19a-aa28-7543-990412c21286 /* SettingsSidebar.swift in Sources */,
 				f00ed040-dc96-3caa-c1bd-5284ea557428 /* SettingsSpaceNames.swift in Sources */,
+				3a105004-9b97-1c6b-e8d6-2d7a39f6d982 /* SettingsSubsection.swift in Sources */,
+				cbcdbfe2-fa4e-f515-debb-b62701e8215a /* SettingsThemeEditor.swift in Sources */,
 				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
 				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
 				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
@@ -580,6 +604,7 @@
 				551ba457-c566-341e-d8cc-6b7585386424 /* SpacemapCommand.swift in Sources */,
 				d8bd279c-e3a1-8d8f-c970-af94bf034610 /* SpacemapServices.swift in Sources */,
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
+				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */,
@@ -623,10 +648,12 @@
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
 				452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
+				ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */,
 				d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */,
 				184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */,
 				820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */,
 				e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */,
+				ea5a9827-6c01-b0cd-57e6-de6b220888b6 /* HUDNumberState.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
 				29269064-2581-8b8b-d3ab-b77551a100b0 /* Hotkey.swift in Sources */,
 				7fafda9a-8017-4786-a5de-fe36db6711c7 /* HotkeyHandler.swift in Sources */,
@@ -647,6 +674,8 @@
 				dd307cee-a988-85bd-a624-239a2b41ed3e /* SettingsSharedViews.swift in Sources */,
 				e4c54b98-a19a-aa28-7543-990412c21286 /* SettingsSidebar.swift in Sources */,
 				f00ed040-dc96-3caa-c1bd-5284ea557428 /* SettingsSpaceNames.swift in Sources */,
+				3a105004-9b97-1c6b-e8d6-2d7a39f6d982 /* SettingsSubsection.swift in Sources */,
+				cbcdbfe2-fa4e-f515-debb-b62701e8215a /* SettingsThemeEditor.swift in Sources */,
 				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
 				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
 				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
@@ -656,6 +685,7 @@
 				551ba457-c566-341e-d8cc-6b7585386424 /* SpacemapCommand.swift in Sources */,
 				d8bd279c-e3a1-8d8f-c970-af94bf034610 /* SpacemapServices.swift in Sources */,
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
+				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */,
@@ -699,10 +729,12 @@
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
 				452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
+				ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */,
 				d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */,
 				184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */,
 				820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */,
 				e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */,
+				ea5a9827-6c01-b0cd-57e6-de6b220888b6 /* HUDNumberState.swift in Sources */,
 				e2421927-abb6-0565-1349-c2b45147b57b /* HUDWindowController.swift in Sources */,
 				29269064-2581-8b8b-d3ab-b77551a100b0 /* Hotkey.swift in Sources */,
 				7fafda9a-8017-4786-a5de-fe36db6711c7 /* HotkeyHandler.swift in Sources */,
@@ -723,6 +755,8 @@
 				dd307cee-a988-85bd-a624-239a2b41ed3e /* SettingsSharedViews.swift in Sources */,
 				e4c54b98-a19a-aa28-7543-990412c21286 /* SettingsSidebar.swift in Sources */,
 				f00ed040-dc96-3caa-c1bd-5284ea557428 /* SettingsSpaceNames.swift in Sources */,
+				3a105004-9b97-1c6b-e8d6-2d7a39f6d982 /* SettingsSubsection.swift in Sources */,
+				cbcdbfe2-fa4e-f515-debb-b62701e8215a /* SettingsThemeEditor.swift in Sources */,
 				95fbf189-40f6-9bd0-ab53-1c94459afcbf /* SettingsView.swift in Sources */,
 				a9214db9-9ec9-25d7-2cdd-65fa1d0b7522 /* SettingsWindowController.swift in Sources */,
 				519d298e-4d6b-429c-39fb-256469889c68 /* SocketListener.swift in Sources */,
@@ -732,6 +766,7 @@
 				551ba457-c566-341e-d8cc-6b7585386424 /* SpacemapCommand.swift in Sources */,
 				d8bd279c-e3a1-8d8f-c970-af94bf034610 /* SpacemapServices.swift in Sources */,
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
+				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */,

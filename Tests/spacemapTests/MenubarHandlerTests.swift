@@ -58,14 +58,14 @@ final class MenubarHandlerTests: XCTestCase {
 
     func testWorkspacePreviewsEnabledWhenMenuBarVisibleAndNotIconMode() {
         var config = GridConfig.default
-        config.hideMenuBarIcon = false
+        config.presence = .menuBar
         config.menuBarDisplayMode = .dots
         XCTAssertTrue(config.needsWorkspacePreviews)
     }
 
     func testWorkspacePreviewsDisabledWhenMenuBarHidden() {
         var config = GridConfig.default
-        config.hideMenuBarIcon = true
+        config.presence = AppPresence.none
         XCTAssertFalse(config.needsWorkspacePreviews)
     }
 
@@ -91,21 +91,21 @@ final class MenubarHandlerTests: XCTestCase {
 
     func testWindowGeometryPreviewsEnabledWhenDotsMode() {
         var config = GridConfig.default
-        config.hideMenuBarIcon = false
+        config.presence = .menuBar
         config.menuBarDisplayMode = .dots
         XCTAssertFalse(config.needsWindowGeometryPreviews)
     }
 
     func testWindowGeometryPreviewsEnabledWhenNearbyMode() {
         var config = GridConfig.default
-        config.hideMenuBarIcon = false
+        config.presence = .menuBar
         config.menuBarDisplayMode = .nearby
         XCTAssertTrue(config.needsWindowGeometryPreviews)
     }
 
     func testWindowGeometryPreviewsDisabledWhenMenuBarHidden() {
         var config = GridConfig.default
-        config.hideMenuBarIcon = true
+        config.presence = AppPresence.none
         XCTAssertFalse(config.needsWindowGeometryPreviews)
     }
 

@@ -41,7 +41,7 @@ struct SettingsSpaceNames: View {
     @State private var pendingSaveSnapshot: (names: [Int: String], index: Int)?
 
     var body: some View {
-        Section(header: SettingsSectionHeader(title: "Space Names")) {
+        Section(header: SettingsSectionHeader(title: "Space Names").settingsAnchor("spaceNames.names")) {
             Toggle("Show Space Names", isOn: $showSpaceNames)
                 .onChange(of: showSpaceNames) { _ in save() }
 
@@ -60,7 +60,7 @@ struct SettingsSpaceNames: View {
             }
         }
 
-        Section(header: SettingsSectionHeader(title: "Space Name Profiles")) {
+        Section(header: SettingsSectionHeader(title: "Space Name Profiles").settingsAnchor("spaceNames.profiles")) {
             SettingsFootnote(text: "Each profile stores a set of space names. Switch profiles from the menu bar or here.")
 
             if profiles.isEmpty {

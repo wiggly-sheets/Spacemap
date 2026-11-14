@@ -31,7 +31,7 @@ struct SettingsGlyphStrip: View {
     private var theme: AppTheme { Self.themeService.named(effectiveThemeName) }
 
     var body: some View {
-        Section(header: SettingsSectionHeader(title: "Glyph Strip")) {
+        Section(header: SettingsSectionHeader(title: "Glyph Strip").settingsAnchor("glyphStrip.general")) {
             Toggle("Enabled", isOn: $glyphStrip.enabled)
                 .onChange(of: glyphStrip.enabled) { _ in onSave() }
             SettingsFootnote(text: "Each space shows its index plus a glyph per window.")
@@ -70,7 +70,7 @@ struct SettingsGlyphStrip: View {
                 SettingsFootnote(text: "Gap between the strip and the edge of the notch area.")
             }
 
-            Section(header: SettingsSectionHeader(title: "Contents")) {
+            Section(header: SettingsSectionHeader(title: "Contents").settingsAnchor("glyphStrip.contents")) {
                 Toggle(showSpaceNumbersTitle, isOn: $glyphStrip.showSpaceNumbers)
                     .onChange(of: glyphStrip.showSpaceNumbers) { _ in onSave() }
                 Toggle("Show Layout Suffix (f / s)", isOn: $glyphStrip.showLayoutSuffix)
@@ -100,7 +100,7 @@ struct SettingsGlyphStrip: View {
                 SettingsFootnote(text: "Extra windows on a space collapse into a +N indicator once this cap is reached.")
             }
 
-            Section(header: SettingsSectionHeader(title: "Appearance")) {
+            Section(header: SettingsSectionHeader(title: "Appearance").settingsAnchor("glyphStrip.appearance")) {
                 Toggle("Match HUD Appearance", isOn: matchHUDBinding)
                 SettingsFootnote(
                     text: glyphStrip.matchHUDAppearance
@@ -215,7 +215,7 @@ struct SettingsGlyphStrip: View {
                 }
             }
 
-            Section(header: SettingsSectionHeader(title: "Hover Highlight")) {
+            Section(header: SettingsSectionHeader(title: "Hover Highlight").settingsAnchor("glyphStrip.hover")) {
                 stepper("Hover Padding", value: $glyphStrip.hoverPadding, range: 0...12, step: 0.5)
                     .onChange(of: glyphStrip.hoverPadding) { _ in onSave() }
                 stepper("Hover Corner Radius", value: $glyphStrip.hoverCornerRadius, range: 0...20, step: 0.5)
@@ -223,7 +223,7 @@ struct SettingsGlyphStrip: View {
                 SettingsFootnote(text: "The highlight is the hovered segment's glyph box grown by Hover Padding on both axes, not the height of the menu bar, and hover only arms within it.")
             }
 
-            Section(header: SettingsSectionHeader(title: "Clicks")) {
+            Section(header: SettingsSectionHeader(title: "Clicks").settingsAnchor("glyphStrip.clicks")) {
                 actionPicker("Left Click", selection: $glyphStrip.leftClickAction)
                     .onChange(of: glyphStrip.leftClickAction) { _ in onSave() }
                 actionPicker("Right Click", selection: $glyphStrip.rightClickAction)

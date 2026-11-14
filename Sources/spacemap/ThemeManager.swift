@@ -93,7 +93,7 @@ class ThemeManager {
             includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]
         ) else { return nil }
         let entries: [DirectoryStamp.Entry] = files
-            .filter { $0.pathExtension == "smthemes" }
+            .filter { Self.isThemeFile($0) }
             .compactMap { url in
                 guard let values = try? url.resourceValues(
                     forKeys: [.fileSizeKey, .contentModificationDateKey]
@@ -106,6 +106,13 @@ class ThemeManager {
             }
             .sorted { $0.name < $1.name }
         return DirectoryStamp(entries: entries)
+    }
+
+    /// Plain key/value `.smthemes` files and TOML `.toml` files share one
+    /// grammar; both are accepted so users can keep custom themes in TOML.
+    static func isThemeFile(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        return ext == "smthemes" || ext == "toml"
     }
 
     static func themesDir() -> URL {
@@ -128,7 +135,7 @@ class ThemeManager {
             includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey]
         ) else { return }
         let themeFiles = files
-            .filter { $0.pathExtension == "smthemes" }
+            .filter { Self.isThemeFile($0) }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
         if themeFiles.count > 64 {
             NSLog("spacemap/ThemeManager: dropped %d theme files beyond 64", themeFiles.count - 64)
@@ -176,12 +183,12 @@ class ThemeManager {
         for line in content.components(separatedBy: .newlines).prefix(512) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty, !trimmed.hasPrefix("#"), trimmed.count <= 1024 else { continue }
+            // TOML section headers carry no values.
+            guard !trimmed.hasPrefix("[") else { continue }
             let parts = trimmed.split(separator: "=", maxSplits: 1)
             guard parts.count == 2 else { continue }
             let key = String(parts[0]).trimmingCharacters(in: .whitespaces).lowercased()
-            let hex = String(parts[1]).trimmingCharacters(in: .whitespaces)
-                .replacingOccurrences(of: "#", with: "")
-            guard hex.count == 6, let val = UInt32(hex, radix: 16) else { continue }
+            guard let val = parseHexValue(String(parts[1])) else { continue }
             vals[key] = val
         }
         guard let bg = vals["background"],
@@ -224,6 +231,48 @@ class ThemeManager {
             """
             _ = ConfigLoader.secureWrite(content, to: file.path)
         }
+    }
+
+    /// Accepts `#rrggbb`, `rrggbb`, and TOML quoted forms `"#rrggbb"` /
+    /// `'#rrggbb'`. Trailing comments are dropped.
+    static func parseHexValue(_ raw: String) -> UInt32? {
+        var text = raw.trimmingCharacters(in: .whitespaces)
+        if let start = text.firstIndex(where: { $0 == "\"" || $0 == "'" }) {
+            let quote = text[start]
+            let after = text.index(after: start)
+            guard let end = text[after...].firstIndex(of: quote) else { return nil }
+            text = String(text[after..<end])
+        }
+        text = text.trimmingCharacters(in: .whitespaces)
+        if text.hasPrefix("#") { text.removeFirst() }
+        // Inline comment after an unquoted value: `#1a1b26 # note`.
+        if let space = text.firstIndex(where: { $0.isWhitespace }) {
+            text = String(text[..<space])
+        }
+        guard text.count == 6, let value = UInt32(text, radix: 16) else { return nil }
+        return value
+    }
+
+    /// Writes a theme as TOML so custom themes stay hand-editable. Refuses a
+    /// symlinked target, like every other config write.
+    @discardableResult
+    static func save(theme: AppTheme, name: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let safe = trimmed
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+        let dir = ensureThemesDir()
+        let file = dir.appendingPathComponent(safe.replacingOccurrences(of: " ", with: "-") + ".toml")
+        guard !ConfigLoader.isSymlink(at: file.path) else { return nil }
+        let lines = ["[colors]"] + AppTheme.colorNames.map { key in
+            "\(key) = \"#\(hex(theme.value(for: key) ?? 0))\""
+        }
+        guard ConfigLoader.secureWrite(lines.joined(separator: "\n") + "\n", to: file.path) else {
+            return nil
+        }
+        shared.reload()
+        return trimmed
     }
 
     private static func builtinThemes() -> [String: AppTheme] {

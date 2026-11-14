@@ -38,7 +38,7 @@ final class ConfigValuesTests: XCTestCase {
         values.hudPosition = .custom(x: 0.25, y: 0.75)
         values.customHUDX = 0.25
         values.customHUDY = 0.75
-        values.hideMenuBarIcon = true
+        values.presence = AppPresence.none
         values.glyphStrip = GlyphStripConfig(enabled: true)
         values.menuBarDisplayMode = .nearby
         values.menuBarNearbyCount = 5
@@ -49,6 +49,17 @@ final class ConfigValuesTests: XCTestCase {
         values.focusSpaceOnWindowDrop = .modifier
         values.focusSpaceOnWindowDropModifier = .option
         values.showHUDOnSpaceChange = true
+        values.showBSPLayoutBadge = true
+        values.showStackLayoutBadge = false
+        values.showFloatLayoutBadge = true
+        values.showBSPLayoutBadge = true
+        values.showStackLayoutBadge = false
+        values.showFloatLayoutBadge = true
+
+        values.showHUDInteractionFeedback = true
+        values.showThumbnailWallpaper = true
+        values.hudAnimationsEnabled = true
+        values.hudAnimationStyle = .natural
         values.updateMode = .off
         values.appFont = AppFontConfig(updateMode: .auto, installedVersion: "v3.0.5", lastCheck: 1700000000)
 
@@ -88,7 +99,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.hudPosition, .custom(x: 0.25, y: 0.75))
         XCTAssertEqual(config.customHUDX, 0.25, accuracy: 0.001)
         XCTAssertEqual(config.customHUDY, 0.75, accuracy: 0.001)
-        XCTAssertTrue(config.hideMenuBarIcon)
+        XCTAssertEqual(config.presence, .none)
         XCTAssertEqual(config.menuBarDisplayMode, .nearby)
         XCTAssertEqual(config.menuBarNearbyCount, 5)
         XCTAssertEqual(config.displayNavigationWrap, .between)
@@ -265,6 +276,43 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(reread.toGridConfig().config.hudCornerRadius, 10)
     }
 
+    func testHUDAnimationDefaultsAndRoundTrips() {
+        XCTAssertTrue(GridConfig.default.hudAnimationsEnabled)
+        XCTAssertEqual(GridConfig.default.hudAnimationStyle, .natural)
+        var values = ConfigValues()
+        values.hudAnimationsEnabled = false
+        values.hudAnimationStyle = .springy
+        let grid = values.toGridConfig().config
+        XCTAssertFalse(grid.hudAnimationsEnabled)
+        XCTAssertEqual(grid.hudAnimationStyle, .springy)
+    }
+
+    func testHUDInteractionFeedbackDefaultsOnAndRoundTrips() {
+        XCTAssertTrue(GridConfig.default.showHUDInteractionFeedback)
+        var values = ConfigValues(from: GridConfig.default)
+        XCTAssertEqual(values.showHUDInteractionFeedback, true)
+        values.showHUDInteractionFeedback = false
+        values.showThumbnailWallpaper = true
+        values.hudAnimationsEnabled = true
+        values.hudAnimationStyle = .natural
+        XCTAssertFalse(values.toGridConfig().config.showHUDInteractionFeedback)
+    }
+
+    func testPresenceDefaultsAndRoundTrips() {
+        XCTAssertEqual(GridConfig.default.presence, .menuBar)
+        var values = ConfigValues(from: GridConfig.default)
+        XCTAssertEqual(values.presence, .menuBar)
+        values.presence = .both
+        XCTAssertEqual(values.toGridConfig().config.presence, .both)
+
+        XCTAssertTrue(AppPresence.dock.showsDock)
+        XCTAssertFalse(AppPresence.dock.showsMenuBar)
+        XCTAssertTrue(AppPresence.both.showsDock)
+        XCTAssertTrue(AppPresence.both.showsMenuBar)
+        XCTAssertFalse(AppPresence.none.showsDock)
+        XCTAssertFalse(AppPresence.none.showsMenuBar)
+    }
+
     func testMissingPerStyleOpacityInheritsBackgroundAlpha() {
         var values = ConfigValues()
         values.backgroundAlpha = 0.6
@@ -301,6 +349,28 @@ final class ConfigValuesTests: XCTestCase {
         values.backgroundAlpha = 0.3
         values.backgroundStyle = .glass
         values.glassStyle = .regular
+        values.glassClearVariant = 11
+        values.glassRegularVariant = 5
+        values.glassTintedVariant = 2
+        values.glassTintedMaterial = .clear
+        values.glassClearOpacity = 0.05
+        values.glassRegularOpacity = 0.3
+        values.glassTintedOpacity = 0.3
+        values.solidOpacity = 1.0
+        values.matchBackgroundOpacity = false
+        values.spacesMatchBackground = true
+        values.spacesBackgroundStyle = .glass
+        values.spacesGlassStyle = .clear
+        values.spacesGlassClearVariant = 11
+        values.spacesGlassRegularVariant = 5
+        values.spacesGlassTintedVariant = 2
+        values.spacesGlassTintedMaterial = .clear
+        values.spacesOpacity = 0.5
+        values.spacesCornerRadius = 4
+        values.refuseUntrustedYabai = false
+        values.showThumbnailWallpaper = true
+        values.spaceNameProfiles = GridConfig.default.spaceNameProfiles
+        values.activeSpaceNameProfileIndex = GridConfig.default.activeSpaceNameProfileIndex
         values.hudShadow = true
         values.hudCornerRadius = 10
         values.mode = .auto
@@ -310,7 +380,7 @@ final class ConfigValuesTests: XCTestCase {
         values.showSpaceNames = true
         values.showIconStrip = true
         values.showMultiAppIcons = false
-        values.hideMenuBarIcon = false
+        values.presence = .menuBar
         values.menuBarDisplayMode = .icon
         values.menuBarNearbyCount = 3
         values.spaceNames = [:]
@@ -325,6 +395,13 @@ final class ConfigValuesTests: XCTestCase {
         values.focusSpaceOnWindowDrop = .never
         values.focusSpaceOnWindowDropModifier = .command
         values.showHUDOnSpaceChange = false
+        values.showBSPLayoutBadge = true
+        values.showStackLayoutBadge = false
+        values.showFloatLayoutBadge = true
+
+        values.showHUDInteractionFeedback = false
+        values.hudAnimationsEnabled = true
+        values.hudAnimationStyle = .natural
         values.updateMode = .notify
         values.appFont = .default
 
@@ -515,7 +592,7 @@ final class ConfigValuesTests: XCTestCase {
         values.showSpaceNames = false
         values.showIconStrip = true
         values.showMultiAppIcons = false
-        values.hideMenuBarIcon = false
+        values.presence = .menuBar
         values.glyphStrip = GlyphStripConfig.default
         values.menuBarDisplayMode = .dots
         values.menuBarNearbyCount = 7
@@ -530,6 +607,14 @@ final class ConfigValuesTests: XCTestCase {
         values.focusSpaceOnWindowDrop = .always
         values.focusSpaceOnWindowDropModifier = .shift
         values.showHUDOnSpaceChange = true
+        values.showBSPLayoutBadge = true
+        values.showStackLayoutBadge = false
+        values.showFloatLayoutBadge = true
+
+        values.showHUDInteractionFeedback = true
+        values.showThumbnailWallpaper = true
+        values.hudAnimationsEnabled = true
+        values.hudAnimationStyle = .natural
         values.updateMode = .auto
         values.appFont = .default
 
@@ -558,7 +643,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertFalse(config.showSpaceNames)
         XCTAssertTrue(config.showIconStrip)
         XCTAssertFalse(config.showMultiAppIcons)
-        XCTAssertFalse(config.hideMenuBarIcon)
+        XCTAssertEqual(config.presence, .menuBar)
         XCTAssertEqual(config.menuBarDisplayMode, .dots)
         XCTAssertEqual(config.menuBarNearbyCount, 7)
         XCTAssertTrue(config.useVimKeys)

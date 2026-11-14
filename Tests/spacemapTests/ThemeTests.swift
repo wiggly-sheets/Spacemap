@@ -29,6 +29,34 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(theme.rect3, 0x9ece6a)
     }
 
+    func testParseTOMLThemeWithSectionsAndQuotedHex() throws {
+        let content = """
+        # Custom theme
+        [colors]
+        background = "#1a1b26" # inline comment
+        focused = '#7aa2f7'
+        text = "#a9b1d6"
+        dropTarget = "#bb9af7"
+        cellBg = "#1a1b26"
+        cellBgFocused = "#1a1b26"
+        rect1 = "#7aa2f7"
+        rect2 = "#bb9af7"
+        rect3 = "#9ece6a"
+        """
+        let theme = try XCTUnwrap(ThemeManager.parseThemeContent(content))
+        XCTAssertEqual(theme.background, 0x1a1b26)
+        XCTAssertEqual(theme.focused, 0x7aa2f7)
+        XCTAssertEqual(theme.text, 0xa9b1d6)
+    }
+
+    func testParseHexValueAcceptsTOMLForms() {
+        XCTAssertEqual(ThemeManager.parseHexValue("#1a1b26"), 0x1a1b26)
+        XCTAssertEqual(ThemeManager.parseHexValue("\"#1a1b26\""), 0x1a1b26)
+        XCTAssertEqual(ThemeManager.parseHexValue("'#1a1b26'"), 0x1a1b26)
+        XCTAssertEqual(ThemeManager.parseHexValue("#1a1b26 # comment"), 0x1a1b26)
+        XCTAssertNil(ThemeManager.parseHexValue("#12345"))
+    }
+
     func testParseThemeWithoutHash() throws {
         let content = """
         background=ffffff
