@@ -21,7 +21,10 @@ struct SettingsBehavior: View {
     @Binding var focusSpaceOnWindowDrop: WindowDropFocusMode
     @Binding var focusSpaceOnWindowDropModifier: WindowDropFocusModifier
     @Binding var showHUDOnSpaceChange: Bool
-    @Binding var hideMenuBarIcon: Bool
+    @Binding var showHUDInteractionFeedback: Bool
+    @Binding var hudAnimationsEnabled: Bool
+    @Binding var hudAnimationStyle: HUDAnimationStyle
+    @Binding var presence: AppPresence
     @Binding var menuBarDisplayMode: MenuBarDisplayMode
     @Binding var menuBarNearbyCount: Int
     @Binding var updateMode: UpdateMode
@@ -31,13 +34,28 @@ struct SettingsBehavior: View {
     let onSave: () -> Void
     let checkForUpdates: () -> Void
 
+    /// What each placement means in practice. Settings and About always add a
+    /// Dock icon while they are open, whatever this setting says.
+    private var presenceSummary: String {
+        switch presence {
+        case .menuBar:
+            return "Menu-bar icon only. No Dock icon while Spacemap runs in the background. Settings and About still appear in the Dock while open."
+        case .dock:
+            return "Dock icon only. The menu-bar icon is hidden. Use the Dock icon to reach Settings and Quit."
+        case .both:
+            return "Dock icon and menu-bar icon both stay visible. Use either one."
+        case .none:
+            return "No Dock icon and no menu-bar icon. Spacemap keeps running in the background. Settings and About still appear in the Dock while open."
+        }
+    }
+
     @State private var installedFontVersion = ""
     @State private var isCheckingFont = false
     @State private var fontStatus: String?
 
 
     var body: some View {
-        Section(header: SettingsSectionHeader(title: "Behavior")) {
+        Section(header: SettingsSectionHeader(title: "Hotkeys").settingsAnchor("behavior.hotkeys")) {
             HotkeyRecorder(
                 label: "Hotkey",
                 hotkey: $hotkeyString,
@@ -82,6 +100,9 @@ struct SettingsBehavior: View {
                 }
             SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. The glyph strip hotkey shows or hides the menu-bar strip for the session.")
 
+        }
+
+        Section(header: SettingsSectionHeader(title: "HUD").settingsAnchor("behavior.hud")) {
             GlassSegmentedPicker("HUD Position", selection: $hudPositionKind, options: [
                 (title: "Center", value: .center),
                 (title: "Top", value: .top),
@@ -97,6 +118,9 @@ struct SettingsBehavior: View {
             stepper("Auto-hide Timeout (s) (0 = disabled):", value: $autoHideTimeout, range: 0...60)
                 .onChange(of: autoHideTimeout) { _ in onSave() }
 
+        }
+
+        Section(header: SettingsSectionHeader(title: "Navigation").settingsAnchor("behavior.navigation")) {
             Toggle("Navigate with Arrow Keys (←↑↓→)", isOn: $useArrowKeys)
                 .onChange(of: useArrowKeys) { _ in onSave() }
             Toggle("Navigate with Vim Keys (hjkl)", isOn: $useVimKeys)
@@ -118,6 +142,9 @@ struct SettingsBehavior: View {
                     : "Allows navigation to wrap from one display's spaces into another's.")
             }
 
+        }
+
+        Section(header: SettingsSectionHeader(title: "Window Drop").settingsAnchor("behavior.windowDrop")) {
             Picker("Focus Space After Window Drop", selection: $focusSpaceOnWindowDrop) {
                 Text("Never").tag(WindowDropFocusMode.never)
                 Text("Always").tag(WindowDropFocusMode.always)
@@ -141,16 +168,43 @@ struct SettingsBehavior: View {
                 ? "Switches to the destination only when the selected modifier is held while dropping."
                 : "Controls whether the destination space is focused after a dragged window is moved.")
 
+        }
+
+        Section(header: SettingsSectionHeader(title: "HUD Feedback").settingsAnchor("behavior.feedback")) {
             Toggle("Show HUD on Space Change", isOn: $showHUDOnSpaceChange)
                 .onChange(of: showHUDOnSpaceChange) { _ in onSave() }
             SettingsFootnote(text: "Shows the HUD whenever yabai changes spaces, including changes triggered by skhd.")
 
-            Toggle("Hide Menu Bar Icon", isOn: $hideMenuBarIcon)
-                .onChange(of: hideMenuBarIcon) { _ in onSave() }
+            Toggle("HUD Animations", isOn: $hudAnimationsEnabled)
+                .onChange(of: hudAnimationsEnabled) { _ in onSave() }
+            if hudAnimationsEnabled {
+                Picker("Motion", selection: $hudAnimationStyle) {
+                    ForEach(HUDAnimationStyle.allCases) { style in
+                        Text(style.label).tag(style)
+                    }
+                }
+                .pickerStyle(.menu)
+                .onChange(of: hudAnimationStyle) { _ in onSave() }
+            }
+            SettingsFootnote(text: "Animates the HUD fade, space highlights, and add or delete changes. Off makes every change instant.")
 
-            if hideMenuBarIcon {
-                SettingsFootnote(text: "Access settings by relaunching the app or pressing ⌘, while the HUD is open.")
-            } else {
+            Toggle("Show HUD Feedback", isOn: $showHUDInteractionFeedback)
+                .onChange(of: showHUDInteractionFeedback) { _ in onSave() }
+            SettingsFootnote(text: "Draws typed space numbers and action messages over the HUD. Turning this off hides the messages; every action still runs.")
+
+        }
+
+        Section(header: SettingsSectionHeader(title: "Menu Bar").settingsAnchor("behavior.menuBar")) {
+            Picker("Show Spacemap In", selection: $presence) {
+                Text("Menu Bar").tag(AppPresence.menuBar)
+                Text("Dock").tag(AppPresence.dock)
+                Text("Dock and Menu Bar").tag(AppPresence.both)
+                Text("Neither").tag(AppPresence.none)
+            }
+            .onChange(of: presence) { _ in onSave() }
+            SettingsFootnote(text: presenceSummary)
+
+            if presence.showsMenuBar {
                 Picker("Menu Bar Display", selection: $menuBarDisplayMode) {
                     Text("Icon").tag(MenuBarDisplayMode.icon)
                     Text("Space Dots").tag(MenuBarDisplayMode.dots)
@@ -172,6 +226,9 @@ struct SettingsBehavior: View {
                 }
             }
 
+        }
+
+        Section(header: SettingsSectionHeader(title: "Updates").settingsAnchor("behavior.updates")) {
             GlassSegmentedPicker("Automatic Updates", selection: $updateMode, options: [
                 (title: "Auto", value: .auto),
                 (title: "Notify", value: .notify),
@@ -185,7 +242,7 @@ struct SettingsBehavior: View {
             .liquidGlassButtonStyle()
         }
 
-        Section(header: SettingsSectionHeader(title: "App Font")) {
+        Section(header: SettingsSectionHeader(title: "App Font").settingsAnchor("behavior.appFont")) {
             GlassSegmentedPicker("Font Update Mode", selection: $appFontUpdateMode, options: [
                 (title: "Manual", value: .manual),
                 (title: "Auto", value: .auto),

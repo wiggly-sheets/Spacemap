@@ -72,7 +72,7 @@ class HUDWindowController {
         hudInput.hudDisplay = hudDisplay
         hudInput.onRefresh = { [weak self] in self?.refresh() }
         hudInput.onAutoHide = { [weak self] in self?.hide() }
-        hudInput.onNumberEntry = { [weak self] number in self?.hudDisplay.updateDisplayNumber(number) }
+        hudInput.onNumberEntry = { [weak self] feedback in self?.hudDisplay.updateDisplayNumber(feedback) }
         hudInput.onPanelDragEnded = { [weak self] in self?.hudDisplay.savePanelPosition() }
         hudInput.onAccessibilityRevoked = { [weak self] in self?.hide() }
         dragHandler.onHoverCell = { [weak self] cell in
@@ -392,6 +392,7 @@ extension HUDWindowController: HUDInputDelegate {
                     if shouldFocus { self.services.yabaiService.focusSpaceAsync(maxNow) }
                     DispatchQueue.main.async { [weak self] in
                         guard let self, self.presentationGeneration == generation else { return }
+                        self.hudDisplay.showNotice("Space \(maxNow) Created")
                         self.refresh()
                     }
                     return
@@ -406,12 +407,56 @@ extension HUDWindowController: HUDInputDelegate {
     }
     func destroyCurrentSpace() {
         guard let focused = state?.focusedIndex else { return }
+        // yabai itself falls back to the first space after a destroy. Keep the
+        // user's place instead: focus the space just before it once the destroy
+        // has landed, so the quick auto-jump is corrected.
+        let previous = state?.spaces.map(\.index).filter { $0 < focused }.max()
+        let generation = presentationGeneration
         services.yabaiService.destroySpace(focused)
-        refresh()
+        hudDisplay.showNotice("Space \(focused) Deleted")
+        waitForDestroy(focused, previous: previous, generation: generation, attempts: 0)
+    }
+
+    /// Polls until the destroyed space is gone, then focuses the previous space.
+    /// Retries because yabai applies the destroy asynchronously.
+    private func waitForDestroy(_ destroyed: Int, previous: Int?, generation: Int, attempts: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self, self.presentationGeneration == generation else { return }
+            self.services.yabaiService.runOnYabaiQueue { [weak self] in
+                guard let self else { return }
+                let indices = (try? self.services.yabaiService.querySpaces())?.map(\.index) ?? []
+                if !indices.contains(destroyed) {
+                    if let previous, indices.contains(previous) {
+                        self.services.yabaiService.focusSpaceAsync(previous)
+                    }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.presentationGeneration == generation else { return }
+                        self.refresh()
+                    }
+                    return
+                }
+                guard attempts + 1 < 20 else {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.presentationGeneration == generation else { return }
+                        self.refresh()
+                    }
+                    return
+                }
+                self.waitForDestroy(destroyed, previous: previous, generation: generation, attempts: attempts + 1)
+            }
+        }
     }
     func setSpaceLayout(_ layout: SpaceLayout) {
         services.yabaiService.setSpaceLayout(layout)
+        hudDisplay.showNotice(Self.layoutNotice(layout))
         refresh()
+    }
+    private static func layoutNotice(_ layout: SpaceLayout) -> String {
+        switch layout {
+        case .bsp: return "BSP Layout"
+        case .stack: return "Stack Layout"
+        case .float: return "Float Layout"
+        }
     }
     func showSettings() { hide(); onShowSettings?() }
 }

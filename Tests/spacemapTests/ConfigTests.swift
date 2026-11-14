@@ -94,7 +94,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.focusSpaceOnWindowDrop, .modifier)
         XCTAssertEqual(c.focusSpaceOnWindowDropModifier, .option)
         XCTAssertTrue(c.showHUDOnSpaceChange)
-        XCTAssertTrue(c.hideMenuBarIcon)
+        XCTAssertEqual(c.presence, AppPresence.none)
         XCTAssertEqual(c.menuBarDisplayMode, .nearby)
         XCTAssertEqual(c.menuBarNearbyCount, 5)
         XCTAssertEqual(c.updateMode, .off)

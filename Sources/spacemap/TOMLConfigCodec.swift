@@ -393,7 +393,8 @@ enum TOMLConfigDecoder {
         flatten("grid", keys: [
             "cols", "rows", "cellStyle", "showMode", "multiMonitorHUDMode",
             "unifiedHUDVisibility", "separateHUDVisibility", "maxSpaces",
-            "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons"
+            "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons",
+            "showThumbnailWallpaper"
         ])
         flatten("appearance", keys: [
             "theme", "mode", "backgroundAlpha", "hudShadow", "hudCornerRadius", "iconScale", "uiScale",
@@ -411,8 +412,8 @@ enum TOMLConfigDecoder {
         let legacyShowExtra = (result["behavior"] as? [String: Any])?["showExtraWindows"]
         flatten("behavior", keys: [
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
-            "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange",
-            "focusSpaceOnWindowDropModifier", "hideMenuBarIcon",
+            "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange", "hudAnimationsEnabled", "hudAnimationStyle", "showBSPLayoutBadge", "showStackLayoutBadge", "showFloatLayoutBadge", "showHUDInteractionFeedback",
+            "focusSpaceOnWindowDropModifier", "presence", "hideMenuBarIcon", "showThumbnailWallpaper",
             "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode",
             // Inline `hotkey = { ... }` / `hudPosition = { ... }` under
             // [behavior] must survive flatten just like the dotted form.
@@ -592,7 +593,23 @@ enum TOMLConfigDecoder {
             values.focusSpaceOnWindowDropModifier = parsedEnum(from: name)
         }
         values.showHUDOnSpaceChange = value("showHUDOnSpaceChange")
-        values.hideMenuBarIcon = value("hideMenuBarIcon")
+        values.showBSPLayoutBadge = value("showBSPLayoutBadge")
+        values.showStackLayoutBadge = value("showStackLayoutBadge")
+        values.showFloatLayoutBadge = value("showFloatLayoutBadge")
+        values.showHUDInteractionFeedback = value("showHUDInteractionFeedback")
+        values.showThumbnailWallpaper = value("showThumbnailWallpaper")
+        values.hudAnimationsEnabled = value("hudAnimationsEnabled")
+        if let name: String = value("hudAnimationStyle") {
+            values.hudAnimationStyle = parsedEnum(from: name)
+        }
+        if let name: String = value("presence") {
+            values.presence = parsedEnum(from: name)
+        } else if let hide: Bool = value("hideMenuBarIcon") {
+            // Legacy: hidden menu bar icon meant a menu-bar-less app.
+            values.presence = hide ? AppPresence.none : .menuBar
+        } else if let hide: Int = value("hideMenuBarIcon") {
+            values.presence = hide == 0 ? .menuBar : AppPresence.none
+        }
         values.glyphStrip = glyphStripConfig(from: object)
         if let name: String = value("menuBarDisplayMode") {
             values.menuBarDisplayMode = parsedEnum(from: name)

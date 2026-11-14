@@ -17,7 +17,10 @@ final class HUDDisplay {
     private var displayHostingViews: [Int: NSHostingView<AnyView>] = [:]
     private var currentConfig: GridConfig = .default
     private(set) var hoveredCell: Int? = nil
-    private var displayNumber: Int?
+    /// Typed-number readout channel. Separate from the rendered grid so a
+    /// digit repaints the overlay only.
+    private let numberState = HUDNumberState()
+    private let noticeState = HUDNoticeState()
     private(set) var renderedState: GridState?
     private var yabaiService: YabaiService
     private let themeService: ThemeManager
@@ -57,9 +60,15 @@ final class HUDDisplay {
         }
     }
 
-    func updateDisplayNumber(_ number: Int?) {
-        displayNumber = number
-        if let renderedState { updateState(renderedState) }
+    func updateDisplayNumber(_ feedback: HUDNumberFeedback?, clearAfter delay: TimeInterval? = nil) {
+        guard currentConfig.showHUDInteractionFeedback else { return }
+        numberState.update(feedback, clearAfter: delay)
+    }
+
+    /// Action feedback is optional; the action itself never depends on it.
+    func showNotice(_ text: String) {
+        guard currentConfig.showHUDInteractionFeedback else { return }
+        noticeState.show(text)
     }
 
     func updateHoveredCell(_ cell: Int?) {
@@ -82,9 +91,9 @@ final class HUDDisplay {
         if #available(macOS 14.0, *) {
             ThumbnailCache.shared.cancel()
         }
-        panel?.orderOut(nil)
+        if let panel { dismiss(panel) }
         for displayPanel in displayPanels.values {
-            displayPanel.orderOut(nil)
+            dismiss(displayPanel)
         }
         delegate?.hide()
     }
@@ -190,7 +199,8 @@ final class HUDDisplay {
         let requests = ThumbnailRequestBuilder.captureRequests(
             for: state,
             spaceIndices: visibleSpaceIndices,
-            thumbnailPixelSize: thumbnailPixelSize
+            thumbnailPixelSize: thumbnailPixelSize,
+            includeWallpaper: currentConfig.showThumbnailWallpaper
         )
         guard !requests.isEmpty else {
             clearThumbnailsIfNeeded()
@@ -346,7 +356,7 @@ final class HUDDisplay {
                 }
                 panel.setContentSize(size)
                 positionPanel(panel, size: size, screenFrame: screenFrame)
-                panel.orderFrontRegardless()
+                present(panel)
             }
             return
         }
@@ -376,7 +386,7 @@ final class HUDDisplay {
             ?? availableScreenFrames.first {
             positionPanel(panel, size: size, screenFrame: frame)
         }
-        panel.orderFrontRegardless()
+        present(panel)
     }
 
     private func renderSeparateStates(_ state: GridState) {
@@ -438,13 +448,47 @@ final class HUDDisplay {
             }
             panel.setContentSize(size)
             positionPanel(panel, size: size, screenFrame: screenFrame)
-            panel.orderFrontRegardless()
+            present(panel)
         }
     }
 
     /// Installs the SwiftUI grid in the panel's glass container. The container
     /// keeps a native glass sibling below the content so the effect samples the
     /// window backdrop, as it does in System Settings and the glyph strip.
+    /// Fades the panel in only on a fresh presentation, so repeated state
+    /// renders do not re-animate it. Respects the global animation switch.
+    private func present(_ panel: NSPanel) {
+        guard !panel.isVisible else {
+            panel.orderFrontRegardless()
+            return
+        }
+        guard currentConfig.hudAnimationsEnabled else {
+            panel.alphaValue = 1
+            panel.orderFrontRegardless()
+            return
+        }
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = currentConfig.hudAnimationStyle.fadeDuration
+            panel.animator().alphaValue = 1
+        }
+    }
+
+    private func dismiss(_ panel: NSPanel) {
+        guard panel.isVisible, currentConfig.hudAnimationsEnabled else {
+            panel.orderOut(nil)
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = currentConfig.hudAnimationStyle.fadeDuration
+            panel.animator().alphaValue = 0
+        } completionHandler: {
+            panel.orderOut(nil)
+            panel.alphaValue = 1
+        }
+    }
+
     private func installContent(_ hostingView: NSView, in panel: NSPanel, size: CGSize) {
         let container: HUDGlassContainerView
         if let existing = panel.contentView as? HUDGlassContainerView {
@@ -487,12 +531,13 @@ final class HUDDisplay {
         hoveredCell: Int?,
         spaceIndices: [Int]? = nil
     ) -> GridView {
-        GridView(state: state, hoveredCell: hoveredCell, hoverState: hoverState, displayNumber: displayNumber, onSelect: { [weak self] index in
+        GridView(state: state, hoveredCell: hoveredCell, hoverState: hoverState, numberState: numberState, noticeState: noticeState, onSelect: { [weak self] index in
             self?.yabaiService.focusSpaceAsync(index)
             self?.delegate?.hide()
         }, uiScale: currentConfig.uiScale, theme: currentConfig.theme,
            resolvedTheme: themeService.named(currentConfig.theme), spaceIndices: spaceIndices,
-           usesNativeGlass: Self.nativeGlassAvailable && currentConfig.backgroundStyle == .glass)
+           usesNativeGlass: Self.nativeGlassAvailable && currentConfig.backgroundStyle == .glass,
+           hudAnimation: currentConfig.hudAnimationsEnabled ? currentConfig.hudAnimationStyle : nil)
     }
 
     private func cellFrames(for cells: [Int], in panel: NSPanel) -> [(spaceIndex: Int, frame: CGRect)] {

@@ -16,7 +16,8 @@ enum ThumbnailCompositor {
 
     static func composite(
         request: ThumbnailCache.CaptureRequest,
-        windowImages: [CGWindowID: CGImage]
+        windowImages: [CGWindowID: CGImage],
+        desktopImage: CGImage? = nil
     ) -> CGImage? {
         let width = Int(request.outputSize.width.rounded(.up))
         let height = Int(request.outputSize.height.rounded(.up))
@@ -35,6 +36,9 @@ enum ThumbnailCompositor {
 
         context.clear(CGRect(x: 0, y: 0, width: width, height: height))
         context.interpolationQuality = .high
+        if let desktopImage {
+            context.draw(desktopImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        }
         let scaleX = request.outputSize.width / request.displayFrame.width
         let scaleY = request.outputSize.height / request.displayFrame.height
         for window in request.windows {

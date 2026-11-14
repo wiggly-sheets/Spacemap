@@ -27,7 +27,10 @@ final class SpacemapServices {
     lazy var settingsService: SettingsService = SettingsService(
         yabaiService: yabaiService,
         checkForUpdates: { [weak self] in self?.checkForUpdates() },
-        restoreFloatingPanels: { [weak self] in self?.glyphStrip.present() }
+        restoreFloatingPanels: { [weak self] in self?.glyphStrip.present() },
+        restingActivationPolicy: { [weak self] in
+            (self?.currentConfig.presence.showsDock ?? false) ? .regular : .accessory
+        }
     )
     private(set) lazy var glyphStrip = GlyphStripPanelController(yabaiService: yabaiService)
     lazy var cliToolsService = CLIToolsService(
@@ -83,6 +86,16 @@ final class SpacemapServices {
     func setupMenubar() { menubarService.setupMenubar() }
     func showMenubarMenu() { menubarService.showMenubarMenu() }
     func applyMenubarVisibility(config: GridConfig) { menubarService.applyMenubarVisibility(config: config) }
+
+    /// Applies where Spacemap appears at rest: the Dock policy and the menu
+    /// bar item. Windows still switch to `.regular` while Settings is open.
+    func applyPresence(config: GridConfig) {
+        // Settings and About are regular windows; keep the Dock icon while one
+        // is open even when the resting presence has no Dock icon.
+        let hasRegularWindow = NSApp.windows.contains { $0.isVisible && $0.canBecomeKey }
+        NSApp.setActivationPolicy(config.presence.showsDock || hasRegularWindow ? .regular : .accessory)
+        menubarService.applyMenubarVisibility(config: config)
+    }
     func refreshMenubarPreview(config: GridConfig? = nil) { menubarService.refreshMenubarPreview(config: config) }
     func applyGlyphStrip(config: GridConfig) { glyphStrip.update(config: config) }
     func refreshGlyphStrip() { glyphStrip.refresh() }

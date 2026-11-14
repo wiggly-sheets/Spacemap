@@ -38,6 +38,8 @@ final class ThumbnailCache {
         let includeUnmanagedOnScreenWindows: Bool
         let knownYabaiWindowIDs: Set<CGWindowID>
         let windows: [CaptureWindow]
+        /// Draw the desktop wallpaper beneath this space's windows.
+        var includeWallpaper: Bool = true
     }
 
     private struct RefreshJob {
@@ -144,7 +146,11 @@ final class ThumbnailCache {
         // Secure input gate before any fetch: never expand unmanaged windows,
         // and force on-screen-only so the fetch itself stays narrow.
         let secureInput = IsSecureEventInputEnabled()
-        let onScreenOnly = secureInput || !job.requests.contains(where: \.includeUnmanagedOnScreenWindows)
+        // Off-space windows are not on screen, but their pixels are what the
+        // thumbnails show. Querying only on-screen windows silently dropped
+        // most of a strip that previews every space. Secure input still gates
+        // unmanaged-window expansion below.
+        let onScreenOnly = false
         let task = Task {
             do {
                 let content = try await SCShareableContent.excludingDesktopWindows(
@@ -220,13 +226,25 @@ final class ThumbnailCache {
                         outputSize: outputSize
                     )
                 }
-                let windowImages = await Self.captureWindows(targets)
+                async let windowImagesTask = Self.captureWindows(targets)
+                let windowImages = await windowImagesTask
+                let desktopImages: [CGRect: CGImage]
+                if effectiveRequests.contains(where: \.includeWallpaper) {
+                    desktopImages = await Self.captureDesktops(
+                        requests: effectiveRequests,
+                        displays: content.displays,
+                        windows: content.windows
+                    )
+                } else {
+                    desktopImages = [:]
+                }
 
                 var captures: [Int: CGImage] = [:]
                 for request in effectiveRequests {
                     if let image = Self.composite(
                         request: request,
-                        windowImages: windowImages
+                        windowImages: windowImages,
+                        desktopImage: request.includeWallpaper ? desktopImages[request.displayFrame] : nil
                     ) {
                         captures[request.spaceIndex] = image
                     }
@@ -368,9 +386,14 @@ final class ThumbnailCache {
 
     static func composite(
         request: CaptureRequest,
-        windowImages: [CGWindowID: CGImage]
+        windowImages: [CGWindowID: CGImage],
+        desktopImage: CGImage? = nil
     ) -> CGImage? {
-        ThumbnailCompositor.composite(request: request, windowImages: windowImages)
+        ThumbnailCompositor.composite(
+            request: request,
+            windowImages: windowImages,
+            desktopImage: desktopImage
+        )
     }
 
     private static func captureWindows(
@@ -406,6 +429,71 @@ final class ThumbnailCache {
                 }
             }
             return results
+        }
+    }
+
+    /// One wallpaper-only image per display, drawn beneath the window images.
+    /// Every window on the display is excluded, so the capture is desktop
+    /// background, not the current space.
+    private static func captureDesktops(
+        requests: [CaptureRequest],
+        displays: [SCDisplay],
+        windows: [SCWindow]
+    ) async -> [CGRect: CGImage] {
+        var seen = Set<CGRect>()
+        let jobs: [(CGRect, SCDisplay, CGSize)] = requests.compactMap { request in
+            guard seen.insert(request.displayFrame).inserted,
+                  let display = displays.first(where: { $0.frame == request.displayFrame }) else {
+                return nil
+            }
+            return (request.displayFrame, display, request.outputSize)
+        }
+        return await withTaskGroup(
+            of: (CGRect, CGImage?).self,
+            returning: [CGRect: CGImage].self
+        ) { group in
+            for job in jobs {
+                group.addTask {
+                    (
+                        job.0,
+                        await captureDesktop(
+                            display: job.1,
+                            size: job.2,
+                            excluding: windows
+                        )
+                    )
+                }
+            }
+            var results: [CGRect: CGImage] = [:]
+            for await (frame, image) in group {
+                if let image { results[frame] = image }
+            }
+            return results
+        }
+    }
+
+    private static func captureDesktop(
+        display: SCDisplay,
+        size: CGSize,
+        excluding windows: [SCWindow]
+    ) async -> CGImage? {
+        do {
+            let filter = SCContentFilter(display: display, excludingWindows: windows)
+            let config = SCStreamConfiguration()
+            config.width = max(1, Int(size.width.rounded(.up)))
+            config.height = max(1, Int(size.height.rounded(.up)))
+            config.showsCursor = false
+            config.shouldBeOpaque = true
+            return try await SCScreenshotManager.captureImage(
+                contentFilter: filter,
+                configuration: config
+            )
+        } catch {
+            NSLog(
+                "spacemap/ThumbnailCache: desktop capture error: " +
+                error.localizedDescription
+            )
+            return nil
         }
     }
 

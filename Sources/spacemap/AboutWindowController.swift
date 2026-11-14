@@ -35,7 +35,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         self.onClose = onClose
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 560),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -258,6 +258,17 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
                 + "Distributed under the MIT License"
         )
 
+        let appFont = wrappingLabel(
+            "sketchybar-app-font — window icons in the Glyph Strip\n"
+                + "Copyright © Kevin Dressler and contributors\n"
+                + "Distributed under CC0 1.0"
+        )
+
+        let liquidGlass = wrappingLabel(
+            "Julian Windeck's liquid-glass project — reference for the private "
+                + "NSGlassEffectView variant finishes used by the HUD and Glyph Strip."
+        )
+
         let system = wrappingLabel(
             "Spacemap is otherwise built with Apple system frameworks, including AppKit, "
                 + "SwiftUI, Core Graphics, Application Services, and ScreenCaptureKit."
@@ -271,6 +282,15 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
                 buttonRow(
                     button("Sparkle Project", action: #selector(openSparkle)),
                     button("Sparkle License", action: #selector(openSparkleLicense))
+                ),
+                appFont,
+                buttonRow(
+                    button("sketchybar-app-font", action: #selector(openAppFont)),
+                    button("App Font License", action: #selector(openAppFontLicense))
+                ),
+                liquidGlass,
+                fixedWidthButton(
+                    button("Liquid Glass Source", action: #selector(openLiquidGlass))
                 ),
                 system,
             ]
@@ -394,6 +414,18 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func openSparkleLicense() {
         open("https://github.com/sparkle-project/Sparkle/blob/2.x/LICENSE")
+    }
+
+    @objc private func openAppFont() {
+        open("https://github.com/kvndrsslr/sketchybar-app-font")
+    }
+
+    @objc private func openAppFontLicense() {
+        open("https://github.com/kvndrsslr/sketchybar-app-font/blob/main/LICENSE")
+    }
+
+    @objc private func openLiquidGlass() {
+        open("https://github.com/JulianWindeck/liquid-glass")
     }
 
     private func open(_ urlString: String) {

@@ -624,6 +624,9 @@ final class CellViewGridViewTests: XCTestCase {
         XCTAssertEqual(CellView.spaceLayoutBadge(for: "bsp"), "b")
         XCTAssertEqual(CellView.spaceLayoutBadge(for: nil), "")
         XCTAssertEqual(CellView.spaceLayoutBadge(for: "unknown"), "")
+        XCTAssertEqual(CellView.spaceLayoutBadge(for: "bsp", showBSP: false), "")
+        XCTAssertEqual(CellView.spaceLayoutBadge(for: "stack", showStack: false), "")
+        XCTAssertEqual(CellView.spaceLayoutBadge(for: "float", showFloat: false), "")
     }
 
     func testShowSpaceLayoutDefaultsOff() {

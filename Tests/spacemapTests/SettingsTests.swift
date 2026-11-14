@@ -355,7 +355,7 @@ final class SettingsTests: XCTestCase {
         config.showSpaceNames = false
         config.showIconStrip = false
         config.showMultiAppIcons = true
-        config.hideMenuBarIcon = true
+        config.presence = AppPresence.none
         config.glyphStrip = strip
         config.menuBarDisplayMode = .nearby
         config.menuBarNearbyCount = 7

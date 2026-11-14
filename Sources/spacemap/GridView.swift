@@ -14,7 +14,10 @@ struct GridView: View {
     let onSelect: (Int) -> Void
     let uiScale: Double
     let theme: String
-    let displayNumber: Int?
+    let numberState: HUDNumberState
+    let noticeState: HUDNoticeState
+    /// `nil` means animations are off.
+    let hudAnimation: HUDAnimationStyle?
     let resolvedTheme: AppTheme
     /// True when the panel's AppKit content root supplies the Liquid Glass
     /// layer, so the SwiftUI background must stay clear.
@@ -30,10 +33,6 @@ struct GridView: View {
         }
     }
 
-    private var displayNumberColor: Color {
-        Color(hex: resolvedTheme.text).opacity(0.9)
-    }
-    
     private let _visibleSpaceIndices: [Int]
     private let activeSpaceIndices: Set<Int>
     private let labelBySpaceIndex: [Int: String]
@@ -79,13 +78,14 @@ struct GridView: View {
             displayBoundaryOverlay
         }
         .overlay {
-            if let displayNumber {
-                Text("\(displayNumber)")
-                    .font(.system(size: 96, weight: .bold))
-                    .foregroundStyle(displayNumberColor)
-                    .allowsHitTesting(false)
-            }
+            HUDNumberOverlay(state: numberState, theme: resolvedTheme)
         }
+        .overlay(alignment: .bottom) {
+            HUDNoticeOverlay(state: noticeState, theme: resolvedTheme)
+                .padding(.bottom, effectivePadding)
+        }
+        .animation(hudAnimation?.animation, value: state.focusedIndex)
+        .animation(hudAnimation?.animation, value: state.spaces.count)
     }
     
     private func spaceLabel(for index: Int) -> String? {
@@ -167,7 +167,14 @@ struct GridView: View {
             spaceIndex: cellSpaceIndex,
             spaceLabel: cellSpaceLabel,
             spaceName: cellSpaceName,
-            spaceLayoutBadge: typeBySpaceIndex[spaceIndex].map(CellView.spaceLayoutBadge(for:)) ?? "",
+            spaceLayoutBadge: typeBySpaceIndex[spaceIndex].map {
+                CellView.spaceLayoutBadge(
+                    for: $0,
+                    showBSP: state.config.showBSPLayoutBadge,
+                    showStack: state.config.showStackLayoutBadge,
+                    showFloat: state.config.showFloatLayoutBadge
+                )
+            } ?? "",
             isFocused: cellIsFocused,
             isDropTarget: cellIsDropTarget,
             isActive: cellIsActive,
@@ -230,17 +237,21 @@ struct GridView: View {
         state: GridState,
         hoveredCell: Int?,
         hoverState: HUDHoverState? = nil,
-        displayNumber: Int? = nil,
+        numberState: HUDNumberState = HUDNumberState(),
+        noticeState: HUDNoticeState = HUDNoticeState(),
         onSelect: @escaping (Int) -> Void,
         uiScale: Double = 1.0,
         theme: String = "default",
         resolvedTheme: AppTheme,
         spaceIndices: [Int]? = nil,
-        usesNativeGlass: Bool = false
+        usesNativeGlass: Bool = false,
+        hudAnimation: HUDAnimationStyle? = .natural
     ) {
         self.state = state
         self.hoveredCell = hoveredCell
-        self.displayNumber = displayNumber
+        self.numberState = numberState
+        self.noticeState = noticeState
+        self.hudAnimation = hudAnimation
         self.usesNativeGlass = usesNativeGlass
         self.onSelect = onSelect
         self.uiScale = uiScale

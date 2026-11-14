@@ -110,6 +110,18 @@ enum AppFontUpdateMode: String, CaseIterable, Identifiable, Equatable {
 
     var id: String { rawValue }
 }
+enum AppPresence: String, CaseIterable, Identifiable, Equatable {
+    case dock = "dock"
+    case menuBar = "menuBar"
+    case both = "both"
+    case none = "none"
+
+    var id: String { rawValue }
+
+    var showsMenuBar: Bool { self == .menuBar || self == .both }
+    var showsDock: Bool { self == .dock || self == .both }
+}
+
 enum MenuBarDisplayMode: String, CaseIterable, Identifiable, Equatable {
     case icon
     case dots
@@ -574,7 +586,8 @@ struct GridConfig: Equatable {
     var showSpaceNames: Bool
     var showIconStrip: Bool
     var showMultiAppIcons: Bool
-    var hideMenuBarIcon: Bool
+    /// Where Spacemap appears outside the HUD: dock, menu bar, both, or neither.
+    var presence: AppPresence = .menuBar
     var glyphStrip: GlyphStripConfig = .default
     var menuBarDisplayMode: MenuBarDisplayMode = .icon
     var menuBarNearbyCount: Int = 3
@@ -590,6 +603,19 @@ struct GridConfig: Equatable {
     var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
     var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
     var showHUDOnSpaceChange: Bool = false
+    /// Which layout letters the HUD badge shows. Read only when
+    /// `showSpaceLayout` is on; the default keeps every letter.
+    var showBSPLayoutBadge: Bool = true
+    var showStackLayoutBadge: Bool = true
+    var showFloatLayoutBadge: Bool = true
+    /// Draw number and action notices over the HUD. Actions still run when off.
+    var showHUDInteractionFeedback: Bool = true
+    /// Draw the desktop wallpaper behind thumbnail cells. Off renders windows
+    /// over a transparent background, which is easier to read on busy desktops.
+    var showThumbnailWallpaper: Bool = true
+    /// Fade panels and animate cell changes. Off keeps every HUD change instant.
+    var hudAnimationsEnabled: Bool = true
+    var hudAnimationStyle: HUDAnimationStyle = .natural
     var updateMode: UpdateMode
     var appFont: AppFontConfig = .default
     /// Refuse to execute a yabai binary that fails the ownership/signature
@@ -634,12 +660,19 @@ struct GridConfig: Equatable {
         backgroundStyle: .glass, glassStyle: .regular, hudShadow: true,
         mode: .auto, iconScale: 0.5, showSpaceNumbers: true,
         showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false,
-        hideMenuBarIcon: false, glyphStrip: .default, menuBarDisplayMode: .icon,
+        presence: .menuBar, glyphStrip: .default, menuBarDisplayMode: .icon,
         menuBarNearbyCount: 3, spaceNames: [:], useVimKeys: false,
         useArrowKeys: false, jumpToSpaceEnabled: false, hudPosition: .center, customHUDX: 0.5,
         customHUDY: 0.5, showExtraWindows: false,
         focusSpaceOnWindowDrop: .never, focusSpaceOnWindowDropModifier: .command,
         showHUDOnSpaceChange: false,
+        showBSPLayoutBadge: true,
+        showStackLayoutBadge: true,
+        showFloatLayoutBadge: true,
+        showHUDInteractionFeedback: true,
+        showThumbnailWallpaper: true,
+        hudAnimationsEnabled: true,
+        hudAnimationStyle: .natural,
         updateMode: .notify
     )
 }

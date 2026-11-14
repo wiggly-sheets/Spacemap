@@ -10,6 +10,38 @@ final class HUDInputTests: XCTestCase {
         XCTAssertNil(HUDInput.numberFromKeyCode(keyCode: 18, flags: .maskCommand))
     }
 
+    func testRepeatedDigitReplacesInsteadOfAppending() {
+        let indices = [1, 2, 4, 10]
+        XCTAssertEqual(HUDInput.appendedNumber("4", to: "", indices: indices), "4")
+        XCTAssertEqual(HUDInput.appendedNumber("4", to: "4", indices: indices), "4")
+        XCTAssertEqual(HUDInput.appendedNumber("0", to: "1", indices: indices), "10")
+        // 3 is neither a space nor a prefix, so it starts a fresh entry.
+        XCTAssertEqual(HUDInput.appendedNumber("3", to: "1", indices: indices), "3")
+    }
+
+    func testNumberOutcomeWaitsOnlyWhileALongerSpaceCouldMatch() {
+        // Spaces 1...9: a single digit resolves at once.
+        XCTAssertEqual(HUDInput.numberOutcome(pending: "3", indices: Array(1...9))?.mustWait, false)
+        // Space 10 exists, so "1" must wait for a possible "10".
+        XCTAssertEqual(
+            HUDInput.numberOutcome(pending: "1", indices: Array(1...12))?.mustWait,
+            true
+        )
+        XCTAssertEqual(
+            HUDInput.numberOutcome(pending: "10", indices: Array(1...12))?.number,
+            10
+        )
+        XCTAssertEqual(
+            HUDInput.numberOutcome(pending: "10", indices: Array(1...12))?.exists,
+            true
+        )
+        XCTAssertEqual(
+            HUDInput.numberOutcome(pending: "42", indices: Array(1...12))?.exists,
+            false
+        )
+        XCTAssertNil(HUDInput.numberOutcome(pending: "x", indices: Array(1...12)))
+    }
+
     func testSettingsShortcutRequiresCommandSlash() {
         XCTAssertTrue(HUDInput.isSettingsShortcut(keyCode: 43, flags: .maskCommand))
         XCTAssertFalse(HUDInput.isSettingsShortcut(keyCode: 43, flags: []))

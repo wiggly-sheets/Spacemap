@@ -124,13 +124,17 @@ final class ApplicationLifecycleService {
             self.hud.reloadConfig()
             self.hud.prewarmState()
             self.services.restartHotkeys(config: config)
-            self.services.applyMenubarVisibility(config: config)
+            self.services.applyPresence(config: config)
             self.services.refreshMenubarPreview(config: config)
             self.services.applyGlyphStrip(config: config)
             self.hud.onShowSettings = { [weak self] in self?.services.showSettingsWindow() }
             self.setupSocketListener(config: config)
 
             self.setupSettingsObserver()
+
+            if config.cellStyle == .thumbnails, !SystemPermissions.hasScreenRecording {
+                SystemPermissions.requestScreenRecording()
+            }
 
             self.services.configureSparkleUpdater(updateMode: config.updateMode)
 
@@ -243,7 +247,7 @@ final class ApplicationLifecycleService {
             if changes.updater {
                 self.services.configureSparkleUpdater(updateMode: config.updateMode)
             }
-            self.services.applyMenubarVisibility(config: config)
+            self.services.applyPresence(config: config)
             self.services.refreshMenubarPreview(config: config)
             self.services.applyGlyphStrip(config: config)
             if changes.yabaiSignals {

@@ -48,7 +48,7 @@ struct ConfigValues {
     var showSpaceNames: Bool?
     var showIconStrip: Bool?
     var showMultiAppIcons: Bool?
-    var hideMenuBarIcon: Bool?
+    var presence: AppPresence?
     var glyphStrip: GlyphStripConfig?
     var menuBarDisplayMode: MenuBarDisplayMode?
     var menuBarNearbyCount: Int?
@@ -64,6 +64,13 @@ struct ConfigValues {
     var focusSpaceOnWindowDrop: WindowDropFocusMode?
     var focusSpaceOnWindowDropModifier: WindowDropFocusModifier?
     var showHUDOnSpaceChange: Bool?
+    var showBSPLayoutBadge: Bool?
+    var showStackLayoutBadge: Bool?
+    var showFloatLayoutBadge: Bool?
+    var showHUDInteractionFeedback: Bool?
+    var showThumbnailWallpaper: Bool?
+    var hudAnimationsEnabled: Bool?
+    var hudAnimationStyle: HUDAnimationStyle?
     var updateMode: UpdateMode?
     var appFont: AppFontConfig?
     var refuseUntrustedYabai: Bool?
@@ -122,7 +129,7 @@ struct ConfigValues {
         self.showSpaceNames = config.showSpaceNames
         self.showIconStrip = config.showIconStrip
         self.showMultiAppIcons = config.showMultiAppIcons
-        self.hideMenuBarIcon = config.hideMenuBarIcon
+        self.presence = config.presence
         self.glyphStrip = config.glyphStrip
         self.menuBarDisplayMode = config.menuBarDisplayMode
         self.menuBarNearbyCount = config.menuBarNearbyCount
@@ -138,6 +145,13 @@ struct ConfigValues {
         self.focusSpaceOnWindowDrop = config.focusSpaceOnWindowDrop
         self.focusSpaceOnWindowDropModifier = config.focusSpaceOnWindowDropModifier
         self.showHUDOnSpaceChange = config.showHUDOnSpaceChange
+        self.showBSPLayoutBadge = config.showBSPLayoutBadge
+        self.showStackLayoutBadge = config.showStackLayoutBadge
+        self.showFloatLayoutBadge = config.showFloatLayoutBadge
+        self.showHUDInteractionFeedback = config.showHUDInteractionFeedback
+        self.showThumbnailWallpaper = config.showThumbnailWallpaper
+        self.hudAnimationsEnabled = config.hudAnimationsEnabled
+        self.hudAnimationStyle = config.hudAnimationStyle
         self.updateMode = config.updateMode
         self.appFont = config.appFont
         self.refuseUntrustedYabai = config.refuseUntrustedYabai
@@ -292,7 +306,7 @@ struct ConfigValues {
             showSpaceNames: orDefault(showSpaceNames, defaults.showSpaceNames),
             showIconStrip: orDefault(showIconStrip, defaults.showIconStrip),
             showMultiAppIcons: orDefault(showMultiAppIcons, defaults.showMultiAppIcons),
-            hideMenuBarIcon: orDefault(hideMenuBarIcon, defaults.hideMenuBarIcon),
+            presence: orDefault(presence, defaults.presence),
             glyphStrip: clampedStrip,
             menuBarDisplayMode: resolvedMenuBarDisplayMode,
             menuBarNearbyCount: oversizeClamped(menuBarNearbyCount, defaults.menuBarNearbyCount, in: 1...16),
@@ -308,6 +322,13 @@ struct ConfigValues {
             focusSpaceOnWindowDrop: resolvedWindowDropFocusMode,
             focusSpaceOnWindowDropModifier: resolvedWindowDropModifier,
             showHUDOnSpaceChange: orDefault(showHUDOnSpaceChange, defaults.showHUDOnSpaceChange),
+            showBSPLayoutBadge: orDefault(showBSPLayoutBadge, defaults.showBSPLayoutBadge),
+            showStackLayoutBadge: orDefault(showStackLayoutBadge, defaults.showStackLayoutBadge),
+            showFloatLayoutBadge: orDefault(showFloatLayoutBadge, defaults.showFloatLayoutBadge),
+            showHUDInteractionFeedback: orDefault(showHUDInteractionFeedback, defaults.showHUDInteractionFeedback),
+            showThumbnailWallpaper: orDefault(showThumbnailWallpaper, defaults.showThumbnailWallpaper),
+            hudAnimationsEnabled: orDefault(hudAnimationsEnabled, defaults.hudAnimationsEnabled),
+            hudAnimationStyle: hudAnimationStyle ?? defaults.hudAnimationStyle,
             updateMode: resolvedUpdateMode,
             appFont: orDefault(appFont, defaults.appFont),
             // New flag: absent in old files heals silently without forcing a

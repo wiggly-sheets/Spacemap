@@ -17,7 +17,8 @@ enum ThumbnailRequestBuilder {
     static func captureRequests(
         for state: GridState,
         spaceIndices: Set<Int>? = nil,
-        thumbnailPixelSize: CGSize = ThumbnailCache.defaultThumbnailPixelSize
+        thumbnailPixelSize: CGSize = ThumbnailCache.defaultThumbnailPixelSize,
+        includeWallpaper: Bool = true
     ) -> [ThumbnailCache.CaptureRequest] {
         let knownYabaiWindowIDs = Set(
             state.windows.map { CGWindowID(truncatingIfNeeded: $0.id) }
@@ -48,7 +49,8 @@ enum ThumbnailRequestBuilder {
                     space.isVisible == true ||
                     (space.isVisible == nil && space.hasFocus),
                 knownYabaiWindowIDs: knownYabaiWindowIDs,
-                windows: windows
+                windows: windows,
+                includeWallpaper: includeWallpaper
             )
         }
     }
