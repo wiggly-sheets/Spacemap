@@ -67,7 +67,8 @@ struct GridView: View {
                           cornerRadius: 10,
                           alpha: state.config.effectiveBackgroundOpacity(for: state.config.backgroundStyle),
                           isDarkMode: isDarkMode,
-                          themeColor: Color(hex: resolvedTheme.background))
+                          themeColor: Color(hex: resolvedTheme.background),
+                          tintColor: Color(hex: resolvedTheme.focused))
         )
         .overlay(alignment: .topLeading) {
             displayBoundaryOverlay

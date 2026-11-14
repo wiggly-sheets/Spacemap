@@ -26,6 +26,9 @@ class HUDWindowController {
     private let hudInput: HUDInput
     private let hudDisplay: HUDDisplay
     private let coordinator: GridStateCoordinator
+    /// Reduce Transparency changes which backing the HUD can use; SwiftUI
+    /// reads that only when its body re-evaluates.
+    private var accessibilityObserver: NSObjectProtocol?
 
     init(services: SpacemapServices, coordinator: GridStateCoordinator? = nil) {
         self.services = services
@@ -38,6 +41,20 @@ class HUDWindowController {
         self.hudInput = HUDInput(panel: nil)
         self.dragHandler = WindowDragHandler()
         setupDelegates()
+        accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, self.isVisible else { return }
+            self.refresh()
+        }
+    }
+
+    deinit {
+        if let accessibilityObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver)
+        }
     }
     private func setupDelegates() {
         hudInput.delegate = self

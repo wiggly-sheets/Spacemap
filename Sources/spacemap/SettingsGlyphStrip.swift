@@ -45,14 +45,30 @@ struct SettingsGlyphStrip: View {
             .onChange(of: glyphStrip.position) { _ in onSave() }
 
             if glyphStrip.position == .custom {
-                stepper("Horizontal Offset", value: $glyphStrip.xOffset, range: -4000...4000)
-                    .onChange(of: glyphStrip.xOffset) { _ in onSave() }
-                SettingsFootnote(text: "Distance from the left edge of the menu bar row. Vertical Offset in Appearance moves the strip up or down.")
+                Picker("Layout", selection: $glyphStrip.orientation) {
+                    Text("Horizontal").tag(GlyphStripOrientation.horizontal)
+                    Text("Vertical").tag(GlyphStripOrientation.vertical)
+                }
+                .onChange(of: glyphStrip.orientation) { _ in onSave() }
+                if glyphStrip.orientation == .vertical {
+                    Picker("Icon Layout", selection: $glyphStrip.verticalLayout) {
+                        Text("Beside Numbers").tag(GlyphStripVerticalLayout.inline)
+                        Text("Under Numbers").tag(GlyphStripVerticalLayout.stacked)
+                    }
+                    .onChange(of: glyphStrip.verticalLayout) { _ in onSave() }
+                    SettingsFootnote(text: "Beside Numbers keeps each space on one row. Under Numbers puts the space number on top and stacks its icons beneath it.")
+                }
+                SettingsFootnote(text: "Vertical stacks one space per row, for a strip on a screen edge. Drag the strip to place it anywhere on screen; its position is saved automatically.")
+                Toggle("Lock Position", isOn: $glyphStrip.lockPosition)
+                    .onChange(of: glyphStrip.lockPosition) { _ in onSave() }
+                SettingsFootnote(text: "Locks the strip where it is. Turn it off to drag the strip again. Off by default.")
             }
 
-            stepper("Notch Margin", value: $glyphStrip.margin, range: 0...40, step: 1)
-                .onChange(of: glyphStrip.margin) { _ in onSave() }
-            SettingsFootnote(text: "Gap between the strip and the edge of the notch area.")
+            if glyphStrip.position == .leftOfNotch || glyphStrip.position == .rightOfNotch {
+                stepper("Notch Margin", value: $glyphStrip.margin, range: 0...40, step: 1)
+                    .onChange(of: glyphStrip.margin) { _ in onSave() }
+                SettingsFootnote(text: "Gap between the strip and the edge of the notch area.")
+            }
 
             Section(header: SettingsSectionHeader(title: "Contents")) {
                 Toggle(showSpaceNumbersTitle, isOn: $glyphStrip.showSpaceNumbers)
@@ -111,10 +127,7 @@ struct SettingsGlyphStrip: View {
                     .onChange(of: glyphStrip.iconSpacing) { _ in onSave() }
                 stepper("Index Padding", value: $glyphStrip.indexPadding, range: 0...20, step: 0.5)
                     .onChange(of: glyphStrip.indexPadding) { _ in onSave() }
-                SettingsFootnote(text: "Icon Spacing is the extra gap between two app icons. Index Padding is the gap between a space's number and its first icon.")
-                stepper("Vertical Offset", value: $glyphStrip.yOffset, range: -10...10, step: 0.5)
-                    .onChange(of: glyphStrip.yOffset) { _ in onSave() }
-                SettingsFootnote(text: "Positive moves the strip down, into the screen interior. 0 is centered. Negative moves it up toward the top edge.")
+                SettingsFootnote(text: "Icon Spacing is the gap between two app icons, and between stacked icon lines. Index Padding is the gap between a space's number and its first icon, horizontal or stacked.")
                 Toggle("Highlight Current Space", isOn: $glyphStrip.highlightCurrentSpace)
                     .onChange(of: glyphStrip.highlightCurrentSpace) { _ in onSave() }
                 SettingsFootnote(text: "Colours come from the \(effectiveThemeName.capitalized) theme — the current space, the + button and the hover highlight use focused, everything else uses text. No per-element colour keys.")

@@ -177,7 +177,8 @@ final class ConfigValuesTests: XCTestCase {
 
         let config = values.toGridConfig().config
 
-        XCTAssertEqual(config.glassClearOpacity, 0.6)
+        // Clear keeps its old effective value: backgroundAlpha scaled by 15%.
+        XCTAssertEqual(config.glassClearOpacity, 0.09, accuracy: 1e-9)
         XCTAssertEqual(config.glassOpaqueOpacity, 0.6)
         XCTAssertEqual(config.glassTintedOpacity, 0.6)
         XCTAssertEqual(config.solidOpacity, 0.6)

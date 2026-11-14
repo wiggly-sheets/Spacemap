@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 
 /// Always-visible overlay strip parked in the menu bar row, hugging the notch.
 ///
@@ -41,6 +42,9 @@ final class GlyphStripPanelController: NSObject {
     /// Resolved per refresh on the work queue and passed through — never
     /// held, since the updater invalidates the shared cache after install.
     private var didLogMissingFont = false
+    /// Face owner for the last painted pass. Drawing reads the face from the
+    /// same file the codepoints came from.
+    private var glyphFont: AppGlyphFont?
     /// Availability gate for an already-loaded font: metadata parses but the
     /// face must resolve, else initials instead of tofu.
     private func effectiveFont(from loaded: AppGlyphFont?) -> AppGlyphFont? {
@@ -51,7 +55,7 @@ final class GlyphStripPanelController: NSObject {
             }
             return nil
         }
-        guard AppGlyphFont.isFontAvailable() else {
+        guard loaded.face(size: 11) != nil else {
             if !didLogMissingFont {
                 didLogMissingFont = true
                 NSLog("spacemap/GlyphStrip: sketchybar-app-font metadata parses but face unavailable; falling back to app initials")
@@ -87,6 +91,9 @@ final class GlyphStripPanelController: NSObject {
     fileprivate var focusedSpaceIndex: Int?
     private var hoveredSegment: Int?
     private var screenObserver: NSObjectProtocol?
+    /// Reduce Transparency changes swap the native glass for the legacy
+    /// effect view; nothing else reassigns the material while the strip is up.
+    private var accessibilityObserver: NSObjectProtocol?
 
     init(yabaiService: YabaiService) {
         self.yabaiService = yabaiService
@@ -101,6 +108,13 @@ final class GlyphStripPanelController: NSObject {
         ) { [weak self] _ in
             self?.applyFrame()
         }
+        accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.relayoutBackground()
+        }
     }
 
     deinit {
@@ -108,6 +122,17 @@ final class GlyphStripPanelController: NSObject {
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
         }
+        if let accessibilityObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver)
+        }
+    }
+
+    /// Re-applies the background choice without touching content: used when a
+    /// system setting changes which glass implementation is allowed.
+    private func relayoutBackground() {
+        panel?.contentView?.needsLayout = true
+        panel?.contentView?.layout()
+        glyphs?.needsDisplay = true
     }
 
     // MARK: - State
@@ -211,6 +236,7 @@ final class GlyphStripPanelController: NSObject {
                         return
                     }
                     let font = self.effectiveFont(from: loaded)
+                    self.glyphFont = font
                     let resolved = GlyphStrip.segments(
                         for: state,
                         options: options,
@@ -303,7 +329,8 @@ final class GlyphStripPanelController: NSObject {
                     for: run,
                     strip: strip,
                     theme: theme,
-                    style: Self.style(for: run, isCurrent: isCurrent, strip: strip, theme: theme)
+                    style: Self.style(for: run, isCurrent: isCurrent, strip: strip, theme: theme),
+                    face: glyphFont
                 )
             }
         }
@@ -396,10 +423,14 @@ final class GlyphStripPanelController: NSObject {
         let screen = explicitScreen ?? targetScreen()
         let strip = config.glyphStrip
         let row = Self.menuBarRow(on: screen)
-        let contentWidth = max(segmentWidths.reduce(0, +), 1)
+        // Free placement can leave the menu bar row, so `presentationFrame`
+        // there is the whole display. Anchored positions keep the row.
+        let area = strip.position == .custom ? Self.screenFrame(on: screen) : row
+        panel.level = strip.position == .custom ? .floating : .statusBar
         let frame = GlyphStrip.frame(
-            contentSize: CGSize(width: contentWidth, height: row.height),
+            contentSize: stripContentSize(rowHeight: row.height),
             menuBarRow: row,
+            screenFrame: area,
             leftNotchArea: screen?.auxiliaryTopLeftArea,
             rightNotchArea: screen?.auxiliaryTopRightArea,
             position: strip.position,
@@ -416,6 +447,75 @@ final class GlyphStripPanelController: NSObject {
         glyphs?.needsDisplay = true
     }
 
+    /// Slot size for the panel: one horizontal row in the menu bar, or one
+    /// stacked block per space when `.custom` renders vertically.
+    private func stripContentSize(rowHeight: CGFloat) -> CGSize {
+        guard isVerticalLayout else {
+            return CGSize(width: max(segmentWidths.reduce(0, +), 1), height: rowHeight)
+        }
+        let width: CGFloat
+        if isStackedVertical {
+            // Each line holds one run, so the widest run sets the strip width.
+            let widest = attributedRuns
+                .map { runs in runs.map { $0.size().width }.max() ?? 0 }
+                .max() ?? 0
+            width = widest + Self.horizontalPadding * 2
+        } else {
+            width = segmentWidths.max() ?? 0
+        }
+        let height = max(verticalTotalHeight, 1)
+        return CGSize(width: max(width, 1), height: height)
+    }
+
+    /// Vertical stacking only applies to free placement; anchored positions
+    /// stay in the single menu-bar row.
+    fileprivate var isVerticalLayout: Bool {
+        config.glyphStrip.position == .custom && config.glyphStrip.orientation == .vertical
+    }
+
+    /// Icons under the number, one per line, instead of beside it.
+    fileprivate var isStackedVertical: Bool {
+        isVerticalLayout && config.glyphStrip.verticalLayout == .stacked
+    }
+
+    /// Height of one glyph line: the tallest glyph box.
+    fileprivate var contentLineHeight: CGFloat { max(contentHeight, 1) }
+
+    /// Slot height for an inline vertical space, with hover breathing room.
+    fileprivate var verticalLineHeight: CGFloat {
+        contentLineHeight + hoverPadding * 2
+    }
+
+    /// Number of drawn lines in a vertical segment. Inline vertical is always
+    /// one line; stacked vertical spends one line per run.
+    fileprivate func verticalLineCount(_ index: Int) -> Int {
+        guard isStackedVertical, attributedRuns.indices.contains(index) else { return 1 }
+        return max(attributedRuns[index].count, 1)
+    }
+
+    /// Gap before stacked line `index`: `indexPadding` once between the number
+    /// and the first icon, `iconSpacing` between icons after that.
+    fileprivate func stackedGap(before index: Int) -> CGFloat {
+        guard index > 0 else { return 0 }
+        return CGFloat(index == 1 ? config.glyphStrip.indexPadding : config.glyphStrip.iconSpacing)
+    }
+
+    fileprivate func verticalSegmentHeight(_ index: Int) -> CGFloat {
+        guard isStackedVertical else { return verticalLineHeight }
+        let lines = verticalLineCount(index)
+        let gaps = (1..<max(lines, 1)).reduce(CGFloat(0)) { $0 + stackedGap(before: $1) }
+        return CGFloat(lines) * contentLineHeight + gaps + hoverPadding * 2
+    }
+
+    private var verticalTotalHeight: CGFloat {
+        guard !attributedRuns.isEmpty else { return verticalLineHeight }
+        return attributedRuns.indices.reduce(0) { $0 + verticalSegmentHeight($1) }
+    }
+
+    static func screenFrame(on screen: NSScreen?) -> CGRect {
+        screen?.frame ?? NSScreen.main?.frame ?? .zero
+    }
+
     // MARK: - Drag
 
     /// Live follow during a strip drag: `startFrame` is the panel frame
@@ -430,7 +530,7 @@ final class GlyphStripPanelController: NSObject {
     /// frame itself comes from `applyFrame(to:)`, so the row clamp and the
     /// `clamped()` bounds apply exactly as they do on every other path.
     fileprivate func dragPanel(from startFrame: CGRect, by delta: CGVector) {
-        guard config.glyphStrip.enabled, !hiddenByHotkey, let panel else { return }
+        guard !config.glyphStrip.isPositionLocked, config.glyphStrip.enabled, !hiddenByHotkey, let panel else { return }
         let candidate = CGRect(
             x: startFrame.minX + delta.dx,
             y: startFrame.minY + delta.dy,
@@ -438,7 +538,10 @@ final class GlyphStripPanelController: NSObject {
             height: startFrame.height
         )
         let screen = panelScreen() ?? targetScreen()
-        let offsets = GlyphStrip.customOffsets(for: candidate, menuBarRow: Self.menuBarRow(on: screen))
+        let offsets = GlyphStrip.customOffsets(
+            for: candidate,
+            area: Self.screenFrame(on: screen)
+        )
         var strip = config.glyphStrip
         strip.position = .custom
         strip.xOffset = offsets.xOffset
@@ -457,7 +560,7 @@ final class GlyphStripPanelController: NSObject {
         let screen = panelScreen() ?? targetScreen()
         let offsets = GlyphStrip.customOffsets(
             for: panel.frame,
-            menuBarRow: Self.menuBarRow(on: screen)
+            area: Self.screenFrame(on: screen)
         )
         AppConfig.updateConfig { saved in
             var strip = saved.glyphStrip
@@ -613,29 +716,29 @@ final class GlyphStripPanelController: NSObject {
     }
 
     fileprivate func segment(at point: NSPoint) -> Int? {
-        var x: CGFloat = 0
-        for (offset, width) in segmentWidths.enumerated() {
-            if point.x >= x, point.x < x + width {
-                // Full slot hits; hover highlight stays hover-sized in draw.
-                return offset
-            }
-            x += width
+        for index in segmentWidths.indices where segmentRect(index)?.contains(point) == true {
+            // Full slot hits; hover highlight stays hover-sized in draw.
+            return index
         }
         return nil
     }
 
-    /// Horizontal extent of a segment in the view's own coordinates.
+    /// Slot of a segment in the view's own coordinates: the menu-bar row, or
+    /// one stacked line per space when vertical.
     fileprivate func segmentRect(_ index: Int) -> CGRect? {
         guard !viewBounds.isEmpty, segmentWidths.indices.contains(index) else { return nil }
+        if isVerticalLayout {
+            let heights = segmentWidths.indices.map { verticalSegmentHeight($0) }
+            let slots = GlyphStrip.verticalSlots(heights: heights, in: viewBounds)
+            return slots.indices.contains(index) ? slots[index] : nil
+        }
         let x = segmentWidths.prefix(index).reduce(0, +)
         // Use viewBounds height (content height), not panel frame height.
         // The panel frame can be offset by yOffset, but view bounds stay constant.
         return CGRect(x: x, y: 0, width: segmentWidths[index], height: viewBounds.height)
     }
 
-    /// The drawing layer's own bounds. On the native glass path the drawing
-    /// layer sits inside the glass (glass-sized), so hit testing and hover
-    /// share its coordinates; otherwise it fills the panel.
+    /// The drawing layer's own bounds; it fills the panel on every material.
     fileprivate var viewBounds: CGRect {
         if let glyphs, !glyphs.bounds.isEmpty { return glyphs.bounds }
         return CGRect(origin: .zero, size: panel?.frame.size ?? .zero)
@@ -716,6 +819,10 @@ final class GlyphStripPanelController: NSObject {
     /// The hover highlight is sized to this rather than to the menu bar row, so a
     /// 12pt strip does not get a 37.5pt-tall highlight.
     fileprivate func runHeight(forSegment index: Int) -> CGFloat {
+        // Stacked vertical highlights the whole block of lines, not one run.
+        if isStackedVertical {
+            return max(verticalSegmentHeight(index) - hoverPadding * 2, 0)
+        }
         guard attributedRuns.indices.contains(index) else { return 0 }
         let fonts = attributedRuns[index].map { GlyphStripView.font(of: $0) }
         guard !fonts.isEmpty else { return 0 }
@@ -724,11 +831,16 @@ final class GlyphStripPanelController: NSObject {
         return ascender - descender
     }
 
-    /// The content height of the strip — the maximum run height across all segments.
-    /// Used to size the solid/glass backdrop to the actual glyph content.
+    /// The content height of the strip — the tallest resolved line box across
+    /// all runs. Used to size the solid/glass backdrop to the actual glyph
+    /// content. Reads font metrics directly so stacked vertical layout can ask
+    /// for it from `runHeight(forSegment:)` without recursing.
     fileprivate var contentHeight: CGFloat {
-        let heights = (0..<attributedRuns.count).map { runHeight(forSegment: $0) }
-        return heights.max() ?? viewBounds.height
+        let fonts = attributedRuns.flatMap { $0.map { GlyphStripView.font(of: $0) } }
+        guard !fonts.isEmpty else { return viewBounds.height }
+        let ascender = fonts.map(\.ascender).max() ?? 0
+        let descender = fonts.map(\.descender).min() ?? 0
+        return ascender - descender
     }
 
     /// Tallest ascender across all runs. Pairs with `contentHeight` to place one
@@ -758,10 +870,13 @@ final class GlyphStripPanelController: NSObject {
         config.glyphStrip.resolvedThemeName(hud: config)
     }
 
-    /// The solid material's fill: the theme's `cellBg` at `backgroundOpacity`.
-    /// The fill role is fixed, so this never needs a "none" escape hatch.
-    fileprivate var backdropColor: NSColor {
-        GlyphStrip.color(for: "cellBg", theme: themeService.named(effectiveThemeName)) ?? .windowBackgroundColor
+    /// The solid material's fill, at `backgroundOpacity`. Matches the HUD's
+    /// `background` role when copying the HUD appearance (the HUD solid fill
+    /// uses that role); otherwise the strip's own `cellBg`.
+    fileprivate var solidColor: NSColor {
+        let role = config.glyphStrip.matchHUDAppearance ? "background" : "cellBg"
+        return GlyphStrip.color(for: role, theme: themeService.named(effectiveThemeName))
+            ?? .windowBackgroundColor
     }
 
     /// The glass layer only exists for `.liquidGlass`.
@@ -800,14 +915,12 @@ final class GlyphStripPanelController: NSObject {
         GlyphStrip.glassStrokeColor(theme: themeService.named(effectiveThemeName))
     }
 
-    /// Backing colour for the glass path: the theme's `cellBg` when tinted,
-    /// otherwise a neutral light/dark scrim that matches the menu bar.
-    fileprivate var glassBackingColor: NSColor {
-        guard glassStyle == .tinted else {
-            let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            return GlyphStrip.neutralGlassColor(isDark: isDark)
-        }
-        return backdropColor
+    /// Native glass tint for the tinted sub-type, `nil` for clear/opaque.
+    /// The theme's accent, not its background: tinting with the surface colour
+    /// reads as a slightly darker opaque glass instead of a tinted one.
+    fileprivate var glassTintColor: NSColor? {
+        guard glassStyle == .tinted else { return nil }
+        return GlyphStrip.color(for: "focused", theme: themeService.named(effectiveThemeName)) ?? solidColor
     }
 
     /// Tinted glass gets the theme-blended hairline; clear/opaque stay neutral.
@@ -870,7 +983,8 @@ final class GlyphStripPanelController: NSObject {
         for run: GlyphStrip.Run,
         strip: GlyphStripConfig,
         theme: AppTheme,
-        style: RunStyle
+        style: RunStyle,
+        face: AppGlyphFont?
     ) -> NSAttributedString {
         let indexSize = CGFloat(strip.indexSize)
         let text: String
@@ -881,12 +995,12 @@ final class GlyphStripPanelController: NSObject {
             font = .systemFont(ofSize: indexSize)
         case .app(let value):
             text = value
-            font = appFont(size: CGFloat(strip.iconSize))
+            font = appFont(size: CGFloat(strip.iconSize), face: face)
         case .nativeIcon(_, _, let fallback):
             // The image (when resolved) blits at draw time; the fallback
             // glyph carries the colour and line metrics for both paths.
             text = fallback
-            font = appFont(size: CGFloat(strip.iconSize))
+            font = appFont(size: CGFloat(strip.iconSize), face: face)
         case .overflow(let count):
             text = "+\(count)"
             font = .systemFont(ofSize: indexSize)
@@ -911,14 +1025,14 @@ final class GlyphStripPanelController: NSObject {
 
     private static var didLogUnresolvedFace = false
 
-    /// Render path must agree with metadata: an unregistered face falls back
-    /// to the system font (and the controller gates to initials), so a parsed
-    /// glyph never draws as tofu from the wrong face.
-    fileprivate static func appFont(size: CGFloat) -> NSFont {
-        if let face = NSFont(name: "sketchybar-app-font", size: size) { return face }
+    /// Render path must agree with metadata: the face comes from the parsed
+    /// file, never from a family-name lookup that could resolve a different
+    /// installed release and paint another app's icon.
+    fileprivate static func appFont(size: CGFloat, face: AppGlyphFont?) -> NSFont {
+        if let face = face?.face(size: size) { return face }
         if !didLogUnresolvedFace {
             didLogUnresolvedFace = true
-            NSLog("spacemap/GlyphStrip: sketchybar-app-font face not registered; falling back to system font")
+            NSLog("spacemap/GlyphStrip: sketchybar-app-font face unavailable; falling back to system font")
         }
         return .systemFont(ofSize: size)
     }
@@ -949,6 +1063,10 @@ private final class GlyphStripPanel: NSPanel {
 /// clips the glass.
 /// Pre-26 or Reduce Transparency: the legacy `NSVisualEffectView` sibling
 /// below the drawing layer, clipped by a shape mask.
+///
+/// In both cases the flat fill is painted by the drawing layer over the
+/// material, because a glass material samples the window backdrop rather than
+/// sibling views below it.
 private final class GlyphStripContainerView: NSView {
 
     weak var controller: GlyphStripPanelController?
@@ -1009,7 +1127,6 @@ private final class GlyphStripContainerView: NSView {
             dockGlyphsAsSibling()
             fallbackGlass.isHidden = true
             fallbackGlass.maskImage = nil
-            glyphs.insideGlass = false
             glyphs.frame = bounds
             return
         }
@@ -1025,32 +1142,32 @@ private final class GlyphStripContainerView: NSView {
         // `NSGlassEffectView` entirely, so any naming of it fails to compile.
         #if compiler(>=6.2)
         if #available(macOS 26, *) {
+            let style: NSGlassEffectView.Style = controller.glassStyle.usesClearMaterial ? .clear : .regular
             let glass: NSGlassEffectView
-            if let existing = nativeGlass as? NSGlassEffectView {
+            // `NSGlassEffectView` caches its effect; `needsDisplay` does not
+            // rebuild it. A material swap needs a fresh view.
+            if let existing = nativeGlass as? NSGlassEffectView, existing.style == style {
                 glass = existing
             } else {
+                nativeGlass?.removeFromSuperview()
                 glass = NSGlassEffectView()
+                glass.style = style
                 nativeGlass = glass
-                addSubview(glass)
             }
-            if glass.contentView !== glyphs {
-                glyphs.removeFromSuperview()
-                glass.contentView = glyphs
-            }
-            // No public blur radius API, so the sub-type picks the material and
-            // the background-opacity fill overlay in draw() carries the rest.
-            glass.style = controller.glassStyle.usesClearMaterial ? .clear : .regular
-            glass.tintColor = nil
+            // Glass below the drawing layer, not its `contentView`: the view's
+            // alpha then carries the opacity without fading the glyphs, the way
+            // macOS menu-bar overlays do it.
+            addSubview(glass, positioned: .below, relativeTo: glyphs)
+            let variant: Int? = controller.glassStyle == .clear ? GlassVariant.sheer : nil
+            GlassVariant.apply(variant, to: glass)
+            glass.tintColor = controller.glassTintColor
             glass.cornerRadius = backdrop.glassCornerRadius
             glass.frame = backdrop.rect
+            glass.alphaValue = CGFloat(controller.backgroundOpacity)
             glass.isHidden = false
-            // Tint swaps alone do not always repaint the effect cache, so
-            // force it: otherwise the slider looks dead until the next resize.
-            // The fill overlay lives in glyphs.draw(), so repaint it too.
             glass.needsDisplay = true
             glyphs.needsDisplay = true
-            glyphs.insideGlass = true
-            glyphs.frame = glass.bounds
+            glyphs.frame = bounds
         }
         #endif
         fallbackGlass.isHidden = true
@@ -1059,8 +1176,7 @@ private final class GlyphStripContainerView: NSView {
 
     private func layoutFallbackGlass(backdrop: GlyphStrip.Backdrop, controller: GlyphStripPanelController) {
         dockGlyphsAsSibling()
-        // Tinted keeps the saturated popover material; clear/opaque use the
-        // neutral `.headerView` material so no warm menu bar bleeds through.
+        // One material per sub-type, so clear and opaque stay distinct.
         fallbackGlass.material = GlyphStrip.glassFallbackMaterial(for: controller.glassStyle)
         fallbackGlass.state = .active
         fallbackGlass.alphaValue = 1.0
@@ -1069,7 +1185,6 @@ private final class GlyphStripContainerView: NSView {
         fallbackGlass.frame = backdrop.rect
         fallbackGlass.maskImage = Self.maskImage(for: backdrop)
         fallbackGlass.isHidden = false
-        glyphs.insideGlass = false
         glyphs.frame = bounds
         // Alpha/material swaps alone do not always repaint, so force both
         // layers: otherwise the neutral slider looks dead until resize.
@@ -1077,16 +1192,8 @@ private final class GlyphStripContainerView: NSView {
         glyphs.needsDisplay = true
     }
 
-    /// Returns the drawing layer to a direct sibling above the fallback glass,
-    /// detaching it from the native glass when it was embedded there.
+    /// Returns the drawing layer to a direct sibling above the effect view.
     private func dockGlyphsAsSibling() {
-        #if compiler(>=6.2)
-        if #available(macOS 26, *) {
-            if let native = nativeGlass as? NSGlassEffectView, native.contentView === glyphs {
-                native.contentView = nil
-            }
-        }
-        #endif
         nativeGlass?.isHidden = true
         if glyphs.superview !== self {
             glyphs.removeFromSuperview()
@@ -1150,10 +1257,6 @@ private final class GlyphStripAccessibilityElement: NSAccessibilityElement {
 private final class GlyphStripView: NSView {
 
     weak var controller: GlyphStripPanelController?
-    /// True while embedded as the native glass `contentView`: `bounds` are
-    /// then the shared backdrop rect, so the border outlines them directly.
-    var insideGlass = false
-
     private var tracking: NSTrackingArea?
     /// VoiceOver expects the vendor to keep its elements alive between
     /// queries, so the last-built children are retained here.
@@ -1304,29 +1407,15 @@ private final class GlyphStripView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         guard let controller else { return }
 
-        // `.liquidGlass` gets a backing fill over the native blur: neutral for
-        // clear/opaque, theme colour for tinted. View alpha stays 1.0.
+        // `.liquidGlass` paints only its edge here. The view's alpha carries the
+        // opacity, so there is no fill to wash out the material.
         if controller.usesGlass, let backdrop = controller.backdrop(in: bounds) {
-            // Inside native glass `bounds` already are the shared backdrop
-            // rect, so paint them directly instead of insetting twice.
-            let base = insideGlass
-                ? GlyphStrip.Backdrop(shape: backdrop.shape, rect: bounds)
-                : backdrop
-            let opacity = GlyphStrip.glassFillOpacity(
-                for: controller.glassStyle,
-                backgroundOpacity: Double(controller.backgroundOpacity)
-            )
-            GlyphStrip.fill(
-                base,
-                color: controller.glassBackingColor,
-                opacity: CGFloat(opacity)
-            )
             if controller.borderEnabled {
-                GlyphStrip.stroke(base, color: controller.glassEdgeColor, opacity: 1)
+                GlyphStrip.stroke(backdrop, color: controller.glassEdgeColor, opacity: 1)
             }
         } else if controller.usesSolid, let backdrop = controller.backdrop(in: bounds) {
             // Solid never blurs; opacity simply lets the desktop show through.
-            GlyphStrip.fill(backdrop, color: controller.backdropColor, opacity: controller.backgroundOpacity)
+            GlyphStrip.fill(backdrop, color: controller.solidColor, opacity: controller.backgroundOpacity)
             if controller.borderEnabled {
                 GlyphStrip.stroke(backdrop, color: controller.strokeColor, opacity: 1)
             }
@@ -1351,34 +1440,82 @@ private final class GlyphStripView: NSView {
         // `horizontalPadding`, so the pen has to spend both or the drawn content
         // ends up short of the frame and drifts left of the slot centres the
         // hover highlight is anchored to.
-        var x: CGFloat = 0
-        // One global baseline from contentHeight, same center as backdrop,
-        // so all segments share a line.
-        let baselineY = controller.contentBaselineY(in: bounds)
         for (offset, runs) in controller.runs.enumerated() {
+            // Vertical placement stacks one segment per line; horizontal keeps
+            // every segment on the one menu-bar row.
+            guard let slot = controller.segmentRect(offset) else { continue }
+            if controller.isStackedVertical {
+                // Number on top, one icon per line underneath, each centred.
+                let lines = GlyphStrip.stackedLines(
+                    count: runs.count,
+                    lineHeight: controller.contentLineHeight,
+                    indexGap: controller.stackedGap(before: 1),
+                    iconGap: controller.stackedGap(before: 2),
+                    in: slot.insetBy(dx: 0, dy: controller.hoverPadding)
+                )
+                for (index, run) in runs.enumerated() where lines.indices.contains(index) {
+                    let line = lines[index]
+                    let x = controller.nativeIcon(segment: offset, run: index) == nil
+                        ? Self.inkCenteredX(for: run, in: line)
+                        : line.midX - run.size().width / 2
+                    draw(run, x: x, in: line, controller: controller, segment: offset, index: index)
+                }
+                continue
+            }
             let gaps = controller.gaps[offset]
-            x += GlyphStripPanelController.horizontalPadding
+            // Inline vertical centres the space's single line in the strip;
+            // horizontal already has an exact slot.
+            let inner = runs.indices.reduce(CGFloat(0)) { $0 + runs[$1].size().width + gaps[$1] }
+            var x = controller.isVerticalLayout
+                ? slot.midX - inner / 2
+                : slot.minX + GlyphStripPanelController.horizontalPadding
             for (index, run) in runs.enumerated() {
                 if index > 0 { x += gaps[index] }
-                if let image = controller.nativeIcon(segment: offset, run: index) {
-                    // Native icon: square image filling the fallback advance,
-                    // the same width the measuring path charged, centred on the
-                    // content with the `.app` lift so it sits where a font
-                    // glyph would.
-                    // Fraction honors style() dimming (0.55 on resting runs).
-                    let advance = run.size().width
-                    let y = controller.contentY(in: bounds) + (controller.contentHeight - advance) / 2
-                        + controller.drawLift(segment: offset, run: index)
-                    let fraction = (run.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor)?.alphaComponent ?? 1.0
-                    image.draw(in: NSRect(x: x, y: y, width: advance, height: advance), from: NSRect(origin: .zero, size: image.size), operation: .sourceOver, fraction: fraction)
-                    x += advance
-                } else {
-                    run.draw(at: NSPoint(x: x, y: baselineY - GlyphStripPanelController.glyphDrop + controller.drawLift(segment: offset, run: index)))
-                    x += run.size().width
-                }
+                x += draw(run, x: x, in: slot, controller: controller, segment: offset, index: index)
             }
-            x += GlyphStripPanelController.horizontalPadding
         }
+    }
+
+    /// Pen x that centres the run's **ink**, not its advance box. App-font
+    /// glyphs carry asymmetric side bearings, so centring by advance leaves the
+    /// visible glyph off-centre under its space number. Native icons fill their
+    /// advance box exactly and keep the plain advance centring.
+    fileprivate static func inkCenteredX(for run: NSAttributedString, in line: CGRect) -> CGFloat {
+        let lineRef = CTLineCreateWithAttributedString(run)
+        let ink = CTLineGetBoundsWithOptions(lineRef, .useGlyphPathBounds)
+        guard ink.width > 0 else { return line.midX - run.size().width / 2 }
+        return line.midX - ink.midX
+    }
+
+    /// Draws one run and returns its advance. Native icons fill the fallback
+    /// advance; text draws on the line's shared baseline.
+    @discardableResult
+    private func draw(
+        _ run: NSAttributedString,
+        x: CGFloat,
+        in line: CGRect,
+        controller: GlyphStripPanelController,
+        segment: Int,
+        index: Int
+    ) -> CGFloat {
+        // Native icon: square image filling the fallback advance, the same
+        // width the measuring path charged, centred on the content with the
+        // `.app` lift so it sits where a font glyph would.
+        if let image = controller.nativeIcon(segment: segment, run: index) {
+            let advance = run.size().width
+            let y = controller.contentY(in: line) + (controller.contentHeight - advance) / 2
+                + controller.drawLift(segment: segment, run: index)
+            // Fraction honors style() dimming (0.55 on resting runs).
+            let fraction = (run.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor)?.alphaComponent ?? 1.0
+            image.draw(in: NSRect(x: x, y: y, width: advance, height: advance), from: NSRect(origin: .zero, size: image.size), operation: .sourceOver, fraction: fraction)
+            return advance
+        }
+        let baseline = controller.contentBaselineY(in: line)
+        run.draw(at: NSPoint(
+            x: x,
+            y: baseline - GlyphStripPanelController.glyphDrop + controller.drawLift(segment: segment, run: index)
+        ))
+        return run.size().width
     }
 
     fileprivate static func font(of run: NSAttributedString) -> NSFont {

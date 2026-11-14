@@ -12,9 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-style HUD opacities (`glassClearOpacity`, `glassOpaqueOpacity`, `glassTintedOpacity`, `solidOpacity`) with `matchBackgroundOpacity` to link all styles to `backgroundAlpha`. Each style otherwise keeps its own remembered value.
 - The glyph strip can now either keep its own complete appearance or `matchHUDAppearance`, copying the HUD's material, glass style, opacity, and theme. Its own per-style opacities (`glassClearOpacity`, `glassOpaqueOpacity`, `glassTintedOpacity`, `solidOpacity`) are separate by default, with an optional shared `backgroundOpacity`.
 - `[grid] showSpaceLayout` (default `false`): layout letter next to the space index (`f` float / `s` stack / `b` bsp; bsp is bare in the glyph strip). Requires `showSpaceNumbers`.
+- Glyph strip `[glyphStrip] position = "custom"` now places the strip anywhere on the screen, not just the menu bar row, and `orientation = "vertical"` stacks one space per row for a side-of-screen strip. `verticalLayout = "stacked"` stacks each space's icons underneath its number. `lockPosition = true` pins a custom strip against drags; it is off by default. Dragging the strip saves the new offsets; the offset steppers are gone from Settings.
 
 ### Changed
-- Background Opacity now applies to every HUD background except transparent: glass uses it as the backing behind the blur (clear gets a light scrim), and solid uses it as a plain see-through fill with no blur. Opacity is remembered per style unless “Use Same Opacity for All Styles” is on.
+- Background Opacity now applies to every HUD background except transparent: glass uses it as the effect's own opacity, the way macOS menu-bar overlays do, and solid uses it as a plain see-through fill with no blur. Opacity is remembered per style unless “Use Same Opacity for All Styles” is on. Clear glass defaults much lower (5%) and its slider maps 1:1 instead of being scaled down again.
 - The glyph strip gains the same glass sub-types (`clear` / `opaque` / `tinted` via `[glyphStrip] glassStyle`) and applies opacity to both solid and liquid-glass backdrops. The continuous `glassAmount` slider and `useThemeTint` toggle are replaced by the sub-type picker; both old keys still decode onto the closest sub-type. Opacities are per style unless linked, and the strip can match the HUD appearance instead of using its own.
 - The Makefile follows the shared build vocabulary now: `make` prints the list of targets, and the targets are `help`, `build`, `test`, `app`, `app-arm`, `app-intel`, `app-universal`, `dmg`, `dmg-arm`, `dmg-intel`, `dmg-universal`, `release-artifacts`, `release` and `clean`. The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work.
 - `make release VERSION=x.y.z` no longer pushes. It writes the VERSION file and the Info.plist, commits them, tags `v<x.y.z>` locally and prints the command that pushes the commit and the tag. The push is the release, and it belongs to the person who runs the target.
@@ -23,6 +24,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The release notes now come from the section of `CHANGELOG.md` for the released version. A version without a section fails the release.
 
 ### Fixed
+- Tinted glass now tints clear glass (`Glass.tint` / `NSGlassEffectView.tintColor`) with the theme's accent colour instead of tinting regular glass with the background colour. A tint on the frosted material read as a darker opaque panel; clear glass carries the hue.
+- Glass opacity is no longer painted as a fill behind or over the effect. Liquid Glass samples the window backdrop, not sibling views, so a fill beneath it was invisible, and a fill above it washed the material out. The effect's own opacity now carries the value on both the HUD and the glyph strip.
+- The glyph strip's glass now sits below the glyphs instead of hosting them as `contentView`, so its opacity and tint cannot fade the icons.
+- The HUD's Liquid Glass is drawn by SwiftUI's own glass modifier again instead of a hosted `NSGlassEffectView`. Inside `.background` the hosted effect only composited against the cells above it, leaving the panel around them flat. Clear uses the clear material, opaque the regular material, and tinted clear glass carries the accent; the opacity slider scales a scrim under the material.
+- The private glass finish is probed with `responds(to:)` and read back after setting, inside the 0…21 range AppKit accepts; when it is missing or does not stick, the view keeps its public style.
+- Sbar glyphs now draw with the face from the same font file whose metadata supplied the codepoints. A newer user-installed font and the bundled font share one family name, so a family lookup could paint a different release's glyph for the same codepoint.
+- Clear and tinted use clear glass and opaque uses regular glass, matching how macOS menu-bar overlays split the two materials. Clear glass also takes the private `_variant` 15 ("sheer") finish when AppKit exposes it, so it reads as a thin lens and not as the frosted material at a lower opacity.
+- Clear, opaque and tinted use distinct fallback materials on pre-macOS 26 and under Reduce Transparency, where clear and opaque used to be identical.
+- The strip's neutral glass scrim follows the theme's light/dark background instead of the app appearance, so it matches the HUD for light themes on a dark system.
+- The strip's solid fill uses the HUD's `background` role while `matchHUDAppearance` is on, and its own `cellBg` otherwise.
+- The strip's hover highlight is no longer clipped 2pt short inside native glass.
+- Reduce Transparency changes re-apply the strip and HUD backgrounds without waiting for the next refresh.
+- A glass sub-type change rebuilds `NSGlassEffectView`, which caches its effect and does not repaint on `needsDisplay` alone.
+- Selecting the strip's “Under Numbers” vertical layout no longer crashes: the stacked height no longer recurses through `contentHeight`.
+- App-font glyphs stack centred under their space number. Centring now uses the glyph ink bounds rather than the advance box, whose asymmetric bearings left the visible glyph off-centre; native icons keep advance centring.
+- The Notch Margin setting only appears for `leftOfNotch` and `rightOfNotch`, where it applies.
+- `iconSpacing` now also sets the gap between stacked icon lines, and `indexPadding` separates the number from the first stacked icon, so vertical and horizontal layouts each read their spacing keys.
 - Align HUD drag-and-drop hit rectangles with the grid instead of shifting every target down one row.
 - Keep `recent` focus, space creation, and other yabai actions off the main thread.
 - Wire the HUD panel into the drag monitor so custom-position HUDs can be dragged and their position persisted.

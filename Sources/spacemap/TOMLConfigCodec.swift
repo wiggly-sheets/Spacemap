@@ -732,9 +732,11 @@ enum TOMLConfigDecoder {
             }
         }
         if let value = number(table["backgroundOpacity"]) { config.backgroundOpacity = value }
-        // New per-style keys inherit the shared value from older configs.
+        // New per-style keys inherit the shared value from older configs. Clear
+        // used to be painted at 15% of its value, so inherit that share to keep
+        // existing strips looking the same.
         let sharedOpacity = config.backgroundOpacity
-        config.glassClearOpacity = number(table["glassClearOpacity"]) ?? sharedOpacity
+        config.glassClearOpacity = number(table["glassClearOpacity"]) ?? sharedOpacity * 0.15
         config.glassOpaqueOpacity = number(table["glassOpaqueOpacity"]) ?? sharedOpacity
         config.glassTintedOpacity = number(table["glassTintedOpacity"]) ?? sharedOpacity
         config.solidOpacity = number(table["solidOpacity"]) ?? sharedOpacity
@@ -759,8 +761,15 @@ enum TOMLConfigDecoder {
         if let name = table["middleClickAction"] as? String {
             config.middleClickAction = parsedEnum(from: name) ?? GlyphStripConfig.default.middleClickAction
         }
+        if let value = table["lockPosition"] as? Bool { config.lockPosition = value }
         if let name = table["position"] as? String {
             config.position = parsedEnum(from: name) ?? GlyphStripConfig.default.position
+        }
+        if let name = table["orientation"] as? String {
+            config.orientation = parsedEnum(from: name) ?? GlyphStripConfig.default.orientation
+        }
+        if let name = table["verticalLayout"] as? String {
+            config.verticalLayout = parsedEnum(from: name) ?? GlyphStripConfig.default.verticalLayout
         }
         // Int storage (see GlyphStrip.customOffsets): round, don't truncate,
         // so 12.7 lands on 13 rather than 12. Full-Double storage needs
