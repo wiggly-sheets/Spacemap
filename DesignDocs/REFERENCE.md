@@ -190,6 +190,7 @@ Read from the `[glyphStrip]` table. A legacy bare `glyphStrip = true` boolean is
 | Key | Type | Default |
 |-----|------|---------|
 | `enabled` | `Bool` | `false` |
+| `hideInFullscreen` | `Bool` | `false`; hides the strip while the focused space has a native-fullscreen window. yabai supplies the per-space flag; Accessibility and window size are fallbacks. Checked every 0.5 s and on app or space changes |
 | `showSpaceNumbers` | `Bool` | `true` |
 | `showLayoutSuffix` | `Bool` | `true` |
 | `showAppIcons` | `Bool` | `true` |

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Permissions page offers a small drag helper: drag the Spacemap icon into the Accessibility or Screen Recording list. It opens with a permission request and closes after an accepted drop.
 - Typing a space number now jumps as soon as the digits can only mean one space instead of always waiting for the 0.3s timeout. A valid jump shows its number briefly while the HUD moves; a number that does not exist shows in the drop-target colour with a strike for 0.6s. A repeated digit replaces the entry instead of appending, so mashing 4 never shows 44, and the readout no longer re-renders the grid.
 - Settings sidebar groups now expand into subsections, like IINA. The open group follows the pane as it scrolls, and clicking a subsection jumps straight to it.
 - About → Software Used now credits sketchybar-app-font and Julian Windeck's liquid-glass project, with links to each source and license.
@@ -15,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `[appearance] hudCornerRadius` (default `10`): rounds the outside edge of the whole HUD panel without changing the space cells.
 - Per-style HUD opacities (`glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`) with `matchBackgroundOpacity` to link all styles to `backgroundAlpha`. Each style otherwise keeps its own remembered value.
 - The glyph strip can now either keep its own complete appearance or `matchHUDAppearance`, copying the HUD's material, glass style, finish, opacity, and theme. Its own per-style opacities (`glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`) are separate by default, with an optional shared `backgroundOpacity`.
+- Glyph strip `hideInFullscreen` (default `false`): hides the strip while the focused space has a native-fullscreen window and brings it back on exit. yabai reports the flag per space, so a fullscreen window on another space does not hide it. Accessibility and window-size checks cover the case where yabai cannot tell.
 - `[grid] showSpaceLayout` (default `false`): layout letter next to the space index (`f` float / `s` stack / `b` bsp; bsp is bare in the glyph strip). Requires `showSpaceNumbers`.
 - Glyph strip `[glyphStrip] position = "custom"` now places the strip anywhere on the screen, not just the menu bar row, and `orientation = "vertical"` stacks one space per row for a side-of-screen strip. `verticalLayout = "stacked"` stacks each space's icons underneath its number. `lockPosition = true` pins a custom strip against drags; it is off by default. Dragging the strip saves the new offsets; the offset steppers are gone from Settings.
 - HUD layout letters can be hidden per layout type (`showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, all on by default). Only shown when Space Layout is on; hiding a letter leaves the badge blank but the space keeps its layout.
