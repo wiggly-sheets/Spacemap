@@ -16,6 +16,9 @@ struct CellView: View {
     let isFocused: Bool
     let isDropTarget: Bool
     let isActive: Bool
+    /// The space exists in yabai. A placeholder cell for a space that does not
+    /// exist gets a dashed outline so it cannot be mistaken for an empty space.
+    let spaceExists: Bool
     let windows: [YabaiWindow]
     let displayBounds: CGRect
     let cellStyle: CellStyle
@@ -68,6 +71,7 @@ init(spaceIndex: Int,
             isFocused: Bool,
             isDropTarget: Bool,
             isActive: Bool,
+             spaceExists: Bool = true,
              windows: [YabaiWindow],
              displayBounds: CGRect,
              cellStyle: CellStyle,
@@ -91,6 +95,7 @@ init(spaceIndex: Int,
         self.isFocused = isFocused
         self.isDropTarget = isDropTarget
         self.isActive = isActive
+        self.spaceExists = spaceExists
         self.windows = windows
         self.displayBounds = displayBounds
         self.cellStyle = cellStyle
@@ -155,7 +160,7 @@ var body: some View {
         .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
         .overlay(
             RoundedRectangle(cornerRadius: cellCornerRadius)
-                .strokeBorder(borderColor, lineWidth: borderWidth)
+                .strokeBorder(borderColor, style: StrokeStyle(lineWidth: borderWidth, dash: borderDash))
         )
         .frame(width: GridLayout.cellSize(forEffectiveScale: uiScale).width, height: GridLayout.cellSize(forEffectiveScale: uiScale).height)
         .onTapGesture { onSelect(spaceIndex) }
@@ -234,8 +239,16 @@ var body: some View {
         let t = resolvedTheme
         if isDropTarget { return Color(hex: t.dropTarget) }
         if isFocused { return Color(hex: t.focused) }
+        if !spaceExists { return Color(hex: t.text).opacity(isDarkMode ? 0.4 : 0.5) }
         if isDarkMode { return Color(hex: t.text).opacity(CellOpacity.borderDark) }
         return Color(hex: 0x999999).opacity(CellOpacity.borderLight)
+    }
+
+    /// Dashes mark a space that yabai has not created. Focus and drop targets
+    /// keep a solid emphasized outline so the selection still reads first.
+    private var borderDash: [CGFloat] {
+        guard !spaceExists, !isFocused, !isDropTarget else { return [] }
+        return [3, 3]
     }
 
     private var borderWidth: CGFloat {

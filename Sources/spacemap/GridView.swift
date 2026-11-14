@@ -171,6 +171,7 @@ struct GridView: View {
             isFocused: cellIsFocused,
             isDropTarget: cellIsDropTarget,
             isActive: cellIsActive,
+            spaceExists: activeSpaceIndices.contains(spaceIndex),
             windows: cellWindows,
             displayBounds: cellDisplayBounds,
             cellStyle: cellStyle,
