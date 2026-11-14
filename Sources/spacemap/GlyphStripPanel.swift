@@ -436,7 +436,7 @@ final class GlyphStripPanelController: NSObject {
                         return
                     }
                     self.rebuildRuns(strip: strip)
-                    self.shrinkToMaximumLength(strip: strip)
+                    self.fitToMaximumLength(strip: strip)
                     self.present()
                     if previousFocused != focused, let glyphs = self.glyphs {
                         NSAccessibility.post(element: glyphs, notification: .valueChanged)
@@ -486,26 +486,42 @@ final class GlyphStripPanelController: NSObject {
         }
     }
 
-    /// Shrink glyph sizes until the strip fits `autoResizeMaxLength` along its
-    /// layout axis. Gaps and padding stay put, so a few passes converge even
-    /// when they dominate the footprint.
-    private func shrinkToMaximumLength(strip: GlyphStripConfig) {
+    /// Fit the strip to `autoResizeMaxLength` along its layout axis. Sizes grow
+    /// when there is spare room and shrink when over, so the setting behaves
+    /// like a target length instead of a shrink-only cap. Spacing scales with
+    /// the glyphs so fixed gaps cannot leave the strip stuck over the target.
+    private func fitToMaximumLength(strip: GlyphStripConfig) {
         let maximum = CGFloat(strip.autoResizeMaxLength)
         guard maximum > 0 else { return }
         var scale: CGFloat = 1
-        for _ in 0..<4 {
-            let length = isVerticalLayout
-                ? verticalTotalHeight
-                : segmentWidths.reduce(0, +)
-            guard length > maximum, length > 0 else { break }
-            // A readable floor: below this the strip would be pointless, so
-            // stop shrinking and let it exceed the requested maximum instead.
-            scale = max(scale * (maximum / length), 0.6)
-            var scaled = strip
-            scaled.iconSize = max(CGFloat(strip.iconSize) * scale, 8)
-            scaled.indexSize = max(CGFloat(strip.indexSize) * scale, 8)
-            rebuildRuns(strip: scaled)
+        var fitted = strip
+        let baseIcon = CGFloat(strip.iconSize)
+        let baseIndex = CGFloat(strip.indexSize)
+        let baseIconSpacing = CGFloat(strip.iconSpacing)
+        let baseIndexPadding = CGFloat(strip.indexPadding)
+        let baseHoverPadding = CGFloat(strip.hoverPadding)
+        for _ in 0..<6 {
+            let length = stripLength
+            guard length > 0 else { return }
+            let wanted = min(max(scale * maximum / length, 0.5), 3)
+            guard abs(wanted - scale) > 0.01 else { break }
+            scale = wanted
+            fitted.iconSize = max(baseIcon * scale, 8)
+            fitted.indexSize = max(baseIndex * scale, 8)
+            fitted.iconSpacing = baseIconSpacing * scale
+            fitted.indexPadding = baseIndexPadding * scale
+            fitted.hoverPadding = baseHoverPadding * scale
+            rebuildRuns(strip: fitted)
         }
+    }
+
+    /// Length along the layout axis, including the strip's own padding.
+    private var stripLength: CGFloat {
+        let glyphs = isVerticalLayout
+            ? verticalTotalHeight
+            : segmentWidths.reduce(0, +)
+        let padding = isVerticalLayout ? CGFloat(config.glyphStrip.verticalPadding) * 2 : 0
+        return glyphs + padding
     }
 
     private func rebuildRuns(strip: GlyphStripConfig) {
