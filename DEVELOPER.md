@@ -47,17 +47,20 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `uiScale` / `iconScale` | Double | 0.5 / 0.5 | 0.0–1.0 | HUD scale (effective: 0.5×–4.0×) / icon size (effective: 0.2×–1.0×) |
 | `theme` / `mode` | String | `default` / `auto` | theme names / `light‖dark‖auto` | Color theme / appearance |
 | `backgroundAlpha` | Double | 0.3 | 0.0–1.0 | Shared HUD opacity when `matchBackgroundOpacity` is on; legacy fallback otherwise |
-| `backgroundStyle` | String | `glass` | `glass‖solid‖transparent` | HUD background style |
+| `backgroundStyle` | String | `glass` | `glass‖solid` | HUD background style |
 | `glassStyle` | String | `regular` | `clear‖regular‖tinted` | Glass sub-type; only read when `backgroundStyle` is `glass` |
 | `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` | Int | 11 / 5 / 2 | 0...21 | Private glass finish per style |
 | `glassTintedMaterial` | String | `clear` | `clear‖regular` | Material under the tint |
 | `spacesMatchBackground` | Bool | true | — | Clear cells over the panel material |
 | `spacesBackgroundStyle` | String | `glass` | `none‖solid‖glass` | Per-cell fill when not matching |
 | `spacesGlassStyle` | String | `clear` | `clear‖regular‖tinted` | Cell glass sub-type |
+| `spacesGlassClearVariant` / `spacesGlassRegularVariant` / `spacesGlassTintedVariant` | Int | 11 / 5 / 2 | 0...21 | Cell glass finish per style |
+| `spacesGlassTintedMaterial` | String | `clear` | `clear‖regular` | Cell tinted material |
 | `spacesOpacity` / `spacesCornerRadius` | Double | 0.5 / 4 | 0...1 / 0...60 | Cell fill opacity and radius |
-| `glassClearOpacity` / `glassOpaqueOpacity` / `glassTintedOpacity` / `solidOpacity` | Double | inherits `backgroundAlpha` (clear: 15% of it) | 0.0–1.0 | Per-style HUD opacity. Transparent ignores opacity |
+| `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` / `solidOpacity` | Double | inherits `backgroundAlpha` | clamped 0.01–1, glass floors clear 0.35 / regular 0.40 / tinted 0.45 | Per-style HUD opacity; solid may reach zero |
 | `matchBackgroundOpacity` | Bool | false | — | Link every HUD style to `backgroundAlpha` instead of per-style values |
 | `hudShadow` | Bool | true | — | HUD panel shadow |
+| `hudCornerRadius` | Double | 10 | 0...60 (out of range resets to 10) | Outer HUD panel corner radius; cells keep their own |
 | `autoHideTimeout` | Int | 5 | ≥ 0 | Seconds before HUD hides (0=never) |
 | `showMode` | String | `all` | `all‖active` | Show all or active-only spaces |
 | `multiMonitorHUDMode` | String | `unified` | `unified‖separate` | Use one combined HUD or one HUD per display |
@@ -69,7 +72,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `showSpaceNames` | Bool | `true` | — | Show custom space names in center of each cell |
 | `showIconStrip` | Bool | `true` | — | Show app icon strip at bottom of each cell |
 | `showMultiAppIcons` | Bool | `false` | — | Show one icon per window (true) or one per unique app (false) |
-| `hideMenuBarIcon` | Bool | `false` | — | Hide menubar icon (run headless) |
+| `presence` | String | `menuBar` | `dock‖menuBar‖both‖none` | Where Spacemap appears; legacy `hideMenuBarIcon` still loads |
 | `menuBarDisplayMode` / `menuBarNearbyCount` | String / Int | `icon` / 3 | `icon‖dots‖current‖nearby‖all` / 1–16 | Menu-bar preview mode and nearby count |
 | `useVimKeys` / `useArrowKeys` / `useExtendedKeys` | Bool | false / false / true | — | hjkl / arrows / extended navigation keys |
 | `jumpToSpaceEnabled` | Bool | `false` | — | Number-key space jumps (multi-digit supported) |
@@ -78,6 +81,9 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `socketHealthInterval` | Int | 60 | > 0 | Socket health check interval (seconds) |
 | `showExtraWindows` | Bool | false | — | Display utility/background window records |
 | `showHUDOnSpaceChange` | Bool | false | — | Auto-show HUD on yabai space change |
+| `showHUDInteractionFeedback` | Bool | true | — | Draw typed-number and action notices over the HUD |
+| `hudAnimationsEnabled` / `hudAnimationStyle` | Bool / String | true / `natural` | `natural‖springy‖fast` | HUD fade and cell-change motion; off is instant |
+| `showThumbnailWallpaper` | Bool | true | — | Draw the desktop wallpaper behind thumbnail cells |
 | `updateMode` | String | `notify` | `auto‖notify‖off` | Sparkle update check behavior. `auto` downloads and installs; `notify` prompts; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `focusSpaceOnWindowDrop` | WindowDropFocusMode | `never` | `never‖always‖modifier` | Focus the destination space after a successful window drop |
 | `focusSpaceOnWindowDropModifier` | WindowDropFocusModifier | `command` | `command‖fn‖option‖control‖shift` | Modifier required when drop focus is `modifier` (fn preserved) |
@@ -144,7 +150,7 @@ Available themes with hex color values (9 roles: background, focused, text, drop
 - **Space Names** — name visibility, per-space text, and named profiles (separate section below the names form)
 - **Appearance** — themes, appearance mode, transparency, and scaling
 - **Behavior** — normal, pinned, and glyph-strip hotkeys, positioning, navigation, drag/drop focus, menu bar, and updates
-- **Glyph Strip** — always-visible menu-bar strip: contents, appearance (glass slider shown tint-on-only, opacity solid-only, corner radius roundedRect-only), click bindings, and placement (`[glyphStrip]`)
+- **Glyph Strip** — always-visible menu-bar strip: contents, appearance (glass style, per-style finish 0...21, tinted material, per-style opacity, shape and corner radius), click bindings, and placement (`[glyphStrip]`)
 - **Debug/Advanced** — socket health interval
 
 The sidebar is a fixed pane rather than a collapsible `NavigationSplitView`. Selecting a row replaces the detail form; categories are not anchors in one continuous scrolling form.

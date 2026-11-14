@@ -94,11 +94,15 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[behavior]` | `jumpToSpaceEnabled` | false | Number-key space jumps (multi-digit supported) |
 | `[behavior]` | `focusSpaceOnWindowDrop` (+ `...Modifier`) | `never` (`command`) | `never`, `always`, or `modifier` (`command‖fn‖option‖control‖shift`) |
 | `[behavior]` | `showHUDOnSpaceChange` | false | Auto-show HUD on yabai space change |
-| `[behavior]` | `hideMenuBarIcon` / `updateMode` | false / `notify` | Headless menubar; Sparkle `auto‖notify‖off`. `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
+| `[behavior]` | `showBSPLayoutBadge` / `showStackLayoutBadge` / `showFloatLayoutBadge` | true | Which layout letters the HUD badge draws. Read only when `showSpaceLayout` is on |
+| `[behavior]` | `hudAnimationsEnabled` / `hudAnimationStyle` | `Bool` / `HUDAnimationStyle` | `true` / `natural`; styles `natural`, `springy`, `fast`. Off makes HUD fades and cell changes instant |
+| `[behavior]` | `showHUDInteractionFeedback` | true | Draw typed-number and action notices over the HUD. Off hides the overlays only; actions still run |
+| `[behavior]` | `showThumbnailWallpaper` | true | Draw the desktop wallpaper behind thumbnail cells. Off leaves the desktop transparent behind the windows |
+| `[behavior]` | `presence` / `updateMode` | `menuBar` / `notify` | Where Spacemap appears: `dock`, `menuBar`, `both`, or `none`. `none` and `menuBar` use an accessory policy, so no Dock icon. Legacy `hideMenuBarIcon` reads as `none` when true and `menuBar` when false. Sparkle `auto‖notify‖off`; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `[behavior]` | `menuBarDisplayMode` (+ `menuBarNearbyCount`) | `icon` (3) | `icon‖dots‖current‖nearby‖all`; nearby count clamped 1–16 |
 | `[spaceNames]` | `showSpaceNames`; names in `[spaceNames.names]` | true | Per-space names plus `[spaceNameProfiles]` sets (see Settings) |
 | `[glyphStrip]` | — | — | Full key table below |
-| `[advanced]` | `socketHealthInterval` | 60 | Socket health check seconds (> 0); `showExtraWindows` lives here too |
+| `[advanced]` | `socketHealthInterval` | 60 | Socket health check seconds (> 0); `showExtraWindows` lives here too. The Advanced pane also shows live Accessibility and Screen Recording status with request buttons and System Settings deep links |
 | `[appFont]` | `updateMode` | `manual` | Bundled glyph-font update policy (`manual‖auto`) |
 
 ## Development Workflow
@@ -144,7 +148,7 @@ Stores parsed configuration values.
 | `showSpaceNames` | `Bool` | `showSpaceNames` |
 | `showIconStrip` | `Bool` | `showIconStrip` |
 | `showMultiAppIcons` | `Bool` | `showMultiAppIcons` |
-| `hideMenuBarIcon` | `Bool` | `hideMenuBarIcon` |
+| `presence` | `AppPresence` | `presence` |
 | `glyphStrip` | `GlyphStripConfig` | `[glyphStrip]` |
 | `menuBarDisplayMode` | `MenuBarDisplayMode` | `menuBarDisplayMode` |
 | `menuBarNearbyCount` | `Int` | `menuBarNearbyCount` |
@@ -155,6 +159,9 @@ Stores parsed configuration values.
 | `hudPosition` / `customHUDX` / `customHUDY` | `HUDPosition` / `Double` | `hudPosition` / `customHUDX` / `customHUDY` |
 | `showExtraWindows` | `Bool` | `showExtraWindows` |
 | `showHUDOnSpaceChange` | `Bool` | `showHUDOnSpaceChange` |
+| `showBSPLayoutBadge` / `showStackLayoutBadge` / `showFloatLayoutBadge` | `Bool` | same |
+| `showHUDInteractionFeedback` | `Bool` | `showHUDInteractionFeedback` |
+| `showThumbnailWallpaper` | `Bool` | `showThumbnailWallpaper` |
 | `updateMode` | `UpdateMode` | `updateMode` |
 | `appFont` | `AppFontConfig` | `[appFont]` |
 | `socketHealthInterval` | `Int` | `socketHealthInterval` |
@@ -303,7 +310,7 @@ Window icons come from [sketchybar-app-font](https://github.com/kvndrsslr/sketch
 | `SettingsWindowController.swift` | `SettingsWindowController` | AppKit window wrapper for SettingsView |
 | `ThumbnailCache.swift` + `ThumbnailCompositor`/`ThumbnailRequestBuilder` | `ThumbnailCache` | ScreenCaptureKit capture, per-space caching (macOS 14+) |
 | `IconCache.swift` | `IconCache` | App icon cache to avoid repeated NSWorkspace lookups |
-| `ThemeManager.swift` | `ThemeManager` | Loads `.smthemes` files, seeds built-in themes on first launch |
+| `ThemeManager.swift` | `ThemeManager` | Loads `.smthemes` and `.toml` files, seeds built-in themes on first launch, saves edited themes as TOML |
 
 ## Yabai Integration (`YabaiClientImpl.swift`)
 
@@ -351,7 +358,7 @@ Shells out to yabai binary (auto-detected: `/opt/homebrew/bin/yabai` for ARM, `/
 
 ## Theme System
 
-Each theme defines 9 hex colors in `AppTheme` (`background`, `focused`, `text`, `dropTarget`, `cellBg`, `cellBgFocused`, `rect1`, `rect2`, `rect3`). Edit `.smthemes` files in `~/.config/spacemap/themes/`.
+Each theme defines 9 hex colors in `AppTheme` (`background`, `focused`, `text`, `dropTarget`, `cellBg`, `cellBgFocused`, `rect1`, `rect2`, `rect3`). Put `.smthemes` or `.toml` files in `~/.config/spacemap/themes/`. TOML takes `#rrggbb`, quoted `"#rrggbb"`, and `[colors]` sections; inline comments are allowed. Settings → Appearance → Theme Editor loads the selected theme, edits any colour by picker or typed hex, and saves a TOML file (which also becomes the selected theme).
 
 Available themes: `default`, `tokyonight`, `catppuccin`, `monokai-dark`, `monokai-light`, `dracula`, `ayu`, `github`, `vscode`, `xcode`, `nord`, `atom-one-dark`
 

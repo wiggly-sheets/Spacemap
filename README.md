@@ -73,11 +73,13 @@ Drag a real window over any HUD cell and drop it there. Spacemap highlights the 
 
 ### Make it yours
 
-- Built-in and file-based themes
+- Built-in and file-based themes (`.smthemes` or `.toml`), plus an in-app theme editor
 - HUD transparency, size, position, shadow, app-icon size, and labels
 - Custom normal and pinned hotkeys, including media keys and F13–F20
 - Optional menu-bar workspace dots or miniature window-layout previews
-- ScreenCaptureKit thumbnails on macOS 14+
+- ScreenCaptureKit thumbnails on macOS 14+, with the wallpaper behind them and an optional wallpaper toggle
+- Choose where Spacemap appears: Dock, menu bar, both, or neither
+- Permission checks with request buttons and links into the matching System Settings panes
 - Sparkle updates: automatic, notify-only, or off
 
 ---
@@ -345,8 +347,8 @@ theme = ""                        # follow main HUD theme; or a theme name
 | `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showSpaceLayout`, `showIconStrip`, `showMultiAppIcons` |
 | `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]` |
 | `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `backgroundStyle`, `glassStyle`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `matchBackgroundOpacity`, `hudShadow`, `hudCornerRadius`, `spacesMatchBackground`, `spacesBackgroundStyle`, `spacesGlassStyle`, `spacesGlassClearVariant`, `spacesGlassRegularVariant`, `spacesGlassTintedVariant`, `spacesGlassTintedMaterial`, `spacesOpacity`, `spacesCornerRadius`, `uiScale`, `iconScale` |
-| `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `hideMenuBarIcon`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
-| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `shape`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `yOffset`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `xOffset`, `borderEnabled` |
+| `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `showHUDInteractionFeedback`, `hudAnimationsEnabled`, `hudAnimationStyle`, `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, `showThumbnailWallpaper`, `presence`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
+| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `shape`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `yOffset`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `orientation`, `verticalLayout`, `xOffset`, `lockPosition`, `borderEnabled` |
 | `[advanced]` | `socketHealthInterval`, `showExtraWindows` |
 
 Space names example:

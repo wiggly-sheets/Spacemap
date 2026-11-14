@@ -8,12 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Typing a space number now jumps as soon as the digits can only mean one space instead of always waiting for the 0.3s timeout. A valid jump shows its number briefly while the HUD moves; a number that does not exist shows in the drop-target colour with a strike for 0.6s. A repeated digit replaces the entry instead of appending, so mashing 4 never shows 44, and the readout no longer re-renders the grid.
+- Settings sidebar groups now expand into subsections, like IINA. The open group follows the pane as it scrolls, and clicking a subsection jumps straight to it.
+- About → Software Used now credits sketchybar-app-font and Julian Windeck's liquid-glass project, with links to each source and license.
 - `[appearance] backgroundStyle` (`glass` default / `solid`) plus `[appearance] glassStyle` (`clear` / `regular` / `tinted`, default `regular`): configurable HUD background. Clear is the light native material, Regular the frosted one, and Tinted draws the theme accent over `glassTintedMaterial` (`clear` or `regular`). Solid fills with the theme background color; at zero it is fully transparent. The old `opaque` and `frosted` names are not aliased; an existing config must use `regular`.
 - `[appearance] hudCornerRadius` (default `10`): rounds the outside edge of the whole HUD panel without changing the space cells.
 - Per-style HUD opacities (`glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`) with `matchBackgroundOpacity` to link all styles to `backgroundAlpha`. Each style otherwise keeps its own remembered value.
 - The glyph strip can now either keep its own complete appearance or `matchHUDAppearance`, copying the HUD's material, glass style, finish, opacity, and theme. Its own per-style opacities (`glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`) are separate by default, with an optional shared `backgroundOpacity`.
 - `[grid] showSpaceLayout` (default `false`): layout letter next to the space index (`f` float / `s` stack / `b` bsp; bsp is bare in the glyph strip). Requires `showSpaceNumbers`.
 - Glyph strip `[glyphStrip] position = "custom"` now places the strip anywhere on the screen, not just the menu bar row, and `orientation = "vertical"` stacks one space per row for a side-of-screen strip. `verticalLayout = "stacked"` stacks each space's icons underneath its number. `lockPosition = true` pins a custom strip against drags; it is off by default. Dragging the strip saves the new offsets; the offset steppers are gone from Settings.
+- HUD layout letters can be hidden per layout type (`showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, all on by default). Only shown when Space Layout is on; hiding a letter leaves the badge blank but the space keeps its layout.
+- Deleting the focused space now returns to the space before it instead of yabai's fallback to the first space.
+- The Settings sidebar splits Behavior into Hotkeys, HUD, Navigation, Window Drop, HUD Feedback, Menu Bar, and Updates, so each group is one click away.
+- Custom themes can live in `.toml` files in `~/.config/spacemap/themes` (quoted hex values and `[colors]` sections), and Appearance gained a Theme Editor that clones the selected theme, edits any colour by picker or typed hex, and saves a TOML file. Saving selects the theme; external file edits reload with the theme list.
+- HUD motion is configurable through `[behavior] hudAnimationsEnabled` (default `true`) and `hudAnimationStyle` (`natural`, `springy`, `fast`). It fades the panel and animates cell focus, add, and delete changes. Turning it off makes every change instant.
+- Thumbnails now draw the desktop wallpaper beneath the window captures, and off-screen windows are queried so spaces that are not visible still show their windows.
 
 ### Changed
 - Background Opacity now applies to every HUD background: glass uses it as the effect's own opacity, the way macOS menu-bar overlays do, and solid uses it as a plain see-through fill with no blur. Opacity is remembered per style unless “Use Same Opacity for All Styles” is on. Glass styles clamp to a floor so the lowest setting still shows glass (clear 35%, regular 40%, tinted 45%); solid may fade to zero.
@@ -24,8 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The release workflow no longer signs with a Developer ID identity and no longer notarizes, so every published build is ad-hoc signed. The published builds were already ad-hoc, because the Developer ID and notarization secrets were never set.
 - The release workflow no longer writes a cask into the Homebrew tap. The consolidated `wiggly-sheets/homebrew-tap` renders its own cask from a template and follows the latest stable release, so a release needs no manual copy.
 - The release notes now come from the section of `CHANGELOG.md` for the released version. A version without a section fails the release.
+- `[behavior] showHUDInteractionFeedback` (default `true`): hide the typed-number readout and action notices over the HUD. Every action still runs; only the overlays disappear.
+- `[behavior] presence` (`dock`, `menuBar`, `both`, `none`; default `menuBar`) replaces `hideMenuBarIcon` and adds the Dock as a place to show Spacemap. The menu-bar display pickers appear whenever the menu bar is included. Legacy `hideMenuBarIcon` still loads.
+- `[grid] showThumbnailWallpaper` (default `true`): draw the desktop wallpaper behind thumbnail cells, or leave it transparent.
+- The Advanced pane now reports Accessibility and Screen Recording status with request buttons and deep links into the matching System Settings panes. Thumbnail cells request Screen Recording the first time they are selected, and the app asks on launch when thumbnails are already configured.
 
 ### Fixed
+- Thumbnail cells now render with every space style. A native `NSGlassEffectView` inside a SwiftUI cell drew above the window capture and hid it, so thumbnail cells use SwiftUI glass and keep the capture visible.
+- Screen Recording requests now open the System Settings pane when macOS will not show its prompt again, and Advanced offers a Relaunch button, because the grant only applies to a new process.
+- The placement picker's footnote now describes each option accurately, including Neither, and notes that Settings and About still show a Dock icon while open.
 - Tinted glass now carries the theme's accent colour through `NSGlassEffectView.tintColor` instead of tinting with the background colour. The tint sits on `glassTintedMaterial`, which is `clear` by default; the old fixed regular glass is no longer forced.
 - The HUD's Liquid Glass now applies a private `NSGlassEffectView._variant` finish. Every style offers the full range 0...21 through `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` (defaults 11 / 5 / 2), with no curated names or hidden subsets. Opacity still applies on top. The glyph strip has the same three keys per style; `matchHUDAppearance` copies them.
 - Glass opacity is no longer painted as a fill behind or over the effect. Liquid Glass samples the window backdrop, not sibling views, so a fill beneath it was invisible, and a fill above it washed the material out. The effect's own opacity now carries the value on both the HUD and the glyph strip.
