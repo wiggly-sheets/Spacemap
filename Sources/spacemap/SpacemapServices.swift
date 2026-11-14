@@ -24,7 +24,11 @@ final class SpacemapServices {
         onSetLoginAtLogin: { [weak self] in self?.setLoginAtLogin(enabled: $0) },
         onChangeSpaceNameProfile: { [weak self] index in self?.changeSpaceNameProfile(index: index) }
     )
-    lazy var settingsService: SettingsService = SettingsService(yabaiService: yabaiService, checkForUpdates: { [weak self] in self?.checkForUpdates() })
+    lazy var settingsService: SettingsService = SettingsService(
+        yabaiService: yabaiService,
+        checkForUpdates: { [weak self] in self?.checkForUpdates() },
+        restoreFloatingPanels: { [weak self] in self?.glyphStrip.present() }
+    )
     private(set) lazy var glyphStrip = GlyphStripPanelController(yabaiService: yabaiService)
     lazy var cliToolsService = CLIToolsService(
         onUpdateSparkleConfig: { [weak self] updateMode in self?.updateSparkleConfig(updateMode: updateMode) },

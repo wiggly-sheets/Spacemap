@@ -3,16 +3,21 @@ import AppKit
 final class SettingsService {
     let yabaiService: YabaiService
     let checkForUpdates: () -> Void
+    /// Called after the app drops back to an accessory (menu-bar-only) policy,
+    /// which orders status-level panels out. The strip re-presents itself here.
+    private let restoreFloatingPanels: () -> Void
     private var settingsWindowController: SettingsWindowController?
     private var settingsWindowCloseObserver: NSObjectProtocol?
     private(set) var aboutWindowController: AboutWindowController?
 
     init(
         yabaiService: YabaiService,
-        checkForUpdates: @escaping () -> Void
+        checkForUpdates: @escaping () -> Void,
+        restoreFloatingPanels: @escaping () -> Void = {}
     ) {
         self.yabaiService = yabaiService
         self.checkForUpdates = checkForUpdates
+        self.restoreFloatingPanels = restoreFloatingPanels
     }
 
     deinit {
@@ -49,6 +54,7 @@ final class SettingsService {
                     }
                     if !hasOtherWindow {
                         NSApp.setActivationPolicy(.prohibited)
+                        self.restoreFloatingPanels()
                     }
                 }
             }
@@ -74,6 +80,7 @@ final class SettingsService {
                     }
                     if !hasOtherWindow {
                         NSApp.setActivationPolicy(.prohibited)
+                        self?.restoreFloatingPanels()
                     }
                 }
             }
