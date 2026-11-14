@@ -278,7 +278,7 @@ final class ConfigLoaderTests: XCTestCase {
         )
         let invalid = valid
             .replacingOccurrences(of: "backgroundStyle = \"glass\"", with: "backgroundStyle = \"broken\"")
-            .replacingOccurrences(of: "glassStyle = \"opaque\"", with: "glassStyle = \"broken\"")
+            .replacingOccurrences(of: "glassStyle = \"regular\"", with: "glassStyle = \"broken\"")
         try invalid.write(toFile: path, atomically: true, encoding: .utf8)
 
         let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
@@ -288,7 +288,7 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(values.gridConfig.backgroundStyle, GridConfig.default.backgroundStyle)
         XCTAssertEqual(values.gridConfig.glassStyle, GridConfig.default.glassStyle)
         XCTAssertTrue(repaired.contains("backgroundStyle = \"glass\""))
-        XCTAssertTrue(repaired.contains("glassStyle = \"opaque\""))
+        XCTAssertTrue(repaired.contains("glassStyle = \"regular\""))
         XCTAssertFalse(repaired.contains("broken"))
     }
 
@@ -300,7 +300,7 @@ final class ConfigLoaderTests: XCTestCase {
         let appearance = toml.components(separatedBy: "[appearance]").last ?? ""
 
         XCTAssertTrue(appearance.contains("backgroundStyle = \"glass\""))
-        XCTAssertTrue(appearance.contains("glassStyle = \"opaque\""))
+        XCTAssertTrue(appearance.contains("glassStyle = \"regular\""))
     }
 
 

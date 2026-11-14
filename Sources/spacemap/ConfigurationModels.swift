@@ -13,33 +13,64 @@ enum CellStyle: Int, CaseIterable, Identifiable, Equatable {
 }
 
 enum HUDBackgroundStyle: String, CaseIterable, Identifiable, Codable, Equatable {
-    case glass, solid, transparent
+    case glass, solid
     var id: String { rawValue }
+
+    /// Legacy `transparent` loads as solid: a solid fill at zero opacity is the
+    /// same result, so the third style had no separate behaviour to keep.
+    init?(rawValue: String) {
+        switch rawValue.lowercased() {
+        case "glass": self = .glass
+        case "solid", "transparent": self = .solid
+        default: return nil
+        }
+    }
 }
 enum HUDGlassStyle: String, CaseIterable, Identifiable, Codable, Equatable {
-    /// Left end of the native Liquid Glass slider: clear, minimal backing.
+    /// Left end of the native Liquid Glass scale: minimal backing.
     case clear
-    /// Right end of the native slider: regular glass with a stronger backing.
-    case opaque
-    /// Same as `opaque`, with the theme colour tinting the backing.
+    /// Standard frosted material.
+    case regular
+    /// Accent tint over either material.
     case tinted
 
     var id: String { rawValue }
 
-    /// Custom initializer so `frosted` from older configs loads as `opaque`.
-    init?(rawValue: String) {
-        switch rawValue.lowercased() {
-        case "clear": self = .clear
-        case "opaque", "frosted": self = .opaque
-        case "tinted": self = .tinted
-        default: return nil
+    /// Material the style draws with. Tinted picks its own material; clear and
+    /// regular are fixed. Hard rename: `opaque` and `frosted` no longer decode.
+    func material(tintedMaterial: HUDGlassMaterial) -> HUDGlassMaterial {
+        switch self {
+        case .clear: return .clear
+        case .regular: return .regular
+        case .tinted: return tintedMaterial
         }
     }
 
-    /// Whether this style draws with the clear glass material. Tinted glass is
-    /// clear glass plus an accent tint; only opaque uses the frosted material.
-    var usesClearMaterial: Bool { self != .opaque }
+    /// Lowest opacity the style may render at. Glass below this reads as a
+    /// flat desktop hole rather than glass, so the value is a floor, not a
+    /// default. Tinted sits higher so its accent stays visible.
+    var minimumOpacity: Double {
+        switch self {
+        case .clear: return 0.35
+        case .regular: return 0.40
+        case .tinted: return 0.45
+        }
+    }
 }
+
+/// The two native materials `NSGlassEffectView` exposes.
+enum HUDGlassMaterial: String, CaseIterable, Identifiable, Equatable {
+    case clear, regular
+    var id: String { rawValue }
+}
+
+/// What the HUD's space cells draw behind their content when they do not match
+/// the panel background.
+enum SpacesBackgroundStyle: String, CaseIterable, Identifiable, Equatable {
+    case none, solid, glass
+    var id: String { rawValue }
+}
+
 enum ShowMode: String, CaseIterable, Identifiable, Equatable { case all, active; var id: String { rawValue } }
 enum MultiMonitorHUDMode: String, CaseIterable, Identifiable, Equatable {
     case unified
@@ -222,51 +253,38 @@ enum GlyphStripIconSource: String, CaseIterable, Identifiable, Equatable {
     }
 }
 
-/// Settings for the always-visible menu-bar glyph strip (theme-driven colors).
+/// Settings for the always-visible menu-bar glyph strip (theme-driven colours).
 /// `[glyphStrip]` table, strip only; HUD cells use `GridConfig.showSpaceNumbers`.
 struct GlyphStripConfig: Equatable {
     var enabled: Bool = false
-    /// Strip's own space-index toggle. HUD cells read `GridConfig.showSpaceNumbers`.
     var showSpaceNumbers: Bool = true
     var showLayoutSuffix: Bool = true
     var showAppIcons: Bool = true
-    /// sbar glyphs (default) or native app icons with sbar fallback.
     var iconSource: GlyphStripIconSource = .sbarFont
     var dedupeAppsPerSpace: Bool = true
     var maxIconsPerSpace: Int = 8
     var iconSize: Double = 11
     var indexSize: Double = 11
     var highlightCurrentSpace: Bool = true
-    /// What sits behind the glyphs: nothing, a flat `cellBg` fill, or native glass.
     var backgroundMaterial: GlyphStripBackgroundMaterial = .none
-    /// Glass sub-type; only read for `.liquidGlass`. Mirrors the HUD's styles.
-    var glassStyle: HUDGlassStyle = .opaque
-    /// Outline the material is drawn in. With material `.none` it shapes the border.
-    var shape: GlyphStripShape = .none
-    /// Shared/legacy fill opacity. Used when `matchBackgroundOpacity`, and as
-    /// the fallback for per-style values in older configs.
+    var glassStyle: HUDGlassStyle = .regular
+    var glassClearVariant: Int = 11
+    var glassRegularVariant: Int = 5
+    var glassTintedVariant: Int = 2
+    var glassTintedMaterial: HUDGlassMaterial = .clear
+    var matchHUDAppearance: Bool = false
+    var matchBackgroundOpacity: Bool = false
     var backgroundOpacity: Double = 0.35
-    /// Per-style fill opacities. Used unless `matchBackgroundOpacity`. Clear
-    /// glass carries almost no backing, so its default is much lower.
     var glassClearOpacity: Double = 0.05
-    var glassOpaqueOpacity: Double = 0.35
+    var glassRegularOpacity: Double = 0.35
     var glassTintedOpacity: Double = 0.35
     var solidOpacity: Double = 0.35
-    /// When true, every material shares `backgroundOpacity`.
-    var matchBackgroundOpacity: Bool = false
+    var shape: GlyphStripShape = .none
     var cornerRadius: Double = 20
-    /// Gap between the strip and the notch edge it hugs, in points.
     var margin: Double = 6
-    /// Anchored: nudge in points, positive moves the strip down from the row.
-    /// `.custom`: inset from the screen's top edge.
-    var yOffset: Double = 0
-    /// Gap grown around the hovered segment's glyphs, on both axes, in points.
     var hoverPadding: Double = 1
-    /// Corner radius of the hover highlight (not the background `cornerRadius`).
     var hoverCornerRadius: Double = 4
-    /// Gap between adjacent app glyphs and before the +N overflow (not around separators).
     var iconSpacing: Double = 3
-    /// Gap between a space's index number and its first app glyph or placeholder.
     var indexPadding: Double = 6
     var showDisplaySeparators: Bool = true
     var showAddSpaceButton: Bool = true
@@ -275,57 +293,81 @@ struct GlyphStripConfig: Equatable {
     var rightClickAction: GlyphStripAction = .destroySpace
     var middleClickAction: GlyphStripAction = .none
     var position: GlyphStripPosition = .leftOfNotch
-    /// Row direction. Only `.custom` placement reads this; anchored positions
-    /// stay in the menu bar row.
     var orientation: GlyphStripOrientation = .horizontal
-    /// Icon arrangement inside a vertical space. Only read when `.custom`
-    /// renders `orientation = vertical`.
     var verticalLayout: GlyphStripVerticalLayout = .inline
     /// Free-placement X, from the screen's left edge; only for `.custom`.
     var xOffset: Int = 0
-    /// Stops drags from moving a `.custom` strip. Anchored positions ignore it,
-    /// since their placement is already fixed by the notch anchor.
+    /// Anchored nudge down from the row; custom inset from the screen top.
+    var yOffset: Double = 0
     var lockPosition: Bool = false
-    /// True when the current placement must not follow a drag.
-    var isPositionLocked: Bool { position == .custom && lockPosition }
-    /// Hairline border around the strip; shape `.none` with no background means no outline.
-    var borderEnabled: Bool = true
-    /// Copy the HUD's material, glass type, opacity, and theme. When false the
-    /// strip keeps its own complete appearance.
-    var matchHUDAppearance: Bool = false
-    /// Strip theme name, or `""` to follow the main HUD's `GridConfig.theme`.
     var theme: String = ""
+    var borderEnabled: Bool = true
 
     static let `default` = GlyphStripConfig()
 
-    /// Opacity for the active material/glass style. Shared when the user opts
-    /// to match all styles, otherwise each keeps its own remembered value.
+    /// True when the current placement must not follow a drag.
+    var isPositionLocked: Bool { position == .custom && lockPosition }
+
+    func clamped() -> GlyphStripConfig {
+        var copy = self
+        copy.maxIconsPerSpace = min(max(maxIconsPerSpace, 0), 16)
+        copy.iconSize = min(max(iconSize, 6), 24)
+        copy.indexSize = min(max(indexSize, 6), 24)
+        copy.glassClearVariant = min(max(glassClearVariant, 0), 21)
+        copy.glassRegularVariant = min(max(glassRegularVariant, 0), 21)
+        copy.glassTintedVariant = min(max(glassTintedVariant, 0), 21)
+        copy.backgroundOpacity = min(max(backgroundOpacity, 0.01), 1)
+        copy.glassClearOpacity = min(max(glassClearOpacity, 0.01), 1)
+        copy.glassRegularOpacity = min(max(glassRegularOpacity, 0.01), 1)
+        copy.glassTintedOpacity = min(max(glassTintedOpacity, 0.01), 1)
+        copy.solidOpacity = min(max(solidOpacity, 0.01), 1)
+        copy.cornerRadius = min(max(cornerRadius, 0), 40)
+        copy.margin = min(max(margin, 0), 40)
+        copy.hoverPadding = min(max(hoverPadding, 0), 12)
+        copy.hoverCornerRadius = min(max(hoverCornerRadius, 0), 20)
+        copy.iconSpacing = min(max(iconSpacing, 0), 20)
+        copy.indexPadding = min(max(indexPadding, 0), 20)
+        copy.xOffset = min(max(xOffset, -4000), 4000)
+        copy.yOffset = position == .custom
+            ? min(max(yOffset, 0), 4000)
+            : min(max(yOffset, -10), 10)
+        return copy
+    }
+
+    /// Effect opacity for a material, without the HUD's shared overall value.
     func effectiveBackgroundOpacity(for material: GlyphStripBackgroundMaterial) -> Double {
-        guard material != .none else { return 0 }
-        if matchBackgroundOpacity { return backgroundOpacity }
         switch material {
         case .none:
             return 0
         case .solid:
-            return solidOpacity
+            return matchBackgroundOpacity ? backgroundOpacity : solidOpacity
         case .liquidGlass:
-            switch glassStyle {
-            case .clear: return glassClearOpacity
-            case .opaque: return glassOpaqueOpacity
-            case .tinted: return glassTintedOpacity
+            let raw: Double
+            if matchBackgroundOpacity {
+                raw = backgroundOpacity
+            } else {
+                switch glassStyle {
+                case .clear: raw = glassClearOpacity
+                case .regular: raw = glassRegularOpacity
+                case .tinted: raw = glassTintedOpacity
+                }
             }
+            return max(raw, glassStyle.minimumOpacity)
         }
     }
 
-    /// Material actually drawn. `matchHUDAppearance` maps the HUD's top-level
-    /// background style onto the strip's material instead of using `backgroundMaterial`.
+    /// Effect opacity after `matchHUDAppearance`, which copies the HUD's.
+    func resolvedBackgroundOpacity(hud: GridConfig) -> Double {
+        if matchHUDAppearance {
+            return hud.effectiveBackgroundOpacity(for: hud.backgroundStyle)
+        }
+        return effectiveBackgroundOpacity(for: backgroundMaterial)
+    }
+
+    /// Material actually drawn. Matching the HUD copies its style.
     func resolvedBackgroundMaterial(hud: GridConfig) -> GlyphStripBackgroundMaterial {
         guard matchHUDAppearance else { return backgroundMaterial }
-        switch hud.backgroundStyle {
-        case .transparent: return .none
-        case .solid: return .solid
-        case .glass: return .liquidGlass
-        }
+        return hud.backgroundStyle == .glass ? .liquidGlass : .solid
     }
 
     /// Glass sub-type actually drawn. Matching the HUD also copies its type.
@@ -333,47 +375,32 @@ struct GlyphStripConfig: Equatable {
         matchHUDAppearance ? hud.glassStyle : glassStyle
     }
 
-    /// Opacity actually drawn. Matching the HUD copies the HUD's effective
-    /// value for its current style.
-    func resolvedBackgroundOpacity(hud: GridConfig) -> Double {
-        guard matchHUDAppearance else {
-            return effectiveBackgroundOpacity(for: backgroundMaterial)
-        }
-        return hud.effectiveBackgroundOpacity(for: hud.backgroundStyle)
+    /// Material under the accent for tinted glass.
+    func resolvedGlassTintedMaterial(hud: GridConfig) -> HUDGlassMaterial {
+        matchHUDAppearance ? hud.glassTintedMaterial : glassTintedMaterial
     }
 
-    /// Theme actually used for glyph colours. Matching the HUD also copies its theme.
+    /// Private finish for the resolved glass style.
+    func resolvedGlassVariant(hud: GridConfig) -> Int {
+        let style = resolvedGlassStyle(hud: hud)
+        if matchHUDAppearance {
+            switch style {
+            case .clear: return hud.glassClearVariant
+            case .regular: return hud.glassRegularVariant
+            case .tinted: return hud.glassTintedVariant
+            }
+        }
+        switch style {
+        case .clear: return glassClearVariant
+        case .regular: return glassRegularVariant
+        case .tinted: return glassTintedVariant
+        }
+    }
+
+    /// Theme actually painted. Empty means follow the HUD.
     func resolvedThemeName(hud: GridConfig) -> String {
         if matchHUDAppearance { return hud.theme }
         return theme.isEmpty ? hud.theme : theme
-    }
-
-    /// Clamp numerics so a hand-edited TOML cannot produce a degenerate layout.
-    func clamped() -> GlyphStripConfig {
-        var copy = self
-        copy.maxIconsPerSpace = min(max(maxIconsPerSpace, 0), 16)
-        copy.iconSize = min(max(iconSize, 6), 24)
-        copy.indexSize = min(max(indexSize, 6), 24)
-        copy.backgroundOpacity = min(max(backgroundOpacity, 0.01), 1)
-        copy.glassClearOpacity = min(max(glassClearOpacity, 0.01), 1)
-        copy.glassOpaqueOpacity = min(max(glassOpaqueOpacity, 0.01), 1)
-        copy.glassTintedOpacity = min(max(glassTintedOpacity, 0.01), 1)
-        copy.solidOpacity = min(max(solidOpacity, 0.01), 1)
-        copy.cornerRadius = min(max(cornerRadius, 0), 40)
-        copy.margin = min(max(margin, 0), 40)
-        copy.iconSpacing = min(max(iconSpacing, 0), 20)
-        copy.indexPadding = min(max(indexPadding, 0), 20)
-        // Bounded so a hand-edited config cannot hold a silly number.
-        copy.xOffset = min(max(xOffset, -4000), 4000)
-        copy.yOffset = min(max(yOffset, -10), 10)
-        if copy.position == .custom {
-            // Free placement: both offsets measure from the screen's top-left,
-            // so the strip can leave the menu bar row.
-            copy.yOffset = min(max(yOffset, 0), 4000)
-        }
-        copy.hoverPadding = min(max(hoverPadding, 0), 12)
-        copy.hoverCornerRadius = min(max(hoverCornerRadius, 0), 20)
-        return copy
     }
 }
 
@@ -511,15 +538,33 @@ struct GridConfig: Equatable {
     /// HUD background style, independent of the theme.
     var backgroundStyle: HUDBackgroundStyle = .glass
     /// Glass sub-type, only read when `backgroundStyle == .glass`.
-    var glassStyle: HUDGlassStyle = .opaque
+    var glassStyle: HUDGlassStyle = .regular
+    /// Private `NSGlassEffectView._variant` finish per glass style, 0...21.
+    var glassClearVariant: Int = 11
+    var glassRegularVariant: Int = 5
+    var glassTintedVariant: Int = 2
+    /// Material tinted glass draws over; tint is the theme accent.
+    var glassTintedMaterial: HUDGlassMaterial = .clear
     /// Per-style background opacities. Used unless `matchBackgroundOpacity`.
     var glassClearOpacity: Double = 0.05
-    var glassOpaqueOpacity: Double = 0.3
+    var glassRegularOpacity: Double = 0.3
     var glassTintedOpacity: Double = 0.3
     var solidOpacity: Double = 1.0
+    /// Space cells copy the panel background unless this is false.
+    var spacesMatchBackground: Bool = true
+    var spacesBackgroundStyle: SpacesBackgroundStyle = .glass
+    var spacesGlassStyle: HUDGlassStyle = .clear
+    var spacesGlassClearVariant: Int = 11
+    var spacesGlassRegularVariant: Int = 5
+    var spacesGlassTintedVariant: Int = 2
+    var spacesGlassTintedMaterial: HUDGlassMaterial = .clear
+    var spacesOpacity: Double = 0.5
+    var spacesCornerRadius: Double = 4
     /// When true, every style shares `backgroundAlpha` instead of its own value.
     var matchBackgroundOpacity: Bool = false
     var hudShadow: Bool = true
+    /// Corner radius of the HUD's outer panel, not the space cells.
+    var hudCornerRadius: Double = 10
     var mode: ThemeMode
     var iconScale: Double
     /// HUD cells' space-index toggle. The strip reads
@@ -553,20 +598,24 @@ struct GridConfig: Equatable {
 
     /// Opacity for the active background style. Shared when the user opts to
     /// match all styles, otherwise each style keeps its own remembered value.
+    /// Glass never renders below its style's minimum: at zero the effect would
+    /// be a flat hole instead of glass. Solid may go fully transparent.
     func effectiveBackgroundOpacity(for style: HUDBackgroundStyle) -> Double {
-        guard style != .transparent else { return 0 }
-        if matchBackgroundOpacity { return backgroundAlpha }
         switch style {
         case .solid:
-            return solidOpacity
+            return matchBackgroundOpacity ? backgroundAlpha : solidOpacity
         case .glass:
-            switch glassStyle {
-            case .clear: return glassClearOpacity
-            case .opaque: return glassOpaqueOpacity
-            case .tinted: return glassTintedOpacity
+            let raw: Double
+            if matchBackgroundOpacity {
+                raw = backgroundAlpha
+            } else {
+                switch glassStyle {
+                case .clear: raw = glassClearOpacity
+                case .regular: raw = glassRegularOpacity
+                case .tinted: raw = glassTintedOpacity
+                }
             }
-        case .transparent:
-            return 0
+            return max(raw, glassStyle.minimumOpacity)
         }
     }
 
@@ -582,7 +631,7 @@ struct GridConfig: Equatable {
         theme: "default", showMode: .all, multiMonitorHUDMode: .unified,
         unifiedHUDVisibility: .active, separateHUDVisibility: .all,
         displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3,
-        backgroundStyle: .glass, glassStyle: .opaque, hudShadow: true,
+        backgroundStyle: .glass, glassStyle: .regular, hudShadow: true,
         mode: .auto, iconScale: 0.5, showSpaceNumbers: true,
         showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false,
         hideMenuBarIcon: false, glyphStrip: .default, menuBarDisplayMode: .icon,

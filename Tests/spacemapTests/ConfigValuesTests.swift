@@ -19,6 +19,7 @@ final class ConfigValuesTests: XCTestCase {
         values.backgroundStyle = .glass
         values.glassStyle = .tinted
         values.hudShadow = false
+        values.hudCornerRadius = 12
         values.iconScale = 0.8
         values.uiScale = 0.75
         values.autoHideTimeout = 10
@@ -138,7 +139,7 @@ final class ConfigValuesTests: XCTestCase {
         let values = ConfigValues()
         let (config, _) = values.toGridConfig()
         XCTAssertEqual(config.backgroundStyle, .glass)
-        XCTAssertEqual(config.glassStyle, .opaque)
+        XCTAssertEqual(config.glassStyle, .regular)
     }
 
     func testPerStyleBackgroundOpacitiesRoundTripAndResolve() throws {
@@ -147,7 +148,7 @@ final class ConfigValuesTests: XCTestCase {
         values.backgroundStyle = .glass
         values.glassStyle = .tinted
         values.glassClearOpacity = 0.1
-        values.glassOpaqueOpacity = 0.2
+        values.glassRegularOpacity = 0.2
         values.glassTintedOpacity = 0.7
         values.solidOpacity = 0.9
         values.matchBackgroundOpacity = true
@@ -156,19 +157,112 @@ final class ConfigValuesTests: XCTestCase {
         let reread = try TOMLParser.parse(toml)
 
         XCTAssertEqual(reread.glassClearOpacity, 0.1)
-        XCTAssertEqual(reread.glassOpaqueOpacity, 0.2)
+        XCTAssertEqual(reread.glassRegularOpacity, 0.2)
         XCTAssertEqual(reread.glassTintedOpacity, 0.7)
         XCTAssertEqual(reread.solidOpacity, 0.9)
         XCTAssertEqual(reread.matchBackgroundOpacity, true)
 
         var config = reread.toGridConfig().config
-        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .glass), 0.4)
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .glass), 0.45)
         config.matchBackgroundOpacity = false
         XCTAssertEqual(config.effectiveBackgroundOpacity(for: .glass), 0.7)
         config.backgroundStyle = .solid
         XCTAssertEqual(config.effectiveBackgroundOpacity(for: .solid), 0.9)
-        config.backgroundStyle = .transparent
-        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .transparent), 0)
+        config.solidOpacity = 0
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .solid), 0)
+    }
+
+    func testPerStyleGlassVariantsClampAndRoundTrip() throws {
+        var values = ConfigValues()
+        let defaults = values.toGridConfig().config
+        XCTAssertEqual(defaults.glassClearVariant, 11)
+        XCTAssertEqual(defaults.glassRegularVariant, 5)
+        XCTAssertEqual(defaults.glassTintedVariant, 2)
+
+        values.glassClearVariant = 21
+        values.glassRegularVariant = 0
+        values.glassTintedVariant = 21
+        let config = values.toGridConfig().config
+        XCTAssertEqual(config.glassClearVariant, 21)
+        XCTAssertEqual(config.glassRegularVariant, 0)
+        XCTAssertEqual(config.glassTintedVariant, 21)
+
+        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+        let reread = try TOMLParser.parse(toml)
+        XCTAssertEqual(reread.glassClearVariant, 21)
+        XCTAssertEqual(reread.glassRegularVariant, 0)
+        XCTAssertEqual(reread.glassTintedVariant, 21)
+    }
+
+    func testTintedMaterialDefaultsAndResolves() {
+        var values = ConfigValues()
+        XCTAssertEqual(values.toGridConfig().config.glassTintedMaterial, .clear)
+        values.glassTintedMaterial = .regular
+        XCTAssertEqual(values.toGridConfig().config.glassTintedMaterial, .regular)
+        XCTAssertEqual(HUDGlassStyle.tinted.material(tintedMaterial: .regular), .regular)
+        XCTAssertEqual(HUDGlassStyle.tinted.material(tintedMaterial: .clear), .clear)
+        XCTAssertEqual(HUDGlassStyle.clear.material(tintedMaterial: .regular), .clear)
+    }
+
+    func testSpaceLayerDefaultsAndRoundTrip() throws {
+        let defaults = ConfigValues().toGridConfig().config
+        XCTAssertTrue(defaults.spacesMatchBackground)
+        XCTAssertEqual(defaults.spacesBackgroundStyle, .glass)
+        XCTAssertEqual(defaults.spacesGlassStyle, .clear)
+        XCTAssertEqual(defaults.spacesGlassClearVariant, 11)
+        XCTAssertEqual(defaults.spacesOpacity, 0.5)
+        XCTAssertEqual(defaults.spacesCornerRadius, 4)
+
+        var values = ConfigValues()
+        values.spacesMatchBackground = false
+        values.spacesBackgroundStyle = .solid
+        values.spacesOpacity = 0.25
+        values.spacesCornerRadius = 8
+        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+        let reread = try TOMLParser.parse(toml)
+        XCTAssertEqual(reread.spacesMatchBackground, false)
+        XCTAssertEqual(reread.spacesBackgroundStyle, .solid)
+        XCTAssertEqual(reread.spacesOpacity, 0.25)
+        XCTAssertEqual(reread.spacesCornerRadius, 8)
+    }
+
+    func testGlassStylesKeepAMinimumOpacityButSolidMayFadeOut() {
+        var config = GridConfig.default
+        config.matchBackgroundOpacity = false
+
+        config.backgroundStyle = .glass
+        config.glassStyle = .clear
+        config.glassClearOpacity = 0
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .glass), 0.35)
+
+        config.glassStyle = .regular
+        config.glassRegularOpacity = 0
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .glass), 0.40)
+
+        config.glassStyle = .tinted
+        config.glassTintedOpacity = 0
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .glass), 0.45)
+
+        config.backgroundStyle = .solid
+        config.solidOpacity = 0
+        XCTAssertEqual(config.effectiveBackgroundOpacity(for: .solid), 0)
+    }
+
+    func testHUDCornerRadiusDefaultsClampsAndRoundTrips() throws {
+        XCTAssertEqual(GridConfig.default.hudCornerRadius, 10)
+
+        var values = ConfigValues()
+        values.hudCornerRadius = 24
+        let (config, _) = values.toGridConfig()
+        XCTAssertEqual(config.hudCornerRadius, 24)
+
+        values.hudCornerRadius = 99
+        XCTAssertEqual(values.toGridConfig().config.hudCornerRadius, 10, "out-of-range falls back to the default")
+
+        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+        let reread = try TOMLParser.parse(toml)
+        XCTAssertEqual(reread.hudCornerRadius, 99)
+        XCTAssertEqual(reread.toGridConfig().config.hudCornerRadius, 10)
     }
 
     func testMissingPerStyleOpacityInheritsBackgroundAlpha() {
@@ -179,7 +273,7 @@ final class ConfigValuesTests: XCTestCase {
 
         // Clear keeps its old effective value: backgroundAlpha scaled by 15%.
         XCTAssertEqual(config.glassClearOpacity, 0.09, accuracy: 1e-9)
-        XCTAssertEqual(config.glassOpaqueOpacity, 0.6)
+        XCTAssertEqual(config.glassRegularOpacity, 0.6)
         XCTAssertEqual(config.glassTintedOpacity, 0.6)
         XCTAssertEqual(config.solidOpacity, 0.6)
     }
@@ -206,8 +300,9 @@ final class ConfigValuesTests: XCTestCase {
         values.maxSpaces = 16
         values.backgroundAlpha = 0.3
         values.backgroundStyle = .glass
-        values.glassStyle = .opaque
+        values.glassStyle = .regular
         values.hudShadow = true
+        values.hudCornerRadius = 10
         values.mode = .auto
         values.iconScale = 0.5
         values.showSpaceNumbers = true
@@ -411,8 +506,9 @@ final class ConfigValuesTests: XCTestCase {
         values.maxSpaces = 8
         values.backgroundAlpha = 0.7
         values.backgroundStyle = .glass
-        values.glassStyle = .opaque
+        values.glassStyle = .regular
         values.hudShadow = true
+        values.hudCornerRadius = 10
         values.iconScale = 0.6
         values.showSpaceNumbers = true
         values.showSpaceLayout = true

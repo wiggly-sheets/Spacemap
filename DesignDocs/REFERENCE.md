@@ -69,12 +69,22 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[grid]` | `showIconStrip` / `showMultiAppIcons` | true / false | Per-cell app icons; per-window (true) or per-app (false) |
 | `[appearance]` | `theme` / `mode` | `default` / `auto` | Color theme; `light`, `dark`, or `auto` |
 | `[appearance]` | `backgroundAlpha` | 0.3 | Shared HUD opacity 0–1 when `matchBackgroundOpacity` is on; otherwise the legacy fallback |
-| `[appearance]` | `backgroundStyle` | `glass` | `glass`, `solid`, or `transparent` |
-| `[appearance]` | `glassStyle` | `opaque` | Glass sub-type: `clear` (left of native slider), `opaque` (right), or `tinted` (opaque + theme colour); legacy `frosted` reads as `opaque` |
-| `[appearance]` | `glassClearOpacity` / `glassOpaqueOpacity` / `glassTintedOpacity` | inherits `backgroundAlpha` | Per-glass-style opacity 0–1. Used when `matchBackgroundOpacity` is off |
-| `[appearance]` | `solidOpacity` | inherits `backgroundAlpha` | Solid HUD fill opacity 0–1 (no blur) |
-| `[appearance]` | `matchBackgroundOpacity` | false | Link all HUD styles to `backgroundAlpha`; transparent still has no opacity |
+| `[appearance]` | `backgroundStyle` | `glass` | `glass` or `solid`; solid at zero opacity hides the fill. Legacy `transparent` reads as `solid` |
+| `[appearance]` | `glassStyle` | `regular` | Glass sub-type: `clear` (native light material), `regular` (frosted), or `tinted` (accent over a chosen material) |
+| `[appearance]` | `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` | 11 / 5 / 2 | Private `NSGlassEffectView._variant` finish per style, 0–21, freely chosen in Settings. Variant numbers and the probe approach follow [JulianWindeck/liquid-glass](https://github.com/JulianWindeck/liquid-glass) |
+| `[appearance]` | `glassTintedMaterial` | `clear` | Material under the tint: `clear` or `regular` |
+| `[appearance]` | `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` | inherits `backgroundAlpha` | Per-glass-style opacity 0–1. Glass clamps to its floor (clear 0.35, regular 0.40, tinted 0.45) so it never becomes a hole. Used when `matchBackgroundOpacity` is off |
+| `[appearance]` | `solidOpacity` | inherits `backgroundAlpha` | Solid HUD fill opacity 0–1 (no blur; zero is fully transparent) |
+| `[appearance]` | `matchBackgroundOpacity` | false | Link all HUD styles to `backgroundAlpha`; the glass floor still applies |
 | `[appearance]` | `hudShadow` | true | Draw HUD panel shadow |
+| `[appearance]` | `hudCornerRadius` | 10 | Outer HUD panel corner radius, 0–60; space cells are unaffected |
+| `[appearance]` | `spacesMatchBackground` | true | Clear cells, so the panel material shows through. When off, the cell layer below applies |
+| `[appearance]` | `spacesBackgroundStyle` | `glass` | Cell layer: `none`, `solid`, or `glass` (only read when not matching) |
+| `[appearance]` | `spacesGlassStyle` | `clear` | Cell glass sub-type: `clear`, `regular`, or `tinted` |
+| `[appearance]` | `spacesGlassClearVariant` / `spacesGlassRegularVariant` / `spacesGlassTintedVariant` | 11 / 5 / 2 | Cell glass finish per style, 0–21 |
+| `[appearance]` | `spacesGlassTintedMaterial` | `clear` | Material under a tinted cell fill |
+| `[appearance]` | `spacesOpacity` | 0.5 | Cell fill or glass opacity 0–1 |
+| `[appearance]` | `spacesCornerRadius` | 4 | Cell corner radius 0–60 for the custom cell layer |
 | `[appearance]` | `uiScale` / `iconScale` | 0.5 / 0.5 | HUD scale / icon size, 0–1 |
 | `[behavior]` | `hotkey` / `pinnedHotkey` | ctrl+space / none | Toggle hotkeys (applied immediately from Settings) |
 | `[behavior]` | `glyphStripHotkey` | none | Show/hide hotkey for the glyph strip; session-only, never persisted |
@@ -182,11 +192,13 @@ Read from the `[glyphStrip]` table. A legacy bare `glyphStrip = true` boolean is
 | `indexSize` | `Double` | `11.0`, clamped 6...24 |
 | `highlightCurrentSpace` | `Bool` | `true` |
 | `backgroundMaterial` | `GlyphStripBackgroundMaterial` | `.none` (Settings label: Transparent) |
-| `glassStyle` | `HUDGlassStyle` | `.opaque`; `clear` and `tinted` use clear glass, `opaque` uses regular glass; `tinted` sets the native tint to the theme accent (liquidGlass only) |
+| `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` | `Int` | `11` / `5` / `2`, each 0...21; private glass finish per style (liquidGlass only) |
+| `glassTintedMaterial` | `HUDGlassMaterial` | `.clear`; material under the tint, `clear` or `regular` |
+| `glassStyle` | `HUDGlassStyle` | `.regular`; channel for tinting and per-style opacities; the material comes from the style plus `glassTintedMaterial` |
 | `matchHUDAppearance` | `Bool` | `false`; copy the HUD's material, glass style, opacity, and theme. Position, size, shape, and contents stay the strip's own |
 | `shape` | `GlyphStripShape` | `.none` (no outline even with `borderEnabled`; otherwise the border follows the shape) |
 | `backgroundOpacity` | `Double` | `0.35`, clamped 0.01...1.0; shared/legacy opacity, used when `matchBackgroundOpacity` |
-| `glassClearOpacity` / `glassOpaqueOpacity` / `glassTintedOpacity` | `Double` | `0.05` / `0.35` / `0.35`, clamped 0.01...1.0; per-glass-style effect opacity |
+| `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` | `Double` | `0.05` / `0.35` / `0.35`, clamped 0.01...1.0 with the same glass floor as the HUD; per-glass-style effect opacity |
 | `solidOpacity` | `Double` | `0.35`, clamped 0.01...1.0; solid backing opacity (no blur) |
 | `matchBackgroundOpacity` | `Bool` | `false`; link all strip styles to `backgroundOpacity` |
 | `cornerRadius` | `Double` | `20.0`, clamped 0...40 (roundedRect only; capped to half strip height) |
@@ -226,7 +238,7 @@ The hover highlight is the segment's glyph **content box** — its slot trimmed 
 
 The notch gap is typically around 200pt wide on a 14" MacBook Pro (208pt at the default scaled resolution), so a full strip rarely fits inside it. `center` will therefore be partly occluded by the camera housing on most displays — prefer `leftOfNotch` or `rightOfNotch`.
 
-`backgroundMaterial` selects what sits behind the glyphs: `none` (labelled Transparent) draws nothing, `solid` fills the strip with the theme's `cellBg` without blurring, and `liquidGlass` puts native glass behind the glyphs, masked to the configured shape and stroked with a hairline. The solid fill spans the full panel height; the glass mask keeps a 2pt vertical inset so it never touches the menu bar edges. With material `none` the border still follows the selected `shape` (`pill`/`roundedRect`/`bar`); `shape` `.none` draws no outline at all. `glassStyle` mirrors the HUD's three native positions: `clear` and `tinted` use the clear glass material, `opaque` uses regular glass; `tinted` also sets the native tint to the theme's accent. Each style has its own `glass*Opacity`/`solidOpacity` (default 0.35, clear 0.05) applied as the effect view's own opacity, so the material is never washed out by a fill painted over it. `matchBackgroundOpacity` links them all to `backgroundOpacity`. `matchHUDAppearance` instead copies the HUD's material, glass style, effective opacity, and theme, leaving the strip's position, size, shape, and contents alone. Tinted uses the theme-blended hairline, clear and opaque use an achromatic mid-gray. The pre-26/`NSVisualEffectView` fallback uses a distinct stock material per sub-type: `.underWindowBackground` for clear, `.headerView` for opaque, and `.popover` for tinted. Legacy `glassAmount` + `useThemeTint` decode onto the closest sub-type, and a legacy `backgroundOpacity` seeds every per-style value. `shape` picks the outline the material is drawn in: `pill` is a capsule with fully rounded ends, `roundedRect` is a rounded rectangle at `cornerRadius` (capped to half the strip height), and `bar` is one continuous bar with square ends. The same shape masks the glass layer. The hover highlight always composites on top at a fixed subtle tint, in the theme's `focused` colour.
+`backgroundMaterial` selects what sits behind the glyphs: `none` (labelled Transparent) draws nothing, `solid` fills the strip with the theme's `cellBg` without blurring, and `liquidGlass` puts native glass behind the glyphs, masked to the configured shape and stroked with a hairline. The solid fill spans the full panel height; the glass mask keeps a 2pt vertical inset so it never touches the menu bar edges. With material `none` the border still follows the selected `shape` (`pill`/`roundedRect`/`bar`); `shape` `.none` draws no outline at all. `glassStyle` mirrors the HUD's three native positions: `clear`, `regular`, or `tinted` (the accent over `glassTintedMaterial`). Each style has its own `glass*Variant` finish (0...21) and its own `glass*Opacity`/`solidOpacity` (default 0.35, clear 0.05) applied as the effect view's own opacity, so the material is never washed out by a fill painted over it. `matchBackgroundOpacity` links the opacities to `backgroundOpacity`. `matchHUDAppearance` instead copies the HUD's material, glass style, finish, effective opacity, and theme, leaving the strip's position, size, shape, and contents alone. Tinted uses the theme-blended hairline, clear and regular use an achromatic mid-gray. The pre-26/`NSVisualEffectView` fallback uses a distinct stock material per material: `.underWindowBackground` for clear, `.headerView` for regular, and `.popover` for tinted over clear. Legacy `glassAmount` + `useThemeTint` decode onto the closest sub-type, and a legacy `backgroundOpacity` seeds every per-style value. `shape` picks the outline the material is drawn in: `pill` is a capsule with fully rounded ends, `roundedRect` is a rounded rectangle at `cornerRadius` (capped to half the strip height), and `bar` is one continuous bar with square ends. The same shape masks the glass layer. The hover highlight always composites on top at a fixed subtle tint, in the theme's `focused` colour.
 
 Glyph verticals: every run draws from one shared baseline at a 1pt drop (`glyphDrop`); icon-font runs lift 1.5pt (`appGlyphLift`) because sketchybar-app-font ink sits low next to system digits. The trailing `+` add button draws bold at `indexSize + 2`.
 
@@ -247,8 +259,10 @@ The strip is theme-driven: every layer resolves to one of the theme's colours (`
 - **`WindowDropFocusMode`** — `.never`, `.always`, `.modifier`
 - **`WindowDropFocusModifier`** — `.command`, `.function` (`fn`), `.option`, `.control`, `.shift`
 - **`HUDPosition`** — `.center`, `.top`, `.bottom`, `.custom(x, y)`
-- **`HUDBackgroundStyle`** — `.glass`, `.solid`, `.transparent`
-- **`HUDGlassStyle`** — `.clear`, `.opaque`, `.tinted` (`frosted` decodes as `.opaque`)
+- **`HUDBackgroundStyle`** — `.glass`, `.solid` (`transparent` decodes as `.solid`)
+- **`HUDGlassStyle`** — `.clear`, `.regular`, `.tinted`; no legacy aliases
+- **`HUDGlassMaterial`** — `.clear`, `.regular`; the material actually drawn
+- **`SpacesBackgroundStyle`** — `.none`, `.solid`, `.glass`; per-cell layer used when cells do not match the HUD
 - **`GlyphStripBackgroundMaterial`** — `.none`, `.solid`, `.liquidGlass`
 - **`GlyphStripShape`** — `.none`, `.pill`, `.roundedRect`, `.bar`
 - **`GlyphStripAction`** — `.none`, `.focusSpace`, `.destroySpace`, `.moveWindowHere`, `.toggleFullscreen`, `.floatWindow`, `.balanceWindows`, `.mergeWindows`

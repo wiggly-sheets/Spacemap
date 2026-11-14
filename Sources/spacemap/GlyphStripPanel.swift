@@ -398,6 +398,10 @@ final class GlyphStripPanelController: NSObject {
         )
         panel.isOpaque = false
         panel.backgroundColor = .clear
+        // NSPanel hides itself when the app deactivates by default. The strip
+        // must survive focus leaving Spacemap (Settings closed, another app
+        // frontmost), so opt out explicitly.
+        panel.hidesOnDeactivate = false
         // Glass floats over the menu bar; the shadow separates its edge.
         panel.hasShadow = true
         // Above the main menu so the strip is never occluded by menu bar items.
@@ -805,6 +809,12 @@ final class GlyphStripPanelController: NSObject {
     fileprivate var glassStyle: HUDGlassStyle {
         config.glyphStrip.resolvedGlassStyle(hud: config)
     }
+    fileprivate var glassVariant: Int {
+        config.glyphStrip.resolvedGlassVariant(hud: config)
+    }
+    fileprivate var glassTintedMaterial: HUDGlassMaterial {
+        config.glyphStrip.resolvedGlassTintedMaterial(hud: config)
+    }
     fileprivate var shape: GlyphStripShape { config.glyphStrip.shape }
     fileprivate var backgroundOpacity: CGFloat {
         CGFloat(config.glyphStrip.resolvedBackgroundOpacity(hud: config))
@@ -1142,7 +1152,8 @@ private final class GlyphStripContainerView: NSView {
         // `NSGlassEffectView` entirely, so any naming of it fails to compile.
         #if compiler(>=6.2)
         if #available(macOS 26, *) {
-            let style: NSGlassEffectView.Style = controller.glassStyle.usesClearMaterial ? .clear : .regular
+            let style: NSGlassEffectView.Style =
+                controller.glassStyle.material(tintedMaterial: controller.glassTintedMaterial) == .clear ? .clear : .regular
             let glass: NSGlassEffectView
             // `NSGlassEffectView` caches its effect; `needsDisplay` does not
             // rebuild it. A material swap needs a fresh view.
@@ -1158,8 +1169,7 @@ private final class GlyphStripContainerView: NSView {
             // alpha then carries the opacity without fading the glyphs, the way
             // macOS menu-bar overlays do it.
             addSubview(glass, positioned: .below, relativeTo: glyphs)
-            let variant: Int? = controller.glassStyle == .clear ? GlassVariant.sheer : nil
-            GlassVariant.apply(variant, to: glass)
+            GlassVariant.apply(controller.glassVariant, to: glass)
             glass.tintColor = controller.glassTintColor
             glass.cornerRadius = backdrop.glassCornerRadius
             glass.frame = backdrop.rect
@@ -1177,7 +1187,10 @@ private final class GlyphStripContainerView: NSView {
     private func layoutFallbackGlass(backdrop: GlyphStrip.Backdrop, controller: GlyphStripPanelController) {
         dockGlyphsAsSibling()
         // One material per sub-type, so clear and opaque stay distinct.
-        fallbackGlass.material = GlyphStrip.glassFallbackMaterial(for: controller.glassStyle)
+        fallbackGlass.material = GlyphStrip.glassFallbackMaterial(
+            for: controller.glassStyle,
+            tintedMaterial: controller.glassTintedMaterial
+        )
         fallbackGlass.state = .active
         fallbackGlass.alphaValue = 1.0
         // Size the blur view itself to the backdrop rect — a full-bounds frame

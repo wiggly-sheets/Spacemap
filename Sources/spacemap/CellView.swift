@@ -19,6 +19,8 @@ struct CellView: View {
     let windows: [YabaiWindow]
     let displayBounds: CGRect
     let cellStyle: CellStyle
+    let spaceBackground: CellSpaceBackground
+    let spaceCornerRadius: CGFloat
     let onSelect: (Int) -> Void
     
     private let uiScale: CGFloat
@@ -69,6 +71,8 @@ init(spaceIndex: Int,
              windows: [YabaiWindow],
              displayBounds: CGRect,
              cellStyle: CellStyle,
+             spaceBackground: CellSpaceBackground = .theme,
+             spaceCornerRadius: CGFloat = 4,
              onSelect: @escaping (Int) -> Void,
              uiScale: CGFloat = 1.0,
              resolvedTheme: AppTheme = .default,
@@ -90,6 +94,8 @@ init(spaceIndex: Int,
         self.windows = windows
         self.displayBounds = displayBounds
         self.cellStyle = cellStyle
+        self.spaceBackground = spaceBackground
+        self.spaceCornerRadius = spaceCornerRadius
         self.onSelect = onSelect
         self.uiScale = uiScale
         self.resolvedTheme = resolvedTheme
@@ -106,8 +112,7 @@ init(spaceIndex: Int,
     
 var body: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(backgroundColor)
+            cellBackground
 
             switch cellStyle {
             case .rects:
@@ -147,9 +152,9 @@ var body: some View {
                     .lineLimit(2)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: cellCornerRadius)
                 .strokeBorder(borderColor, lineWidth: borderWidth)
         )
         .frame(width: GridLayout.cellSize(forEffectiveScale: uiScale).width, height: GridLayout.cellSize(forEffectiveScale: uiScale).height)
@@ -176,6 +181,31 @@ var body: some View {
     private enum CellBorder {
         static let emphasized: CGFloat = 2.5
         static let normal: CGFloat = 0.5
+    }
+
+    private var cellCornerRadius: CGFloat {
+        spaceBackground == .theme ? 4 : spaceCornerRadius
+    }
+
+    @ViewBuilder
+    private var cellBackground: some View {
+        switch spaceBackground {
+        case .theme:
+            RoundedRectangle(cornerRadius: cellCornerRadius).fill(backgroundColor)
+        case .none:
+            Color.clear
+        case .solid(let color, let opacity):
+            RoundedRectangle(cornerRadius: cellCornerRadius).fill(color.opacity(opacity))
+        case .glass(let appearance):
+            SpaceGlassView(appearance: appearance)
+                .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
+                .overlay {
+                    // Focus and drop still read over the glass; the glass
+                    // itself carries no theme fill.
+                    RoundedRectangle(cornerRadius: cellCornerRadius)
+                        .fill(backgroundColor.opacity(0.45))
+                }
+        }
     }
 
     private var backgroundColor: Color {

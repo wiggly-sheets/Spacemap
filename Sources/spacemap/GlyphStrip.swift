@@ -416,20 +416,16 @@ enum GlyphStrip {
         return false
     }
 
-    /// Neutral hairline for clear/opaque. Tinted uses `glassStrokeColor`, whose
+    /// Neutral hairline for clear/regular. Tinted uses `glassStrokeColor`, whose
     /// theme blend matches the tinted backing.
     static func neutralGlassStrokeColor() -> NSColor { NSColor(white: 0.5, alpha: 1) }
 
-    /// Fallback `NSVisualEffectView` material, one per sub-type so clear and
-    /// opaque stay distinct without native glass (pre-26, Reduce Transparency).
-    /// Tinted keeps the saturated `.popover`; opaque uses the menu bar's own
-    /// material; clear uses the least opaque stock blur.
-    static func glassFallbackMaterial(for style: HUDGlassStyle) -> NSVisualEffectView.Material {
-        switch style {
-        case .clear: return .underWindowBackground
-        case .opaque: return .headerView
-        case .tinted: return .popover
-        }
+    /// Fallback `NSVisualEffectView` material for the resolved material, so
+    /// clear and regular stay distinct without native glass (pre-26, Reduce
+    /// Transparency). Tinted keeps the saturated `.popover`.
+    static func glassFallbackMaterial(for style: HUDGlassStyle, tintedMaterial: HUDGlassMaterial) -> NSVisualEffectView.Material {
+        if style == .tinted, tintedMaterial == .clear { return .popover }
+        return style.material(tintedMaterial: tintedMaterial) == .clear ? .underWindowBackground : .headerView
     }
 
     /// Fills a resolved backdrop, or strokes it for the glass edge. The only

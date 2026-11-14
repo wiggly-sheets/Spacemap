@@ -301,7 +301,7 @@ final class SettingsTests: XCTestCase {
         strip.shape = .pill
         strip.backgroundOpacity = 0.6
         strip.glassClearOpacity = 0.2
-        strip.glassOpaqueOpacity = 0.4
+        strip.glassRegularOpacity = 0.4
         strip.glassTintedOpacity = 0.8
         strip.solidOpacity = 0.9
         strip.matchBackgroundOpacity = true
@@ -343,7 +343,7 @@ final class SettingsTests: XCTestCase {
         config.backgroundStyle = .solid
         config.glassStyle = .tinted
         config.glassClearOpacity = 0.2
-        config.glassOpaqueOpacity = 0.4
+        config.glassRegularOpacity = 0.4
         config.glassTintedOpacity = 0.6
         config.solidOpacity = 0.8
         config.matchBackgroundOpacity = true

@@ -396,9 +396,14 @@ enum TOMLConfigDecoder {
             "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons"
         ])
         flatten("appearance", keys: [
-            "theme", "mode", "backgroundAlpha", "hudShadow", "iconScale", "uiScale",
-            "backgroundStyle", "glassStyle", "glassClearOpacity", "glassOpaqueOpacity",
-            "glassTintedOpacity", "solidOpacity", "matchBackgroundOpacity"
+            "theme", "mode", "backgroundAlpha", "hudShadow", "hudCornerRadius", "iconScale", "uiScale",
+            "backgroundStyle", "glassStyle",
+            "glassClearVariant", "glassRegularVariant", "glassTintedVariant", "glassTintedMaterial",
+            "glassClearOpacity", "glassRegularOpacity", "glassTintedOpacity",
+            "solidOpacity", "matchBackgroundOpacity",
+            "spacesMatchBackground", "spacesBackgroundStyle", "spacesGlassStyle",
+            "spacesGlassClearVariant", "spacesGlassRegularVariant", "spacesGlassTintedVariant",
+            "spacesGlassTintedMaterial", "spacesOpacity", "spacesCornerRadius"
         ])
         // Legacy fallback: pre-[advanced] files keep showExtraWindows under
         // [behavior]. Capture before flatten drops the section; [advanced]
@@ -479,6 +484,11 @@ enum TOMLConfigDecoder {
             return nil
         }
 
+        func variant(_ key: String) -> Int? {
+            guard let value = object[key] as? Int, (0...21).contains(value) else { return nil }
+            return value
+        }
+
         func double(_ key: String) -> Double? {
             if let result = object[key] as? Double { return result }
             if let result = object[key] as? Int { return Double(result) }
@@ -513,11 +523,32 @@ enum TOMLConfigDecoder {
         if let name: String = value("glassStyle") {
             values.glassStyle = parsedEnum(from: name)
         }
+        values.glassClearVariant = variant("glassClearVariant")
+        values.glassRegularVariant = variant("glassRegularVariant")
+        values.glassTintedVariant = variant("glassTintedVariant")
+        if let name: String = value("glassTintedMaterial") {
+            values.glassTintedMaterial = parsedEnum(from: name)
+        }
         values.glassClearOpacity = rangedDouble("glassClearOpacity")
-        values.glassOpaqueOpacity = rangedDouble("glassOpaqueOpacity")
+        values.glassRegularOpacity = rangedDouble("glassRegularOpacity")
         values.glassTintedOpacity = rangedDouble("glassTintedOpacity")
         values.solidOpacity = rangedDouble("solidOpacity")
         values.matchBackgroundOpacity = value("matchBackgroundOpacity")
+        values.spacesMatchBackground = value("spacesMatchBackground")
+        if let name: String = value("spacesBackgroundStyle") {
+            values.spacesBackgroundStyle = parsedEnum(from: name)
+        }
+        if let name: String = value("spacesGlassStyle") {
+            values.spacesGlassStyle = parsedEnum(from: name)
+        }
+        values.spacesGlassClearVariant = variant("spacesGlassClearVariant")
+        values.spacesGlassRegularVariant = variant("spacesGlassRegularVariant")
+        values.spacesGlassTintedVariant = variant("spacesGlassTintedVariant")
+        if let name: String = value("spacesGlassTintedMaterial") {
+            values.spacesGlassTintedMaterial = parsedEnum(from: name)
+        }
+        values.spacesOpacity = rangedDouble("spacesOpacity")
+        values.spacesCornerRadius = double("spacesCornerRadius")
 
         if let rawSpaceNames = object["spaceNames"] as? [String: Any] {
             var spaceNames: [Int: String] = [:]
@@ -540,6 +571,7 @@ enum TOMLConfigDecoder {
         }
         values.backgroundAlpha = rangedDouble("backgroundAlpha")
         values.hudShadow = value("hudShadow")
+        values.hudCornerRadius = double("hudCornerRadius")
         values.iconScale = rangedDouble("iconScale")
         values.uiScale = rangedDouble("uiScale")
 
@@ -724,12 +756,18 @@ enum TOMLConfigDecoder {
             let legacyTint = table["useThemeTint"] as? Bool
             let legacyAmount = number(table["glassAmount"])
             if legacyTint == false {
-                config.glassStyle = .opaque
+                config.glassStyle = .regular
             } else if let legacyAmount {
                 config.glassStyle = legacyAmount <= 0.02 ? .clear : .tinted
             } else if legacyTint == true {
                 config.glassStyle = .tinted
             }
+        }
+        if let value = variant(table["glassClearVariant"]) { config.glassClearVariant = value }
+        if let value = variant(table["glassRegularVariant"]) { config.glassRegularVariant = value }
+        if let value = variant(table["glassTintedVariant"]) { config.glassTintedVariant = value }
+        if let name = table["glassTintedMaterial"] as? String {
+            config.glassTintedMaterial = parsedEnum(from: name) ?? GlyphStripConfig.default.glassTintedMaterial
         }
         if let value = number(table["backgroundOpacity"]) { config.backgroundOpacity = value }
         // New per-style keys inherit the shared value from older configs. Clear
@@ -737,7 +775,7 @@ enum TOMLConfigDecoder {
         // existing strips looking the same.
         let sharedOpacity = config.backgroundOpacity
         config.glassClearOpacity = number(table["glassClearOpacity"]) ?? sharedOpacity * 0.15
-        config.glassOpaqueOpacity = number(table["glassOpaqueOpacity"]) ?? sharedOpacity
+        config.glassRegularOpacity = number(table["glassRegularOpacity"]) ?? sharedOpacity
         config.glassTintedOpacity = number(table["glassTintedOpacity"]) ?? sharedOpacity
         config.solidOpacity = number(table["solidOpacity"]) ?? sharedOpacity
         if let value = table["matchBackgroundOpacity"] as? Bool { config.matchBackgroundOpacity = value }
@@ -788,6 +826,12 @@ enum TOMLConfigDecoder {
     private static func parsedEnum<E: RawRepresentable>(_ type: E.Type = E.self, from name: String) -> E?
     where E.RawValue == String {
         E(rawValue: name) ?? E(rawValue: name.lowercased())
+    }
+
+    /// Raw `_variant` value, only when it is in the safe 0...21 range.
+    private static func variant(_ raw: Any?) -> Int? {
+        guard let value = number(raw), value.rounded() == value, (0...21).contains(Int(value)) else { return nil }
+        return Int(value)
     }
 
     private static func number(_ raw: Any?) -> Double? {

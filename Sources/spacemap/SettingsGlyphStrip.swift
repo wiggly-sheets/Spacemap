@@ -142,11 +142,26 @@ struct SettingsGlyphStrip: View {
                     if glyphStrip.backgroundMaterial == .liquidGlass {
                         GlassSegmentedPicker("Glass Style", selection: $glyphStrip.glassStyle, options: [
                             (title: "Clear", value: .clear),
-                            (title: "Opaque", value: .opaque),
+                            (title: "Regular", value: .regular),
                             (title: "Tinted", value: .tinted),
                         ])
                         .onChange(of: glyphStrip.glassStyle) { _ in onSave() }
-                        SettingsFootnote(text: "Clear matches the left of the native Liquid Glass slider, Opaque the right, and Tinted adds the theme colour.")
+                        SettingsFootnote(text: "Clear is the native light material, Regular the frosted one, and Tinted adds the theme accent.")
+
+                        Picker("Glass Finish", selection: stripVariantBinding) {
+                            ForEach(0...21, id: \.self) { number in
+                                Text("Variant \(number)").tag(number)
+                            }
+                        }
+                        .onChange(of: stripVariantBinding.wrappedValue) { _ in onSave() }
+                        if glyphStrip.glassStyle == .tinted {
+                            GlassSegmentedPicker("Tinted Material", selection: $glyphStrip.glassTintedMaterial, options: [
+                                (title: "Clear", value: .clear),
+                                (title: "Regular", value: .regular),
+                            ])
+                            .onChange(of: glyphStrip.glassTintedMaterial) { _ in onSave() }
+                        }
+                        SettingsFootnote(text: "Finish is the private macOS glass variant, 0 to 21. Opacity still applies on top.")
                     }
                 }
 
@@ -222,12 +237,18 @@ struct SettingsGlyphStrip: View {
     }
 
     /// Slider target: shared when matching, otherwise the active material/style.
+    private func clampedStripOpacity(_ value: Double) -> Double {
+        glyphStrip.backgroundMaterial == .liquidGlass
+            ? max(value, glyphStrip.glassStyle.minimumOpacity)
+            : value
+    }
+
     private var activeBackgroundOpacity: Binding<Double> {
         Binding(
             get: { glyphStrip.effectiveBackgroundOpacity(for: glyphStrip.backgroundMaterial) },
             set: { newValue in
-                guard !glyphStrip.matchBackgroundOpacity else {
-                    glyphStrip.backgroundOpacity = newValue
+                if glyphStrip.matchBackgroundOpacity {
+                    glyphStrip.backgroundOpacity = clampedStripOpacity(newValue)
                     return
                 }
                 switch glyphStrip.backgroundMaterial {
@@ -236,14 +257,23 @@ struct SettingsGlyphStrip: View {
                 case .solid:
                     glyphStrip.solidOpacity = newValue
                 case .liquidGlass:
+                    let clamped = clampedStripOpacity(newValue)
                     switch glyphStrip.glassStyle {
-                    case .clear: glyphStrip.glassClearOpacity = newValue
-                    case .opaque: glyphStrip.glassOpaqueOpacity = newValue
-                    case .tinted: glyphStrip.glassTintedOpacity = newValue
+                    case .clear: glyphStrip.glassClearOpacity = clamped
+                    case .regular: glyphStrip.glassRegularOpacity = clamped
+                    case .tinted: glyphStrip.glassTintedOpacity = clamped
                     }
                 }
             }
         )
+    }
+
+    private var stripVariantBinding: Binding<Int> {
+        switch glyphStrip.glassStyle {
+        case .clear: return $glyphStrip.glassClearVariant
+        case .regular: return $glyphStrip.glassRegularVariant
+        case .tinted: return $glyphStrip.glassTintedVariant
+        }
     }
 
     private var matchOpacityBinding: Binding<Bool> {

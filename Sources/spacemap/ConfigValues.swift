@@ -21,12 +21,26 @@ struct ConfigValues {
     var backgroundAlpha: Double?
     var backgroundStyle: HUDBackgroundStyle?
     var glassStyle: HUDGlassStyle?
+    var glassClearVariant: Int?
+    var glassRegularVariant: Int?
+    var glassTintedVariant: Int?
+    var glassTintedMaterial: HUDGlassMaterial?
     var glassClearOpacity: Double?
-    var glassOpaqueOpacity: Double?
+    var glassRegularOpacity: Double?
     var glassTintedOpacity: Double?
     var solidOpacity: Double?
     var matchBackgroundOpacity: Bool?
     var hudShadow: Bool?
+    var hudCornerRadius: Double?
+    var spacesMatchBackground: Bool?
+    var spacesBackgroundStyle: SpacesBackgroundStyle?
+    var spacesGlassStyle: HUDGlassStyle?
+    var spacesGlassClearVariant: Int?
+    var spacesGlassRegularVariant: Int?
+    var spacesGlassTintedVariant: Int?
+    var spacesGlassTintedMaterial: HUDGlassMaterial?
+    var spacesOpacity: Double?
+    var spacesCornerRadius: Double?
     var mode: ThemeMode?
     var iconScale: Double?
     var showSpaceNumbers: Bool?
@@ -81,12 +95,26 @@ struct ConfigValues {
         self.backgroundAlpha = config.backgroundAlpha
         self.backgroundStyle = config.backgroundStyle
         self.glassStyle = config.glassStyle
+        self.glassClearVariant = config.glassClearVariant
+        self.glassRegularVariant = config.glassRegularVariant
+        self.glassTintedVariant = config.glassTintedVariant
+        self.glassTintedMaterial = config.glassTintedMaterial
         self.glassClearOpacity = config.glassClearOpacity
-        self.glassOpaqueOpacity = config.glassOpaqueOpacity
+        self.glassRegularOpacity = config.glassRegularOpacity
         self.glassTintedOpacity = config.glassTintedOpacity
         self.solidOpacity = config.solidOpacity
         self.matchBackgroundOpacity = config.matchBackgroundOpacity
         self.hudShadow = config.hudShadow
+        self.hudCornerRadius = config.hudCornerRadius
+        self.spacesMatchBackground = config.spacesMatchBackground
+        self.spacesBackgroundStyle = config.spacesBackgroundStyle
+        self.spacesGlassStyle = config.spacesGlassStyle
+        self.spacesGlassClearVariant = config.spacesGlassClearVariant
+        self.spacesGlassRegularVariant = config.spacesGlassRegularVariant
+        self.spacesGlassTintedVariant = config.spacesGlassTintedVariant
+        self.spacesGlassTintedMaterial = config.spacesGlassTintedMaterial
+        self.spacesOpacity = config.spacesOpacity
+        self.spacesCornerRadius = config.spacesCornerRadius
         self.mode = config.mode
         self.iconScale = config.iconScale
         self.showSpaceNumbers = config.showSpaceNumbers
@@ -153,6 +181,10 @@ struct ConfigValues {
         let resolvedCellStyle = orDefault(cellStyle, defaults.cellStyle)
         let resolvedBackgroundStyle = orDefault(backgroundStyle, defaults.backgroundStyle)
         let resolvedGlassStyle = orDefault(glassStyle, defaults.glassStyle)
+        let resolvedClearVariant = min(max(glassClearVariant ?? defaults.glassClearVariant, 0), 21)
+        let resolvedRegularVariant = min(max(glassRegularVariant ?? defaults.glassRegularVariant, 0), 21)
+        let resolvedTintedVariant = min(max(glassTintedVariant ?? defaults.glassTintedVariant, 0), 21)
+        let resolvedGlassTintedMaterial = glassTintedMaterial ?? defaults.glassTintedMaterial
         let resolvedBackgroundAlpha = valid(backgroundAlpha, defaults.backgroundAlpha) { (0...1).contains($0) }
         // Per-style keys are new: absent values inherit `backgroundAlpha` so
         // older configs keep their look without triggering a repair. Clear used
@@ -161,8 +193,8 @@ struct ConfigValues {
         let resolvedGlassClearOpacity = valid(
             glassClearOpacity ?? legacyClearOpacity, defaults.glassClearOpacity
         ) { (0...1).contains($0) }
-        let resolvedGlassOpaqueOpacity = valid(
-            glassOpaqueOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
+        let resolvedGlassRegularOpacity = valid(
+            glassRegularOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
         ) { (0...1).contains($0) }
         let resolvedGlassTintedOpacity = valid(
             glassTintedOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
@@ -233,12 +265,26 @@ struct ConfigValues {
             backgroundAlpha: resolvedBackgroundAlpha,
             backgroundStyle: resolvedBackgroundStyle,
             glassStyle: resolvedGlassStyle,
+            glassClearVariant: resolvedClearVariant,
+            glassRegularVariant: resolvedRegularVariant,
+            glassTintedVariant: resolvedTintedVariant,
+            glassTintedMaterial: resolvedGlassTintedMaterial,
             glassClearOpacity: resolvedGlassClearOpacity,
-            glassOpaqueOpacity: resolvedGlassOpaqueOpacity,
+            glassRegularOpacity: resolvedGlassRegularOpacity,
             glassTintedOpacity: resolvedGlassTintedOpacity,
             solidOpacity: resolvedSolidOpacity,
+            spacesMatchBackground: spacesMatchBackground ?? defaults.spacesMatchBackground,
+            spacesBackgroundStyle: spacesBackgroundStyle ?? defaults.spacesBackgroundStyle,
+            spacesGlassStyle: spacesGlassStyle ?? defaults.spacesGlassStyle,
+            spacesGlassClearVariant: min(max(spacesGlassClearVariant ?? defaults.spacesGlassClearVariant, 0), 21),
+            spacesGlassRegularVariant: min(max(spacesGlassRegularVariant ?? defaults.spacesGlassRegularVariant, 0), 21),
+            spacesGlassTintedVariant: min(max(spacesGlassTintedVariant ?? defaults.spacesGlassTintedVariant, 0), 21),
+            spacesGlassTintedMaterial: spacesGlassTintedMaterial ?? defaults.spacesGlassTintedMaterial,
+            spacesOpacity: min(max(spacesOpacity ?? defaults.spacesOpacity, 0), 1),
+            spacesCornerRadius: min(max(spacesCornerRadius ?? defaults.spacesCornerRadius, 0), 60),
             matchBackgroundOpacity: matchBackgroundOpacity ?? defaults.matchBackgroundOpacity,
             hudShadow: orDefault(hudShadow, defaults.hudShadow),
+            hudCornerRadius: valid(hudCornerRadius, defaults.hudCornerRadius) { (0...60).contains($0) },
             mode: resolvedThemeMode,
             iconScale: valid(iconScale, defaults.iconScale) { (0...1).contains($0) },
             showSpaceNumbers: orDefault(showSpaceNumbers, defaults.showSpaceNumbers),

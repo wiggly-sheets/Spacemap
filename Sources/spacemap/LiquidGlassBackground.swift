@@ -14,6 +14,12 @@ struct HUDBackground: View {
     /// Accent used for the tinted sub-type, so the tint cannot collapse into
     /// the same dark/light surface as the opaque style.
     let tintColor: Color
+    /// Material under the accent for tinted glass.
+    var glassTintedMaterial: HUDGlassMaterial = .clear
+
+    /// Native panel glass supplies the material; this view draws only the
+    /// border so a scrim or material cannot flatten the effect.
+    var usesNativeGlass: Bool = false
 
     /// Neutral scrim that keeps dark/light HUDs legible over any wallpaper.
     private var scrim: Color {
@@ -24,36 +30,37 @@ struct HUDBackground: View {
     }
 
     var body: some View {
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *), GlassSupport.isAvailable {
-            ModernHUDBackground(
-                style: style, glassStyle: glassStyle, cornerRadius: cornerRadius,
-                alpha: alpha, themeColor: themeColor, tintColor: tintColor,
-                backing: glassStyle == .tinted ? tintColor : scrim
-            )
+        if usesNativeGlass, style == .glass {
+            Color.clear.overlay(HUDBorder(cornerRadius: cornerRadius))
         } else {
+            #if compiler(>=6.2)
+            if #available(macOS 26.0, *), GlassSupport.isAvailable {
+                ModernHUDBackground(
+                    style: style, glassStyle: glassStyle, cornerRadius: cornerRadius,
+                    alpha: alpha, themeColor: themeColor, tintColor: tintColor,
+                    glassTintedMaterial: glassTintedMaterial,
+                    backing: glassStyle == .tinted ? tintColor : scrim
+                )
+            } else {
+                fallbackBody
+            }
+            #else
             fallbackBody
+            #endif
         }
-        #else
-        fallbackBody
-        #endif
     }
 
     @ViewBuilder
     private var fallbackBody: some View {
         switch style {
-        case .transparent:
-            HUDBorder(cornerRadius: cornerRadius)
         case .solid:
             HUDSolidFill(cornerRadius: cornerRadius, color: themeColor, opacity: alpha)
         case .glass:
-            switch glassStyle {
+            switch glassStyle.material(tintedMaterial: glassTintedMaterial) {
             case .clear:
-                glassBody(material: .ultraThinMaterial, backing: scrim, backingOpacity: alpha)
-            case .opaque:
-                glassBody(material: .regularMaterial, backing: scrim, backingOpacity: alpha)
-            case .tinted:
-                glassBody(material: .regularMaterial, backing: tintColor, backingOpacity: alpha)
+                glassBody(material: .ultraThinMaterial, backing: glassStyle == .tinted ? tintColor : scrim, backingOpacity: alpha)
+            case .regular:
+                glassBody(material: .regularMaterial, backing: glassStyle == .tinted ? tintColor : scrim, backingOpacity: alpha)
             }
         }
     }
@@ -86,12 +93,11 @@ private struct ModernHUDBackground: View {
     let alpha: Double
     let themeColor: Color
     let tintColor: Color
+    let glassTintedMaterial: HUDGlassMaterial
     let backing: Color
 
     var body: some View {
         switch style {
-        case .transparent:
-            HUDBorder(cornerRadius: cornerRadius)
         case .solid:
             HUDSolidFill(cornerRadius: cornerRadius, color: themeColor, opacity: alpha)
         case .glass:
@@ -111,11 +117,8 @@ private struct ModernHUDBackground: View {
     }
 
     private var glass: Glass {
-        switch glassStyle {
-        case .clear: return .clear
-        case .opaque: return .regular
-        case .tinted: return .clear.tint(tintColor)
-        }
+        let base: Glass = glassStyle.material(tintedMaterial: glassTintedMaterial) == .clear ? .clear : .regular
+        return glassStyle == .tinted ? base.tint(tintColor) : base
     }
 }
 #endif

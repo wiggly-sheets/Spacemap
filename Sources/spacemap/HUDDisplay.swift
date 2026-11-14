@@ -337,11 +337,11 @@ final class HUDDisplay {
                 if let existing = displayHostingViews[displayIndex] {
                     existing.rootView = AnyView(gridView)
                     existing.frame = NSRect(origin: .zero, size: size)
-                    panel.contentView = existing
+                    installContent(existing, in: panel, size: size)
                 } else {
                     let hostingView = NSHostingView(rootView: AnyView(gridView))
                     hostingView.frame = NSRect(origin: .zero, size: size)
-                    panel.contentView = hostingView
+                    installContent(hostingView, in: panel, size: size)
                     displayHostingViews[displayIndex] = hostingView
                 }
                 panel.setContentSize(size)
@@ -358,11 +358,11 @@ final class HUDDisplay {
         if let hostingView {
             hostingView.rootView = AnyView(gridView)
             hostingView.frame = NSRect(origin: .zero, size: size)
-            panel.contentView = hostingView
+            installContent(hostingView, in: panel, size: size)
         } else {
             let hostingView = NSHostingView(rootView: AnyView(gridView))
             hostingView.frame = NSRect(origin: .zero, size: size)
-            panel.contentView = hostingView
+            installContent(hostingView, in: panel, size: size)
             self.hostingView = hostingView
         }
 
@@ -429,17 +429,57 @@ final class HUDDisplay {
             if let existing = displayHostingViews[displayIndex] {
                 existing.rootView = AnyView(gridView)
                 existing.frame = NSRect(origin: .zero, size: size)
-                panel.contentView = existing
+                installContent(existing, in: panel, size: size)
             } else {
                 let hostingView = NSHostingView(rootView: AnyView(gridView))
                 hostingView.frame = NSRect(origin: .zero, size: size)
-                panel.contentView = hostingView
+                installContent(hostingView, in: panel, size: size)
                 displayHostingViews[displayIndex] = hostingView
             }
             panel.setContentSize(size)
             positionPanel(panel, size: size, screenFrame: screenFrame)
             panel.orderFrontRegardless()
         }
+    }
+
+    /// Installs the SwiftUI grid in the panel's glass container. The container
+    /// keeps a native glass sibling below the content so the effect samples the
+    /// window backdrop, as it does in System Settings and the glyph strip.
+    private func installContent(_ hostingView: NSView, in panel: NSPanel, size: CGSize) {
+        let container: HUDGlassContainerView
+        if let existing = panel.contentView as? HUDGlassContainerView {
+            container = existing
+        } else {
+            container = HUDGlassContainerView()
+            panel.contentView = container
+        }
+        container.configure(hosting: hostingView, size: size, appearance: hudGlassAppearance)
+    }
+
+    /// Native glass is only possible when the compiler, OS, and accessibility
+    /// settings all allow it; otherwise SwiftUI draws its own material.
+    private static var nativeGlassAvailable: Bool {
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) { return GlassSupport.isAvailable }
+        #endif
+        return false
+    }
+
+    private var hudGlassAppearance: HUDGlassContainerView.Appearance {
+        HUDGlassContainerView.Appearance(
+            enabled: currentConfig.backgroundStyle == .glass && Self.nativeGlassAvailable,
+            style: currentConfig.glassStyle,
+            tintedMaterial: currentConfig.glassTintedMaterial,
+            opacity: CGFloat(currentConfig.effectiveBackgroundOpacity(for: .glass)),
+            tint: GlyphStrip.color(for: "focused", theme: themeService.named(currentConfig.theme))
+                ?? .controlAccentColor,
+            cornerRadius: CGFloat(currentConfig.hudCornerRadius),
+            variant: currentConfig.glassStyle == .clear
+                ? currentConfig.glassClearVariant
+                : (currentConfig.glassStyle == .regular
+                    ? currentConfig.glassRegularVariant
+                    : currentConfig.glassTintedVariant)
+        )
     }
 
     private func makeGridView(
@@ -451,7 +491,8 @@ final class HUDDisplay {
             self?.yabaiService.focusSpaceAsync(index)
             self?.delegate?.hide()
         }, uiScale: currentConfig.uiScale, theme: currentConfig.theme,
-           resolvedTheme: themeService.named(currentConfig.theme), spaceIndices: spaceIndices)
+           resolvedTheme: themeService.named(currentConfig.theme), spaceIndices: spaceIndices,
+           usesNativeGlass: Self.nativeGlassAvailable && currentConfig.backgroundStyle == .glass)
     }
 
     private func cellFrames(for cells: [Int], in panel: NSPanel) -> [(spaceIndex: Int, frame: CGRect)] {
