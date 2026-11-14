@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Glyph strip `[glyphStrip] autoResizeMaxLength` (default 0, off): caps the strip's width or height and shrinks icon and number sizes to stay inside it, so adding spaces or icons no longer grows the footprint past that limit.
+- Custom glyph-strip placement now uses the usable screen area (menu bar and Dock excluded) and also gives way to edge-anchored accessory windows such as third-party docks. A vertical strip that runs out of height wraps space blocks into extra columns instead of drawing off screen.
+- HUD entrance styles: `fade`, slide from each screen edge, or scale, chosen with `hudEntranceStyle` and timed by `hudAnimationStyle`. Space cells now animate on insert and animate a slight scale on the drop target; the glyph strip fades in and out with the same motion setting.
+- Glyph strip layout letters now follow the HUD: `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge` (default true) and bsp shows `b`. Vertical strips gain `verticalPadding` (default 4).
 - Permissions page offers a small drag helper: drag the Spacemap icon into the Accessibility or Screen Recording list. It opens with a permission request and closes after an accepted drop.
 - Typing a space number now jumps as soon as the digits can only mean one space instead of always waiting for the 0.3s timeout. A valid jump shows its number briefly while the HUD moves; a number that does not exist shows in the drop-target colour with a strike for 0.6s. A repeated digit replaces the entry instead of appending, so mashing 4 never shows 44, and the readout no longer re-renders the grid.
 - Settings sidebar groups now expand into subsections, like IINA. The open group follows the pane as it scrolls, and clicking a subsection jumps straight to it.
@@ -41,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Advanced pane now reports Accessibility and Screen Recording status with request buttons and deep links into the matching System Settings panes. Thumbnail cells request Screen Recording the first time they are selected, and the app asks on launch when thumbnails are already configured.
 
 ### Fixed
+- The HUD no longer swallows every key while visible. It captures only key presses it acts on, so a stale or revoked Accessibility tap cannot lock out the keyboard.
+- A glyph strip can be dragged to any screen edge again; the safe area now only decides when a tall strip wraps, not where the pointer may place it.
+- Auto-resize stops shrinking at 60% and 8pt type instead of collapsing to 4pt, so a short Maximum Length cannot make the strip unreadable.
 - Thumbnail cells now render with every space style. A native `NSGlassEffectView` inside a SwiftUI cell drew above the window capture and hid it, so thumbnail cells use SwiftUI glass and keep the capture visible.
 - Screen Recording requests now open the System Settings pane when macOS will not show its prompt again, and Advanced offers a Relaunch button, because the grant only applies to a new process.
 - The placement picker's footnote now describes each option accurately, including Neither, and notes that Settings and About still show a Dock icon while open.

@@ -95,7 +95,7 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[behavior]` | `focusSpaceOnWindowDrop` (+ `...Modifier`) | `never` (`command`) | `never`, `always`, or `modifier` (`command‖fn‖option‖control‖shift`) |
 | `[behavior]` | `showHUDOnSpaceChange` | false | Auto-show HUD on yabai space change |
 | `[behavior]` | `showBSPLayoutBadge` / `showStackLayoutBadge` / `showFloatLayoutBadge` | true | Which layout letters the HUD badge draws. Read only when `showSpaceLayout` is on |
-| `[behavior]` | `hudAnimationsEnabled` / `hudAnimationStyle` | `Bool` / `HUDAnimationStyle` | `true` / `natural`; styles `natural`, `springy`, `fast`. Off makes HUD fades and cell changes instant |
+| `[behavior]` | `hudAnimationsEnabled` / `hudAnimationStyle` / `hudEntranceStyle` | `Bool` / `HUDAnimationStyle` / `HUDEntranceStyle` | `true` / `natural` / `fade`; timing styles `natural`, `springy`, `fast`; entrances `fade`, `slideFromLeft`, `slideFromRight`, `slideFromTop`, `slideFromBottom`, `scale`. Off makes HUD and strip fades instant |
 | `[behavior]` | `showHUDInteractionFeedback` | true | Draw typed-number and action notices over the HUD. Off hides the overlays only; actions still run |
 | `[behavior]` | `showThumbnailWallpaper` | true | Draw the desktop wallpaper behind thumbnail cells. Off leaves the desktop transparent behind the windows |
 | `[behavior]` | `presence` / `updateMode` | `menuBar` / `notify` | Where Spacemap appears: `dock`, `menuBar`, `both`, or `none`. `none` and `menuBar` use an accessory policy, so no Dock icon. Legacy `hideMenuBarIcon` reads as `none` when true and `menuBar` when false. Sparkle `auto‖notify‖off`; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
@@ -196,7 +196,9 @@ Read from the `[glyphStrip]` table. A legacy bare `glyphStrip = true` boolean is
 | `enabled` | `Bool` | `false` |
 | `hideInFullscreen` | `Bool` | `false`; hides the strip while the focused space has a native-fullscreen window. yabai supplies the per-space flag; Accessibility and window size are fallbacks. Checked every 0.5 s and on app or space changes |
 | `showSpaceNumbers` | `Bool` | `true` |
-| `showLayoutSuffix` | `Bool` | `true` |
+| `showLayoutSuffix` | `Bool` | `true`; shows the layout letter after the space number |
+| `showBSPLayoutBadge` / `showStackLayoutBadge` / `showFloatLayoutBadge` | `Bool` | `true`; hide an individual layout letter. Only read when `showLayoutSuffix` |
+| `verticalPadding` | `Double` | `4.0`, clamped 0...40; space above and below the contents of a vertical strip |
 | `showAppIcons` | `Bool` | `true` |
 | `dedupeAppsPerSpace` | `Bool` | `true` |
 | `maxIconsPerSpace` | `Int` | `8` (0 = unlimited, then a `+N` overflow indicator) |
@@ -226,7 +228,7 @@ Read from the `[glyphStrip]` table. A legacy bare `glyphStrip = true` boolean is
 | `rightClickAction` | `GlyphStripAction` | `.destroySpace` |
 | `middleClickAction` | `GlyphStripAction` | `.none` |
 | `position` | `GlyphStripPosition` | `.leftOfNotch` (`custom` frees the strip from the menu bar row; drag switches to `custom` and persists) |
-| `orientation` | `GlyphStripOrientation` | `.horizontal`; `.vertical` stacks one space per row (custom only) |
+| `orientation` | `GlyphStripOrientation` | `.horizontal`; `.vertical` stacks one space per row (custom only); overflows into extra columns when height runs out |
 | `verticalLayout` | `GlyphStripVerticalLayout` | `.inline`; `.inline` keeps the number and icons on one row, `.stacked` puts the number on top and stacks its icons underneath (vertical only) |
 | `xOffset` | `Int` | `0`, clamped -4000...4000; points right of the screen's left edge (custom only) |
 | `lockPosition` | `Bool` | `false`; when `position = "custom"`, stops drags from moving the strip. Anchored positions ignore it |
@@ -242,7 +244,7 @@ Appearance is theme-driven: the strip resolves a fixed role palette against its 
 
 `position` is notch-aware. `auxiliaryTopLeftArea` is the unobscured strip to the **left** of the notch, so its `maxX` is the notch's left edge; `auxiliaryTopRightArea` is symmetric. `leftOfNotch` puts the strip's **right** edge `margin` short of that left edge, and `rightOfNotch` puts its **left** edge `margin` past the right edge, so the strip always sits *beside* the camera housing rather than inside it. `center` centres the strip on the midpoint of the notch gap. AppKit reports empty auxiliary rects on displays without a notch, so the two notch positions fall back to the corresponding screen edge and `center` falls back to the row's midpoint. `custom` places the strip `xOffset` points right of the screen's left edge and `yOffset` points below its top edge, and clamps it inside the screen rather than the menu bar row. Anchored positions are clamped inside the menu bar row and centred vertically in it.
 
-`orientation` chooses the layout direction for `.custom` placement: `horizontal` is one row, `vertical` is one block per space stacked from the top of the panel. A vertical strip uses the screen height, not the menu bar row, so it can sit along a screen edge. `verticalLayout` then decides how a space's contents sit on its block: `inline` keeps the number and its icons on one line, `stacked` puts the number on the first line and one icon on each line below it, all centred. Each stacked line costs the line box; `indexPadding` separates the number from the first icon and `iconSpacing` separates icon lines, and the hover highlight wraps the whole block in stacked mode. `lockPosition` (default `false`) stops drags from moving a `.custom` strip: unlock, drag, relock, or leave it unlocked to move freely.
+`orientation` chooses the layout direction for `.custom` placement: `horizontal` is one row, `vertical` is one block per space stacked from the top of the panel. A vertical strip uses the usable screen height, not the menu bar row, so it can sit along a screen edge; when it no longer fits it wraps into more columns instead of drawing off screen. Custom placement avoids the menu bar, Dock and edge-anchored accessory windows such as third-party docks. `verticalLayout` then decides how a space's contents sit on its block: `inline` keeps the number and its icons on one line, `stacked` puts the number on the first line and one icon on each line below it, all centred. Each stacked line costs the line box; `indexPadding` separates the number from the first icon and `iconSpacing` separates icon lines, and the hover highlight wraps the whole block in stacked mode. `lockPosition` (default `false`) stops drags from moving a `.custom` strip: unlock, drag, relock, or leave it unlocked to move freely.
 
 `yOffset` is measured in screen-reading terms: positive moves the strip **down**. Anchored positions treat it as a nudge from the row's centre, clamped -10...10. Custom placement treats it as an inset from the screen's top edge, clamped 0...4000. Anchored panels are ordered at `.statusBar` level; custom panels use `.floating` so a strip parked mid-screen does not cover the menu bar.
 
