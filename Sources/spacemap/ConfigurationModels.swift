@@ -745,3 +745,15 @@ struct GridConfig: Equatable {
         updateMode: .notify
     )
 }
+
+extension GridConfig {
+    /// The menu bar preview and the strip are the only surfaces that need
+    /// workspace membership; skip yabai queries when both are off.
+    var needsWorkspacePreviews: Bool {
+        glyphStrip.enabled || (presence.showsMenuBar && menuBarDisplayMode != .icon)
+    }
+
+    var needsWindowGeometryPreviews: Bool {
+        glyphStrip.enabled || (needsWorkspacePreviews && menuBarDisplayMode != .dots)
+    }
+}
