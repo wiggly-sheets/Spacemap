@@ -11,6 +11,11 @@ struct SettingsBehavior: View {
     @Binding var hotkeyString: String
     @Binding var pinnedHotkeyString: String
     @Binding var glyphStripHotkeyString: String
+    @Binding var hudMoveBackHotkeyString: String
+    @Binding var hudMoveForwardHotkeyString: String
+    @Binding var hudNewSpaceHotkeyString: String
+    @Binding var hudDeleteSpaceHotkeyString: String
+    @Binding var hudCycleLayoutHotkeyString: String
     @Binding var hudPositionKind: HUDPositionKind
     @Binding var autoHideTimeout: Int
     @Binding var useArrowKeys: Bool
@@ -58,7 +63,33 @@ struct SettingsBehavior: View {
     @State private var fontStatus: String?
 
 
+    enum Scope {
+        case general, hud, hotkeys
+    }
+
+    let scope: Scope
+
     var body: some View {
+        Group {
+            if scope == .hotkeys {
+                hotkeysSection
+                hudKeySection
+            }
+            if scope == .hud {
+                hudSection
+                navigationSection
+                windowDropSection
+                feedbackSection
+            }
+            if scope == .general {
+                menuBarSection
+                updatesSection
+                appFontSection
+            }
+        }
+    }
+
+    private var hotkeysSection: some View {
         Section(header: SettingsSectionHeader(title: "Hotkeys").settingsAnchor("behavior.hotkeys")) {
             HotkeyRecorder(
                 label: "Hotkey",
@@ -105,7 +136,45 @@ struct SettingsBehavior: View {
             SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. The glyph strip hotkey shows or hides the menu-bar strip for the session.")
 
         }
+    }
 
+    private var hudKeySection: some View {
+        Section(header: SettingsSectionHeader(title: "HUD Keys").settingsAnchor("behavior.hudKeys")) {
+            HotkeyRecorder(
+                label: "Move Space Left",
+                hotkey: $hudMoveBackHotkeyString,
+                coordinator: hotkeyRecorderCoordinator
+            )
+            .onChange(of: hudMoveBackHotkeyString) { _ in onSave() }
+            HotkeyRecorder(
+                label: "Move Space Right",
+                hotkey: $hudMoveForwardHotkeyString,
+                coordinator: hotkeyRecorderCoordinator
+            )
+            .onChange(of: hudMoveForwardHotkeyString) { _ in onSave() }
+            HotkeyRecorder(
+                label: "New Space",
+                hotkey: $hudNewSpaceHotkeyString,
+                coordinator: hotkeyRecorderCoordinator
+            )
+            .onChange(of: hudNewSpaceHotkeyString) { _ in onSave() }
+            HotkeyRecorder(
+                label: "Delete Space",
+                hotkey: $hudDeleteSpaceHotkeyString,
+                coordinator: hotkeyRecorderCoordinator
+            )
+            .onChange(of: hudDeleteSpaceHotkeyString) { _ in onSave() }
+            HotkeyRecorder(
+                label: "Cycle Layout",
+                hotkey: $hudCycleLayoutHotkeyString,
+                coordinator: hotkeyRecorderCoordinator
+            )
+            .onChange(of: hudCycleLayoutHotkeyString) { _ in onSave() }
+            SettingsFootnote(text: "While the HUD is open, moves the focused space, creates or deletes a space, or cycles BSP, stack and float. Space moves follow the Space Drag Action setting.")
+        }
+    }
+
+    private var hudSection: some View {
         Section(header: SettingsSectionHeader(title: "HUD").settingsAnchor("behavior.hud")) {
             GlassSegmentedPicker("HUD Position", selection: $hudPositionKind, options: [
                 (title: "Center", value: .center),
@@ -123,7 +192,9 @@ struct SettingsBehavior: View {
                 .onChange(of: autoHideTimeout) { _ in onSave() }
 
         }
+    }
 
+    private var navigationSection: some View {
         Section(header: SettingsSectionHeader(title: "Navigation").settingsAnchor("behavior.navigation")) {
             Toggle("Navigate with Arrow Keys (←↑↓→)", isOn: $useArrowKeys)
                 .onChange(of: useArrowKeys) { _ in onSave() }
@@ -147,7 +218,9 @@ struct SettingsBehavior: View {
             }
 
         }
+    }
 
+    private var windowDropSection: some View {
         Section(header: SettingsSectionHeader(title: "Window Drop").settingsAnchor("behavior.windowDrop")) {
             Picker("Focus Space After Window Drop", selection: $focusSpaceOnWindowDrop) {
                 Text("Never").tag(WindowDropFocusMode.never)
@@ -173,7 +246,9 @@ struct SettingsBehavior: View {
                 : "Controls whether the destination space is focused after a dragged window is moved.")
 
         }
+    }
 
+    private var feedbackSection: some View {
         Section(header: SettingsSectionHeader(title: "HUD Feedback").settingsAnchor("behavior.feedback")) {
             Toggle("Show HUD on Space Change", isOn: $showHUDOnSpaceChange)
                 .onChange(of: showHUDOnSpaceChange) { _ in onSave() }
@@ -207,7 +282,9 @@ struct SettingsBehavior: View {
             SettingsFootnote(text: "Draws typed space numbers and action messages over the HUD. Turning this off hides the messages; every action still runs.")
 
         }
+    }
 
+    private var menuBarSection: some View {
         Section(header: SettingsSectionHeader(title: "Menu Bar").settingsAnchor("behavior.menuBar")) {
             Picker("Show Spacemap In", selection: $presence) {
                 Text("Menu Bar").tag(AppPresence.menuBar)
@@ -241,7 +318,9 @@ struct SettingsBehavior: View {
             }
 
         }
+    }
 
+    private var updatesSection: some View {
         Section(header: SettingsSectionHeader(title: "Updates").settingsAnchor("behavior.updates")) {
             GlassSegmentedPicker("Automatic Updates", selection: $updateMode, options: [
                 (title: "Auto", value: .auto),
@@ -255,7 +334,9 @@ struct SettingsBehavior: View {
             }
             .liquidGlassButtonStyle()
         }
+    }
 
+    private var appFontSection: some View {
         Section(header: SettingsSectionHeader(title: "App Font").settingsAnchor("behavior.appFont")) {
             GlassSegmentedPicker("Font Update Mode", selection: $appFontUpdateMode, options: [
                 (title: "Manual", value: .manual),
@@ -283,7 +364,6 @@ struct SettingsBehavior: View {
             installedFontVersion = AppConfig.load().appFont.installedVersion
         }
     }
-
 
     private func checkForFontUpdate() {
         isCheckingFont = true

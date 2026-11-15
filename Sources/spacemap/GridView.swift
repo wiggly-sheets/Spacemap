@@ -202,6 +202,7 @@ struct GridView: View {
             showIconStrip: state.config.showIconStrip,
             showMultiAppIcons: state.config.showMultiAppIcons,
             showExtraWindows: state.config.showExtraWindows,
+            iconSource: state.config.hudIconSource,
             onDragActive: onDragActive,
             onDragEnd: onSpaceDrop.map { drop in { point in drop(spaceIndex, point) } },
             onSpaceDragStart: onSpaceDragStart,

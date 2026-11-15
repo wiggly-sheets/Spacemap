@@ -345,6 +345,7 @@ enum ConfigLoader {
             "showSpaceLayout = \(values.showSpaceLayout ?? defaults.showSpaceLayout)",
             "showIconStrip = \(values.showIconStrip ?? defaults.showIconStrip)",
             "showMultiAppIcons = \(values.showMultiAppIcons ?? defaults.showMultiAppIcons)",
+            "hudIconSource = \"\(values.hudIconSource?.rawValue ?? defaults.hudIconSource.rawValue)\"",
             "",
             "[spaceNames]",
             "showSpaceNames = \(values.showSpaceNames ?? defaults.showSpaceNames)",
@@ -422,6 +423,31 @@ enum ConfigLoader {
         appendHotkey(
             values.glyphStripHotkey ?? defaults.glyphStripHotkey,
             section: "behavior.glyphStripHotkey",
+            to: &lines
+        )
+        appendHotkey(
+            values.hudMoveSpaceBackHotkey ?? defaults.hudMoveSpaceBackHotkey,
+            section: "behavior.hudMoveSpaceBackHotkey",
+            to: &lines
+        )
+        appendHotkey(
+            values.hudMoveSpaceForwardHotkey ?? defaults.hudMoveSpaceForwardHotkey,
+            section: "behavior.hudMoveSpaceForwardHotkey",
+            to: &lines
+        )
+        appendHotkey(
+            values.hudNewSpaceHotkey ?? defaults.hudNewSpaceHotkey,
+            section: "behavior.hudNewSpaceHotkey",
+            to: &lines
+        )
+        appendHotkey(
+            values.hudDeleteSpaceHotkey ?? defaults.hudDeleteSpaceHotkey,
+            section: "behavior.hudDeleteSpaceHotkey",
+            to: &lines
+        )
+        appendHotkey(
+            values.hudCycleLayoutHotkey ?? defaults.hudCycleLayoutHotkey,
+            section: "behavior.hudCycleLayoutHotkey",
             to: &lines
         )
 

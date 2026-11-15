@@ -85,7 +85,17 @@ class HUDWindowController {
         hudInput.quartzPointConverter = { [weak hudDisplay = self.hudDisplay] point in
             hudDisplay?.quartzPoint(fromAppKit: point) ?? point
         }
-        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, useExtendedKeys: config.useExtendedKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
+        hudInput.updateConfig(
+            useArrowKeys: config.useArrowKeys,
+            useVimKeys: config.useVimKeys,
+            useExtendedKeys: config.useExtendedKeys,
+            jumpToSpaceEnabled: config.jumpToSpaceEnabled,
+            hudMoveBackHotkey: config.hudMoveSpaceBackHotkey,
+            hudMoveForwardHotkey: config.hudMoveSpaceForwardHotkey,
+            hudNewSpaceHotkey: config.hudNewSpaceHotkey,
+            hudDeleteSpaceHotkey: config.hudDeleteSpaceHotkey,
+            hudCycleLayoutHotkey: config.hudCycleLayoutHotkey
+        )
         hudInput.yabaiService = services.yabaiService
         hudInput.config = config
         hudInput.hudStateSync = coordinator
@@ -546,6 +556,18 @@ extension HUDWindowController: HUDInputDelegate {
         hudDisplay.showNotice(Self.layoutNotice(layout))
         refresh()
     }
+    func cycleSpaceLayout() {
+        guard let focused = state?.focusedIndex,
+              let current = state?.spaces.first(where: { $0.index == focused })?.type else { return }
+        let next: SpaceLayout
+        switch current {
+        case "stack": next = .float
+        case "float": next = .bsp
+        default: next = .stack
+        }
+        setSpaceLayout(next)
+    }
+
     private static func layoutNotice(_ layout: SpaceLayout) -> String {
         switch layout {
         case .bsp: return "BSP Layout"
@@ -553,6 +575,25 @@ extension HUDWindowController: HUDInputDelegate {
         case .float: return "Float Layout"
         }
     }
+    func moveSpace(direction: SpaceNavigationDirection) {
+        guard let focused = state?.focusedIndex,
+              let indices = state?.spaces.map(\.index).sorted(),
+              let position = indices.firstIndex(of: focused) else { return }
+        let offset = direction == .left ? -1 : 1
+        guard indices.indices.contains(position + offset) else { return }
+        let target = indices[position + offset]
+        services.yabaiService.swapSpaces(
+            focused,
+            target,
+            mode: config.spaceDropMode,
+            focusMode: .stay
+        )
+        hudDisplay.showNotice("Space \(focused) Moved")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            self?.refresh()
+        }
+    }
+
     func showSettings() { hide(); onShowSettings?() }
 }
 extension HUDWindowController: HUDDisplayDelegate {

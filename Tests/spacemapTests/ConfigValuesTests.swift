@@ -14,6 +14,12 @@ final class ConfigValuesTests: XCTestCase {
         values.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: .maskCommand)
         values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
         values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
+        values.hudMoveSpaceBackHotkey = HotkeyConfig(key: .keyCode(101), modifiers: .maskShift)
+        values.hudMoveSpaceForwardHotkey = HotkeyConfig(key: .keyCode(102), modifiers: .maskShift)
+        values.hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudDeleteSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudCycleLayoutHotkey = HotkeyConfig(key: .none, modifiers: [])
+
         values.maxSpaces = 12
         values.backgroundAlpha = 0.5
         values.backgroundStyle = .glass
@@ -317,6 +323,14 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(grid.windowDragFocus, .stay)
     }
 
+    func testHUDIconSourceDefaultsNativeAndRoundTrips() {
+        XCTAssertEqual(GridConfig.default.hudIconSource, .nativeIcons)
+        var values = ConfigValues(from: GridConfig.default)
+        XCTAssertEqual(values.hudIconSource, .nativeIcons)
+        values.hudIconSource = .sbarFont
+        XCTAssertEqual(values.toGridConfig().config.hudIconSource, .sbarFont)
+    }
+
     func testPresenceDefaultsAndRoundTrips() {
         XCTAssertEqual(GridConfig.default.presence, .menuBar)
         var values = ConfigValues(from: GridConfig.default)
@@ -355,6 +369,12 @@ final class ConfigValuesTests: XCTestCase {
         values.hotkey = .default
         values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
         values.glyphStripHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudMoveSpaceBackHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudMoveSpaceForwardHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudDeleteSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudCycleLayoutHotkey = HotkeyConfig(key: .none, modifiers: [])
+
         values.socketHealthInterval = 60
         values.uiScale = 0.5
         values.autoHideTimeout = 5
@@ -575,6 +595,12 @@ final class ConfigValuesTests: XCTestCase {
     func testGlyphStripHotkeyRoundTripsThroughTheConfigString() throws {
         var values = ConfigValues()
         values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: [.maskCommand, .maskShift])
+        values.hudMoveSpaceBackHotkey = HotkeyConfig(key: .keyCode(101), modifiers: [.maskCommand, .maskShift])
+        values.hudMoveSpaceForwardHotkey = HotkeyConfig(key: .keyCode(102), modifiers: [.maskCommand, .maskShift])
+        values.hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudDeleteSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudCycleLayoutHotkey = HotkeyConfig(key: .none, modifiers: [])
+
 
         let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
         let reread = try TOMLParser.parse(toml)
@@ -590,6 +616,11 @@ final class ConfigValuesTests: XCTestCase {
         values.hotkey = .default
         values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
         values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
+        values.hudMoveSpaceBackHotkey = HotkeyConfig(key: .keyCode(101), modifiers: .maskShift)
+        values.hudMoveSpaceForwardHotkey = HotkeyConfig(key: .keyCode(102), modifiers: .maskShift)
+        values.hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudDeleteSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudCycleLayoutHotkey = HotkeyConfig(key: .none, modifiers: [])
         values.socketHealthInterval = 37
         values.uiScale = 0.37
         values.autoHideTimeout = 7

@@ -36,6 +36,7 @@ struct CellView: View {
     private let showIconStrip: Bool
     private let showMultiAppIcons: Bool
     private let showExtraWindows: Bool
+    private let iconSource: GlyphStripIconSource
     private let hudAnimation: HUDAnimationStyle?
     private let onDragActive: ((Bool) -> Void)?
     private let onDragEnd: ((NSPoint) -> Void)?
@@ -100,6 +101,7 @@ init(spaceIndex: Int,
              showIconStrip: Bool = true,
              showMultiAppIcons: Bool = false,
              showExtraWindows: Bool = false,
+             iconSource: GlyphStripIconSource = .nativeIcons,
              hudAnimation: HUDAnimationStyle? = .natural,
              onDragActive: ((Bool) -> Void)? = nil,
              onDragEnd: ((NSPoint) -> Void)? = nil,
@@ -130,6 +132,7 @@ init(spaceIndex: Int,
         self.showIconStrip = showIconStrip
         self.showMultiAppIcons = showMultiAppIcons
         self.showExtraWindows = showExtraWindows
+        self.iconSource = iconSource
         self.hudAnimation = hudAnimation
         self.onDragActive = onDragActive
         self.onDragEnd = onDragEnd
@@ -352,12 +355,9 @@ var body: some View {
             windowFrame: window.cgFrame,
             displayBounds: displayBounds,
             cellSize: cs
-        ), let icon = appIcon(for: window.app) {
+        ) {
             let iconSize = GridLayout.hybridIconSize(uiScale: uiScale, windowFrame: frame)
-            Image(nsImage: icon)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: iconSize, height: iconSize)
+            appIconView(for: window.app, width: iconSize, height: iconSize)
                 .position(x: frame.midX, y: frame.midY)
         }
     }
@@ -378,15 +378,10 @@ var body: some View {
 
     @ViewBuilder
     private func windowIcon(_ layout: GridLayout.WindowIconLayout) -> some View {
-        if let icon = appIcon(for: layout.app) {
-            Image(nsImage: icon)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: layout.frame.width, height: layout.frame.height)
-                .offset(x: layout.frame.minX, y: layout.frame.minY)
-                .transition(.scale(scale: 0.8).combined(with: .opacity))
-                .highPriorityGesture(appDragGesture(windowID: layout.windowID, app: layout.app))
-        }
+        appIconView(for: layout.app, width: layout.frame.width, height: layout.frame.height)
+            .offset(x: layout.frame.minX, y: layout.frame.minY)
+            .transition(.scale(scale: 0.8).combined(with: .opacity))
+            .highPriorityGesture(appDragGesture(windowID: layout.windowID, app: layout.app))
     }
     
     @ViewBuilder
@@ -407,14 +402,9 @@ var body: some View {
         let finalSpacing = spacing * fitScale
         HStack(spacing: finalSpacing) {
             ForEach(icons, id: \.id) { window in
-                if let icon = appIcon(for: window.app) {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: finalIconSize, height: finalIconSize)
-                        .transition(.scale(scale: 0.8).combined(with: .opacity))
-                        .highPriorityGesture(appDragGesture(windowID: window.id, app: window.app))
-                }
+                appIconView(for: window.app, width: finalIconSize, height: finalIconSize)
+                    .transition(.scale(scale: 0.8).combined(with: .opacity))
+                    .highPriorityGesture(appDragGesture(windowID: window.id, app: window.app))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -464,6 +454,27 @@ var body: some View {
         return displayedWindows.filter { seen.insert($0.app).inserted }
     }
     
+    @ViewBuilder
+    private func appIconView(for app: String, width: CGFloat, height: CGFloat) -> some View {
+        if iconSource == .sbarFont,
+           let font = AppGlyphFont.load(),
+           let face = font.face(size: min(width, height) * 0.82) {
+            Text(font.glyph(forApp: app))
+                .font(Font(face))
+                .foregroundColor(textColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .frame(width: width, height: height)
+        } else if let icon = appIcon(for: app) {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: width, height: height)
+        } else {
+            Color.clear.frame(width: width, height: height)
+        }
+    }
+
     private func appIcon(for appName: String) -> NSImage? {
         // Reads iconGeneration so didChange bumps repaint this view.
         _ = iconGeneration

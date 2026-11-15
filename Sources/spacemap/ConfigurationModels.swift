@@ -581,6 +581,13 @@ struct GridConfig: Equatable {
     var pinnedHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
     /// Show/hide hotkey for the menu-bar glyph strip. `.none` = unbound.
     var glyphStripHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
+    /// Move the focused space one slot left/right while the HUD is open.
+    var hudMoveSpaceBackHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
+    var hudMoveSpaceForwardHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
+    /// Create, destroy, and cycle the focused space's layout while the HUD is open.
+    var hudNewSpaceHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
+    var hudDeleteSpaceHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
+    var hudCycleLayoutHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
     var socketHealthInterval: Int
     var uiScale: Double
     var autoHideTimeout: Int
@@ -633,6 +640,8 @@ struct GridConfig: Equatable {
     var showSpaceNames: Bool
     var showIconStrip: Bool
     var showMultiAppIcons: Bool
+    /// HUD app icons: native macOS images or the bundled-lookup app-font glyphs.
+    var hudIconSource: GlyphStripIconSource
     /// Where Spacemap appears outside the HUD: dock, menu bar, both, or neither.
     var presence: AppPresence = .menuBar
     var glyphStrip: GlyphStripConfig = .default
@@ -715,6 +724,7 @@ struct GridConfig: Equatable {
         backgroundStyle: .glass, glassStyle: .regular, hudShadow: true,
         mode: .auto, iconScale: 0.5, showSpaceNumbers: true,
         showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false,
+        hudIconSource: .nativeIcons,
         presence: .menuBar, glyphStrip: .default, menuBarDisplayMode: .icon,
         menuBarNearbyCount: 3, spaceNames: [:], useVimKeys: false,
         useArrowKeys: false, jumpToSpaceEnabled: false, hudPosition: .center, customHUDX: 0.5,

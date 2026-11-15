@@ -18,11 +18,11 @@ extension Notification.Name {
 
 struct SettingsView: View {
     enum SidebarSection: String, CaseIterable, Identifiable {
-        case grid = "Grid"
-        case spaceNames = "Space Names"
-        case appearance = "Appearance"
-        case behavior = "Behavior"
+        case general = "General"
+        case spaces = "Spaces"
+        case hud = "HUD"
         case glyphStrip = "Glyph Strip"
+        case hotkeys = "Hotkeys"
         case advanced = "Advanced"
 
         var id: String { rawValue }
@@ -34,6 +34,11 @@ struct SettingsView: View {
     @State private var hotkeyString: String = "ctrl+pgdn"
     @State private var pinnedHotkeyString: String = "none"
     @State private var glyphStripHotkeyString: String = "none"
+    @State private var hudMoveBackHotkeyString: String = "none"
+    @State private var hudMoveForwardHotkeyString: String = "none"
+    @State private var hudNewSpaceHotkeyString: String = "none"
+    @State private var hudDeleteSpaceHotkeyString: String = "none"
+    @State private var hudCycleLayoutHotkeyString: String = "none"
     @State private var socketHealthInterval: Int = 60
     @State private var uiScale: Double = 1.0
     @State private var autoHideTimeout: Int = 0
@@ -75,6 +80,7 @@ struct SettingsView: View {
     @State private var showSpaceNames: Bool = true
     @State private var showIconStrip: Bool = true
     @State private var showMultiAppIcons: Bool = false
+    @State private var hudIconSource: GlyphStripIconSource = .nativeIcons
     @State private var presence: AppPresence = .menuBar
     @State private var glyphStrip: GlyphStripConfig = .default
     @State private var menuBarDisplayMode: MenuBarDisplayMode = .icon
@@ -119,7 +125,7 @@ struct SettingsView: View {
     @State private var appFontUpdateMode: AppFontUpdateMode = .manual
     /// Coordinate space the detail pane's section anchors report into.
     static let detailSpace = "settingsDetail"
-    @State private var selectedSection: SidebarSection = .grid
+    @State private var selectedSection: SidebarSection = .general
     @State private var currentSubsection: String?
     @State private var scrollTarget: String?
     @State private var scrollToken = 0
@@ -142,6 +148,11 @@ struct SettingsView: View {
         _hotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hotkey))
         _pinnedHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.pinnedHotkey))
         _glyphStripHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.glyphStripHotkey))
+        _hudMoveBackHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudMoveSpaceBackHotkey))
+        _hudMoveForwardHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudMoveSpaceForwardHotkey))
+        _hudNewSpaceHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudNewSpaceHotkey))
+        _hudDeleteSpaceHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudDeleteSpaceHotkey))
+        _hudCycleLayoutHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudCycleLayoutHotkey))
         _socketHealthInterval = State(initialValue: config.socketHealthInterval)
         _uiScale = State(initialValue: config.uiScale)
         _autoHideTimeout = State(initialValue: config.autoHideTimeout)
@@ -182,6 +193,7 @@ struct SettingsView: View {
         _showSpaceNames = State(initialValue: config.showSpaceNames)
         _showIconStrip = State(initialValue: config.showIconStrip)
         _showMultiAppIcons = State(initialValue: config.showMultiAppIcons)
+        _hudIconSource = State(initialValue: config.hudIconSource)
         _presence = State(initialValue: config.presence)
         _glyphStrip = State(initialValue: config.glyphStrip.clamped())
         _menuBarDisplayMode = State(initialValue: config.menuBarDisplayMode)
@@ -254,6 +266,11 @@ struct SettingsView: View {
             hotkey: AppConfig.parseHotkey(hotkeyString) ?? GridConfig.default.hotkey,
             pinnedHotkey: AppConfig.parseHotkey(pinnedHotkeyString) ?? GridConfig.default.pinnedHotkey,
             glyphStripHotkey: AppConfig.parseHotkey(glyphStripHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
+            hudMoveSpaceBackHotkey: AppConfig.parseHotkey(hudMoveBackHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
+            hudMoveSpaceForwardHotkey: AppConfig.parseHotkey(hudMoveForwardHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
+            hudNewSpaceHotkey: AppConfig.parseHotkey(hudNewSpaceHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
+            hudDeleteSpaceHotkey: AppConfig.parseHotkey(hudDeleteSpaceHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
+            hudCycleLayoutHotkey: AppConfig.parseHotkey(hudCycleLayoutHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
             socketHealthInterval: socketHealthInterval,
             uiScale: uiScale,
             autoHideTimeout: autoHideTimeout,
@@ -294,6 +311,7 @@ struct SettingsView: View {
             showSpaceNames: showSpaceNames,
             showIconStrip: showIconStrip,
             showMultiAppIcons: showMultiAppIcons,
+            hudIconSource: hudIconSource,
             presence: presence,
             glyphStrip: glyphStrip.clamped(),
             menuBarDisplayMode: menuBarDisplayMode,
@@ -365,7 +383,10 @@ struct SettingsView: View {
             ScrollViewReader { proxy in
             Form {
                 switch selectedSection {
-            case .grid:
+            case .general:
+                behaviorPane(.general)
+
+            case .spaces:
                 SettingsGrid(
                     maxSpaces: $maxSpaces,
                     gridLayoutIndex: $gridLayoutIndex,
@@ -383,11 +404,10 @@ struct SettingsView: View {
                     showFloatLayoutBadge: $showFloatLayoutBadge,
                     showIconStrip: $showIconStrip,
                     showMultiAppIcons: $showMultiAppIcons,
+                    hudIconSource: $hudIconSource,
                     showThumbnailWallpaper: $showThumbnailWallpaper,
                     onSave: saveConfig
                 )
-
-            case .spaceNames:
                 SettingsSpaceNames(
                     showSpaceNames: $showSpaceNames,
                     spaceNameInputs: $spaceNameInputs,
@@ -398,39 +418,9 @@ struct SettingsView: View {
                     onSave: saveConfig
                 )
 
-            case .appearance:
+            case .hud:
                 appearancePane
-
-            case .behavior:
-                SettingsBehavior(
-                    hotkeyString: $hotkeyString,
-                    pinnedHotkeyString: $pinnedHotkeyString,
-                    glyphStripHotkeyString: $glyphStripHotkeyString,
-                    hudPositionKind: $hudPositionKind,
-                    autoHideTimeout: $autoHideTimeout,
-                    useArrowKeys: $useArrowKeys,
-                    useVimKeys: $useVimKeys,
-                    useExtendedKeys: $useExtendedKeys,
-                    jumpToSpaceEnabled: $jumpToSpaceEnabled,
-                    displayNavigationWrap: $displayNavigationWrap,
-                    focusSpaceOnWindowDrop: $focusSpaceOnWindowDrop,
-                    focusSpaceOnWindowDropModifier: $focusSpaceOnWindowDropModifier,
-                    showHUDOnSpaceChange: $showHUDOnSpaceChange,
-                    showHUDInteractionFeedback: $showHUDInteractionFeedback,
-                    spaceDropMode: $spaceDropMode,
-                    spaceDragFocus: $spaceDragFocus,
-                    windowDragFocus: $windowDragFocus,
-                    hudAnimationsEnabled: $hudAnimationsEnabled,
-                    hudAnimationStyle: $hudAnimationStyle,
-                    hudEntranceStyle: $hudEntranceStyle,
-                    presence: $presence,
-                    menuBarDisplayMode: $menuBarDisplayMode,
-                    menuBarNearbyCount: $menuBarNearbyCount,
-                    updateMode: $updateMode,
-                    appFontUpdateMode: $appFontUpdateMode,
-                    onSave: saveConfig,
-                    checkForUpdates: { (NSApp.delegate as? AppDelegate)?.checkForUpdates() }
-                )
+                behaviorPane(.hud)
 
             case .glyphStrip:
                 SettingsGlyphStrip(
@@ -438,6 +428,9 @@ struct SettingsView: View {
                     themeName: theme,
                     onSave: saveConfig
                 )
+
+            case .hotkeys:
+                behaviorPane(.hotkeys)
 
             case .advanced:
                 SettingsAdvanced(
@@ -537,6 +530,44 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 500)
+    }
+
+    private func behaviorPane(_ scope: SettingsBehavior.Scope) -> some View {
+        SettingsBehavior(
+            hotkeyString: $hotkeyString,
+            pinnedHotkeyString: $pinnedHotkeyString,
+            glyphStripHotkeyString: $glyphStripHotkeyString,
+            hudMoveBackHotkeyString: $hudMoveBackHotkeyString,
+            hudMoveForwardHotkeyString: $hudMoveForwardHotkeyString,
+            hudNewSpaceHotkeyString: $hudNewSpaceHotkeyString,
+            hudDeleteSpaceHotkeyString: $hudDeleteSpaceHotkeyString,
+            hudCycleLayoutHotkeyString: $hudCycleLayoutHotkeyString,
+            hudPositionKind: $hudPositionKind,
+            autoHideTimeout: $autoHideTimeout,
+            useArrowKeys: $useArrowKeys,
+            useVimKeys: $useVimKeys,
+            useExtendedKeys: $useExtendedKeys,
+            jumpToSpaceEnabled: $jumpToSpaceEnabled,
+            displayNavigationWrap: $displayNavigationWrap,
+            focusSpaceOnWindowDrop: $focusSpaceOnWindowDrop,
+            focusSpaceOnWindowDropModifier: $focusSpaceOnWindowDropModifier,
+            showHUDOnSpaceChange: $showHUDOnSpaceChange,
+            showHUDInteractionFeedback: $showHUDInteractionFeedback,
+            spaceDropMode: $spaceDropMode,
+            spaceDragFocus: $spaceDragFocus,
+            windowDragFocus: $windowDragFocus,
+            hudAnimationsEnabled: $hudAnimationsEnabled,
+            hudAnimationStyle: $hudAnimationStyle,
+            hudEntranceStyle: $hudEntranceStyle,
+            presence: $presence,
+            menuBarDisplayMode: $menuBarDisplayMode,
+            menuBarNearbyCount: $menuBarNearbyCount,
+            updateMode: $updateMode,
+            appFontUpdateMode: $appFontUpdateMode,
+            onSave: saveConfig,
+            checkForUpdates: { (NSApp.delegate as? AppDelegate)?.checkForUpdates() },
+            scope: scope
+        )
     }
 
     private var appearancePane: some View {

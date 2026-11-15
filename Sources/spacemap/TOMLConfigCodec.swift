@@ -393,7 +393,7 @@ enum TOMLConfigDecoder {
         flatten("grid", keys: [
             "cols", "rows", "cellStyle", "showMode", "multiMonitorHUDMode",
             "unifiedHUDVisibility", "separateHUDVisibility", "maxSpaces",
-            "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons",
+            "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons", "hudIconSource",
             "showThumbnailWallpaper"
         ])
         flatten("appearance", keys: [
@@ -417,7 +417,7 @@ enum TOMLConfigDecoder {
             "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode",
             // Inline `hotkey = { ... }` / `hudPosition = { ... }` under
             // [behavior] must survive flatten just like the dotted form.
-            "hotkey", "pinnedHotkey", "glyphStripHotkey", "hudPosition"
+            "hotkey", "pinnedHotkey", "glyphStripHotkey", "hudMoveSpaceBackHotkey", "hudMoveSpaceForwardHotkey", "hudNewSpaceHotkey", "hudDeleteSpaceHotkey", "hudCycleLayoutHotkey", "hudPosition"
         ])
         flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows", "refuseUntrustedYabai"])
         if result["showExtraWindows"] == nil, let legacyShowExtra {
@@ -454,6 +454,21 @@ enum TOMLConfigDecoder {
         }
         if let glyphStripHotkey = result.removeValue(forKey: "behavior.glyphStripHotkey") {
             result["glyphStripHotkey"] = glyphStripHotkey
+        }
+        if let hotkey = result.removeValue(forKey: "behavior.hudMoveSpaceBackHotkey") {
+            result["hudMoveSpaceBackHotkey"] = hotkey
+        }
+        if let hotkey = result.removeValue(forKey: "behavior.hudMoveSpaceForwardHotkey") {
+            result["hudMoveSpaceForwardHotkey"] = hotkey
+        }
+        if let hotkey = result.removeValue(forKey: "behavior.hudNewSpaceHotkey") {
+            result["hudNewSpaceHotkey"] = hotkey
+        }
+        if let hotkey = result.removeValue(forKey: "behavior.hudDeleteSpaceHotkey") {
+            result["hudDeleteSpaceHotkey"] = hotkey
+        }
+        if let hotkey = result.removeValue(forKey: "behavior.hudCycleLayoutHotkey") {
+            result["hudCycleLayoutHotkey"] = hotkey
         }
         if let hudPosition = result.removeValue(forKey: "behavior.hudPosition") {
             result["hudPosition"] = hudPosition
@@ -518,6 +533,9 @@ enum TOMLConfigDecoder {
         values.showSpaceLayout = value("showSpaceLayout")
         values.showIconStrip = value("showIconStrip")
         values.showMultiAppIcons = value("showMultiAppIcons")
+        if let name: String = value("hudIconSource") {
+            values.hudIconSource = GlyphStripIconSource.iconSource(from: name)
+        }
         if let name: String = value("backgroundStyle") {
             values.backgroundStyle = parsedEnum(from: name)
         }
@@ -640,6 +658,21 @@ enum TOMLConfigDecoder {
         }
         if let table = object["glyphStripHotkey"] as? [String: Any] {
             values.glyphStripHotkey = parseHotkeyTable(table)
+        }
+        if let table = object["hudMoveSpaceBackHotkey"] as? [String: Any] {
+            values.hudMoveSpaceBackHotkey = parseHotkeyTable(table)
+        }
+        if let table = object["hudMoveSpaceForwardHotkey"] as? [String: Any] {
+            values.hudMoveSpaceForwardHotkey = parseHotkeyTable(table)
+        }
+        if let table = object["hudNewSpaceHotkey"] as? [String: Any] {
+            values.hudNewSpaceHotkey = parseHotkeyTable(table)
+        }
+        if let table = object["hudDeleteSpaceHotkey"] as? [String: Any] {
+            values.hudDeleteSpaceHotkey = parseHotkeyTable(table)
+        }
+        if let table = object["hudCycleLayoutHotkey"] as? [String: Any] {
+            values.hudCycleLayoutHotkey = parseHotkeyTable(table)
         }
 
         if let table = object["hudPosition"] as? [String: Any],

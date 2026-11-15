@@ -8,6 +8,11 @@ struct ConfigValues {
     var hotkey: HotkeyConfig?
     var pinnedHotkey: HotkeyConfig?
     var glyphStripHotkey: HotkeyConfig?
+    var hudMoveSpaceBackHotkey: HotkeyConfig?
+    var hudMoveSpaceForwardHotkey: HotkeyConfig?
+    var hudNewSpaceHotkey: HotkeyConfig?
+    var hudDeleteSpaceHotkey: HotkeyConfig?
+    var hudCycleLayoutHotkey: HotkeyConfig?
     var socketHealthInterval: Int?
     var uiScale: Double?
     var autoHideTimeout: Int?
@@ -48,6 +53,7 @@ struct ConfigValues {
     var showSpaceNames: Bool?
     var showIconStrip: Bool?
     var showMultiAppIcons: Bool?
+    var hudIconSource: GlyphStripIconSource?
     var presence: AppPresence?
     var glyphStrip: GlyphStripConfig?
     var menuBarDisplayMode: MenuBarDisplayMode?
@@ -93,6 +99,11 @@ struct ConfigValues {
         self.hotkey = config.hotkey
         self.pinnedHotkey = config.pinnedHotkey
         self.glyphStripHotkey = config.glyphStripHotkey
+        self.hudMoveSpaceBackHotkey = config.hudMoveSpaceBackHotkey
+        self.hudMoveSpaceForwardHotkey = config.hudMoveSpaceForwardHotkey
+        self.hudNewSpaceHotkey = config.hudNewSpaceHotkey
+        self.hudDeleteSpaceHotkey = config.hudDeleteSpaceHotkey
+        self.hudCycleLayoutHotkey = config.hudCycleLayoutHotkey
         self.socketHealthInterval = config.socketHealthInterval
         self.uiScale = config.uiScale
         self.autoHideTimeout = config.autoHideTimeout
@@ -133,6 +144,7 @@ struct ConfigValues {
         self.showSpaceNames = config.showSpaceNames
         self.showIconStrip = config.showIconStrip
         self.showMultiAppIcons = config.showMultiAppIcons
+        self.hudIconSource = config.hudIconSource
         self.presence = config.presence
         self.glyphStrip = config.glyphStrip
         self.menuBarDisplayMode = config.menuBarDisplayMode
@@ -238,6 +250,11 @@ struct ConfigValues {
         let resolvedHotkey = orDefault(hotkey, defaults.hotkey)
         let resolvedPinnedHotkey = orDefault(pinnedHotkey, defaults.pinnedHotkey)
         let resolvedGlyphStripHotkey = orDefault(glyphStripHotkey, defaults.glyphStripHotkey)
+        let resolvedHUDMoveSpaceBackHotkey = orDefault(hudMoveSpaceBackHotkey, defaults.hudMoveSpaceBackHotkey)
+        let resolvedHUDMoveSpaceForwardHotkey = orDefault(hudMoveSpaceForwardHotkey, defaults.hudMoveSpaceForwardHotkey)
+        let resolvedHUDNewSpaceHotkey = orDefault(hudNewSpaceHotkey, defaults.hudNewSpaceHotkey)
+        let resolvedHUDDeleteSpaceHotkey = orDefault(hudDeleteSpaceHotkey, defaults.hudDeleteSpaceHotkey)
+        let resolvedHUDCycleLayoutHotkey = orDefault(hudCycleLayoutHotkey, defaults.hudCycleLayoutHotkey)
 
         let resolvedHudPosition: HUDPosition
         switch hudPosition {
@@ -274,6 +291,11 @@ struct ConfigValues {
             hotkey: resolvedHotkey,
             pinnedHotkey: resolvedPinnedHotkey,
             glyphStripHotkey: resolvedGlyphStripHotkey,
+            hudMoveSpaceBackHotkey: resolvedHUDMoveSpaceBackHotkey,
+            hudMoveSpaceForwardHotkey: resolvedHUDMoveSpaceForwardHotkey,
+            hudNewSpaceHotkey: resolvedHUDNewSpaceHotkey,
+            hudDeleteSpaceHotkey: resolvedHUDDeleteSpaceHotkey,
+            hudCycleLayoutHotkey: resolvedHUDCycleLayoutHotkey,
             socketHealthInterval: oversizeClamped(socketHealthInterval, defaults.socketHealthInterval, in: 1...3600),
             uiScale: valid(uiScale, defaults.uiScale) { (0...1).contains($0) },
             autoHideTimeout: valid(autoHideTimeout, defaults.autoHideTimeout) { $0 >= 0 },
@@ -314,6 +336,7 @@ struct ConfigValues {
             showSpaceNames: orDefault(showSpaceNames, defaults.showSpaceNames),
             showIconStrip: orDefault(showIconStrip, defaults.showIconStrip),
             showMultiAppIcons: orDefault(showMultiAppIcons, defaults.showMultiAppIcons),
+            hudIconSource: hudIconSource ?? defaults.hudIconSource,
             presence: orDefault(presence, defaults.presence),
             glyphStrip: clampedStrip,
             menuBarDisplayMode: resolvedMenuBarDisplayMode,

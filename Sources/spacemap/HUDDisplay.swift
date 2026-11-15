@@ -200,7 +200,8 @@ final class HUDDisplay {
     }
 
     static func shouldPreloadIcons(config: GridConfig) -> Bool {
-        config.cellStyle == .icons || config.cellStyle == .hybrid || config.showIconStrip
+        guard config.hudIconSource == .nativeIcons else { return false }
+        return config.cellStyle == .icons || config.cellStyle == .hybrid || config.showIconStrip
     }
 
     func refreshThumbnails(state: GridState, force: Bool = false) {
