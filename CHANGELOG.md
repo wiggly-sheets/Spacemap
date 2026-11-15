@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Settings now groups by workflow: **General**, **Spaces**, **HUD**, **Glyph Strip**, **Hotkeys**, and **Advanced**. Space names and profiles sit under Spaces, and hotkeys have their own sidebar section instead of living under Behavior.
+- Hotkeys gained a **HUD** subsection with configurable **Move Space Left** and **Move Space Right** actions. They follow the Space Drag Action mode while the HUD is open.
+
 
 ### Added
 - A locked glyph strip can reorder spaces by dragging a space number onto another segment, or move an app by dragging its icon onto a segment or a visible HUD cell. Dedupe moves every window of the app; one-icon-per-window mode moves only the dragged window. Hovering a segment highlights it and eases its content up briefly. Drop destinations highlight only the segment or HUD cell directly under the pointer, so the highlight matches the cursor and gaps clear it. Display separators and the add button are never drop targets, a space deleted mid-drag cancels the swap, the dragged space is not offered as its own HUD target, and the HUD and strip repaint again as yabai applies the reorder. On macOS 27.2 upstream yabai cannot move spaces, so Spacemap swaps their window contents instead; empty spaces and Mission Control order stay unchanged until a patched yabai is installed.
@@ -46,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `[behavior] showHUDInteractionFeedback` (default `true`): hide the typed-number readout and action notices over the HUD. Every action still runs; only the overlays disappear.
 - `[behavior] spaceDropMode` (default `content`): choose whether dragging a space swaps window contents or moves the spaces themselves. Swap Contents works with any yabai build; Move Spaces needs space-move support.
 - `[behavior] spaceDragFocus` (default `stay`) and `windowDragFocus` (default `destination`): choose whether focus stays, follows the drop, or returns to the original space after rearranging spaces or moving an app icon.
+- HUD app icons can use sketchybar-app-font glyphs instead of native macOS images. The setting applies to cell icon grids, hybrid cells and the icon strip.
 - Drag app icons in the HUD itself, not only in the glyph strip. A deduped app icon moves every window of that app; one-icon-per-window mode moves only the dragged window.
 - HUD and glyph strip animate content arriving and leaving after a drop or reorder: HUD icons scale and fade into their new cell, and only the strip segments whose content changed pop in with a short stagger.
 - `[behavior] presence` (`dock`, `menuBar`, `both`, `none`; default `menuBar`) replaces `hideMenuBarIcon` and adds the Dock as a place to show Spacemap. The menu-bar display pickers appear whenever the menu bar is included. Legacy `hideMenuBarIcon` still loads.

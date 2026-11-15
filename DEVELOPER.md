@@ -72,6 +72,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `showSpaceNames` | Bool | `true` | — | Show custom space names in center of each cell |
 | `showIconStrip` | Bool | `true` | — | Show app icon strip at bottom of each cell |
 | `showMultiAppIcons` | Bool | `false` | — | Show one icon per window (true) or one per unique app (false) |
+| `hudIconSource` | String | `native` | `native‖sbarFont` | HUD icons from macOS or sketchybar-app-font glyphs |
 | `presence` | String | `menuBar` | `dock‖menuBar‖both‖none` | Where Spacemap appears; legacy `hideMenuBarIcon` still loads |
 | `menuBarDisplayMode` / `menuBarNearbyCount` | String / Int | `icon` / 3 | `icon‖dots‖current‖nearby‖all` / 1–16 | Menu-bar preview mode and nearby count |
 | `useVimKeys` / `useArrowKeys` / `useExtendedKeys` | Bool | false / false / true | — | hjkl / arrows / extended navigation keys |
