@@ -17,6 +17,7 @@ struct SettingsGrid: View {
     @Binding var showFloatLayoutBadge: Bool
     @Binding var showIconStrip: Bool
     @Binding var showMultiAppIcons: Bool
+    @Binding var hudIconSource: GlyphStripIconSource
     @Binding var showThumbnailWallpaper: Bool
 
     let onSave: () -> Void
@@ -131,6 +132,12 @@ struct SettingsGrid: View {
             if showIconStrip {
                 Toggle("Show Icon Per Window", isOn: $showMultiAppIcons)
                     .onChange(of: showMultiAppIcons) { _ in onSave() }
+                Picker("App Icon Style", selection: $hudIconSource) {
+                    Text("Native App Icons").tag(GlyphStripIconSource.nativeIcons)
+                    Text("App Font Glyphs").tag(GlyphStripIconSource.sbarFont)
+                }
+                .onChange(of: hudIconSource) { _ in onSave() }
+                SettingsFootnote(text: "App Font Glyphs match the glyph strip and need the sketchybar-app-font installed.")
             }
         }
     }

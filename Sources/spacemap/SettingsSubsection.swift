@@ -10,29 +10,27 @@ struct SettingsSubsection: Identifiable, Hashable {
 extension SettingsView.SidebarSection {
     var subsections: [SettingsSubsection] {
         switch self {
-        case .grid:
-            return [SettingsSubsection(id: "grid", title: "Grid")]
-        case .spaceNames:
+        case .general:
             return [
-                SettingsSubsection(id: "spaceNames.names", title: "Space Names"),
-                SettingsSubsection(id: "spaceNames.profiles", title: "Profiles"),
-            ]
-        case .appearance:
-            return [
-                SettingsSubsection(id: "appearance.hud", title: "HUD"),
-                SettingsSubsection(id: "appearance.spaces", title: "HUD Spaces"),
-                SettingsSubsection(id: "appearance.themeEditor", title: "Theme Editor"),
-            ]
-        case .behavior:
-            return [
-                SettingsSubsection(id: "behavior.hotkeys", title: "Hotkeys"),
-                SettingsSubsection(id: "behavior.hud", title: "HUD"),
-                SettingsSubsection(id: "behavior.navigation", title: "Navigation"),
-                SettingsSubsection(id: "behavior.windowDrop", title: "Window Drop"),
-                SettingsSubsection(id: "behavior.feedback", title: "HUD Feedback"),
                 SettingsSubsection(id: "behavior.menuBar", title: "Menu Bar"),
                 SettingsSubsection(id: "behavior.updates", title: "Updates"),
                 SettingsSubsection(id: "behavior.appFont", title: "App Font"),
+            ]
+        case .spaces:
+            return [
+                SettingsSubsection(id: "grid", title: "Grid"),
+                SettingsSubsection(id: "spaceNames.names", title: "Space Names"),
+                SettingsSubsection(id: "spaceNames.profiles", title: "Profiles"),
+            ]
+        case .hud:
+            return [
+                SettingsSubsection(id: "appearance.hud", title: "Appearance"),
+                SettingsSubsection(id: "appearance.spaces", title: "HUD Spaces"),
+                SettingsSubsection(id: "appearance.themeEditor", title: "Theme Editor"),
+                SettingsSubsection(id: "behavior.hud", title: "Position"),
+                SettingsSubsection(id: "behavior.navigation", title: "Navigation"),
+                SettingsSubsection(id: "behavior.windowDrop", title: "Window Drop"),
+                SettingsSubsection(id: "behavior.feedback", title: "Feedback and Motion"),
             ]
         case .glyphStrip:
             return [
@@ -41,6 +39,11 @@ extension SettingsView.SidebarSection {
                 SettingsSubsection(id: "glyphStrip.appearance", title: "Appearance"),
                 SettingsSubsection(id: "glyphStrip.hover", title: "Hover Highlight"),
                 SettingsSubsection(id: "glyphStrip.clicks", title: "Clicks"),
+            ]
+        case .hotkeys:
+            return [
+                SettingsSubsection(id: "behavior.hotkeys", title: "Global and App"),
+                SettingsSubsection(id: "behavior.hudKeys", title: "HUD"),
             ]
         case .advanced:
             return [

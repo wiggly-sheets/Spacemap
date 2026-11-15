@@ -11,8 +11,10 @@ enum InputAction: Equatable {
     case createAndFocusNewestSpace
     case destroyCurrentSpace
     case setSpaceLayout(SpaceLayout)
+    case cycleSpaceLayout
     case enterSpaceNumber(Int)
     case showSettings
+    case moveSpace(direction: SpaceNavigationDirection)
     case none
 }
 
@@ -26,7 +28,9 @@ protocol HUDInputDelegate: AnyObject {
     func createAndFocusNewestSpace()
     func destroyCurrentSpace()
     func setSpaceLayout(_ layout: SpaceLayout)
+    func cycleSpaceLayout()
     func showSettings()
+    func moveSpace(direction: SpaceNavigationDirection)
 }
 
 final class HUDInput {
@@ -58,6 +62,11 @@ final class HUDInput {
     private var useVimKeys = false
     private var useExtendedKeys = false
     private var jumpToSpaceEnabled = false
+    private var hudMoveBackHotkey = HotkeyConfig(key: .none, modifiers: [])
+    private var hudMoveForwardHotkey = HotkeyConfig(key: .none, modifiers: [])
+    private var hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+    private var hudDeleteSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+    private var hudCycleLayoutHotkey = HotkeyConfig(key: .none, modifiers: [])
     private var dragHandlerCellFrames: [(spaceIndex: Int, frame: CGRect)] = []
     private var autoHideSuppressed = false
 
@@ -111,11 +120,26 @@ final class HUDInput {
         isVisible = visible
     }
 
-    func updateConfig(useArrowKeys: Bool, useVimKeys: Bool, useExtendedKeys: Bool = true, jumpToSpaceEnabled: Bool = false) {
+    func updateConfig(
+        useArrowKeys: Bool,
+        useVimKeys: Bool,
+        useExtendedKeys: Bool = true,
+        jumpToSpaceEnabled: Bool = false,
+        hudMoveBackHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
+        hudMoveForwardHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
+        hudNewSpaceHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
+        hudDeleteSpaceHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
+        hudCycleLayoutHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
+    ) {
         self.useArrowKeys = useArrowKeys
         self.useVimKeys = useVimKeys
         self.useExtendedKeys = useExtendedKeys
         self.jumpToSpaceEnabled = jumpToSpaceEnabled
+        self.hudMoveBackHotkey = hudMoveBackHotkey
+        self.hudMoveForwardHotkey = hudMoveForwardHotkey
+        self.hudNewSpaceHotkey = hudNewSpaceHotkey
+        self.hudDeleteSpaceHotkey = hudDeleteSpaceHotkey
+        self.hudCycleLayoutHotkey = hudCycleLayoutHotkey
     }
 
     func updateCellFrames(_ frames: [(spaceIndex: Int, frame: CGRect)]) {
@@ -438,7 +462,7 @@ final class HUDInput {
         switch action {
         case .none:
             return false
-        case .navigate, .navigateFirst, .navigateLast, .closeHUD, .focusRecent, .createSpace, .createAndFocusNewestSpace, .destroyCurrentSpace, .setSpaceLayout, .enterSpaceNumber, .showSettings:
+        case .navigate, .navigateFirst, .navigateLast, .closeHUD, .focusRecent, .createSpace, .createAndFocusNewestSpace, .destroyCurrentSpace, .setSpaceLayout, .cycleSpaceLayout, .enterSpaceNumber, .showSettings, .moveSpace:
             return true
         }
     }
@@ -676,6 +700,21 @@ final class HUDInput {
         if Self.isSettingsShortcut(keyCode: keyCode, flags: flags) {
             return .showSettings
         }
+        if Self.hotkeyMatches(hudMoveBackHotkey, keyCode: keyCode, flags: flags) {
+            return .moveSpace(direction: .left)
+        }
+        if Self.hotkeyMatches(hudMoveForwardHotkey, keyCode: keyCode, flags: flags) {
+            return .moveSpace(direction: .right)
+        }
+        if Self.hotkeyMatches(hudNewSpaceHotkey, keyCode: keyCode, flags: flags) {
+            return .createSpace
+        }
+        if Self.hotkeyMatches(hudDeleteSpaceHotkey, keyCode: keyCode, flags: flags) {
+            return .destroyCurrentSpace
+        }
+        if Self.hotkeyMatches(hudCycleLayoutHotkey, keyCode: keyCode, flags: flags) {
+            return .cycleSpaceLayout
+        }
         if jumpToSpaceEnabled, let number = Self.numberFromKeyCode(keyCode: keyCode, flags: flags) {
             return .enterSpaceNumber(number)
         }
@@ -739,6 +778,14 @@ final class HUDInput {
             DispatchQueue.main.async { [weak self] in
                 self?.delegate?.showSettings()
             }
+        case .moveSpace(let direction):
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.moveSpace(direction: direction)
+            }
+        case .cycleSpaceLayout:
+            DispatchQueue.main.async { [weak self] in
+                self?.delegate?.cycleSpaceLayout()
+            }
         case .enterSpaceNumber(let number):
             DispatchQueue.main.async { [weak self] in
                 self?.handleNumberEntry(number)
@@ -746,6 +793,16 @@ final class HUDInput {
         case .none:
             break
         }
+    }
+
+    private static func hotkeyMatches(
+        _ hotkey: HotkeyConfig,
+        keyCode: CGKeyCode,
+        flags: CGEventFlags
+    ) -> Bool {
+        guard case .keyCode(let target) = hotkey.key, !hotkey.isDisabled else { return false }
+        let relevant: CGEventFlags = [.maskControl, .maskCommand, .maskAlternate, .maskShift, .maskSecondaryFn]
+        return keyCode == target && flags.intersection(relevant) == hotkey.modifiers
     }
 
     static func isSettingsShortcut(keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {

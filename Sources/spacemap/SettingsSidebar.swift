@@ -8,7 +8,7 @@ struct SettingsSidebar: View {
     @Binding var currentSubsection: String?
     let onSelectSection: (SettingsView.SidebarSection) -> Void
     let onSelectSubsection: (SettingsSubsection) -> Void
-    @State private var expanded: Set<SettingsView.SidebarSection> = [.grid]
+    @State private var expanded: Set<SettingsView.SidebarSection> = [.spaces]
 
     var body: some View {
         List {
@@ -99,10 +99,10 @@ struct SettingsSidebar: View {
 
     private func sidebarIcon(for section: SettingsView.SidebarSection) -> String {
         switch section {
-        case .grid: return "square.grid.2x2"
-        case .spaceNames: return "textformat"
-        case .appearance: return "paintbrush"
-        case .behavior: return "slider.horizontal.3"
+        case .general: return "gearshape"
+        case .spaces: return "square.grid.2x2"
+        case .hud: return "rectangle.on.rectangle"
+        case .hotkeys: return "keyboard"
         case .glyphStrip: return "rectangle.split.1x2"
         case .advanced: return "wrench.and.screwdriver"
         }
