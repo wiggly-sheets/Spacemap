@@ -1,5 +1,12 @@
 import Cocoa
 
+/// Snapshot the drag handler needs for one HUD presentation.
+struct WindowDragInput {
+    var cellFrames: [(spaceIndex: Int, frame: CGRect)]
+    var cachedWindows: [YabaiWindow]
+    var focusedWindowIDAtOpen: Int?
+}
+
 protocol WindowDragService {
     var onHoverCell: ((Int?) -> Void)? { get set }
     var onDropInCell: ((Int, Int, CGEventFlags) -> Void)? { get set }

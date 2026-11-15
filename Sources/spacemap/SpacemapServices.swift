@@ -45,7 +45,7 @@ final class SpacemapServices {
             showMenu: { [weak self] in self?.showMenubarMenu() }
         )
     }()
-    lazy var hotkeyService: HotkeyService = HotkeyService(
+    private(set) lazy var hotkeyHandler = HotkeyHandler(
         hud: hud,
         glyphStrip: glyphStrip
     )
@@ -116,8 +116,8 @@ final class SpacemapServices {
     func refreshGlyphStrip() { glyphStrip.refresh() }
     func applyMenubarIcon(to item: NSStatusItem) { menubarService.applyMenubarIcon(to: item) }
     func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String { menubarService.hotkeyMenuString(hotkey) }
-    func restartHotkeys(config: GridConfig) { hotkeyService.restartHotkeys(config: config) }
-    func stopHotkeys() { hotkeyService.stopHotkeys() }
+    func restartHotkeys(config: GridConfig) { hotkeyHandler.restartHotkeys(config: config) }
+    func stopHotkeys() { hotkeyHandler.stopHotkeys() }
     func checkApplicationLocation() { cliToolsService.checkApplicationLocation() }
     func showMoveToApplicationsDialog() { cliToolsService.showMoveToApplicationsDialog() }
     func moveToApplications() { cliToolsService.moveToApplications() }
