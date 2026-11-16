@@ -746,6 +746,8 @@ enum TOMLConfigDecoder {
     /// spelling is preserved so a save does not rewrite it.
     private static func validatedThemeName(_ name: String?) -> String? {
         guard let name else { return nil }
+        // `default` is the built-in fallback, not a selectable theme.
+        if ThemeManager.normalizedName(name) == "default" { return name }
         let names = ThemeManager.shared.allNames()
         let normalized = ThemeManager.normalizedName(name)
         if names.contains(normalized) { return name }

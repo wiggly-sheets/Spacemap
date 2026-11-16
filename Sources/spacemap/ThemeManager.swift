@@ -158,7 +158,6 @@ class ThemeManager {
 
 
     private func loadAll() {
-        seedDefaultsIfNeeded()
         let dir = Self.ensureThemesDir()
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: dir,
@@ -181,11 +180,6 @@ class ThemeManager {
             }
         }
         for (name, theme) in Self.bundledThemes() {
-            if loaded[name] == nil {
-                loaded[name] = theme
-            }
-        }
-        for (name, theme) in Self.builtinThemes() {
             if loaded[name] == nil {
                 loaded[name] = theme
             }
@@ -242,34 +236,6 @@ class ThemeManager {
         )
     }
 
-    private func seedDefaultsIfNeeded() {
-        let dir = Self.ensureThemesDir()
-        let fm = FileManager.default
-        if let existing = try? fm.contentsOfDirectory(atPath: dir.path),
-           existing.contains(where: { $0.hasSuffix(".smthemes") }) {
-            return
-        }
-        for (name, theme) in Self.builtinThemes() {
-            let filename = name.replacingOccurrences(of: " ", with: "-") + ".smthemes"
-            let file = dir.appendingPathComponent(filename)
-            let content = """
-            # \(name.capitalized)
-            background=\(Self.hex(theme.background))
-            focused=\(Self.hex(theme.focused))
-            text=\(Self.hex(theme.text))
-            dropTarget=\(Self.hex(theme.dropTarget))
-            cellBg=\(Self.hex(theme.cellBg))
-            cellBgFocused=\(Self.hex(theme.cellBgFocused))
-            rect1=\(Self.hex(theme.rect1))
-            rect2=\(Self.hex(theme.rect2))
-            rect3=\(Self.hex(theme.rect3))
-            """
-            _ = ConfigLoader.secureWrite(content, to: file.path)
-        }
-    }
-
-    /// Accepts `#rrggbb`, `rrggbb`, and TOML quoted forms `"#rrggbb"` /
-    /// `'#rrggbb'`. Trailing comments are dropped.
     static func parseHexValue(_ raw: String) -> UInt32? {
         var text = raw.trimmingCharacters(in: .whitespaces)
         if let start = text.firstIndex(where: { $0 == "\"" || $0 == "'" }) {
@@ -308,23 +274,6 @@ class ThemeManager {
         }
         shared.reload()
         return trimmed
-    }
-
-    private static func builtinThemes() -> [String: AppTheme] {
-        [
-            "default": .default,
-            "tokyo night": .tokyonight,
-            "catppuccin": .catppuccin,
-            "monokai dark": .monokaiDark,
-            "monokai light": .monokaiLight,
-            "dracula": .dracula,
-            "ayu": .ayu,
-            "github": .github,
-            "vscode": .vscode,
-            "xcode": .xcode,
-            "nord": .nord,
-            "atom one dark": .atomOneDark,
-        ]
     }
 
     static func hex(_ value: UInt32) -> String {

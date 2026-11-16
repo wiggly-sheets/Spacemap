@@ -114,13 +114,13 @@ final class TOMLParserTests: XCTestCase {
         let values = try? TOMLParser.parse("""
         grid.cols = 8
         grid.rows = 3
-        appearance.theme = "dracula"
+        appearance.theme = "default"
         spaceNames.names."1" = "Term"
         """)
 
         XCTAssertEqual(values?.cols, 8)
         XCTAssertEqual(values?.rows, 3)
-        XCTAssertEqual(values?.theme, "dracula")
+        XCTAssertEqual(values?.theme, "default")
         XCTAssertEqual(values?.spaceNames, [1: "Term"])
     }
 
