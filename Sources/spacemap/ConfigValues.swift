@@ -37,6 +37,8 @@ struct ConfigValues {
     var matchBackgroundOpacity: Bool?
     var hudShadow: Bool?
     var hudCornerRadius: Double?
+    var hudFontName: String?
+    var hudFontSize: Double?
     var spacesMatchBackground: Bool?
     var spacesBackgroundStyle: SpacesBackgroundStyle?
     var spacesGlassStyle: HUDGlassStyle?
@@ -54,6 +56,8 @@ struct ConfigValues {
     var showIconStrip: Bool?
     var showMultiAppIcons: Bool?
     var hudIconSource: GlyphStripIconSource?
+    var hudIconStripSeparate: Bool?
+    var hudIconStripSource: GlyphStripIconSource?
     var presence: AppPresence?
     var glyphStrip: GlyphStripConfig?
     var menuBarDisplayMode: MenuBarDisplayMode?
@@ -128,6 +132,8 @@ struct ConfigValues {
         self.matchBackgroundOpacity = config.matchBackgroundOpacity
         self.hudShadow = config.hudShadow
         self.hudCornerRadius = config.hudCornerRadius
+        self.hudFontName = config.hudFontName
+        self.hudFontSize = config.hudFontSize
         self.spacesMatchBackground = config.spacesMatchBackground
         self.spacesBackgroundStyle = config.spacesBackgroundStyle
         self.spacesGlassStyle = config.spacesGlassStyle
@@ -145,6 +151,8 @@ struct ConfigValues {
         self.showIconStrip = config.showIconStrip
         self.showMultiAppIcons = config.showMultiAppIcons
         self.hudIconSource = config.hudIconSource
+        self.hudIconStripSeparate = config.hudIconStripSeparate
+        self.hudIconStripSource = config.hudIconStripSource
         self.presence = config.presence
         self.glyphStrip = config.glyphStrip
         self.menuBarDisplayMode = config.menuBarDisplayMode
@@ -329,6 +337,8 @@ struct ConfigValues {
             matchBackgroundOpacity: matchBackgroundOpacity ?? defaults.matchBackgroundOpacity,
             hudShadow: orDefault(hudShadow, defaults.hudShadow),
             hudCornerRadius: valid(hudCornerRadius, defaults.hudCornerRadius) { (0...60).contains($0) },
+            hudFontName: hudFontName ?? defaults.hudFontName,
+            hudFontSize: valid(hudFontSize, defaults.hudFontSize) { (8...48).contains($0) },
             mode: resolvedThemeMode,
             iconScale: valid(iconScale, defaults.iconScale) { (0...1).contains($0) },
             showSpaceNumbers: orDefault(showSpaceNumbers, defaults.showSpaceNumbers),
@@ -337,6 +347,8 @@ struct ConfigValues {
             showIconStrip: orDefault(showIconStrip, defaults.showIconStrip),
             showMultiAppIcons: orDefault(showMultiAppIcons, defaults.showMultiAppIcons),
             hudIconSource: hudIconSource ?? defaults.hudIconSource,
+            hudIconStripSeparate: orDefault(hudIconStripSeparate, defaults.hudIconStripSeparate),
+            hudIconStripSource: hudIconStripSource ?? defaults.hudIconStripSource,
             presence: orDefault(presence, defaults.presence),
             glyphStrip: clampedStrip,
             menuBarDisplayMode: resolvedMenuBarDisplayMode,

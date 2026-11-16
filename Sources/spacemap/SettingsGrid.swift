@@ -18,6 +18,8 @@ struct SettingsGrid: View {
     @Binding var showIconStrip: Bool
     @Binding var showMultiAppIcons: Bool
     @Binding var hudIconSource: GlyphStripIconSource
+    @Binding var hudIconStripSeparate: Bool
+    @Binding var hudIconStripSource: GlyphStripIconSource
     @Binding var showThumbnailWallpaper: Bool
 
     let onSave: () -> Void
@@ -132,12 +134,24 @@ struct SettingsGrid: View {
             if showIconStrip {
                 Toggle("Show Icon Per Window", isOn: $showMultiAppIcons)
                     .onChange(of: showMultiAppIcons) { _ in onSave() }
-                Picker("App Icon Style", selection: $hudIconSource) {
+                Picker("Cell Icon Style", selection: $hudIconSource) {
                     Text("Native App Icons").tag(GlyphStripIconSource.nativeIcons)
                     Text("App Font Glyphs").tag(GlyphStripIconSource.sbarFont)
                 }
                 .onChange(of: hudIconSource) { _ in onSave() }
-                SettingsFootnote(text: "App Font Glyphs match the glyph strip and need the sketchybar-app-font installed.")
+                SettingsFootnote(text: "Used by hybrid and icon cells. App Font Glyphs need the sketchybar-app-font installed.")
+
+                Toggle("Separate Icon Strip Style", isOn: $hudIconStripSeparate)
+                    .onChange(of: hudIconStripSeparate) { _ in onSave() }
+                if hudIconStripSeparate {
+                    Picker("Icon Strip Style", selection: $hudIconStripSource) {
+                        Text("Native App Icons").tag(GlyphStripIconSource.nativeIcons)
+                        Text("App Font Glyphs").tag(GlyphStripIconSource.sbarFont)
+                    }
+                    .onChange(of: hudIconStripSource) { _ in onSave() }
+                } else {
+                    SettingsFootnote(text: "The strip follows the cell icon style.")
+                }
             }
         }
     }

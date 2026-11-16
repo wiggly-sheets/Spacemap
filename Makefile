@@ -37,6 +37,7 @@ SPARKLE_FRAMEWORK = $(firstword $(wildcard .build/artifacts/sparkle/Sparkle/Spar
 MAN_SOURCE = docs/spacemap.1.scd
 MAN_PAGE = docs/spacemap.1
 LOCALIZATION_DIRS = $(wildcard Sources/spacemap/Resources/*.lproj)
+THEME_RESOURCE_DIR = Sources/spacemap/Resources/Themes
 LOCALIZATION_NAMES = $(notdir $(LOCALIZATION_DIRS))
 
 # The version of a release comes from the command line:
@@ -197,6 +198,7 @@ _assemble:
 	cp Sources/spacemap/AppIcon.icns $(BUNDLE)/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(BUNDLE)/Contents/Resources/Assets.car
 	cp -R $(LOCALIZATION_DIRS) $(BUNDLE)/Contents/Resources/
+	cp -R $(THEME_RESOURCE_DIR) $(BUNDLE)/Contents/Resources/Themes
 	cp $(MAN_PAGE) $(BUNDLE)/Contents/Resources/spacemap.1
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(BUNDLE)
 	# Sign ad-hoc so every bundle, dev or release, is a valid update target.
@@ -329,6 +331,7 @@ install: app
 	cp Sources/spacemap/AppIcon.icns $(INSTALL_PATH)/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(INSTALL_PATH)/Contents/Resources/Assets.car
 	cp -R $(APP_CONTENTS)/Resources/*.lproj $(INSTALL_PATH)/Contents/Resources/
+	cp -R $(APP_CONTENTS)/Resources/Themes $(INSTALL_PATH)/Contents/Resources/Themes
 	cp $(MAN_PAGE) $(INSTALL_PATH)/Contents/Resources/spacemap.1
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(INSTALL_PATH)
 	# Sign with Sparkle entitlements (ad-hoc for dev builds)

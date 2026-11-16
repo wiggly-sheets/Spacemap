@@ -6,12 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
 ### Changed
 - Settings now groups by workflow: **General**, **Spaces**, **HUD**, **Glyph Strip**, **Hotkeys**, and **Advanced**. Space names and profiles sit under Spaces, and hotkeys have their own sidebar section instead of living under Behavior.
 - Hotkeys gained a **HUD** subsection with configurable **Move Space Left** and **Move Space Right** actions. They follow the Space Drag Action mode while the HUD is open.
 
 
 ### Added
+- Bundle 20 popular iTerm2 themes and add a floating Theme Library with color previews, search, one-click install/remove, and Apply. The remaining catalog is fetched from the `spacemap-themes` index, cached, and refreshed once a day; bundled themes stay read-only.
 - A locked glyph strip can reorder spaces by dragging a space number onto another segment, or move an app by dragging its icon onto a segment or a visible HUD cell. Dedupe moves every window of the app; one-icon-per-window mode moves only the dragged window. Hovering a segment highlights it and eases its content up briefly. Drop destinations highlight only the segment or HUD cell directly under the pointer, so the highlight matches the cursor and gaps clear it. Display separators and the add button are never drop targets, a space deleted mid-drag cancels the swap, the dragged space is not offered as its own HUD target, and the HUD and strip repaint again as yabai applies the reorder. On macOS 27.2 upstream yabai cannot move spaces, so Spacemap swaps their window contents instead; empty spaces and Mission Control order stay unchanged until a patched yabai is installed.
 - Glyph strip `[glyphStrip] autoResizeMaxLength` (default 0, off): target width or height. Icon, number, and spacing sizes grow when there is spare room and shrink when over the target, with an 8pt legibility floor.
 - Custom glyph-strip placement now uses the usable screen area (menu bar and Dock excluded) and also gives way to edge-anchored accessory windows such as third-party docks. A vertical strip that runs out of height wraps space blocks into extra columns instead of drawing off screen.
@@ -50,6 +52,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `[behavior] showHUDInteractionFeedback` (default `true`): hide the typed-number readout and action notices over the HUD. Every action still runs; only the overlays disappear.
 - `[behavior] spaceDropMode` (default `content`): choose whether dragging a space swaps window contents or moves the spaces themselves. Swap Contents works with any yabai build; Move Spaces needs space-move support.
 - `[behavior] spaceDragFocus` (default `stay`) and `windowDragFocus` (default `destination`): choose whether focus stays, follows the drop, or returns to the original space after rearranging spaces or moving an app icon.
+- HUD text font and size can be chosen with the native macOS font panel; the space-number size scales names and badges. Reset returns to the system font.
+- The HUD icon strip can use a different icon source from hybrid and icon cells, through `hudIconStripSeparate` and `hudIconStripSource`; both default to following `hudIconSource`.
 - HUD app icons can use sketchybar-app-font glyphs instead of native macOS images. The setting applies to cell icon grids, hybrid cells and the icon strip.
 - Drag app icons in the HUD itself, not only in the glyph strip. A deduped app icon moves every window of that app; one-icon-per-window mode moves only the dragged window.
 - HUD and glyph strip animate content arriving and leaving after a drop or reorder: HUD icons scale and fade into their new cell, and only the strip segments whose content changed pop in with a short stagger.

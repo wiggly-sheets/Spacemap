@@ -73,7 +73,7 @@ Drag a real window over any HUD cell and drop it there. Spacemap highlights the 
 
 ### Make it yours
 
-- Built-in and file-based themes (`.smthemes` or `.toml`), plus an in-app theme editor
+- 20 bundled iTerm2 themes, a floating Theme Library with color previews and one-click install/remove, file-based themes (`.smthemes` or `.toml`), plus an in-app theme editor
 - HUD transparency, size, position, shadow, app-icon size, and labels
 - Custom normal and pinned hotkeys, including media keys and F13–F20
 - Optional menu-bar workspace dots or miniature window-layout previews
@@ -344,7 +344,7 @@ theme = ""                        # follow main HUD theme; or a theme name
 
 | Table | Useful keys |
 |---|---|
-| `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showSpaceLayout`, `showIconStrip`, `showMultiAppIcons`, `hudIconSource` |
+| `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showSpaceLayout`, `showIconStrip`, `showMultiAppIcons`, `hudIconSource`, `hudIconStripSeparate`, `hudIconStripSource` |
 | `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]` |
 | `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `backgroundStyle`, `glassStyle`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `matchBackgroundOpacity`, `hudShadow`, `hudCornerRadius`, `spacesMatchBackground`, `spacesBackgroundStyle`, `spacesGlassStyle`, `spacesGlassClearVariant`, `spacesGlassRegularVariant`, `spacesGlassTintedVariant`, `spacesGlassTintedMaterial`, `spacesOpacity`, `spacesCornerRadius`, `uiScale`, `iconScale` |
 | `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `showHUDInteractionFeedback`, `spaceDropMode`, `spaceDragFocus`, `windowDragFocus`, `hudAnimationsEnabled`, `hudAnimationStyle`, `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, `showThumbnailWallpaper`, `presence`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
@@ -460,6 +460,7 @@ make app-universal
 
 ## Thank you
 
+- [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes) by Mark Badolato and contributors (MIT): source palettes for the bundled and downloadable Spacemap themes.
 - [JulianWindeck/liquid-glass](https://github.com/JulianWindeck/liquid-glass) — `NSGlassEffectView` variant reference used for the HUD and glyph strip glass finishes.
 - [kvndrsslr/sketchybar-app-font](https://github.com/kvndrsslr/sketchybar-app-font) (CC0-1.0) — app icon glyph font and app-name metadata. The Glyph Strip draws every window icon from it by default. The font is not bundled: Spacemap downloads the current release on first launch, checks daily when set to automatic, and can be checked manually in Settings. A font update replaces the file and restarts Spacemap so the new face reloads.
 

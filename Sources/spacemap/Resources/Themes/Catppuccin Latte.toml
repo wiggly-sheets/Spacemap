@@ -1,0 +1,10 @@
+[colors]
+background = "#eff1f5"
+focused = "#1e66f5"
+text = "#4c4f69"
+dropTarget = "#ea76cb"
+cellBg = "#e2e4ea"
+cellBgFocused = "#d5d7df"
+rect1 = "#1e66f5"
+rect2 = "#ea76cb"
+rect3 = "#40a02b"

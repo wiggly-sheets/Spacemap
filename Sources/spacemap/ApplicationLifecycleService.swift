@@ -142,6 +142,7 @@ final class ApplicationLifecycleService {
             }
 
             AccessibilityHealthMonitor.shared.start()
+            ThemeCatalogService.shared.start()
             self.startWindowSpaceWatcher()
             self.services.configureSparkleUpdater(updateMode: config.updateMode)
 

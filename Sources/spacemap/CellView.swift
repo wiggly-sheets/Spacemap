@@ -37,7 +37,10 @@ struct CellView: View {
     private let showMultiAppIcons: Bool
     private let showExtraWindows: Bool
     private let iconSource: GlyphStripIconSource
+    private let stripIconSource: GlyphStripIconSource
     private let hudAnimation: HUDAnimationStyle?
+    private let hudFontName: String
+    private let hudFontSize: Double
     private let onDragActive: ((Bool) -> Void)?
     private let onDragEnd: ((NSPoint) -> Void)?
     private let onSpaceDragStart: ((Int) -> Void)?
@@ -102,7 +105,10 @@ init(spaceIndex: Int,
              showMultiAppIcons: Bool = false,
              showExtraWindows: Bool = false,
              iconSource: GlyphStripIconSource = .nativeIcons,
+             stripIconSource: GlyphStripIconSource? = nil,
              hudAnimation: HUDAnimationStyle? = .natural,
+             hudFontName: String = "",
+             hudFontSize: Double = 12,
              onDragActive: ((Bool) -> Void)? = nil,
              onDragEnd: ((NSPoint) -> Void)? = nil,
              onSpaceDragStart: ((Int) -> Void)? = nil,
@@ -133,7 +139,10 @@ init(spaceIndex: Int,
         self.showMultiAppIcons = showMultiAppIcons
         self.showExtraWindows = showExtraWindows
         self.iconSource = iconSource
+        self.stripIconSource = stripIconSource ?? iconSource
         self.hudAnimation = hudAnimation
+        self.hudFontName = hudFontName
+        self.hudFontSize = hudFontSize
         self.onDragActive = onDragActive
         self.onDragEnd = onDragEnd
         self.onSpaceDragStart = onSpaceDragStart
@@ -170,14 +179,14 @@ var body: some View {
 
             if showSpaceNumbers {
                 Text("\(spaceIndex)\(spaceLayoutBadgeText)")
-                    .font(.system(size: 12 * uiScale, weight: .bold))
+                    .font(hudFont(points: 12, weight: .bold))
                     .foregroundColor(textColor.opacity(0.7))
                     .position(GridLayout.spaceNumberPosition(for: uiScale))
             }
 
             if showSpaceNames, let name = spaceName, !name.isEmpty {
                 Text(name)
-                    .font(.system(size: 14 * uiScale, weight: .medium))
+                    .font(hudFont(points: 14, weight: .medium))
                     .foregroundColor(textColor)
                     .position(GridLayout.spaceNamePosition(in: GridLayout.cellSize(forEffectiveScale: uiScale)))
                     .multilineTextAlignment(.center)
@@ -212,6 +221,11 @@ var body: some View {
         }
     }
     
+    private func hudFont(points: CGFloat, weight: Font.Weight) -> Font {
+        let size = points * uiScale * CGFloat(hudFontSize / 12)
+        return HUDFont.font(name: hudFontName, size: size, weight: weight)
+    }
+
     private enum CellOpacity {
         static let dropTargetDark: CGFloat = 0.35
         static let dropTargetLight: CGFloat = 0.5
@@ -402,7 +416,7 @@ var body: some View {
         let finalSpacing = spacing * fitScale
         HStack(spacing: finalSpacing) {
             ForEach(icons, id: \.id) { window in
-                appIconView(for: window.app, width: finalIconSize, height: finalIconSize)
+                appIconView(for: window.app, width: finalIconSize, height: finalIconSize, source: stripIconSource)
                     .transition(.scale(scale: 0.8).combined(with: .opacity))
                     .highPriorityGesture(appDragGesture(windowID: window.id, app: window.app))
             }
@@ -455,8 +469,13 @@ var body: some View {
     }
     
     @ViewBuilder
-    private func appIconView(for app: String, width: CGFloat, height: CGFloat) -> some View {
-        if iconSource == .sbarFont,
+    private func appIconView(
+        for app: String,
+        width: CGFloat,
+        height: CGFloat,
+        source: GlyphStripIconSource? = nil
+    ) -> some View {
+        if (source ?? iconSource) == .sbarFont,
            let font = AppGlyphFont.load(),
            let face = font.face(size: min(width, height) * 0.82) {
             Text(font.glyph(forApp: app))

@@ -64,6 +64,8 @@ struct SettingsView: View {
     @State private var matchBackgroundOpacity: Bool = false
     @State private var hudShadow: Bool = true
     @State private var hudCornerRadius: Double = 10
+    @State private var hudFontName: String = ""
+    @State private var hudFontSize: Double = 12
     @State private var spacesMatchBackground: Bool = true
     @State private var spacesBackgroundStyle: SpacesBackgroundStyle = .glass
     @State private var spacesGlassStyle: HUDGlassStyle = .clear
@@ -81,6 +83,8 @@ struct SettingsView: View {
     @State private var showIconStrip: Bool = true
     @State private var showMultiAppIcons: Bool = false
     @State private var hudIconSource: GlyphStripIconSource = .nativeIcons
+    @State private var hudIconStripSeparate: Bool = false
+    @State private var hudIconStripSource: GlyphStripIconSource = .nativeIcons
     @State private var presence: AppPresence = .menuBar
     @State private var glyphStrip: GlyphStripConfig = .default
     @State private var menuBarDisplayMode: MenuBarDisplayMode = .icon
@@ -177,6 +181,8 @@ struct SettingsView: View {
         _matchBackgroundOpacity = State(initialValue: config.matchBackgroundOpacity)
         _hudShadow = State(initialValue: config.hudShadow)
         _hudCornerRadius = State(initialValue: config.hudCornerRadius)
+        _hudFontName = State(initialValue: config.hudFontName)
+        _hudFontSize = State(initialValue: config.hudFontSize)
         _spacesMatchBackground = State(initialValue: config.spacesMatchBackground)
         _spacesBackgroundStyle = State(initialValue: config.spacesBackgroundStyle)
         _spacesGlassStyle = State(initialValue: config.spacesGlassStyle)
@@ -194,6 +200,8 @@ struct SettingsView: View {
         _showIconStrip = State(initialValue: config.showIconStrip)
         _showMultiAppIcons = State(initialValue: config.showMultiAppIcons)
         _hudIconSource = State(initialValue: config.hudIconSource)
+        _hudIconStripSeparate = State(initialValue: config.hudIconStripSeparate)
+        _hudIconStripSource = State(initialValue: config.hudIconStripSource)
         _presence = State(initialValue: config.presence)
         _glyphStrip = State(initialValue: config.glyphStrip.clamped())
         _menuBarDisplayMode = State(initialValue: config.menuBarDisplayMode)
@@ -304,6 +312,8 @@ struct SettingsView: View {
             matchBackgroundOpacity: matchBackgroundOpacity,
             hudShadow: hudShadow,
             hudCornerRadius: hudCornerRadius,
+            hudFontName: hudFontName,
+            hudFontSize: hudFontSize,
             mode: mode,
             iconScale: iconScale,
             showSpaceNumbers: showSpaceNumbers,
@@ -312,6 +322,8 @@ struct SettingsView: View {
             showIconStrip: showIconStrip,
             showMultiAppIcons: showMultiAppIcons,
             hudIconSource: hudIconSource,
+            hudIconStripSeparate: hudIconStripSeparate,
+            hudIconStripSource: hudIconStripSource,
             presence: presence,
             glyphStrip: glyphStrip.clamped(),
             menuBarDisplayMode: menuBarDisplayMode,
@@ -405,6 +417,8 @@ struct SettingsView: View {
                     showIconStrip: $showIconStrip,
                     showMultiAppIcons: $showMultiAppIcons,
                     hudIconSource: $hudIconSource,
+                    hudIconStripSeparate: $hudIconStripSeparate,
+                    hudIconStripSource: $hudIconStripSource,
                     showThumbnailWallpaper: $showThumbnailWallpaper,
                     onSave: saveConfig
                 )
@@ -588,6 +602,8 @@ struct SettingsView: View {
                     matchBackgroundOpacity: $matchBackgroundOpacity,
                     hudShadow: $hudShadow,
                     hudCornerRadius: $hudCornerRadius,
+                    hudFontName: $hudFontName,
+                    hudFontSize: $hudFontSize,
                     iconScale: $iconScale,
                     uiScale: $uiScale,
                     spacesMatchBackground: $spacesMatchBackground,
