@@ -77,6 +77,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `hudIconStripSource` | String | `native` | `native‖sbarFont` | Strip icon source when separate is on |
 | `hudFontName` | String | `""` | PostScript family | HUD text font; empty uses the system font |
 | `hudFontSize` | Double | `12` | `8...48` | HUD space-number size; other text scales |
+| `hudTextColor` | String | `""` | Valid hex or empty | HUD text override; empty follows the theme |
 | `presence` | String | `menuBar` | `dock‖menuBar‖both‖none` | Where Spacemap appears; legacy `hideMenuBarIcon` still loads |
 | `menuBarDisplayMode` / `menuBarNearbyCount` | String / Int | `icon` / 3 | `icon‖dots‖current‖nearby‖all` / 1–16 | Menu-bar preview mode and nearby count |
 | `useVimKeys` / `useArrowKeys` / `useExtendedKeys` | Bool | false / false / true | — | hjkl / arrows / extended navigation keys |
@@ -95,7 +96,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `updateMode` | String | `notify` | `auto‖notify‖off` | Sparkle update check behavior. `auto` downloads and installs; `notify` prompts; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `focusSpaceOnWindowDrop` | WindowDropFocusMode | `never` | `never‖always‖modifier` | Focus the destination space after a successful window drop |
 | `focusSpaceOnWindowDropModifier` | WindowDropFocusModifier | `command` | `command‖fn‖option‖control‖shift` | Modifier required when drop focus is `modifier` (fn preserved) |
-| `[glyphStrip]` | — | — | — | Strip keys in REFERENCE.md; legacy bare `glyphStrip = true` is accepted; `matchHUDAppearance` copies the HUD appearance or the strip keeps its own. Numerics clamped (`iconSize`/`indexSize` 6–24, `backgroundOpacity`/`glass*Opacity`/`solidOpacity` 0.01–1, `cornerRadius` 0–40, `margin` 0–40, `iconSpacing`/`indexPadding` 0–20, `yOffset` -10–10 anchored and 0–4000 custom, `xOffset` ±4000, `hoverPadding` 0–12, `hoverCornerRadius` 0–20, `maxIconsPerSpace` 0–16) |
+| `[glyphStrip]` | — | — | — | Strip keys in REFERENCE.md; legacy bare `glyphStrip = true` is accepted; `matchHUDAppearance` copies the HUD appearance or the strip keeps its own. Numerics clamped (`iconSize`/`indexSize` 6–24, `backgroundOpacity`/`glass*Opacity`/`solidOpacity` 0.01–1, `cornerRadius` 0–40, `margin` 0–40, `padding`/`horizontalPadding` 0–40, `iconSpacing`/`indexPadding` 0–20, `yOffset` -10–10 anchored and 0–4000 custom, `xOffset` ±4000, `hoverPadding` 0–12, `hoverCornerRadius` 0–20, `maxIconsPerSpace` 0–16) |
 | `[appFont]` | `updateMode` | `manual` | `manual‖auto` | Glyph-font update policy |
 
 ### Space Naming Support

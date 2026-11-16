@@ -72,6 +72,7 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[grid]` | `hudIconStripSource` | `native` | Strip icons when `hudIconStripSeparate` is true |
 | `[appearance]` | `hudFontName` | `""` | HUD font family; empty means system |
 | `[appearance]` | `hudFontSize` | `12` | Space-number point size, clamped 8...48 |
+| `[appearance]` | `hudTextColor` | `""` | Optional hex override for HUD text. Empty follows the theme |
 | `[appearance]` | `theme` / `mode` | `default` / `auto` | Color theme; `light`, `dark`, or `auto` |
 | `[appearance]` | `backgroundAlpha` | 0.3 | Shared HUD opacity 0–1 when `matchBackgroundOpacity` is on; otherwise the legacy fallback |
 | `[appearance]` | `backgroundStyle` | `glass` | `glass` or `solid`; solid at zero opacity hides the fill. Legacy `transparent` reads as `solid` |
