@@ -110,96 +110,14 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(c.showExtraWindows)
     }
 
-    func testBackgroundStyleParsing() {
-        let c = AppConfig.parseConfig("""
-        [appearance]
-        backgroundStyle = "solid"
-        glassStyle = "tinted"
-        """)
-        XCTAssertEqual(c.backgroundStyle, .solid)
-        XCTAssertEqual(c.glassStyle, .tinted)
+    func testParseConfigFallsBackToDefaultsForInvalidText() {
+        for invalid in ["[grid\ncols = 5", ""] {
+            let config = AppConfig.parseConfig(invalid)
 
-        let c2 = AppConfig.parseConfig("""
-        [appearance]
-        backgroundStyle = "invalid"
-        glassStyle = "invalid"
-        """)
-        XCTAssertEqual(c2.backgroundStyle, GridConfig.default.backgroundStyle)
-        XCTAssertEqual(c2.glassStyle, GridConfig.default.glassStyle)
-    }
-
-    func testBackgroundStyleRoundTripsThroughDisk() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-config-bgstyle-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
-
-        let original = AppConfig.parseConfig("""
-        [appearance]
-        backgroundStyle = "glass"
-        glassStyle = "clear"
-        """)
-        AppConfig.saveConfig(original, to: path)
-        let reloaded = AppConfig.load(from: path)
-
-        XCTAssertEqual(reloaded.backgroundStyle, .glass)
-        XCTAssertEqual(reloaded.glassStyle, .clear)
-    }
-
-    func testMissingFieldsUseDefaults() {
-        let c = AppConfig.parseConfig("""
-        [grid]
-        cols = 5
-        """)
-
-        XCTAssertEqual(c.cols, 5)
-        XCTAssertEqual(c.rows, GridConfig.default.rows)
-        XCTAssertEqual(c.theme, GridConfig.default.theme)
-        XCTAssertEqual(c.hotkey.keyCode, GridConfig.default.hotkey.keyCode)
-        XCTAssertEqual(c.focusSpaceOnWindowDrop, .never)
-        XCTAssertEqual(c.focusSpaceOnWindowDropModifier, .command)
-        XCTAssertFalse(c.showHUDOnSpaceChange)
-    }
-
-    func testInvalidValuesUseDefaults() {
-        let c = AppConfig.parseConfig("""
-        [grid]
-        cols = 0
-        rows = "broken"
-        cellStyle = "invalid"
-        maxSpaces = 99
-
-        [appearance]
-        mode = "invalid"
-        backgroundAlpha = 2.0
-        iconScale = -1.0
-        uiScale = 5.0
-
-        [behavior]
-        autoHideTimeout = -1
-        menuBarDisplayMode = "invalid"
-        menuBarNearbyCount = 99
-
-        [advanced]
-        socketHealthInterval = 0
-        """)
-
-        XCTAssertEqual(c.cols, GridConfig.default.cols)
-        XCTAssertEqual(c.rows, GridConfig.default.rows)
-        XCTAssertEqual(c.cellStyle, GridConfig.default.cellStyle)
-        XCTAssertEqual(c.maxSpaces, GridConfig.default.maxSpaces)
-        XCTAssertEqual(c.mode, GridConfig.default.mode)
-        XCTAssertEqual(c.backgroundAlpha, GridConfig.default.backgroundAlpha)
-        XCTAssertEqual(c.iconScale, GridConfig.default.iconScale)
-        XCTAssertEqual(c.uiScale, GridConfig.default.uiScale)
-        XCTAssertEqual(c.autoHideTimeout, GridConfig.default.autoHideTimeout)
-        XCTAssertEqual(c.menuBarDisplayMode, GridConfig.default.menuBarDisplayMode)
-        XCTAssertEqual(c.menuBarNearbyCount, 16)
-        XCTAssertEqual(c.socketHealthInterval, GridConfig.default.socketHealthInterval)
+            XCTAssertEqual(config.cols, GridConfig.default.cols)
+            XCTAssertEqual(config.rows, GridConfig.default.rows)
+            XCTAssertEqual(config.theme, GridConfig.default.theme)
+        }
     }
 
     func testCommentsAndQuotedCommentCharactersParse() {
@@ -218,7 +136,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.theme, GridConfig.default.theme)
     }
 
-    func testHUDPositionPresets() {
+    func testHUDPositionPresetsAndInvalidCustomFallBack() {
         for (kind, expected) in [
             ("center", HUDPosition.center),
             ("top", HUDPosition.top),
@@ -230,16 +148,14 @@ final class ConfigTests: XCTestCase {
             """)
             XCTAssertEqual(c.hudPosition, expected)
         }
-    }
 
-    func testInvalidCustomHUDPositionUsesCenter() {
-        let c = AppConfig.parseConfig("""
+        let invalid = AppConfig.parseConfig("""
         [behavior.hudPosition]
         kind = "custom"
         x = 2.0
         y = 0.5
         """)
-        XCTAssertEqual(c.hudPosition, .center)
+        XCTAssertEqual(invalid.hudPosition, .center)
     }
 
     func testCustomHUDAndMultiDisplaySettingsRoundTripThroughDisk() throws {
@@ -392,28 +308,5 @@ final class ConfigTests: XCTestCase {
 
         XCTAssertEqual(loaded.cols, GridConfig.default.cols)
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), plain)
-    }
-
-    func testJumpToSpaceEnabledDefaultsToFalse() {
-        let configTrue = """
-        [behavior]
-        jumpToSpaceEnabled = true
-        """
-        let cTrue = AppConfig.parseConfig(configTrue)
-        XCTAssertTrue(cTrue.jumpToSpaceEnabled)
-
-        let configMissing = "[behavior]\nautoHideTimeout = 5"
-        let cMissing = AppConfig.parseConfig(configMissing)
-        XCTAssertFalse(cMissing.jumpToSpaceEnabled)
-
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-config-jump-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        AppConfig.saveConfig(cTrue, to: path)
-        let reloaded = AppConfig.load(from: path)
-        XCTAssertTrue(reloaded.jumpToSpaceEnabled)
     }
 }

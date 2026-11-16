@@ -80,42 +80,25 @@ final class HUDDisplayTests: XCTestCase {
     }
 
 
-    func testShowCallsDelegateHudDidShow() {
+    func testShowAndHideNotifyDelegate() {
         hudDisplay.show()
+        XCTAssertTrue(delegate.showCalled)
 
-        XCTAssertTrue(delegate.showCalled, "show() should call delegate.show()")
-    }
-
-
-    func testHideCallsDelegateHudDidHide() {
         hudDisplay.hide()
-
-        XCTAssertTrue(delegate.hideCalled, "hide() should call delegate.hide()")
+        XCTAssertTrue(delegate.hideCalled)
     }
 
+    func testRenderInEitherMultiMonitorModePublishesCellFrames() {
+        for mode in [MultiMonitorHUDMode.unified, .separate] {
+            delegate.reset()
+            var config = GridConfig.default
+            config.multiMonitorHUDMode = mode
 
-    func testRenderUnifiedModeCallsDelegateUpdateCellFrames() {
-        var config = GridConfig.default
-        config.multiMonitorHUDMode = .unified
-        let state = cannedState(config: config)
+            hudDisplay.render(state: cannedState(config: config))
 
-        hudDisplay.render(state: state)
-
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "render() in unified mode should call delegate.updateCellFrames()")
+            XCTAssertTrue(delegate.updateCellFramesCalled, "mode: \(mode)")
+        }
     }
-
-    func testRenderSeparateModeCallsDelegateUpdateCellFrames() {
-        var config = GridConfig.default
-        config.multiMonitorHUDMode = .separate
-        let state = cannedState(config: config)
-
-        hudDisplay.render(state: state)
-
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "render() in separate mode should call delegate.updateCellFrames()")
-    }
-
 
     func testUpdateCellFramesCallsDelegateUpdateCellFrames() {
         let state = cannedState()
@@ -127,148 +110,44 @@ final class HUDDisplayTests: XCTestCase {
     }
 
 
-    func testPreloadIconsOnlyForIconsStyle() {
-        var config = GridConfig.default
-        config.cellStyle = .icons
-        config.showIconStrip = false
-        hudDisplay.updateConfig(config)
+    func testPreloadIconPolicyMatchesStyleAndIconStrip() {
+        let cases: [(CellStyle, Bool, GlyphStripIconSource, Bool)] = [
+            (.icons, false, .nativeIcons, true),
+            (.hybrid, false, .nativeIcons, true),
+            (.rects, true, .nativeIcons, true),
+            (.rects, false, .nativeIcons, false),
+            (.icons, true, .sbarFont, false)
+        ]
+        for (style, showIconStrip, iconSource, expected) in cases {
+            var config = GridConfig.default
+            config.cellStyle = style
+            config.showIconStrip = showIconStrip
+            config.hudIconSource = iconSource
 
-        let state = cannedState(config: config, windows: [
-            YabaiWindow(id: 1, app: "Safari", space: 1,
-                        frame: .init(x: 0, y: 0, w: 800, h: 600),
-                        isHidden: false, isMinimized: false, subLayer: "normal"),
-        ])
-
-        XCTAssertTrue(HUDDisplay.shouldPreloadIcons(config: state.config))
+            XCTAssertEqual(
+                HUDDisplay.shouldPreloadIcons(config: config),
+                expected,
+                "style \(style), icon strip \(showIconStrip), source \(iconSource)"
+            )
+        }
     }
 
-    func testPreloadIconsOnlyForHybridStyle() {
-        var config = GridConfig.default
-        config.cellStyle = .hybrid
-        config.showIconStrip = false
-        hudDisplay.updateConfig(config)
-
-        let state = cannedState(config: config, windows: [
-            YabaiWindow(id: 1, app: "Safari", space: 1,
-                        frame: .init(x: 0, y: 0, w: 800, h: 600),
-                        isHidden: false, isMinimized: false, subLayer: "normal"),
-        ])
-
-        XCTAssertTrue(HUDDisplay.shouldPreloadIcons(config: state.config))
-    }
-
-    func testPreloadIconsSkipsForRectsStyleWithoutIconStrip() {
-        var config = GridConfig.default
-        config.cellStyle = .rects
-        config.showIconStrip = false
-        hudDisplay.updateConfig(config)
-
-        let state = cannedState(config: config)
-
-        XCTAssertFalse(HUDDisplay.shouldPreloadIcons(config: state.config))
-        hudDisplay.preloadIcons(for: state)
-
-        hudDisplay.updateCellFrames(state: state)
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "preloadIcons should return early for rects style without icon strip without corrupting config")
-    }
-
-    func testPreloadIconsProceedsForShowIconStrip() {
-        var config = GridConfig.default
-        config.cellStyle = .rects
-        config.showIconStrip = true
-        hudDisplay.updateConfig(config)
-
-        let state = cannedState(config: config, windows: [
-            YabaiWindow(id: 1, app: "Safari", space: 1,
-                        frame: .init(x: 0, y: 0, w: 800, h: 600),
-                        isHidden: false, isMinimized: false, subLayer: "normal"),
-        ])
-
-        XCTAssertTrue(HUDDisplay.shouldPreloadIcons(config: state.config))
-    }
-
-
-    func testRefreshThumbnailsOnlyForThumbnailsStyle() {
+    func testRefreshThumbnailsOnlyRunsForThumbnailStyle() throws {
+        guard #available(macOS 14.0, *) else {
+            throw XCTSkip("thumbnail refresh requires macOS 14")
+        }
         var config = GridConfig.default
         config.cellStyle = .thumbnails
         hudDisplay.updateConfig(config)
 
-        let state = cannedState(config: config)
+        hudDisplay.refreshThumbnails(state: cannedState(config: config))
+        XCTAssertEqual(hudDisplay.thumbnailRefreshCount, 1)
 
-        hudDisplay.refreshThumbnails(state: state)
-
-        hudDisplay.render(state: state)
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "refreshThumbnails should not corrupt config for thumbnails style")
-    }
-
-    func testRefreshThumbnailsSkipsForNonThumbnailsStyle() {
-        var config = GridConfig.default
         config.cellStyle = .rects
         hudDisplay.updateConfig(config)
-
-        let state = cannedState(config: config)
-
-        hudDisplay.refreshThumbnails(state: state)
-
-        hudDisplay.render(state: state)
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "refreshThumbnails should return early for non-thumbnails style without corrupting config")
-    }
-
-
-    func testUpdateConfigStoresConfig() {
-        var config = GridConfig.default
-        config.cols = 12
-        config.rows = 4
-        config.cellStyle = .icons
-        config.uiScale = 0.8
-
-        hudDisplay.updateConfig(config)
-
-        let state = cannedState(config: config)
-        hudDisplay.updateCellFrames(state: state)
-
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "updateConfig should store the config so subsequent methods use it")
-    }
-
-
-    func testUpdateHoveredCellStoresCell() {
-        hudDisplay.updateHoveredCell(3)
-
-        let state = cannedState()
-        hudDisplay.render(state: state)
-
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "updateHoveredCell should store the cell for use in rendering")
-    }
-
-    func testUpdateHoveredCellStoresNil() {
-        hudDisplay.updateHoveredCell(3)
-        hudDisplay.updateHoveredCell(nil)
-
-        let state = cannedState()
-        hudDisplay.render(state: state)
-
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "updateHoveredCell(nil) should store nil for use in rendering")
-    }
-
-
-    func testUpdateStateUpdatesConfigAndRenders() {
-        var config = GridConfig.default
-        config.cols = 5
-        config.rows = 3
-        hudDisplay.updateConfig(config)
-
-        let state = cannedState(config: config)
-
-        hudDisplay.updateState(state)
-
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "updateState should update currentConfig and call render on the delegate")
+        hudDisplay.refreshThumbnails(state: cannedState(config: config))
+        XCTAssertEqual(hudDisplay.thumbnailRefreshCount, 1,
+                       "non-thumbnail styles must not start captures")
     }
 
     func testUpdateStateCreatesTheUnifiedPanel() {

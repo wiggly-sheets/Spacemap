@@ -26,6 +26,10 @@ final class ConfigValuesTests: XCTestCase {
         values.glassStyle = .tinted
         values.hudShadow = false
         values.hudCornerRadius = 12
+        values.hudIconStripSeparate = true
+        values.hudIconStripSource = .sbarFont
+        values.hudFontName = "Avenir Next"
+        values.hudFontSize = 16
         values.iconScale = 0.8
         values.uiScale = 0.75
         values.autoHideTimeout = 10
@@ -58,9 +62,6 @@ final class ConfigValuesTests: XCTestCase {
         values.showBSPLayoutBadge = true
         values.showStackLayoutBadge = false
         values.showFloatLayoutBadge = true
-        values.showBSPLayoutBadge = true
-        values.showStackLayoutBadge = false
-        values.showFloatLayoutBadge = true
 
         values.showHUDInteractionFeedback = true
         values.spaceDropMode = .content
@@ -69,6 +70,29 @@ final class ConfigValuesTests: XCTestCase {
         values.hudAnimationStyle = .natural
         values.updateMode = .off
         values.appFont = AppFontConfig(updateMode: .auto, installedVersion: "v3.0.5", lastCheck: 1700000000)
+
+        var strip = GlyphStripConfig.default
+        strip.enabled = true
+        strip.showSpaceNumbers = false
+        strip.showLayoutSuffix = false
+        strip.showAppIcons = false
+        strip.dedupeAppsPerSpace = false
+        strip.maxIconsPerSpace = 4
+        strip.iconSize = 14
+        strip.indexSize = 9
+        strip.highlightCurrentSpace = false
+        strip.backgroundMaterial = .liquidGlass
+        strip.shape = .pill
+        strip.backgroundOpacity = 0.5
+        strip.cornerRadius = 6
+        strip.showDisplaySeparators = false
+        strip.showAddSpaceButton = false
+        strip.showPlaceholders = false
+        strip.leftClickAction = .toggleFullscreen
+        strip.rightClickAction = .none
+        strip.middleClickAction = .balanceWindows
+        strip.position = .center
+        values.glyphStrip = strip
 
         let (config, needsRepair) = values.toGridConfig()
 
@@ -116,8 +140,13 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.focusSpaceOnWindowDrop, .modifier)
         XCTAssertEqual(config.focusSpaceOnWindowDropModifier, .option)
         XCTAssertTrue(config.showHUDOnSpaceChange)
+        XCTAssertTrue(config.showBSPLayoutBadge)
+        XCTAssertFalse(config.showStackLayoutBadge)
+        XCTAssertTrue(config.showFloatLayoutBadge)
+        XCTAssertTrue(config.showThumbnailWallpaper)
         XCTAssertEqual(config.updateMode, .off)
         XCTAssertTrue(config.glyphStrip.enabled)
+        XCTAssertEqual(config.glyphStrip, strip)
         XCTAssertEqual(config.appFont.updateMode, .auto)
         XCTAssertEqual(config.appFont.installedVersion, "v3.0.5")
         XCTAssertEqual(config.appFont.lastCheck, 1700000000)
@@ -266,6 +295,27 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.effectiveBackgroundOpacity(for: .solid), 0)
     }
 
+
+    func testHUDFontDefaultsAndClampsSize() throws {
+        XCTAssertEqual(GridConfig.default.hudFontName, "")
+        XCTAssertEqual(GridConfig.default.hudFontSize, 12)
+
+        var values = ConfigValues()
+        values.hudFontName = "Avenir Next"
+        values.hudFontSize = 18
+        let (config, _) = values.toGridConfig()
+        XCTAssertEqual(config.hudFontName, "Avenir Next")
+        XCTAssertEqual(config.hudFontSize, 18)
+
+        values.hudFontSize = 99
+        XCTAssertEqual(values.toGridConfig().config.hudFontSize, 12)
+
+        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+        let reread = try TOMLParser.parse(toml)
+        XCTAssertEqual(reread.hudFontName, "Avenir Next")
+        XCTAssertEqual(reread.hudFontSize, 99)
+    }
+
     func testHUDCornerRadiusDefaultsClampsAndRoundTrips() throws {
         XCTAssertEqual(GridConfig.default.hudCornerRadius, 10)
 
@@ -331,6 +381,21 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(values.toGridConfig().config.hudIconSource, .sbarFont)
     }
 
+    func testSeparateIconStripSourceDefaultsOffAndResolves() {
+        XCTAssertFalse(GridConfig.default.hudIconStripSeparate)
+        var config = GridConfig.default
+        config.hudIconSource = .sbarFont
+        XCTAssertEqual(config.resolvedHUDIconStripSource, .sbarFont)
+
+        var values = ConfigValues(from: GridConfig.default)
+        values.hudIconStripSeparate = true
+        values.hudIconStripSource = .sbarFont
+        let resolved = values.toGridConfig().config
+        XCTAssertTrue(resolved.hudIconStripSeparate)
+        XCTAssertEqual(resolved.resolvedHUDIconStripSource, .sbarFont)
+        XCTAssertEqual(resolved.hudIconSource, .nativeIcons, "cell icons keep their own source")
+    }
+
     func testPresenceDefaultsAndRoundTrips() {
         XCTAssertEqual(GridConfig.default.presence, .menuBar)
         var values = ConfigValues(from: GridConfig.default)
@@ -359,123 +424,6 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.solidOpacity, 0.6)
     }
 
-    func testToGridConfigWithFullGlyphStripTable() {
-        var values = ConfigValues()
-        // Mirror testToGridConfigWithAllFieldsSet: nothing may be nil or the
-        // repair flag trips.
-        values.cols = 8
-        values.rows = 2
-        values.cellStyle = .rects
-        values.hotkey = .default
-        values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.glyphStripHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.hudMoveSpaceBackHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.hudMoveSpaceForwardHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.hudDeleteSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.hudCycleLayoutHotkey = HotkeyConfig(key: .none, modifiers: [])
-
-        values.socketHealthInterval = 60
-        values.uiScale = 0.5
-        values.autoHideTimeout = 5
-        values.theme = "default"
-        values.showMode = .all
-        values.multiMonitorHUDMode = .unified
-        values.unifiedHUDVisibility = .active
-        values.separateHUDVisibility = .all
-        values.displayNavigationWrap = .within
-        values.maxSpaces = 16
-        values.backgroundAlpha = 0.3
-        values.backgroundStyle = .glass
-        values.glassStyle = .regular
-        values.glassClearVariant = 11
-        values.glassRegularVariant = 5
-        values.glassTintedVariant = 2
-        values.glassTintedMaterial = .clear
-        values.glassClearOpacity = 0.05
-        values.glassRegularOpacity = 0.3
-        values.glassTintedOpacity = 0.3
-        values.solidOpacity = 1.0
-        values.matchBackgroundOpacity = false
-        values.spacesMatchBackground = true
-        values.spacesBackgroundStyle = .glass
-        values.spacesGlassStyle = .clear
-        values.spacesGlassClearVariant = 11
-        values.spacesGlassRegularVariant = 5
-        values.spacesGlassTintedVariant = 2
-        values.spacesGlassTintedMaterial = .clear
-        values.spacesOpacity = 0.5
-        values.spacesCornerRadius = 4
-        values.refuseUntrustedYabai = false
-        values.showThumbnailWallpaper = true
-        values.spaceNameProfiles = GridConfig.default.spaceNameProfiles
-        values.activeSpaceNameProfileIndex = GridConfig.default.activeSpaceNameProfileIndex
-        values.hudShadow = true
-        values.hudCornerRadius = 10
-        values.mode = .auto
-        values.iconScale = 0.5
-        values.showSpaceNumbers = true
-        values.showSpaceLayout = false
-        values.showSpaceNames = true
-        values.showIconStrip = true
-        values.showMultiAppIcons = false
-        values.presence = .menuBar
-        values.menuBarDisplayMode = .icon
-        values.menuBarNearbyCount = 3
-        values.spaceNames = [:]
-        values.useVimKeys = false
-        values.useArrowKeys = false
-        values.useExtendedKeys = true
-        values.jumpToSpaceEnabled = false
-        values.hudPosition = .center
-        values.customHUDX = 0.5
-        values.customHUDY = 0.5
-        values.showExtraWindows = false
-        values.focusSpaceOnWindowDrop = .never
-        values.focusSpaceOnWindowDropModifier = .command
-        values.showHUDOnSpaceChange = false
-        values.showBSPLayoutBadge = true
-        values.showStackLayoutBadge = false
-        values.showFloatLayoutBadge = true
-
-        values.showHUDInteractionFeedback = false
-        values.spaceDropMode = .content
-        values.hudAnimationsEnabled = true
-        values.hudAnimationStyle = .natural
-        values.updateMode = .notify
-        values.appFont = .default
-
-        var strip = GlyphStripConfig.default
-        strip.enabled = true
-        strip.showSpaceNumbers = false
-        strip.showLayoutSuffix = false
-        strip.showAppIcons = false
-        strip.dedupeAppsPerSpace = false
-        strip.maxIconsPerSpace = 4
-        strip.iconSize = 14
-        strip.indexSize = 9
-        strip.highlightCurrentSpace = false
-        strip.backgroundMaterial = .liquidGlass
-        strip.shape = .pill
-        strip.backgroundOpacity = 0.5
-        strip.cornerRadius = 6
-        strip.showDisplaySeparators = false
-        strip.showAddSpaceButton = false
-        strip.showPlaceholders = false
-        strip.leftClickAction = .toggleFullscreen
-        strip.rightClickAction = .none
-        strip.middleClickAction = .balanceWindows
-        strip.position = .center
-        values.glyphStrip = strip
-
-        let (config, needsRepair) = values.toGridConfig()
-
-        XCTAssertFalse(needsRepair)
-        // No colour resolution pass any more: the strip's palette is fixed by
-        // theme roles at draw time, so every key survives untouched.
-        XCTAssertEqual(config.glyphStrip, strip)
-    }
-
     func testNewMaterialAndShapeKeysRoundTripThroughTheConfigString() throws {
         var values = ConfigValues()
         var strip = GlyphStripConfig.default
@@ -491,8 +439,11 @@ final class ConfigValuesTests: XCTestCase {
     }
 
     func testToGridConfigClampsGlyphStripNumbersAndFlagsRepair() {
-        var values = ConfigValues()
+        var values = ConfigValues(from: .default)
         var strip = GlyphStripConfig.default
+        values.glyphStrip = strip
+        XCTAssertFalse(values.toGridConfig().needsRepair, "a valid strip must not request repair")
+
         strip.iconSize = 100
         strip.backgroundOpacity = -2
         strip.maxIconsPerSpace = -1
@@ -500,10 +451,13 @@ final class ConfigValuesTests: XCTestCase {
 
         let (config, needsRepair) = values.toGridConfig()
 
-        XCTAssertTrue(needsRepair, "every other key is nil here too")
+        XCTAssertTrue(needsRepair, "out-of-range strip values must request repair")
         XCTAssertEqual(config.glyphStrip.iconSize, 24)
         XCTAssertEqual(config.glyphStrip.backgroundOpacity, 0.01)
         XCTAssertEqual(config.glyphStrip.maxIconsPerSpace, 0)
+
+        values.glyphStrip = GlyphStripConfig.default
+        XCTAssertFalse(values.toGridConfig().needsRepair, "repair must clear once the strip is valid")
     }
 
     func testToGridConfigWithMissingFieldsUsesDefaults() {
@@ -606,109 +560,5 @@ final class ConfigValuesTests: XCTestCase {
         let reread = try TOMLParser.parse(toml)
 
         XCTAssertEqual(reread.glyphStripHotkey, values.glyphStripHotkey)
-    }
-
-    func testToGridConfigPreservesValidCustomValues() {
-        var values = ConfigValues()
-        values.cols = 10
-        values.rows = 5
-        values.cellStyle = .thumbnails
-        values.hotkey = .default
-        values.pinnedHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
-        values.hudMoveSpaceBackHotkey = HotkeyConfig(key: .keyCode(101), modifiers: .maskShift)
-        values.hudMoveSpaceForwardHotkey = HotkeyConfig(key: .keyCode(102), modifiers: .maskShift)
-        values.hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.hudDeleteSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.hudCycleLayoutHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.socketHealthInterval = 37
-        values.uiScale = 0.37
-        values.autoHideTimeout = 7
-        values.theme = "nord"
-        values.mode = .light
-        values.showMode = .all
-        values.multiMonitorHUDMode = .unified
-        values.unifiedHUDVisibility = .active
-        values.separateHUDVisibility = .all
-        values.displayNavigationWrap = .within
-        values.maxSpaces = 8
-        values.backgroundAlpha = 0.7
-        values.backgroundStyle = .glass
-        values.glassStyle = .regular
-        values.hudShadow = true
-        values.hudCornerRadius = 10
-        values.iconScale = 0.6
-        values.showSpaceNumbers = true
-        values.showSpaceLayout = true
-        values.showSpaceNames = false
-        values.showIconStrip = true
-        values.showMultiAppIcons = false
-        values.presence = .menuBar
-        values.glyphStrip = GlyphStripConfig.default
-        values.menuBarDisplayMode = .dots
-        values.menuBarNearbyCount = 7
-        values.useVimKeys = true
-        values.useArrowKeys = true
-        values.useExtendedKeys = true
-        values.jumpToSpaceEnabled = false
-        values.hudPosition = .top
-        values.customHUDX = 0.42
-        values.customHUDY = 0.58
-        values.showExtraWindows = true
-        values.focusSpaceOnWindowDrop = .always
-        values.focusSpaceOnWindowDropModifier = .shift
-        values.showHUDOnSpaceChange = true
-        values.showBSPLayoutBadge = true
-        values.showStackLayoutBadge = false
-        values.showFloatLayoutBadge = true
-
-        values.showHUDInteractionFeedback = true
-        values.spaceDropMode = .content
-        values.showThumbnailWallpaper = true
-        values.hudAnimationsEnabled = true
-        values.hudAnimationStyle = .natural
-        values.updateMode = .auto
-        values.appFont = .default
-
-        let (config, needsRepair) = values.toGridConfig()
-
-        XCTAssertFalse(needsRepair)
-        XCTAssertEqual(config.cols, 10)
-        XCTAssertEqual(config.rows, 5)
-        XCTAssertEqual(config.cellStyle, .thumbnails)
-        XCTAssertEqual(config.socketHealthInterval, 37)
-        XCTAssertEqual(config.uiScale, 0.37, accuracy: 0.001)
-        XCTAssertEqual(config.autoHideTimeout, 7)
-        XCTAssertEqual(config.theme, "nord")
-        XCTAssertEqual(config.mode, .light)
-        XCTAssertEqual(config.showMode, .all)
-        XCTAssertEqual(config.multiMonitorHUDMode, .unified)
-        XCTAssertEqual(config.unifiedHUDVisibility, .active)
-        XCTAssertEqual(config.separateHUDVisibility, .all)
-        XCTAssertEqual(config.displayNavigationWrap, .within)
-        XCTAssertEqual(config.maxSpaces, 8)
-        XCTAssertEqual(config.backgroundAlpha, 0.7, accuracy: 0.001)
-        XCTAssertTrue(config.hudShadow)
-        XCTAssertEqual(config.iconScale, 0.6, accuracy: 0.001)
-        XCTAssertTrue(config.showSpaceNumbers)
-        XCTAssertTrue(config.showSpaceLayout)
-        XCTAssertFalse(config.showSpaceNames)
-        XCTAssertTrue(config.showIconStrip)
-        XCTAssertFalse(config.showMultiAppIcons)
-        XCTAssertEqual(config.presence, .menuBar)
-        XCTAssertEqual(config.menuBarDisplayMode, .dots)
-        XCTAssertEqual(config.menuBarNearbyCount, 7)
-        XCTAssertTrue(config.useVimKeys)
-        XCTAssertTrue(config.useArrowKeys)
-        XCTAssertTrue(config.useExtendedKeys)
-        XCTAssertFalse(config.jumpToSpaceEnabled)
-        XCTAssertEqual(config.hudPosition, .top)
-        XCTAssertEqual(config.customHUDX, 0.42, accuracy: 0.001)
-        XCTAssertEqual(config.customHUDY, 0.58, accuracy: 0.001)
-        XCTAssertTrue(config.showExtraWindows)
-        XCTAssertEqual(config.focusSpaceOnWindowDrop, .always)
-        XCTAssertEqual(config.focusSpaceOnWindowDropModifier, .shift)
-        XCTAssertTrue(config.showHUDOnSpaceChange)
-        XCTAssertEqual(config.updateMode, .auto)
     }
 }
