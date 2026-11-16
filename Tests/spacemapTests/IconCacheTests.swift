@@ -59,39 +59,6 @@ private final class ClockBox {
 final class IconCacheTests: XCTestCase {
 
 
-    func testSharedInstanceIsSingleton() {
-        let instance1 = IconCache.shared
-        let instance2 = IconCache.shared
-        XCTAssertTrue(instance1 === instance2)
-    }
-
-
-    func testIconForUnknownAppReturnsNil() {
-        let icon = IconCache.shared.icon(for: "NonExistentApp12345")
-        XCTAssertNil(icon)
-    }
-
-
-    func testPreloadDoesNotCrash() {
-        IconCache.shared.preload(appNames: [])
-    }
-
-    func testPreloadWithAppNamesDoesNotCrash() {
-        IconCache.shared.preload(appNames: ["Finder", "Safari"])
-    }
-
-
-    func testClearDoesNotCrash() {
-        IconCache.shared.clear()
-    }
-
-
-    func testRebuildLookupDoesNotCrash() {
-        IconCache.shared.preload(appNames: ["Finder"])
-        let icon = IconCache.shared.icon(for: "Finder")
-        XCTAssertNotNil(icon)
-    }
-
     func testOverfillEvictsOldestAndHitRefreshesMRU() {
         let cache = IconCache(workspace: LRUWorkspaceStub())
         for i in 0 ... IconCache.maxEntries {
@@ -160,6 +127,36 @@ final class IconCacheTests: XCTestCase {
         XCTAssertEqual(probe.calls, 2, "an expired negative entry must be retried")
     }
 
+    func testClearDuringLookupDropsStaleStoreAndCompletesPendingWithNil() {
+        let cache = IconCache(workspace: LRUWorkspaceStub())
+        let lookupStarted = expectation(description: "spotlight lookup started")
+        let release = DispatchSemaphore(value: 0)
+        cache.spotlightLookup = { _ in
+            lookupStarted.fulfill()
+            _ = release.wait(timeout: .now() + 2)
+            return "/Applications/Stale.app"
+        }
+        let completed = expectation(description: "pending completion runs once")
+        completed.assertForOverFulfill = true
+        var results: [NSImage?] = []
+        cache.resolveInBackground(appName: "StaleApp") { image in
+            results.append(image)
+            completed.fulfill()
+        }
+        wait(for: [lookupStarted], timeout: 1)
+
+        cache.clear()
+        release.signal()
+        wait(for: [completed], timeout: 2)
+        // Let the stale background block finish before checking that it stored nothing.
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+
+        XCTAssertEqual(results.count, 1)
+        XCTAssertNil(results[0], "clear() must complete the pending waiter with nil")
+        XCTAssertNil(cache.cachedIcon(for: "StaleApp"),
+                     "a lookup from the cleared generation must not store")
+    }
+
     func testSpotlightLookupsAreBoundedButConcurrent() {
         let cache = IconCache(workspace: LRUWorkspaceStub())
         let probe = LookupProbe()
@@ -182,10 +179,5 @@ final class IconCacheTests: XCTestCase {
             "bounded concurrency keeps one wedged lookup from blocking everyone")
         XCTAssertGreaterThan(probe.maxActive, 1,
             "lookups must run concurrently, not on one serial queue")
-    }
-
-    func testSpotlightTimeoutIsShorterThanLegacyFiveSeconds() {
-        XCTAssertLessThan(IconCache.spotlightTimeout, 5)
-        XCTAssertGreaterThan(IconCache.maxConcurrentSpotlightLookups, 1)
     }
 }

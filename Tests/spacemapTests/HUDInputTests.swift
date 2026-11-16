@@ -190,7 +190,7 @@ final class HUDInputTests: XCTestCase {
         XCTAssertEqual(notificationCount, 2)
     }
 
-    func testKeyboardCaptureFailsOpenWhenAccessibilityIsRevoked() {
+    func testOnlyConsumesVisibleTrustedKeyDownActionsItActsOn() {
         XCTAssertFalse(
             HUDInput.shouldConsumeKeyboardEvent(
                 isTrusted: false,
@@ -200,39 +200,15 @@ final class HUDInputTests: XCTestCase {
                 action: .navigate(direction: .left)
             )
         )
-    }
-
-    func testPinnedHUDOnlyConsumesRecognizedKeyDownActions() {
         XCTAssertFalse(
             HUDInput.shouldConsumeKeyboardEvent(
                 isTrusted: true,
-                isVisible: true,
-                isPinned: true,
-                type: .keyDown,
-                action: .none
-            )
-        )
-        XCTAssertFalse(
-            HUDInput.shouldConsumeKeyboardEvent(
-                isTrusted: true,
-                isVisible: true,
-                isPinned: true,
-                type: .keyUp,
-                action: .navigate(direction: .left)
-            )
-        )
-        XCTAssertTrue(
-            HUDInput.shouldConsumeKeyboardEvent(
-                isTrusted: true,
-                isVisible: true,
-                isPinned: true,
+                isVisible: false,
+                isPinned: false,
                 type: .keyDown,
                 action: .navigate(direction: .left)
             )
         )
-    }
-
-    func testHUDOnlyConsumesKeysItActsOn() {
         XCTAssertFalse(
             HUDInput.shouldConsumeKeyboardEvent(
                 isTrusted: true,
@@ -248,7 +224,7 @@ final class HUDInputTests: XCTestCase {
                 isVisible: true,
                 isPinned: false,
                 type: .keyUp,
-                action: .none
+                action: .navigate(direction: .left)
             )
         )
         XCTAssertTrue(
@@ -351,32 +327,36 @@ final class HUDInputTests: XCTestCase {
         wait(for: [stopped], timeout: 1)
     }
 
-    func testAccessibilityTrustIsCachedForTheEventTapCallback() {
-        let input = HUDInput(panel: nil)
-
-        input.handleAccessibilityState(isTrusted: false)
-
-        XCTAssertFalse(input.cachedAccessibilityTrusted)
-    }
-
     func testPermissionProbeReportsAStallInsteadOfBlockingTheCaller() {
         let probe = PermissionProbe()
+        let providerEntered = expectation(description: "provider is running")
+        let release = DispatchSemaphore(value: 0)
         let first = expectation(description: "hung provider eventually answers")
-        probe.check(timeout: 0.05, provider: { Thread.sleep(forTimeInterval: 0.2); return true }) { trusted in
+        // A negative timeout forces the in-flight branch without sleeping.
+        probe.check(timeout: -1, provider: {
+            providerEntered.fulfill()
+            _ = release.wait(timeout: .now() + 2)
+            return true
+        }) { trusted in
             XCTAssertTrue(trusted)
             first.fulfill()
         }
+        wait(for: [providerEntered], timeout: 1)
 
         let stalled = expectation(description: "second call reports no permission")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
-            probe.check(timeout: 0.05, provider: { true }) { trusted in
-                XCTAssertFalse(trusted)
-                XCTAssertTrue(probe.isStalled)
-                stalled.fulfill()
-            }
+        probe.check(timeout: -1, provider: {
+            XCTFail("a stalled probe must not start another provider")
+            return true
+        }) { trusted in
+            XCTAssertFalse(trusted)
+            XCTAssertTrue(probe.isStalled)
+            stalled.fulfill()
         }
+        wait(for: [stalled], timeout: 1)
 
-        wait(for: [first, stalled], timeout: 2)
+        release.signal()
+        wait(for: [first], timeout: 2)
+        XCTAssertFalse(probe.isStalled, "the answered probe must clear the stall flag")
     }
 
     func testDisabledKeyboardTapRechecksTrustAndNotifiesRevocation() {

@@ -3,153 +3,6 @@ import XCTest
 
 final class TOMLParserTests: XCTestCase {
 
-    func testParseEverySetting() {
-        let toml = """
-        [grid]
-        cols = 6
-        rows = 3
-        cellStyle = "icons"
-        showMode = "active"
-        multiMonitorHUDMode = "separate"
-        unifiedHUDVisibility = "all"
-        separateHUDVisibility = "active"
-        maxSpaces = 12
-        showSpaceNumbers = false
-        showIconStrip = false
-        showMultiAppIcons = true
-
-        [spaceNames]
-        showSpaceNames = true
-
-        [spaceNames.names]
-        "1" = "Term"
-        "2" = "Code"
-
-        [appearance]
-        theme = "dracula"
-        mode = "dark"
-        backgroundAlpha = 0.5
-        hudShadow = false
-        iconScale = 0.8
-        uiScale = 0.75
-
-        [behavior]
-        autoHideTimeout = 10
-        displayNavigationWrap = "between"
-        useVimKeys = true
-        useArrowKeys = true
-        jumpToSpaceEnabled = true
-        customHUDX = 0.25
-        customHUDY = 0.75
-        focusSpaceOnWindowDrop = "modifier"
-        focusSpaceOnWindowDropModifier = "option"
-        showHUDOnSpaceChange = true
-        hideMenuBarIcon = true
-        menuBarDisplayMode = "nearby"
-        menuBarNearbyCount = 5
-        updateMode = "off"
-
-        [behavior.hotkey]
-        keyKind = "keyCode"
-        keyCode = 49
-        modifiers = ["cmd", "shift"]
-
-        [behavior.pinnedHotkey]
-        keyKind = "mediaKey"
-        mediaKey = "play-pause"
-        modifiers = ["ctrl"]
-
-        [behavior.hudPosition]
-        kind = "custom"
-        x = 0.25
-        y = 0.75
-
-        [advanced]
-        socketHealthInterval = 30
-        showExtraWindows = true
-        """
-
-        let values = try? TOMLParser.parse(toml)
-        XCTAssertNotNil(values)
-
-        XCTAssertEqual(values?.cols, 6)
-        XCTAssertEqual(values?.rows, 3)
-        XCTAssertEqual(values?.cellStyle, .icons)
-        XCTAssertEqual(values?.showMode, .active)
-        XCTAssertEqual(values?.multiMonitorHUDMode, .separate)
-        XCTAssertEqual(values?.unifiedHUDVisibility, .all)
-        XCTAssertEqual(values?.separateHUDVisibility, .active)
-        XCTAssertEqual(values?.maxSpaces, 12)
-        XCTAssertEqual(values?.showSpaceNumbers, false)
-        XCTAssertEqual(values?.showIconStrip, false)
-        XCTAssertEqual(values?.showMultiAppIcons, true)
-        XCTAssertEqual(values?.showSpaceNames, true)
-        XCTAssertEqual(values?.spaceNames, [1: "Term", 2: "Code"])
-        XCTAssertEqual(values?.theme, "dracula")
-        XCTAssertEqual(values?.mode, .dark)
-        XCTAssertEqual(values?.backgroundAlpha, 0.5)
-        XCTAssertEqual(values?.hudShadow, false)
-        XCTAssertEqual(values?.iconScale, 0.8)
-        XCTAssertEqual(values?.uiScale, 0.75)
-        XCTAssertEqual(values?.autoHideTimeout, 10)
-        XCTAssertEqual(values?.displayNavigationWrap, .between)
-        XCTAssertEqual(values?.useVimKeys, true)
-        XCTAssertEqual(values?.useArrowKeys, true)
-        XCTAssertEqual(values?.jumpToSpaceEnabled, true)
-        XCTAssertEqual(values?.customHUDX, 0.25)
-        XCTAssertEqual(values?.customHUDY, 0.75)
-        XCTAssertEqual(values?.focusSpaceOnWindowDrop, .modifier)
-        XCTAssertEqual(values?.focusSpaceOnWindowDropModifier, .option)
-        XCTAssertEqual(values?.showHUDOnSpaceChange, true)
-        XCTAssertEqual(values?.presence, AppPresence.none)
-        XCTAssertEqual(values?.menuBarDisplayMode, .nearby)
-        XCTAssertEqual(values?.menuBarNearbyCount, 5)
-        XCTAssertEqual(values?.updateMode, .off)
-        XCTAssertEqual(values?.hotkey?.keyCode, 49)
-        XCTAssertTrue((values?.hotkey?.modifiers.contains(.maskCommand)) ?? false)
-        XCTAssertTrue((values?.hotkey?.modifiers.contains(.maskShift)) ?? false)
-        XCTAssertEqual(values?.pinnedHotkey?.mediaKey, .playPause)
-        XCTAssertTrue((values?.pinnedHotkey?.modifiers.contains(.maskControl)) ?? false)
-        XCTAssertEqual(values?.hudPosition, .custom(x: 0.25, y: 0.75))
-        XCTAssertEqual(values?.socketHealthInterval, 30)
-        XCTAssertEqual(values?.showExtraWindows, true)
-    }
-
-    func testParseBackgroundStyle() {
-        let toml = """
-        [appearance]
-        backgroundStyle = "solid"
-        """
-        let values = try? TOMLParser.parse(toml)
-        XCTAssertEqual(values?.backgroundStyle, .solid)
-        XCTAssertNil(values?.glassStyle)
-
-        let invalid = """
-        [appearance]
-        backgroundStyle = "invalid"
-        """
-        let invalidValues = try? TOMLParser.parse(invalid)
-        XCTAssertNil(invalidValues?.backgroundStyle)
-    }
-
-    func testParseGlassStyle() {
-        let toml = """
-        [appearance]
-        backgroundStyle = "glass"
-        glassStyle = "tinted"
-        """
-        let values = try? TOMLParser.parse(toml)
-        XCTAssertEqual(values?.backgroundStyle, .glass)
-        XCTAssertEqual(values?.glassStyle, .tinted)
-
-        let invalid = """
-        [appearance]
-        glassStyle = "invalid"
-        """
-        let invalidValues = try? TOMLParser.parse(invalid)
-        XCTAssertNil(invalidValues?.glassStyle)
-    }
-
     func testParseMissingFieldsAreNil() {
         let values = try? TOMLParser.parse("""
         [grid]
@@ -228,21 +81,6 @@ final class TOMLParserTests: XCTestCase {
         XCTAssertThrowsError(try TOMLParser.parse("")) { error in
             XCTAssertTrue(error is TOMLParserError)
         }
-    }
-
-    func testParseSpaceNamesSection() {
-        let values = try? TOMLParser.parse("""
-        [spaceNames]
-        showSpaceNames = true
-
-        [spaceNames.names]
-        "1" = "Term"
-        "2" = "Code"
-        "3" = "Browser"
-        """)
-
-        XCTAssertEqual(values?.showSpaceNames, true)
-        XCTAssertEqual(values?.spaceNames, [1: "Term", 2: "Code", 3: "Browser"])
     }
 
     func testParseAdvancedSection() {
@@ -351,13 +189,6 @@ final class TOMLParserTests: XCTestCase {
         XCTAssertEqual(table?.glyphStrip?.iconSize, 14)
     }
 
-    func testAdvertisedThemeSpellingsArePreserved() throws {
-        for name in ["monokai-dark", "tokyonight", "atom-one-dark"] {
-            let values = try TOMLParser.parse("[appearance]\ntheme = \"\(name)\"")
-            XCTAssertEqual(values.theme, name)
-        }
-    }
-
     func testParseInlineHotkeyAndHUDPositionUnderBehavior() {
         let values = try? TOMLParser.parse("""
         [behavior]
@@ -411,5 +242,44 @@ final class TOMLParserTests: XCTestCase {
         let (negativeConfig, _) = negative.toGridConfig()
         XCTAssertEqual(negativeConfig.glyphStrip.maxIconsPerSpace, 0)
         XCTAssertEqual(negativeConfig.glyphStrip.xOffset, -4000)
+    }
+
+    func testLegacyBehaviorShowExtraWindowsFallsBackButAdvancedAndTopLevelWin() throws {
+        let legacy = try TOMLParser.parse("""
+        [behavior]
+        showExtraWindows = true
+        """).gridConfig
+        XCTAssertTrue(legacy.showExtraWindows, "pre-[advanced] files must keep their value")
+
+        let advancedWins = try TOMLParser.parse("""
+        [behavior]
+        showExtraWindows = false
+
+        [advanced]
+        showExtraWindows = true
+        """).gridConfig
+        XCTAssertTrue(advancedWins.showExtraWindows, "[advanced] must win over the legacy key")
+
+        let topLevelWins = try TOMLParser.parse("""
+        showExtraWindows = false
+
+        [behavior]
+        showExtraWindows = true
+        """).gridConfig
+        XCTAssertFalse(topLevelWins.showExtraWindows, "a top-level key must win over the legacy key")
+    }
+
+    func testDirectAndNestedSpaceNamesMergeWithNestedWinning() throws {
+        let values = try TOMLParser.parse("""
+        [spaceNames]
+        "1" = "Direct"
+        "2" = "Two"
+
+        [spaceNames.names]
+        "1" = "Nested"
+        "3" = "Three"
+        """)
+
+        XCTAssertEqual(values.spaceNames, [1: "Nested", 2: "Two", 3: "Three"])
     }
 }

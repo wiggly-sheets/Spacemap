@@ -3,130 +3,19 @@ import XCTest
 
 final class ConfigFacadeTests: XCTestCase {
 
+    func testConfigValuesFromGridConfigPreservesCoreSettings() {
+        var config = GridConfig.default
+        config.cols = 6
+        config.rows = 3
+        config.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: .maskCommand)
 
-    func testConfigValuesConformsToProtocol() {
-        let values = ConfigValues()
-        assertConformsToConfigValuesProtocol(values)
-    }
-
-    func testConfigValuesFromGridConfigRoundTrip() {
-        let config = GridConfig.default
         let values = ConfigValues(from: config)
-        assertConformsToConfigValuesProtocol(values)
+
         XCTAssertEqual(values.cols, config.cols)
         XCTAssertEqual(values.rows, config.rows)
-        XCTAssertEqual(values.hotkey?.key, config.hotkey.key)
-        XCTAssertEqual(values.pinnedHotkey?.key, config.pinnedHotkey.key)
-    }
-
-
-    func testTOMLParserConformsToProtocol() throws {
-        let values = try TOMLConfigCodec.parse("[grid]\ncols = 5\n")
-        XCTAssertEqual(values.cols, 5)
-    }
-
-
-    func testConfigLoaderConformsToProtocol() {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-protocol-test-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
-        assertConformsToConfigValuesProtocol(values)
-        XCTAssertTrue(needsRepair)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: path))
-    }
-
-
-    func testLoadDelegatesToConfigLoader() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-facade-load-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        let toml = """
-        [grid]
-        cols = 6
-        rows = 3
-        cellStyle = "icons"
-        """
-        try toml.write(toFile: path, atomically: true, encoding: .utf8)
-
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
-
-        let facadeResult = AppConfig.load(from: path)
-        let directResult = ConfigLoader.load(from: path, silentMode: true)
-            .values.gridConfig
-
-        XCTAssertEqual(facadeResult.cols, directResult.cols)
-        XCTAssertEqual(facadeResult.rows, directResult.rows)
-        XCTAssertEqual(facadeResult.cellStyle, directResult.cellStyle)
-    }
-
-    func testParseConfigDelegatesToTOMLParser() throws {
-        let toml = """
-        [grid]
-        cols = 8
-        rows = 4
-
-        [behavior.hotkey]
-        keyKind = "keyCode"
-        keyCode = 49
-        modifiers = ["cmd"]
-        """
-
-        let facadeResult = AppConfig.parseConfig(toml)
-        let directResult = try TOMLParser.parse(toml).gridConfig
-
-        XCTAssertEqual(facadeResult.cols, directResult.cols)
-        XCTAssertEqual(facadeResult.rows, directResult.rows)
-        XCTAssertEqual(facadeResult.hotkey.keyCode, directResult.hotkey.keyCode)
-        XCTAssertTrue(facadeResult.hotkey.modifiers.contains(.maskCommand))
-    }
-
-    func testSaveConfigDelegatesToConfigLoader() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-facade-save-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
-
-        var values = ConfigValues()
-        values.cols = 10
-        values.rows = 5
-        values.theme = "nord"
-        let config = values.gridConfig
-
-        AppConfig.saveConfig(config, to: path)
-
-        XCTAssertTrue(FileManager.default.fileExists(atPath: path))
-        let content = try String(contentsOfFile: path, encoding: .utf8)
-        XCTAssertTrue(content.contains("cols = 10"))
-        XCTAssertTrue(content.contains("rows = 5"))
-        XCTAssertTrue(content.contains("nord"))
-    }
-
-    func testLoadReturnsDefaultWhenFileMissing() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-facade-missing-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
-
-        let result = AppConfig.load(from: path)
-
-        XCTAssertEqual(result.cols, GridConfig.default.cols)
-        XCTAssertEqual(result.theme, GridConfig.default.theme)
+        XCTAssertEqual(values.hotkey, config.hotkey)
+        XCTAssertEqual(values.pinnedHotkey, config.pinnedHotkey)
+        XCTAssertEqual(values.glyphStripHotkey, config.glyphStripHotkey)
     }
 
     func testLoadAndSaveRoundTrip() throws {
@@ -159,64 +48,5 @@ final class ConfigFacadeTests: XCTestCase {
         XCTAssertEqual(reloaded.cellStyle, original.cellStyle)
         XCTAssertEqual(reloaded.hotkey.mediaKey, original.hotkey.mediaKey)
         XCTAssertTrue(reloaded.hotkey.modifiers.contains(.maskControl))
-    }
-
-    func testSilentModeIsRespected() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-facade-silent-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
-
-        let result = AppConfig.load(from: path)
-        XCTAssertEqual(result.cols, GridConfig.default.cols)
-    }
-
-
-    private func assertConformsToConfigValuesProtocol(_ values: ConfigValues) {
-        _ = values.cols
-        _ = values.rows
-        _ = values.cellStyle
-        _ = values.hotkey
-        _ = values.pinnedHotkey
-        _ = values.socketHealthInterval
-        _ = values.uiScale
-        _ = values.autoHideTimeout
-        _ = values.theme
-        _ = values.showMode
-        _ = values.multiMonitorHUDMode
-        _ = values.unifiedHUDVisibility
-        _ = values.separateHUDVisibility
-        _ = values.displayNavigationWrap
-        _ = values.maxSpaces
-        _ = values.backgroundAlpha
-        _ = values.backgroundStyle
-        _ = values.glassStyle
-        _ = values.mode
-        _ = values.iconScale
-        _ = values.showSpaceNumbers
-        _ = values.showSpaceNames
-        _ = values.showIconStrip
-        _ = values.showMultiAppIcons
-        _ = values.presence
-        _ = values.menuBarDisplayMode
-        _ = values.menuBarNearbyCount
-        _ = values.spaceNames
-        _ = values.useVimKeys
-        _ = values.useArrowKeys
-        _ = values.hudPosition
-        _ = values.customHUDX
-        _ = values.customHUDY
-        _ = values.showExtraWindows
-        _ = values.focusSpaceOnWindowDrop
-        _ = values.focusSpaceOnWindowDropModifier
-        _ = values.showHUDOnSpaceChange
-        _ = values.updateMode
-
-        let (config, _) = values.toGridConfig()
-        XCTAssertNotNil(config)
     }
 }

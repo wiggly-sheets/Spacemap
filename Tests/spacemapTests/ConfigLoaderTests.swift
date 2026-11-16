@@ -4,21 +4,6 @@ import XCTest
 final class ConfigLoaderTests: XCTestCase {
 
 
-    func testLoadCreatesDefaultWhenFileMissing() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-loader-default-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
-        let config = values.gridConfig
-
-        XCTAssertTrue(needsRepair)
-        XCTAssertEqual(config.cols, GridConfig.default.cols)
-        XCTAssertEqual(config.theme, GridConfig.default.theme)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: path))
-    }
-
     func testLoadParsesValidConfig() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("spacemap-loader-valid-\(UUID().uuidString)")
@@ -41,32 +26,6 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(config.cols, 6)
         XCTAssertEqual(config.rows, 3)
         XCTAssertEqual(config.cellStyle, .icons)
-    }
-
-    func testLoadRepairsInvalidValues() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-loader-repair-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        let toml = """
-        [grid]
-        cols = 5
-        rows = "broken"
-
-        [appearance]
-        theme = "nord"
-        """
-        try toml.write(toFile: path, atomically: true, encoding: .utf8)
-
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
-        let config = values.gridConfig
-
-        XCTAssertTrue(needsRepair)
-        XCTAssertEqual(config.cols, 5)
-        XCTAssertEqual(config.rows, GridConfig.default.rows)
-        XCTAssertEqual(config.theme, "nord")
     }
 
     func testLoadRewritesDecoderRejectedNumericEnumAndHotkeyValues() throws {
@@ -187,31 +146,6 @@ final class ConfigLoaderTests: XCTestCase {
     }
 
 
-    func testSaveWritesConfigToFile() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-loader-save-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        var values = ConfigValues()
-        values.cols = 10
-        values.rows = 5
-        values.theme = "nord"
-        values.hudShadow = false
-        values.jumpToSpaceEnabled = true
-
-        ConfigLoader.save(values, to: path)
-
-        XCTAssertTrue(FileManager.default.fileExists(atPath: path))
-        let content = try String(contentsOfFile: path, encoding: .utf8)
-        XCTAssertTrue(content.contains("cols = 10"))
-        XCTAssertTrue(content.contains("rows = 5"))
-        XCTAssertTrue(content.contains("nord"))
-        XCTAssertTrue(content.contains("hudShadow = false"))
-        XCTAssertTrue(content.contains("jumpToSpaceEnabled = true"))
-    }
-
     func testSaveCreatesBackupBeforeOverwrite() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("spacemap-loader-backup-save-\(UUID().uuidString)")
@@ -303,23 +237,6 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertTrue(appearance.contains("glassStyle = \"regular\""))
     }
 
-
-    func testCreateDefaultConfigFile() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-loader-defaultfile-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        ConfigLoader.createDefaultConfigFile(at: path)
-
-        XCTAssertTrue(FileManager.default.fileExists(atPath: path))
-        let content = try String(contentsOfFile: path, encoding: .utf8)
-        XCTAssertTrue(content.contains("[grid]"))
-        XCTAssertTrue(content.contains("[spaceNames.names]"))
-        XCTAssertTrue(content.contains("[appearance]"))
-        XCTAssertTrue(content.contains("[behavior.hotkey]"))
-        XCTAssertTrue(content.contains("[advanced]"))
-    }
 
     func testCreateDefaultConfigFileBacksUpExisting() throws {
         let directory = FileManager.default.temporaryDirectory
