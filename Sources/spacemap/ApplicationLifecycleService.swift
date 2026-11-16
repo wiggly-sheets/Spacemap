@@ -227,7 +227,10 @@ final class ApplicationLifecycleService {
                 }
             },
             onToggle: { [weak self] in DispatchQueue.main.async { self?.hud.toggle() } },
-            onSettings: { [weak self] in DispatchQueue.main.async { self?.services.showSettingsWindow() } }
+            onSettings: { [weak self] in DispatchQueue.main.async { self?.services.showSettingsWindow() } },
+            onReloadConfig: { [weak self] in
+                DispatchQueue.main.async { self?.applyConfigReplacedExternally() }
+            }
         )
         // stop() preserves the nonce, but rebuilding the listener is the
         // moment to re-embed it: a previous registration may have captured a
@@ -277,6 +280,13 @@ final class ApplicationLifecycleService {
                 self.services.refreshMenubarPreview()
             }
         }
+    }
+
+    /// An external process replaced config.toml (CLI preset switch). Re-apply
+    /// the file; an open Settings window rebuilds on the second notification.
+    private func applyConfigReplacedExternally() {
+        NotificationCenter.default.post(name: .settingsChanged, object: nil)
+        NotificationCenter.default.post(name: .configReplacedExternally, object: nil)
     }
 
     private func setupSettingsObserver() {

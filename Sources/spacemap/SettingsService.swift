@@ -11,6 +11,7 @@ final class SettingsService {
     private let restingActivationPolicy: () -> NSApplication.ActivationPolicy
     private var settingsWindowController: SettingsWindowController?
     private var settingsWindowCloseObserver: NSObjectProtocol?
+    private var configReplacedObserver: NSObjectProtocol?
     private(set) var aboutWindowController: AboutWindowController?
 
     init(
@@ -23,10 +24,31 @@ final class SettingsService {
         self.checkForUpdates = checkForUpdates
         self.restoreFloatingPanels = restoreFloatingPanels
         self.restingActivationPolicy = restingActivationPolicy
+        configReplacedObserver = NotificationCenter.default.addObserver(
+            forName: .configReplacedExternally,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.rebuildSettingsWindowIfOpen()
+        }
     }
 
     deinit {
         removeSettingsWindowCloseObserver()
+        if let configReplacedObserver {
+            NotificationCenter.default.removeObserver(configReplacedObserver)
+        }
+    }
+
+    /// A preset apply or import replaced config.toml under an open window. Every
+    /// control still holds the old values, and the next change would save them
+    /// back over the replacement. Rebuild the window from the new file.
+    private func rebuildSettingsWindowIfOpen() {
+        guard settingsWindowController != nil else { return }
+        removeSettingsWindowCloseObserver()
+        settingsWindowController?.close()
+        settingsWindowController = nil
+        showSettingsWindow()
     }
 
     func showSettingsWindow() {

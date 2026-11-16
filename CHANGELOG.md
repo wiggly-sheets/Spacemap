@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Config presets: a preset is one complete config.toml under `~/.config/spacemap/presets/`, applied from Settings > Advanced > Config Presets or with `spacemap --config-preset NAME`. Switching saves the current settings into the outgoing preset first, so edits made while a preset is active survive the next switch. Create a preset from the current config, from defaults, or from another preset.
+- Import and export a full config file from Settings > Advanced. Exports leave out font install state, which is machine state rather than taste.
+
 ## [2.0.0] - 2026-11-16
 
 ### Added

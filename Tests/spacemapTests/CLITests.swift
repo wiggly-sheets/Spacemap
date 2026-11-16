@@ -57,6 +57,19 @@ final class CLITests: XCTestCase {
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--restarting"]), .none)
     }
 
+    func testParsesConfigPresetAndRejectsMissingOrUnsafeNames() {
+        XCTAssertEqual(
+            CLI.parse(arguments: ["spacemap", "--config-preset", "My Work"]),
+            .command(.configPreset("My Work"))
+        )
+        guard case .error = CLI.parse(arguments: ["spacemap", "--config-preset"]) else {
+            return XCTFail("Expected missing preset name error")
+        }
+        guard case .error = CLI.parse(arguments: ["spacemap", "--config-preset", "../escape"]) else {
+            return XCTFail("Expected unsafe preset name error")
+        }
+    }
+
     func testVersionLineUsesTheSharedVersionSource() {
         XCTAssertEqual(CLI.versionLine(shortVersion: "1.2.3"), "Spacemap 1.2.3")
         XCTAssertEqual(CLI.versionLine(shortVersion: nil), "Spacemap Unknown")

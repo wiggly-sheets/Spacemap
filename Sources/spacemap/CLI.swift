@@ -6,6 +6,7 @@ enum CLICommand: Equatable {
     case config
     case trigger
     case focusSpace(SpaceFocusTarget)
+    case configPreset(String)
 }
 
 enum CLIParseResult: Equatable {
@@ -31,6 +32,9 @@ final class CLI {
                          SELECTOR: 1-16, prev, next, first, last,
                                    recent, mouse, or a space label
       --config           Open the config file in the default editor and exit
+      --config-preset NAME
+                         Apply a config preset from ~/.config/spacemap/presets
+                         and exit (the running app reloads immediately)
       --help             Print this help and exit
 
     Without any options, Spacemap launches and waits for its configured hotkey.
@@ -51,6 +55,14 @@ final class CLI {
                 return .command(.focusSpace(target))
             case "--version":
                 return .command(.version)
+            case "--config-preset":
+                let next = index + 1
+                guard next < arguments.endIndex,
+                      !arguments[next].hasPrefix("-"),
+                      ConfigPresetStore.sanitizedName(arguments[next]) != nil else {
+                    return .error("--config-preset requires a preset name (letters, digits, spaces, - or _)")
+                }
+                return .command(.configPreset(arguments[next]))
             case "--help":
                 return .command(.help)
             case "--config":
@@ -110,6 +122,14 @@ final class CLI {
         case .command(.focusSpace(let target)):
             guard yabaiService.focusSpace(target) else { return 1 }
             do { try SpacemapCommand.show.send() } catch { fputs("spacemap: \(error)\n", stderr); return 1 }
+            return 0
+        case .command(.configPreset(let name)):
+            guard ConfigPresetStore.shared.apply(name) else {
+                fputs("spacemap: no preset named \"\(name)\" in \(ConfigPresetStore.defaultDirectory)\n", stderr)
+                return 1
+            }
+            // No running app: the next launch reads the new config anyway.
+            try? SpacemapCommand.reloadConfig.send()
             return 0
         }
     }

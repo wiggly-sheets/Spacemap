@@ -50,6 +50,7 @@ extension SettingsView.SidebarSection {
             return [
                 SettingsSubsection(id: "advanced.permissions", title: "Permissions"),
                 SettingsSubsection(id: "advanced.diagnostics", title: "Diagnostics"),
+                SettingsSubsection(id: "advanced.presets", title: "Config Presets"),
             ]
         }
     }

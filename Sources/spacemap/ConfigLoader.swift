@@ -175,6 +175,17 @@ enum ConfigLoader {
         saveReportingResult(ConfigValues(from: config), to: path)
     }
 
+    /// Read-only text access with the same guards as `load`, but it never
+    /// creates or repairs: presets and exports are user files, not the config.
+    static func readText(at path: String) -> String? {
+        guard !isSymlink(at: path),
+              let read = nofollowData(at: path, limit: maxConfigBytes),
+              !read.exceeded,
+              var text = String(data: read.data, encoding: .utf8) else { return nil }
+        if text.hasPrefix("\u{FEFF}") { text = String(text.dropFirst()) }
+        return text
+    }
+
     /// Atomic read-modify-write of the on-disk config. Prefer this over a
     /// separate `load` + `save` pair so concurrent writers cannot drop each
     /// other's changes.

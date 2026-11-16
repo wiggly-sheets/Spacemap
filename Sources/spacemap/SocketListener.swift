@@ -8,6 +8,7 @@ final class SocketListener {
     private let onShow: () -> Void
     private let onToggle: () -> Void
     private let onSettings: () -> Void
+    private let onReloadConfig: () -> Void
     private var serverFd: Int32 = -1
     private var source: DispatchSourceRead?
     private var healthTimer: DispatchSourceTimer?
@@ -39,7 +40,8 @@ final class SocketListener {
         onRefresh: @escaping () -> Void,
         onShow: @escaping () -> Void,
         onToggle: @escaping () -> Void,
-        onSettings: @escaping () -> Void
+        onSettings: @escaping () -> Void,
+        onReloadConfig: @escaping () -> Void = {}
     ) {
         self.socketPath = socketPath
         self.healthInterval = healthInterval
@@ -48,6 +50,7 @@ final class SocketListener {
         self.onShow = onShow
         self.onToggle = onToggle
         self.onSettings = onSettings
+        self.onReloadConfig = onReloadConfig
         listenerQueue.setSpecific(key: queueKey, value: ())
         guard SpacemapCommand.validatedSocketPath(socketPath) != nil else {
             fputs("spacemap/SocketListener: refusing invalid socket path\n", stderr)
@@ -167,6 +170,9 @@ final class SocketListener {
         }
         if byte == SpacemapCommand.health.rawValue || byte == Character("5").asciiValue {
             return .health
+        }
+        if byte == SpacemapCommand.reloadConfig.rawValue || byte == Character("6").asciiValue {
+            return .reloadConfig
         }
         return .refresh
     }
@@ -521,6 +527,8 @@ final class SocketListener {
             self.onToggle()
         case .refresh:
             self.onRefresh()
+        case .reloadConfig:
+            self.onReloadConfig()
         case .health:
             break
         }

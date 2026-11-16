@@ -19,6 +19,7 @@
 		a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1163b404-cded-465d-f401-009884f352d3 /* CLIToolsService.swift */; };
 		118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */; };
 		fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = afd5b8c3-56cd-b1ab-897f-a7676bd15d3f /* ConfigLoader.swift */; };
+		781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2f4a5792-7e50-2c66-a3b6-78ab5b6f0b49 /* ConfigPresetStore.swift */; };
 		367d3dd3-2476-6295-d895-1a19b48de6c9 /* ConfigValues.swift in Sources */ = {isa = PBXBuildFile; fileRef = dfb53996-30bd-eb6c-d945-d4d69726b68f /* ConfigValues.swift */; };
 		28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46166bf5-f702-94da-7579-b932374e63e8 /* ConfigurationModels.swift */; };
 		a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */; };
@@ -101,6 +102,7 @@
 		1163b404-cded-465d-f401-009884f352d3 /* CLIToolsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIToolsService.swift; sourceTree = "<group>"; };
 		240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CellView.swift; sourceTree = "<group>"; };
 		afd5b8c3-56cd-b1ab-897f-a7676bd15d3f /* ConfigLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigLoader.swift; sourceTree = "<group>"; };
+		2f4a5792-7e50-2c66-a3b6-78ab5b6f0b49 /* ConfigPresetStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigPresetStore.swift; sourceTree = "<group>"; };
 		dfb53996-30bd-eb6c-d945-d4d69726b68f /* ConfigValues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigValues.swift; sourceTree = "<group>"; };
 		46166bf5-f702-94da-7579-b932374e63e8 /* ConfigurationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationModels.swift; sourceTree = "<group>"; };
 		ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLink.swift; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 				1163b404-cded-465d-f401-009884f352d3 /* CLIToolsService.swift */,
 				240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */,
 				afd5b8c3-56cd-b1ab-897f-a7676bd15d3f /* ConfigLoader.swift */,
+				2f4a5792-7e50-2c66-a3b6-78ab5b6f0b49 /* ConfigPresetStore.swift */,
 				dfb53996-30bd-eb6c-d945-d4d69726b68f /* ConfigValues.swift */,
 				46166bf5-f702-94da-7579-b932374e63e8 /* ConfigurationModels.swift */,
 				ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */,
@@ -480,6 +483,7 @@
 				a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
+				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
 				367d3dd3-2476-6295-d895-1a19b48de6c9 /* ConfigValues.swift in Sources */,
 				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
@@ -563,6 +567,7 @@
 				a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
+				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
 				367d3dd3-2476-6295-d895-1a19b48de6c9 /* ConfigValues.swift in Sources */,
 				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
@@ -646,6 +651,7 @@
 				a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
+				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
 				367d3dd3-2476-6295-d895-1a19b48de6c9 /* ConfigValues.swift in Sources */,
 				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
@@ -729,6 +735,7 @@
 				a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
+				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
 				367d3dd3-2476-6295-d895-1a19b48de6c9 /* ConfigValues.swift in Sources */,
 				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,

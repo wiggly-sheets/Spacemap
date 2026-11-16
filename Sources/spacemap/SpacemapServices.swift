@@ -194,7 +194,8 @@ final class SpacemapServices {
         onRefresh: @escaping () -> Void,
         onShow: @escaping () -> Void,
         onToggle: @escaping () -> Void,
-        onSettings: @escaping () -> Void
+        onSettings: @escaping () -> Void,
+        onReloadConfig: @escaping () -> Void = {}
     ) -> SocketListener {
         SocketListener(
             socketPath: socketPath,
@@ -202,7 +203,8 @@ final class SpacemapServices {
             onRefresh: onRefresh,
             onShow: onShow,
             onToggle: onToggle,
-            onSettings: onSettings
+            onSettings: onSettings,
+            onReloadConfig: onReloadConfig
         )
     }
 }
