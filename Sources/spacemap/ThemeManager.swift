@@ -115,6 +115,36 @@ class ThemeManager {
         return ext == "smthemes" || ext == "toml"
     }
 
+    /// Read-only themes shipped in the app bundle. A user file with the same
+    /// name wins, so editing or reinstalling a bundled theme works normally.
+    static func bundledThemes() -> [String: AppTheme] {
+        bundledThemeFiles().reduce(into: [:]) { result, url in
+            let name = normalizedName(url.deletingPathExtension().lastPathComponent)
+            if let theme = parseTheme(from: url) {
+                result[name] = theme
+            }
+        }
+    }
+
+    static func bundledThemeFiles() -> [URL] {
+        guard let root = Bundle.main.resourceURL?.appendingPathComponent("Themes"),
+              let files = try? FileManager.default.contentsOfDirectory(
+                at: root,
+                includingPropertiesForKeys: nil
+              ) else { return [] }
+        return files.filter(Self.isThemeFile).sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// Immutable snapshot so listing hundreds of catalog entries does not
+    /// re-read the bundle.
+    static let bundledNames: Set<String> = Set(bundledThemeFiles().map {
+        normalizedName($0.deletingPathExtension().lastPathComponent)
+    })
+
+    static func isBundledTheme(_ name: String) -> Bool {
+        bundledNames.contains(normalizedName(name))
+    }
+
     static func themesDir() -> URL {
         URL(fileURLWithPath: NSString(string: "~/.config/spacemap/themes").expandingTildeInPath)
     }
@@ -137,17 +167,22 @@ class ThemeManager {
         let themeFiles = files
             .filter { Self.isThemeFile($0) }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
-        if themeFiles.count > 64 {
-            NSLog("spacemap/ThemeManager: dropped %d theme files beyond 64", themeFiles.count - 64)
+        if themeFiles.count > 256 {
+            NSLog("spacemap/ThemeManager: dropped %d theme files beyond 256", themeFiles.count - 256)
         }
 
         var loaded: [String: AppTheme] = [:]
-        for file in themeFiles.prefix(64) {
+        for file in themeFiles.prefix(256) {
             let name = Self.normalizedName(file.deletingPathExtension().lastPathComponent)
-            if let theme = parseTheme(from: file) {
+            if let theme = Self.parseTheme(from: file) {
                 loaded[name] = theme
             } else {
                 NSLog("spacemap/ThemeManager: failed to parse theme file %@", file.lastPathComponent)
+            }
+        }
+        for (name, theme) in Self.bundledThemes() {
+            if loaded[name] == nil {
+                loaded[name] = theme
             }
         }
         for (name, theme) in Self.builtinThemes() {
@@ -162,7 +197,7 @@ class ThemeManager {
         }
     }
 
-    private func parseTheme(from url: URL) -> AppTheme? {
+    static func parseTheme(from url: URL) -> AppTheme? {
         // Same fail-closed read as ConfigLoader: refuse symlinks, cap size,
         // O_NOFOLLOW open so a link swapped in after the check still fails.
         guard !ConfigLoader.isSymlink(at: url.path) else { return nil }

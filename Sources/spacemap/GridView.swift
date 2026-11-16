@@ -85,10 +85,10 @@ struct GridView: View {
             displayBoundaryOverlay
         }
         .overlay {
-            HUDNumberOverlay(state: numberState, theme: resolvedTheme)
+            HUDNumberOverlay(state: numberState, theme: resolvedTheme, fontName: state.config.hudFontName)
         }
         .overlay(alignment: .bottom) {
-            HUDNoticeOverlay(state: noticeState, theme: resolvedTheme)
+            HUDNoticeOverlay(state: noticeState, theme: resolvedTheme, fontName: state.config.hudFontName)
                 .padding(.bottom, effectivePadding)
         }
         .animation(hudAnimation?.animation, value: state.focusedIndex)
@@ -203,6 +203,7 @@ struct GridView: View {
             showMultiAppIcons: state.config.showMultiAppIcons,
             showExtraWindows: state.config.showExtraWindows,
             iconSource: state.config.hudIconSource,
+            stripIconSource: state.config.resolvedHUDIconStripSource,
             onDragActive: onDragActive,
             onDragEnd: onSpaceDrop.map { drop in { point in drop(spaceIndex, point) } },
             onSpaceDragStart: onSpaceDragStart,

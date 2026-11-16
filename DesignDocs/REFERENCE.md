@@ -67,7 +67,11 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[grid]` | `displayNavigationWrap` | `within` | Keyboard navigation: `within` one display or `between` displays |
 | `[grid]` | `showSpaceNumbers` / `showSpaceNames` | true / true | HUD-cell labels (strip has its own `[glyphStrip]` key) |
 | `[grid]` | `showIconStrip` / `showMultiAppIcons` | true / false | Per-cell app icons; per-window (true) or per-app (false) |
-| `[grid]` | `hudIconSource` | `native` | HUD icons: `native` macOS images or `sbarFont` app-font glyphs |
+| `[grid]` | `hudIconSource` | `native` | Cell icons: `native` macOS images or `sbarFont` app-font glyphs |
+| `[grid]` | `hudIconStripSeparate` | `false` | Give the HUD icon strip its own icon source |
+| `[grid]` | `hudIconStripSource` | `native` | Strip icons when `hudIconStripSeparate` is true |
+| `[appearance]` | `hudFontName` | `""` | HUD font family; empty means system |
+| `[appearance]` | `hudFontSize` | `12` | Space-number point size, clamped 8...48 |
 | `[appearance]` | `theme` / `mode` | `default` / `auto` | Color theme; `light`, `dark`, or `auto` |
 | `[appearance]` | `backgroundAlpha` | 0.3 | Shared HUD opacity 0–1 when `matchBackgroundOpacity` is on; otherwise the legacy fallback |
 | `[appearance]` | `backgroundStyle` | `glass` | `glass` or `solid`; solid at zero opacity hides the fill. Legacy `transparent` reads as `solid` |

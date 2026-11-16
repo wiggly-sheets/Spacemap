@@ -393,11 +393,11 @@ enum TOMLConfigDecoder {
         flatten("grid", keys: [
             "cols", "rows", "cellStyle", "showMode", "multiMonitorHUDMode",
             "unifiedHUDVisibility", "separateHUDVisibility", "maxSpaces",
-            "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons", "hudIconSource",
+            "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons", "hudIconSource", "hudIconStripSeparate", "hudIconStripSource",
             "showThumbnailWallpaper"
         ])
         flatten("appearance", keys: [
-            "theme", "mode", "backgroundAlpha", "hudShadow", "hudCornerRadius", "iconScale", "uiScale",
+            "theme", "mode", "backgroundAlpha", "hudShadow", "hudCornerRadius", "hudFontName", "hudFontSize", "iconScale", "uiScale",
             "backgroundStyle", "glassStyle",
             "glassClearVariant", "glassRegularVariant", "glassTintedVariant", "glassTintedMaterial",
             "glassClearOpacity", "glassRegularOpacity", "glassTintedOpacity",
@@ -533,6 +533,10 @@ enum TOMLConfigDecoder {
         values.showSpaceLayout = value("showSpaceLayout")
         values.showIconStrip = value("showIconStrip")
         values.showMultiAppIcons = value("showMultiAppIcons")
+        values.hudIconStripSeparate = value("hudIconStripSeparate")
+        if let name: String = value("hudIconStripSource") {
+            values.hudIconStripSource = GlyphStripIconSource.iconSource(from: name)
+        }
         if let name: String = value("hudIconSource") {
             values.hudIconSource = GlyphStripIconSource.iconSource(from: name)
         }
@@ -591,6 +595,8 @@ enum TOMLConfigDecoder {
         values.backgroundAlpha = rangedDouble("backgroundAlpha")
         values.hudShadow = value("hudShadow")
         values.hudCornerRadius = double("hudCornerRadius")
+        values.hudFontName = value("hudFontName")
+        values.hudFontSize = double("hudFontSize")
         values.iconScale = rangedDouble("iconScale")
         values.uiScale = rangedDouble("uiScale")
 

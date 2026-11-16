@@ -190,3 +190,18 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(ThemeManager.normalizedName("DEFAULT"), "default")
     }
 }
+
+func testCatalogEntryBuildsPreviewTheme() {
+    let entry = ThemeCatalogEntry(
+        name: "Example",
+        file: "themes/Example.toml",
+        colors: [
+            "background": "#101010", "focused": "#202020", "text": "#ffffff",
+            "dropTarget": "#303030", "cellBg": "#404040", "cellBgFocused": "#505050",
+            "rect1": "#606060", "rect2": "#707070", "rect3": "#808080",
+        ]
+    )
+    XCTAssertEqual(entry.theme?.background, 0x101010)
+    XCTAssertEqual(entry.theme?.rect3, 0x808080)
+    XCTAssertNil(ThemeCatalogEntry(name: "Bad", file: "x", colors: [:]).theme)
+}

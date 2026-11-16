@@ -72,7 +72,11 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `showSpaceNames` | Bool | `true` | — | Show custom space names in center of each cell |
 | `showIconStrip` | Bool | `true` | — | Show app icon strip at bottom of each cell |
 | `showMultiAppIcons` | Bool | `false` | — | Show one icon per window (true) or one per unique app (false) |
-| `hudIconSource` | String | `native` | `native‖sbarFont` | HUD icons from macOS or sketchybar-app-font glyphs |
+| `hudIconSource` | String | `native` | `native‖sbarFont` | Cell icons from macOS or sketchybar-app-font glyphs |
+| `hudIconStripSeparate` | Bool | `false` | `true‖false` | Opt-in separate icon source for the HUD icon strip |
+| `hudIconStripSource` | String | `native` | `native‖sbarFont` | Strip icon source when separate is on |
+| `hudFontName` | String | `""` | PostScript family | HUD text font; empty uses the system font |
+| `hudFontSize` | Double | `12` | `8...48` | HUD space-number size; other text scales |
 | `presence` | String | `menuBar` | `dock‖menuBar‖both‖none` | Where Spacemap appears; legacy `hideMenuBarIcon` still loads |
 | `menuBarDisplayMode` / `menuBarNearbyCount` | String / Int | `icon` / 3 | `icon‖dots‖current‖nearby‖all` / 1–16 | Menu-bar preview mode and nearby count |
 | `useVimKeys` / `useArrowKeys` / `useExtendedKeys` | Bool | false / false / true | — | hjkl / arrows / extended navigation keys |

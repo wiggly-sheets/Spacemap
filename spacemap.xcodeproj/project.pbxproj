@@ -33,6 +33,8 @@
 		b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */; };
 		ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 970df8b8-abde-03c6-77aa-d4dd5252b5f1 /* HUDAnimation.swift */; };
 		d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25098097-bef9-e19d-b77d-2e47d3d4f9af /* HUDDisplay.swift */; };
+		d0650692-a229-3408-bed2-365cfa09ac67 /* HUDFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76e633dc-8f84-4039-ad2a-d2c60af71953 /* HUDFont.swift */; };
+		284027b4-d057-4f26-a88c-ab1f83e51e68 /* HUDFontPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9b312337-7b46-b477-7b3d-a093dd9aaa9e /* HUDFontPanel.swift */; };
 		184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = b2228477-9db4-4dbf-f163-74005a2233f6 /* HUDGeometry.swift */; };
 		820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = e2fa5d65-5ddc-c228-1a56-566d108d7869 /* HUDGlassContainerView.swift */; };
 		e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4a70cbf7-c01a-ebf5-2845-7ab32d1d3388 /* HUDInput.swift */; };
@@ -69,6 +71,8 @@
 		9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = b7d3314c-155f-dbe8-85f2-1906777a55d4 /* SparkleConfig.swift */; };
 		bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40546599-37b2-62c3-e39d-badc4bbf56b7 /* SystemPermissions.swift */; };
 		8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = bbc9b464-a604-f50f-1c8e-a58e58234834 /* TOMLConfigCodec.swift */; };
+		70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 456218e3-6182-cce6-4267-7fd2d625d213 /* ThemeCatalogService.swift */; };
+		f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13896eba-61a9-b49e-bd36-8132f599e8b5 /* ThemeLibraryWindow.swift */; };
 		4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */; };
 		fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4eecec1f-2ada-c349-e8bd-4e2c27e5fec5 /* ThemeModels.swift */; };
 		60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 686138a0-48d9-f5b8-38dd-abf36c17f29b /* ThumbnailCache.swift */; };
@@ -111,6 +115,8 @@
 		e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridView.swift; sourceTree = "<group>"; };
 		970df8b8-abde-03c6-77aa-d4dd5252b5f1 /* HUDAnimation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDAnimation.swift; sourceTree = "<group>"; };
 		25098097-bef9-e19d-b77d-2e47d3d4f9af /* HUDDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDDisplay.swift; sourceTree = "<group>"; };
+		76e633dc-8f84-4039-ad2a-d2c60af71953 /* HUDFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDFont.swift; sourceTree = "<group>"; };
+		9b312337-7b46-b477-7b3d-a093dd9aaa9e /* HUDFontPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDFontPanel.swift; sourceTree = "<group>"; };
 		b2228477-9db4-4dbf-f163-74005a2233f6 /* HUDGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDGeometry.swift; sourceTree = "<group>"; };
 		e2fa5d65-5ddc-c228-1a56-566d108d7869 /* HUDGlassContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDGlassContainerView.swift; sourceTree = "<group>"; };
 		4a70cbf7-c01a-ebf5-2845-7ab32d1d3388 /* HUDInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDInput.swift; sourceTree = "<group>"; };
@@ -147,6 +153,8 @@
 		b7d3314c-155f-dbe8-85f2-1906777a55d4 /* SparkleConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleConfig.swift; sourceTree = "<group>"; };
 		40546599-37b2-62c3-e39d-badc4bbf56b7 /* SystemPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPermissions.swift; sourceTree = "<group>"; };
 		bbc9b464-a604-f50f-1c8e-a58e58234834 /* TOMLConfigCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TOMLConfigCodec.swift; sourceTree = "<group>"; };
+		456218e3-6182-cce6-4267-7fd2d625d213 /* ThemeCatalogService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCatalogService.swift; sourceTree = "<group>"; };
+		13896eba-61a9-b49e-bd36-8132f599e8b5 /* ThemeLibraryWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeLibraryWindow.swift; sourceTree = "<group>"; };
 		49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		4eecec1f-2ada-c349-e8bd-4e2c27e5fec5 /* ThemeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeModels.swift; sourceTree = "<group>"; };
 		686138a0-48d9-f5b8-38dd-abf36c17f29b /* ThumbnailCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCache.swift; sourceTree = "<group>"; };
@@ -245,6 +253,8 @@
 				e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */,
 				970df8b8-abde-03c6-77aa-d4dd5252b5f1 /* HUDAnimation.swift */,
 				25098097-bef9-e19d-b77d-2e47d3d4f9af /* HUDDisplay.swift */,
+				76e633dc-8f84-4039-ad2a-d2c60af71953 /* HUDFont.swift */,
+				9b312337-7b46-b477-7b3d-a093dd9aaa9e /* HUDFontPanel.swift */,
 				b2228477-9db4-4dbf-f163-74005a2233f6 /* HUDGeometry.swift */,
 				e2fa5d65-5ddc-c228-1a56-566d108d7869 /* HUDGlassContainerView.swift */,
 				4a70cbf7-c01a-ebf5-2845-7ab32d1d3388 /* HUDInput.swift */,
@@ -281,6 +291,8 @@
 				b7d3314c-155f-dbe8-85f2-1906777a55d4 /* SparkleConfig.swift */,
 				40546599-37b2-62c3-e39d-badc4bbf56b7 /* SystemPermissions.swift */,
 				bbc9b464-a604-f50f-1c8e-a58e58234834 /* TOMLConfigCodec.swift */,
+				456218e3-6182-cce6-4267-7fd2d625d213 /* ThemeCatalogService.swift */,
+				13896eba-61a9-b49e-bd36-8132f599e8b5 /* ThemeLibraryWindow.swift */,
 				49937899-6944-f64c-a7ac-dbaf85548903 /* ThemeManager.swift */,
 				4eecec1f-2ada-c349-e8bd-4e2c27e5fec5 /* ThemeModels.swift */,
 				686138a0-48d9-f5b8-38dd-abf36c17f29b /* ThumbnailCache.swift */,
@@ -482,6 +494,8 @@
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */,
 				d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */,
+				d0650692-a229-3408-bed2-365cfa09ac67 /* HUDFont.swift in Sources */,
+				284027b4-d057-4f26-a88c-ab1f83e51e68 /* HUDFontPanel.swift in Sources */,
 				184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */,
 				820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */,
 				e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */,
@@ -518,6 +532,8 @@
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
 				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
+				70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */,
+				f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */,
 				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
@@ -561,6 +577,8 @@
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */,
 				d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */,
+				d0650692-a229-3408-bed2-365cfa09ac67 /* HUDFont.swift in Sources */,
+				284027b4-d057-4f26-a88c-ab1f83e51e68 /* HUDFontPanel.swift in Sources */,
 				184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */,
 				820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */,
 				e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */,
@@ -597,6 +615,8 @@
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
 				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
+				70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */,
+				f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */,
 				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
@@ -640,6 +660,8 @@
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */,
 				d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */,
+				d0650692-a229-3408-bed2-365cfa09ac67 /* HUDFont.swift in Sources */,
+				284027b4-d057-4f26-a88c-ab1f83e51e68 /* HUDFontPanel.swift in Sources */,
 				184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */,
 				820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */,
 				e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */,
@@ -676,6 +698,8 @@
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
 				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
+				70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */,
+				f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */,
 				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,
@@ -719,6 +743,8 @@
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
 				ed41896d-063f-d9f8-baba-880a4e8e3da4 /* HUDAnimation.swift in Sources */,
 				d125e913-7214-3dfb-10a5-1ebfd097b39a /* HUDDisplay.swift in Sources */,
+				d0650692-a229-3408-bed2-365cfa09ac67 /* HUDFont.swift in Sources */,
+				284027b4-d057-4f26-a88c-ab1f83e51e68 /* HUDFontPanel.swift in Sources */,
 				184a9a50-b39d-958f-6fc3-476fd27a2209 /* HUDGeometry.swift in Sources */,
 				820cd3ab-a1b0-a6b3-cd65-40cb6ecf3da9 /* HUDGlassContainerView.swift in Sources */,
 				e881c7e6-086d-9f86-3873-7402387313e6 /* HUDInput.swift in Sources */,
@@ -755,6 +781,8 @@
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
 				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
+				70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */,
+				f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */,
 				4383f018-710b-55aa-47ea-e9e2ec024727 /* ThemeManager.swift in Sources */,
 				fed57818-a5cc-4d72-b5e6-5dc3f8ee761b /* ThemeModels.swift in Sources */,
 				60964940-e595-889a-7456-e112a9473667 /* ThumbnailCache.swift in Sources */,

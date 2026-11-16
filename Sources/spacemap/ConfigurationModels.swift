@@ -631,6 +631,10 @@ struct GridConfig: Equatable {
     var hudShadow: Bool = true
     /// Corner radius of the HUD's outer panel, not the space cells.
     var hudCornerRadius: Double = 10
+    /// Empty uses the system font. The font panel stores the family name and
+    /// the space-number point size; other HUD text scales from it.
+    var hudFontName: String = ""
+    var hudFontSize: Double = 12
     var mode: ThemeMode
     var iconScale: Double
     /// HUD cells' space-index toggle. The strip reads
@@ -642,6 +646,10 @@ struct GridConfig: Equatable {
     var showMultiAppIcons: Bool
     /// HUD app icons: native macOS images or the bundled-lookup app-font glyphs.
     var hudIconSource: GlyphStripIconSource
+    /// Opt-in separate icon source for the HUD icon strip. Off by default, so
+    /// the strip follows `hudIconSource`.
+    var hudIconStripSeparate: Bool = false
+    var hudIconStripSource: GlyphStripIconSource = .nativeIcons
     /// Where Spacemap appears outside the HUD: dock, menu bar, both, or neither.
     var presence: AppPresence = .menuBar
     var glyphStrip: GlyphStripConfig = .default
@@ -722,9 +730,11 @@ struct GridConfig: Equatable {
         unifiedHUDVisibility: .active, separateHUDVisibility: .all,
         displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3,
         backgroundStyle: .glass, glassStyle: .regular, hudShadow: true,
+        hudFontName: "", hudFontSize: 12,
         mode: .auto, iconScale: 0.5, showSpaceNumbers: true,
         showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false,
-        hudIconSource: .nativeIcons,
+        hudIconSource: .nativeIcons, hudIconStripSeparate: false,
+        hudIconStripSource: .nativeIcons,
         presence: .menuBar, glyphStrip: .default, menuBarDisplayMode: .icon,
         menuBarNearbyCount: 3, spaceNames: [:], useVimKeys: false,
         useArrowKeys: false, jumpToSpaceEnabled: false, hudPosition: .center, customHUDX: 0.5,
@@ -747,6 +757,12 @@ struct GridConfig: Equatable {
 }
 
 extension GridConfig {
+    /// The icon strip can use its own source while cell styles keep
+    /// `hudIconSource`; separate mode is off by default.
+    var resolvedHUDIconStripSource: GlyphStripIconSource {
+        hudIconStripSeparate ? hudIconStripSource : hudIconSource
+    }
+
     /// The menu bar preview and the strip are the only surfaces that need
     /// workspace membership; skip yabai queries when both are off.
     var needsWorkspacePreviews: Bool {

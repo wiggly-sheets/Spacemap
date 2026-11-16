@@ -19,6 +19,8 @@ struct SettingsAppearanceView: View {
     @Binding var matchBackgroundOpacity: Bool
     @Binding var hudShadow: Bool
     @Binding var hudCornerRadius: Double
+    @Binding var hudFontName: String
+    @Binding var hudFontSize: Double
     @Binding var iconScale: Double
     @Binding var uiScale: Double
     @Binding var spacesMatchBackground: Bool
@@ -45,6 +47,13 @@ struct SettingsAppearanceView: View {
             .onChange(of: theme) { _ in onSave() }
 
             HStack {
+                Button("Browse Themes") {
+                    ThemeLibraryWindowController.shared.show(currentTheme: theme) { name in
+                        theme = name
+                        onSave()
+                    }
+                }
+                .liquidGlassButtonStyle()
                 Button("Open Config File") {
                     let url = URL(fileURLWithPath: AppConfig().configPath)
                     _ = NSWorkspace.shared.open(url)
@@ -117,6 +126,33 @@ struct SettingsAppearanceView: View {
                     .onChange(of: hudCornerRadius) { _ in onSave() }
             }
             SettingsFootnote(text: "Rounds the outside edge of the whole HUD panel. Space cells keep their own shape.")
+
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("HUD Font").font(.subheadline).bold()
+                    Text(hudFontName.isEmpty ? "System · \(Int(hudFontSize)) pt" : "\(hudFontName) · \(Int(hudFontSize)) pt")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Choose Font…") {
+                    HUDFontPanel.shared.present(name: hudFontName, size: hudFontSize) { name, size in
+                        hudFontName = name
+                        hudFontSize = min(max(size, 8), 48)
+                        onSave()
+                    }
+                }
+                if !hudFontName.isEmpty || hudFontSize != 12 {
+                    Button("Reset") {
+                        hudFontName = ""
+                        hudFontSize = 12
+                        onSave()
+                    }
+                }
+            }
+            Text("The quick brown fox 0123")
+                .font(HUDFont.font(name: hudFontName, size: hudFontSize, weight: .medium))
+            SettingsFootnote(text: "Native macOS font panel. The chosen size is the space-number base; HUD scale applies, and names, badges and feedback scale with it.")
 
             VStack(alignment: .leading) {
                 Text("Icon Scale")
