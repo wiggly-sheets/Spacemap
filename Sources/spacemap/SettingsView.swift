@@ -66,6 +66,7 @@ struct SettingsView: View {
     @State private var hudCornerRadius: Double = 10
     @State private var hudFontName: String = ""
     @State private var hudFontSize: Double = 12
+    @State private var hudTextColor: String = ""
     @State private var spacesMatchBackground: Bool = true
     @State private var spacesBackgroundStyle: SpacesBackgroundStyle = .glass
     @State private var spacesGlassStyle: HUDGlassStyle = .clear
@@ -115,6 +116,18 @@ struct SettingsView: View {
     @State private var hudEntranceStyle: HUDEntranceStyle = .fade
     @State private var lastCustomHUDX: Double = 0.5
     @State private var lastCustomHUDY: Double = 0.5
+
+    /// General > Menu Bar owns the glyph strip's menu-bar toggle. Turning it
+    /// on also enables the strip; both menu-bar items may be visible at once.
+    private var glyphStripMenuBarBinding: Binding<Bool> {
+        Binding(
+            get: { glyphStrip.displayMode == .menuBarItem },
+            set: { show in
+                glyphStrip.displayMode = show ? .menuBarItem : .floating
+                if show { glyphStrip.enabled = true }
+            }
+        )
+    }
 
     private var hudPosition: HUDPosition {
         switch hudPositionKind {
@@ -183,6 +196,7 @@ struct SettingsView: View {
         _hudCornerRadius = State(initialValue: config.hudCornerRadius)
         _hudFontName = State(initialValue: config.hudFontName)
         _hudFontSize = State(initialValue: config.hudFontSize)
+        _hudTextColor = State(initialValue: config.hudTextColor)
         _spacesMatchBackground = State(initialValue: config.spacesMatchBackground)
         _spacesBackgroundStyle = State(initialValue: config.spacesBackgroundStyle)
         _spacesGlassStyle = State(initialValue: config.spacesGlassStyle)
@@ -314,6 +328,7 @@ struct SettingsView: View {
             hudCornerRadius: hudCornerRadius,
             hudFontName: hudFontName,
             hudFontSize: hudFontSize,
+            hudTextColor: hudTextColor,
             mode: mode,
             iconScale: iconScale,
             showSpaceNumbers: showSpaceNumbers,
@@ -576,6 +591,7 @@ struct SettingsView: View {
             presence: $presence,
             menuBarDisplayMode: $menuBarDisplayMode,
             menuBarNearbyCount: $menuBarNearbyCount,
+            glyphStripMenuBarItem: glyphStripMenuBarBinding,
             updateMode: $updateMode,
             appFontUpdateMode: $appFontUpdateMode,
             onSave: saveConfig,
@@ -604,6 +620,7 @@ struct SettingsView: View {
                     hudCornerRadius: $hudCornerRadius,
                     hudFontName: $hudFontName,
                     hudFontSize: $hudFontSize,
+                    hudTextColor: $hudTextColor,
                     iconScale: $iconScale,
                     uiScale: $uiScale,
                     spacesMatchBackground: $spacesMatchBackground,

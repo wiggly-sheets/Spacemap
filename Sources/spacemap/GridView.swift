@@ -85,10 +85,10 @@ struct GridView: View {
             displayBoundaryOverlay
         }
         .overlay {
-            HUDNumberOverlay(state: numberState, theme: resolvedTheme, fontName: state.config.hudFontName)
+            HUDNumberOverlay(state: numberState, theme: resolvedTheme, fontName: state.config.hudFontName, overrideColor: hudTextOverride)
         }
         .overlay(alignment: .bottom) {
-            HUDNoticeOverlay(state: noticeState, theme: resolvedTheme, fontName: state.config.hudFontName)
+            HUDNoticeOverlay(state: noticeState, theme: resolvedTheme, fontName: state.config.hudFontName, overrideColor: hudTextOverride)
                 .padding(.bottom, effectivePadding)
         }
         .animation(hudAnimation?.animation, value: state.focusedIndex)
@@ -204,6 +204,9 @@ struct GridView: View {
             showExtraWindows: state.config.showExtraWindows,
             iconSource: state.config.hudIconSource,
             stripIconSource: state.config.resolvedHUDIconStripSource,
+            hudFontName: state.config.hudFontName,
+            hudFontSize: state.config.hudFontSize,
+            hudTextColor: state.config.hudTextColor,
             onDragActive: onDragActive,
             onDragEnd: onSpaceDrop.map { drop in { point in drop(spaceIndex, point) } },
             onSpaceDragStart: onSpaceDragStart,
@@ -220,6 +223,10 @@ struct GridView: View {
         )
     }
     
+    private var hudTextOverride: Color? {
+        ThemeManager.parseHexValue(state.config.hudTextColor).map { Color(hex: $0) }
+    }
+
     private var spaceBackground: CellSpaceBackground {
         let config = state.config
         guard !config.spacesMatchBackground else { return .theme }

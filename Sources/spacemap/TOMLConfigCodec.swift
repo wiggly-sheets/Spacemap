@@ -397,7 +397,7 @@ enum TOMLConfigDecoder {
             "showThumbnailWallpaper"
         ])
         flatten("appearance", keys: [
-            "theme", "mode", "backgroundAlpha", "hudShadow", "hudCornerRadius", "hudFontName", "hudFontSize", "iconScale", "uiScale",
+            "theme", "mode", "backgroundAlpha", "hudShadow", "hudCornerRadius", "hudFontName", "hudFontSize", "hudTextColor", "iconScale", "uiScale",
             "backgroundStyle", "glassStyle",
             "glassClearVariant", "glassRegularVariant", "glassTintedVariant", "glassTintedMaterial",
             "glassClearOpacity", "glassRegularOpacity", "glassTintedOpacity",
@@ -597,6 +597,7 @@ enum TOMLConfigDecoder {
         values.hudCornerRadius = double("hudCornerRadius")
         values.hudFontName = value("hudFontName")
         values.hudFontSize = double("hudFontSize")
+        values.hudTextColor = value("hudTextColor")
         values.iconScale = rangedDouble("iconScale")
         values.uiScale = rangedDouble("uiScale")
 
@@ -858,6 +859,12 @@ enum TOMLConfigDecoder {
         if let value = table["matchHUDAppearance"] as? Bool { config.matchHUDAppearance = value }
         if let value = number(table["cornerRadius"]) { config.cornerRadius = value }
         if let value = number(table["margin"]) { config.margin = value }
+        if let value = number(table["padding"]) { config.padding = value }
+        if let value = table["lockPadding"] as? Bool { config.lockPadding = value }
+        if let value = number(table["horizontalPadding"]) { config.horizontalPadding = value }
+        if let name = table["displayMode"] as? String {
+            config.displayMode = parsedEnum(from: name) ?? GlyphStripConfig.default.displayMode
+        }
         if let value = number(table["iconSpacing"]) { config.iconSpacing = value }
         if let value = number(table["indexPadding"]) { config.indexPadding = value }
         if let value = number(table["yOffset"]) { config.yOffset = value }

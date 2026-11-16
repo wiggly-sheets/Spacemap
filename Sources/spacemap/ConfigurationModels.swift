@@ -252,6 +252,15 @@ enum GlyphStripAction: String, CaseIterable, Identifiable, Equatable {
     }
 }
 
+/// Floating overlay or a native menu-bar item. The status item is limited to
+/// the horizontal row and drops shape, glass and free placement.
+enum GlyphStripDisplayMode: String, CaseIterable, Identifiable, Equatable {
+    case floating
+    case menuBarItem
+
+    var id: String { rawValue }
+}
+
 enum GlyphStripPosition: String, CaseIterable, Identifiable, Equatable {
     case leftOfNotch
     case rightOfNotch
@@ -335,6 +344,12 @@ struct GlyphStripConfig: Equatable {
     var shape: GlyphStripShape = .none
     var cornerRadius: Double = 20
     var margin: Double = 6
+    /// Inner padding around the glyphs. `lockPadding` keeps all sides equal.
+    var padding: Double = 4
+    var lockPadding: Bool = true
+    var horizontalPadding: Double = 4
+    /// Menu-bar item mode ignores shape, glass and placement.
+    var displayMode: GlyphStripDisplayMode = .floating
     var hoverPadding: Double = 1
     var hoverCornerRadius: Double = 4
     var autoResizeMaxLength: Double = 0
@@ -360,6 +375,9 @@ struct GlyphStripConfig: Equatable {
 
     static let `default` = GlyphStripConfig()
 
+    var resolvedHorizontalPadding: Double { lockPadding ? padding : horizontalPadding }
+    var resolvedVerticalPadding: Double { lockPadding ? padding : verticalPadding }
+
     /// True when the current placement must not follow a drag.
     var isPositionLocked: Bool { position == .custom && lockPosition }
 
@@ -378,6 +396,8 @@ struct GlyphStripConfig: Equatable {
         copy.solidOpacity = min(max(solidOpacity, 0.01), 1)
         copy.cornerRadius = min(max(cornerRadius, 0), 40)
         copy.margin = min(max(margin, 0), 40)
+        copy.padding = min(max(padding, 0), 40)
+        copy.horizontalPadding = min(max(horizontalPadding, 0), 40)
         copy.hoverPadding = min(max(hoverPadding, 0), 12)
         copy.hoverCornerRadius = min(max(hoverCornerRadius, 0), 20)
         copy.autoResizeMaxLength = min(max(autoResizeMaxLength, 0), 4000)
@@ -635,6 +655,9 @@ struct GridConfig: Equatable {
     /// the space-number point size; other HUD text scales from it.
     var hudFontName: String = ""
     var hudFontSize: Double = 12
+    /// Empty follows the theme's text colour. A hex value overrides text in
+    /// the HUD so dark or low-contrast themes stay readable.
+    var hudTextColor: String = ""
     var mode: ThemeMode
     var iconScale: Double
     /// HUD cells' space-index toggle. The strip reads
@@ -730,7 +753,7 @@ struct GridConfig: Equatable {
         unifiedHUDVisibility: .active, separateHUDVisibility: .all,
         displayNavigationWrap: .within, maxSpaces: 16, backgroundAlpha: 0.3,
         backgroundStyle: .glass, glassStyle: .regular, hudShadow: true,
-        hudFontName: "", hudFontSize: 12,
+        hudFontName: "", hudFontSize: 12, hudTextColor: "",
         mode: .auto, iconScale: 0.5, showSpaceNumbers: true,
         showSpaceNames: true, showIconStrip: true, showMultiAppIcons: false,
         hudIconSource: .nativeIcons, hudIconStripSeparate: false,

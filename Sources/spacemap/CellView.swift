@@ -39,6 +39,7 @@ struct CellView: View {
     private let iconSource: GlyphStripIconSource
     private let stripIconSource: GlyphStripIconSource
     private let hudAnimation: HUDAnimationStyle?
+    private let hudTextColor: String
     private let hudFontName: String
     private let hudFontSize: Double
     private let onDragActive: ((Bool) -> Void)?
@@ -109,6 +110,7 @@ init(spaceIndex: Int,
              hudAnimation: HUDAnimationStyle? = .natural,
              hudFontName: String = "",
              hudFontSize: Double = 12,
+             hudTextColor: String = "",
              onDragActive: ((Bool) -> Void)? = nil,
              onDragEnd: ((NSPoint) -> Void)? = nil,
              onSpaceDragStart: ((Int) -> Void)? = nil,
@@ -141,6 +143,7 @@ init(spaceIndex: Int,
         self.iconSource = iconSource
         self.stripIconSource = stripIconSource ?? iconSource
         self.hudAnimation = hudAnimation
+        self.hudTextColor = hudTextColor
         self.hudFontName = hudFontName
         self.hudFontSize = hudFontSize
         self.onDragActive = onDragActive
@@ -181,7 +184,11 @@ var body: some View {
                 Text("\(spaceIndex)\(spaceLayoutBadgeText)")
                     .font(hudFont(points: 12, weight: .bold))
                     .foregroundColor(textColor.opacity(0.7))
-                    .position(GridLayout.spaceNumberPosition(for: uiScale))
+                    .fixedSize()
+                    .padding(.leading, GridLayout.spaceNumberPosition(for: uiScale).x)
+                    .padding(.top, GridLayout.spaceNumberPosition(for: uiScale).y - 6 * uiScale)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .allowsHitTesting(false)
             }
 
             if showSpaceNames, let name = spaceName, !name.isEmpty {
@@ -322,6 +329,7 @@ var body: some View {
 
     private var textColor: Color {
         let t = resolvedTheme
+        if let value = ThemeManager.parseHexValue(hudTextColor) { return Color(hex: value) }
         if isFocused { return Color(hex: t.focused) }
         if isDarkMode { return Color(hex: t.text).opacity(CellOpacity.textDarkDim) }
         return Color(hex: 0x333333).opacity(CellOpacity.textDim)
@@ -331,7 +339,7 @@ var body: some View {
         let t = resolvedTheme
         if isDropTarget { return Color(hex: t.dropTarget) }
         if isFocused { return Color(hex: t.focused) }
-        if !spaceExists { return Color(hex: t.text).opacity(isDarkMode ? 0.4 : 0.5) }
+        if !spaceExists { return Color(hex: t.text).opacity(isDarkMode ? 0.7 : 0.75) }
         if isDarkMode { return Color(hex: t.text).opacity(CellOpacity.borderDark) }
         return Color(hex: 0x999999).opacity(CellOpacity.borderLight)
     }
@@ -340,11 +348,13 @@ var body: some View {
     /// keep a solid emphasized outline so the selection still reads first.
     private var borderDash: [CGFloat] {
         guard !spaceExists, !isFocused, !isDropTarget else { return [] }
-        return [3, 3]
+        return [4, 3]
     }
 
     private var borderWidth: CGFloat {
-        isDropTarget || isFocused ? CellBorder.emphasized : CellBorder.normal
+        if isDropTarget || isFocused { return CellBorder.emphasized }
+        // A missing space needs to read at a glance, not disappear at 0.5 pt.
+        return spaceExists ? CellBorder.normal : 1
     }
     
     @ViewBuilder

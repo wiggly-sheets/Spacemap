@@ -35,13 +35,14 @@ struct HUDNumberOverlay: View {
     @ObservedObject var state: HUDNumberState
     let theme: AppTheme
     var fontName: String = ""
+    var overrideColor: Color? = nil
 
     var body: some View {
         if let feedback = state.feedback {
             Text("\(feedback.number)")
                 .font(HUDFont.font(name: fontName, size: 96, weight: .bold))
                 .foregroundStyle(
-                    Color(hex: feedback.exists ? theme.text : theme.dropTarget)
+                    (feedback.exists ? (overrideColor ?? Color(hex: theme.text)) : Color(hex: theme.dropTarget))
                         .opacity(feedback.exists ? 0.9 : 0.8)
                 )
                 .strikethrough(!feedback.exists, color: Color(hex: theme.dropTarget))
@@ -70,12 +71,13 @@ struct HUDNoticeOverlay: View {
     @ObservedObject var state: HUDNoticeState
     let theme: AppTheme
     var fontName: String = ""
+    var overrideColor: Color? = nil
 
     var body: some View {
         if let text = state.text {
             Text(text)
                 .font(HUDFont.font(name: fontName, size: 20, weight: .semibold))
-                .foregroundStyle(Color(hex: theme.text).opacity(0.9))
+                .foregroundStyle((overrideColor ?? Color(hex: theme.text)).opacity(0.9))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 4)
                 .allowsHitTesting(false)

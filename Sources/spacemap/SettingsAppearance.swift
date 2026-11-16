@@ -21,6 +21,7 @@ struct SettingsAppearanceView: View {
     @Binding var hudCornerRadius: Double
     @Binding var hudFontName: String
     @Binding var hudFontSize: Double
+    @Binding var hudTextColor: String
     @Binding var iconScale: Double
     @Binding var uiScale: Double
     @Binding var spacesMatchBackground: Bool
@@ -153,6 +154,26 @@ struct SettingsAppearanceView: View {
             Text("The quick brown fox 0123")
                 .font(HUDFont.font(name: hudFontName, size: hudFontSize, weight: .medium))
             SettingsFootnote(text: "Native macOS font panel. The chosen size is the space-number base; HUD scale applies, and names, badges and feedback scale with it.")
+
+            HStack {
+                Text("HUD Text Color")
+                Spacer()
+                TextField("#RRGGBB", text: $hudTextColor)
+                    .frame(width: 96)
+                    .multilineTextAlignment(.trailing)
+                ColorPicker("", selection: hudTextColorBinding, supportsOpacity: false)
+                    .labelsHidden()
+                if !hudTextColor.isEmpty {
+                    Button("Theme") {
+                        hudTextColor = ""
+                        onSave()
+                    }
+                }
+            }
+            .onChange(of: hudTextColor) { value in
+                if value.isEmpty || ThemeManager.parseHexValue(value) != nil { onSave() }
+            }
+            SettingsFootnote(text: "Overrides the text colour used in the HUD. Leave empty to follow the theme. Useful when a dark theme makes space numbers hard to read.")
 
             VStack(alignment: .leading) {
                 Text("Icon Scale")
@@ -347,5 +368,25 @@ struct SettingsAppearanceView: View {
                 value = steps[currentIndex + 1]
             }
         }
+    }
+
+    private var hudTextColorBinding: Binding<Color> {
+        Binding(
+            get: {
+                guard let value = ThemeManager.parseHexValue(hudTextColor) else { return .white }
+                return Color(.sRGB,
+                             red: Double((value >> 16) & 0xff) / 255,
+                             green: Double((value >> 8) & 0xff) / 255,
+                             blue: Double(value & 0xff) / 255)
+            },
+            set: { color in
+                let ns = NSColor(color).usingColorSpace(.sRGB) ?? .white
+                let red = UInt32((ns.redComponent * 255).rounded())
+                let green = UInt32((ns.greenComponent * 255).rounded())
+                let blue = UInt32((ns.blueComponent * 255).rounded())
+                hudTextColor = ThemeManager.hex((red << 16) | (green << 8) | blue)
+                onSave()
+            }
+        )
     }
 }

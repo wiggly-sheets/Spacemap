@@ -36,6 +36,7 @@ struct SettingsBehavior: View {
     @Binding var presence: AppPresence
     @Binding var menuBarDisplayMode: MenuBarDisplayMode
     @Binding var menuBarNearbyCount: Int
+    @Binding var glyphStripMenuBarItem: Bool
     @Binding var updateMode: UpdateMode
     @Binding var appFontUpdateMode: AppFontUpdateMode
 
@@ -83,6 +84,7 @@ struct SettingsBehavior: View {
             }
             if scope == .general {
                 menuBarSection
+                menuBarStripSection
                 updatesSection
                 appFontSection
             }
@@ -317,6 +319,17 @@ struct SettingsBehavior: View {
                 }
             }
 
+        }
+    }
+
+    private var menuBarStripSection: some View {
+        Section(header: SettingsSectionHeader(title: "Glyph Strip Menu Bar").settingsAnchor("behavior.menuBarStrip")) {
+            Toggle("Show Glyph Strip in Menu Bar", isOn: $glyphStripMenuBarItem)
+                .onChange(of: glyphStripMenuBarItem) { _ in onSave() }
+            SettingsFootnote(text: "The strip becomes a compact menu-bar item. The Spacemap menu-bar icon can stay visible at the same time. Shape, glass, free placement and vertical layouts do not apply in the menu bar.")
+            if glyphStripMenuBarItem {
+                SettingsFootnote(text: "Turn the strip off in Glyph Strip > General to remove it. Turning this off returns it to the floating strip.")
+            }
         }
     }
 

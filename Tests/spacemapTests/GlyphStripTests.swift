@@ -39,8 +39,12 @@ final class AppGlyphFontTests: XCTestCase {
     func testKnownLigaturesMapToExpectedAppNames() throws {
         let font = try XCTUnwrap(AppGlyphFont.load(), "sketchybar-app-font failed to load")
 
-        // Names below are copied from sketchybar-app-font/mappings/.
-        XCTAssertEqual(font.appNames(forLigature: ":finder:"), ["Finder", "访达", "Bloom", "FlowFinder"])
+        // Finder aliases change between font releases; the stable contract is
+        // that the primary name and known aliases resolve.
+        let finder = font.appNames(forLigature: ":finder:") ?? []
+        XCTAssertTrue(finder.contains("Finder"))
+        XCTAssertTrue(finder.contains("访达"))
+        XCTAssertTrue(finder.contains("FlowFinder"))
         XCTAssertEqual(font.appNames(forLigature: ":alacritty:"), ["Alacritty"])
         XCTAssertEqual(
             font.appNames(forLigature: ":google_chrome:"),
@@ -1111,6 +1115,31 @@ final class GlyphStripTests: XCTestCase {
     func testHideInFullscreenDefaultsOffAndDecodes() {
         XCTAssertEqual(GlyphStripConfig.default.hideInFullscreen, false)
         XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nhideInFullscreen = true")?.hideInFullscreen, true)
+    }
+
+    func testPaddingLocksByDefaultAndDecodesDisplayMode() {
+        let defaults = GlyphStripConfig.default
+        XCTAssertTrue(defaults.lockPadding)
+        XCTAssertEqual(defaults.resolvedHorizontalPadding, 4)
+        XCTAssertEqual(defaults.resolvedVerticalPadding, 4)
+
+        var unlocked = defaults
+        unlocked.lockPadding = false
+        unlocked.horizontalPadding = 12
+        unlocked.verticalPadding = 2
+        XCTAssertEqual(unlocked.resolvedHorizontalPadding, 12)
+        XCTAssertEqual(unlocked.resolvedVerticalPadding, 2)
+
+        let decoded = decodeGlyphStrip("""
+        [glyphStrip]
+        displayMode = "menuBarItem"
+        padding = 9
+        lockPadding = false
+        horizontalPadding = 7
+        """)
+        XCTAssertEqual(decoded?.displayMode, .menuBarItem)
+        XCTAssertEqual(decoded?.resolvedHorizontalPadding, 7)
+        XCTAssertEqual(decoded?.padding, 9)
     }
 
     func testOrientationDefaultsToHorizontalAndDecodesBothDirections() {
