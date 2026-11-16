@@ -13,6 +13,7 @@ extension SettingsView.SidebarSection {
         case .general:
             return [
                 SettingsSubsection(id: "behavior.menuBar", title: "Menu Bar"),
+                SettingsSubsection(id: "behavior.menuBarStrip", title: "Glyph Strip Menu Bar"),
                 SettingsSubsection(id: "behavior.updates", title: "Updates"),
                 SettingsSubsection(id: "behavior.appFont", title: "App Font"),
             ]

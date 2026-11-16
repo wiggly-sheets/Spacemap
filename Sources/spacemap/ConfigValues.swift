@@ -39,6 +39,7 @@ struct ConfigValues {
     var hudCornerRadius: Double?
     var hudFontName: String?
     var hudFontSize: Double?
+    var hudTextColor: String?
     var spacesMatchBackground: Bool?
     var spacesBackgroundStyle: SpacesBackgroundStyle?
     var spacesGlassStyle: HUDGlassStyle?
@@ -134,6 +135,7 @@ struct ConfigValues {
         self.hudCornerRadius = config.hudCornerRadius
         self.hudFontName = config.hudFontName
         self.hudFontSize = config.hudFontSize
+        self.hudTextColor = config.hudTextColor
         self.spacesMatchBackground = config.spacesMatchBackground
         self.spacesBackgroundStyle = config.spacesBackgroundStyle
         self.spacesGlassStyle = config.spacesGlassStyle
@@ -339,6 +341,7 @@ struct ConfigValues {
             hudCornerRadius: valid(hudCornerRadius, defaults.hudCornerRadius) { (0...60).contains($0) },
             hudFontName: hudFontName ?? defaults.hudFontName,
             hudFontSize: valid(hudFontSize, defaults.hudFontSize) { (8...48).contains($0) },
+            hudTextColor: hudTextColor ?? defaults.hudTextColor,
             mode: resolvedThemeMode,
             iconScale: valid(iconScale, defaults.iconScale) { (0...1).contains($0) },
             showSpaceNumbers: orDefault(showSpaceNumbers, defaults.showSpaceNumbers),

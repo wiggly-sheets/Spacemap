@@ -30,6 +30,7 @@ final class ConfigValuesTests: XCTestCase {
         values.hudIconStripSource = .sbarFont
         values.hudFontName = "Avenir Next"
         values.hudFontSize = 16
+        values.hudTextColor = "#FFFFFF"
         values.iconScale = 0.8
         values.uiScale = 0.75
         values.autoHideTimeout = 10
@@ -314,6 +315,18 @@ final class ConfigValuesTests: XCTestCase {
         let reread = try TOMLParser.parse(toml)
         XCTAssertEqual(reread.hudFontName, "Avenir Next")
         XCTAssertEqual(reread.hudFontSize, 99)
+    }
+
+    func testHUDTextColorDefaultsEmptyAndRoundTrips() throws {
+        XCTAssertEqual(GridConfig.default.hudTextColor, "")
+
+        var values = ConfigValues()
+        values.hudTextColor = "#FFFFFF"
+        XCTAssertEqual(values.toGridConfig().config.hudTextColor, "#FFFFFF")
+
+        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
+        let reread = try TOMLParser.parse(toml)
+        XCTAssertEqual(reread.hudTextColor, "#FFFFFF")
     }
 
     func testHUDCornerRadiusDefaultsClampsAndRoundTrips() throws {

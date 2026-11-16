@@ -35,10 +35,12 @@ struct SettingsGlyphStrip: View {
             Toggle("Enabled", isOn: $glyphStrip.enabled)
                 .onChange(of: glyphStrip.enabled) { _ in onSave() }
             SettingsFootnote(text: "Each space shows its index plus a glyph per window.")
+            SettingsFootnote(text: "To show the strip as a compact menu-bar item, use General > Glyph Strip Menu Bar.")
             Toggle("Hide in Fullscreen", isOn: $glyphStrip.hideInFullscreen)
                 .onChange(of: glyphStrip.hideInFullscreen) { _ in onSave() }
             SettingsFootnote(text: "Hides the strip while another app is in native fullscreen, such as after clicking a window's green button.")
 
+            if glyphStrip.displayMode == .floating {
             Picker("Position", selection: $glyphStrip.position) {
                 Text("Left of Notch").tag(GlyphStripPosition.leftOfNotch)
                 Text("Right of Notch").tag(GlyphStripPosition.rightOfNotch)
@@ -60,9 +62,6 @@ struct SettingsGlyphStrip: View {
                     }
                     .onChange(of: glyphStrip.verticalLayout) { _ in onSave() }
                     SettingsFootnote(text: "Beside Numbers keeps each space on one row. Under Numbers puts the space number on top and stacks its icons beneath it.")
-                    stepper("Vertical Padding", value: $glyphStrip.verticalPadding, range: 0...40, step: 1)
-                        .onChange(of: glyphStrip.verticalPadding) { _ in onSave() }
-                    SettingsFootnote(text: "Space above and below the strip contents. Only applies to vertical layouts.")
                 }
                 SettingsFootnote(text: "Vertical stacks one space per row, for a strip on a screen edge. Drag the strip to place it anywhere on screen; its position is saved automatically.")
                 Toggle("Lock Position", isOn: $glyphStrip.lockPosition)
@@ -74,6 +73,26 @@ struct SettingsGlyphStrip: View {
                 stepper("Notch Margin", value: $glyphStrip.margin, range: 0...40, step: 1)
                     .onChange(of: glyphStrip.margin) { _ in onSave() }
                 SettingsFootnote(text: "Gap between the strip and the edge of the notch area.")
+            }
+            if glyphStrip.position != .custom {
+                stepper("Vertical Offset", value: $glyphStrip.yOffset, range: -10...10, step: 1)
+                    .onChange(of: glyphStrip.yOffset) { _ in onSave() }
+                SettingsFootnote(text: "Fine-tunes the strip inside the menu bar. Positive values move it down, negative values move it up; 0 keeps it centred.")
+            }
+            }
+
+            Toggle("Same Padding on All Sides", isOn: $glyphStrip.lockPadding)
+                .onChange(of: glyphStrip.lockPadding) { _ in onSave() }
+            if glyphStrip.lockPadding {
+                stepper("Padding", value: $glyphStrip.padding, range: 0...40, step: 1)
+                    .onChange(of: glyphStrip.padding) { _ in onSave() }
+                SettingsFootnote(text: "Space between the glyphs and the strip edge, on every side.")
+            } else {
+                stepper("Horizontal Padding", value: $glyphStrip.horizontalPadding, range: 0...40, step: 1)
+                    .onChange(of: glyphStrip.horizontalPadding) { _ in onSave() }
+                stepper("Vertical Padding", value: $glyphStrip.verticalPadding, range: 0...40, step: 1)
+                    .onChange(of: glyphStrip.verticalPadding) { _ in onSave() }
+                SettingsFootnote(text: "Separate left/right and top/bottom padding.")
             }
 
             Section(header: SettingsSectionHeader(title: "Contents").settingsAnchor("glyphStrip.contents")) {
