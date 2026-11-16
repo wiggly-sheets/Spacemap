@@ -169,11 +169,12 @@ Open Settings from the menu bar or the HUD shortcut. Changes save immediately.
 
 | Section | What it controls |
 |---|---|
-| **Grid** | Space limit/layout, display behavior, cell style, labels, icon strip |
-| **Space Names** | Name visibility, per-space names, and named profiles |
-| **Appearance** | Theme, background, opacity, scale, icon size, HUD shadow |
-| **Behavior** | Hotkeys, HUD position, auto-hide, key navigation, drag-drop focus, menu bar, updates |
-| **Debug/Advanced** | Signal socket health, diagnostics, extra window records |
+| **General** | App presence, menu-bar items, updates, app font |
+| **Spaces** | Space limit/layout, display behavior, cell style, labels, icons, names and profiles |
+| **HUD** | Appearance, glass, theme editor, position, navigation, window drop, feedback and motion |
+| **Glyph Strip** | Placement, padding, contents, appearance, hover, and clicks |
+| **Hotkeys** | Global and app shortcuts, plus HUD-specific actions |
+| **Advanced** | Permissions, signal socket health, diagnostics, extra window records |
 
 ### Deep links
 
@@ -368,7 +369,7 @@ Space names example:
 
 ## Updating
 
-Spacemap uses Sparkle for in-app update checks. Choose **Auto**, **Notify**, or **Off** under **Settings → Behavior → Automatic Updates**.
+Spacemap uses Sparkle for in-app update checks. Choose **Auto**, **Notify**, or **Off** under **Settings → General → Updates**.
 
 Homebrew users can update with:
 

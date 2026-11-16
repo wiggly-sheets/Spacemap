@@ -113,9 +113,20 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[behavior]` | `presence` / `updateMode` | `menuBar` / `notify` | Where Spacemap appears: `dock`, `menuBar`, `both`, or `none`. `none` and `menuBar` use an accessory policy, so no Dock icon. Legacy `hideMenuBarIcon` reads as `none` when true and `menuBar` when false. Sparkle `auto‖notify‖off`; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `[behavior]` | `menuBarDisplayMode` (+ `menuBarNearbyCount`) | `icon` (3) | `icon‖dots‖current‖nearby‖all`; nearby count clamped 1–16 |
 | `[spaceNames]` | `showSpaceNames`; names in `[spaceNames.names]` | true | Per-space names plus `[spaceNameProfiles]` sets (see Settings) |
-| `[glyphStrip]` | — | — | Full key table below |
+| `[glyphStrip]` | `enabled` / `theme` | false / inherits app | Enable the strip; empty theme follows the app theme |
+| `[glyphStrip]` | `displayMode` | `floating` | `floating` panel or `menuBarItem` status item. Menu-bar mode keeps contents, clicks, hover and drags; drops shape, glass, free placement and vertical layouts |
+| `[glyphStrip]` | `padding` / `lockPadding` | 4 / true | One padding for every side; unlock to use `horizontalPadding` and `verticalPadding` (0–40) |
+| `[glyphStrip]` | `showSpaceNumbers` / `showLayoutSuffix` / `showAppIcons` / `dedupeAppsPerSpace` / `maxIconsPerSpace` | true / true / true / true / 8 | Painted contents; layout letters follow `showBSPLayoutBadge` / `showStackLayoutBadge` / `showFloatLayoutBadge` |
+| `[glyphStrip]` | `iconSize` / `indexSize` / `iconSpacing` / `indexPadding` / `autoResizeMaxLength` | 11 / 11 / 3 / 6 / 0 | Glyph metrics; auto-resize 0 is off, otherwise a width or height target |
+| `[glyphStrip]` | `backgroundMaterial` / `shape` / `cornerRadius` / `borderEnabled` | none / none / 20 / true | Floating-strip backdrop. Menu-bar mode ignores these |
+| `[glyphStrip]` | `glassStyle` / `matchHUDAppearance` / `matchBackgroundOpacity` | regular / false / false | Appearance inheritance and per-style opacity |
+| `[glyphStrip]` | `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` / `glassTintedMaterial` | 11 / 5 / 2 / clear | Private glass finish per style, 0–21 |
+| `[glyphStrip]` | `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` / `solidOpacity` / `backgroundOpacity` | 0.05 / 0.35 / 0.35 / 0.35 / 0.35 | Per-material opacity; glass keeps its floor |
+| `[glyphStrip]` | `position` / `orientation` / `verticalLayout` / `xOffset` / `yOffset` / `lockPosition` | leftOfNotch / horizontal / inline / 0 / 0 / false | Placement; free placement only for `position = "custom"` |
+| `[glyphStrip]` | `hoverPadding` / `hoverCornerRadius` / `verticalPadding` / `margin` | 1 / 4 / 4 / 6 | Spacing and hover highlight |
+| `[glyphStrip]` | `leftClickAction` / `rightClickAction` / `middleClickAction` | focusSpace / destroySpace / none | Segment click bindings |
 | `[advanced]` | `socketHealthInterval` | 60 | Socket health check seconds (> 0); `showExtraWindows` lives here too. The Advanced pane also shows live Accessibility and Screen Recording status with request buttons and System Settings deep links |
-| `[appFont]` | `updateMode` | `manual` | Bundled glyph-font update policy (`manual‖auto`) |
+| `[appFont]` | `updateMode` | `auto` | Glyph-font update policy (`manual` or `auto`); fonts are downloaded, not bundled |
 
 ## Development Workflow
 

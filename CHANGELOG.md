@@ -7,12 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- Removed the old hardcoded theme set and its first-run `.smthemes` seeding. The theme list now comes only from the 20 bundled iTerm2 themes and themes installed from the Theme Library. An existing `theme` name that no longer exists falls back to the default until another theme is chosen.
-- Settings now groups by workflow: **General**, **Spaces**, **HUD**, **Glyph Strip**, **Hotkeys**, and **Advanced**. Space names and profiles sit under Spaces, and hotkeys have their own sidebar section instead of living under Behavior.
-- Hotkeys gained a **HUD** subsection with configurable **Move Space Left** and **Move Space Right** actions. They follow the Space Drag Action mode while the HUD is open.
-
-
 ### Added
 - Bundle 20 popular iTerm2 themes and add a floating Theme Library with color previews, search, one-click install/remove, and Apply. The remaining catalog is fetched from the `spacemap-themes` index, cached, and refreshed once a day; bundled themes stay read-only.
 - A locked glyph strip can reorder spaces by dragging a space number onto another segment, or move an app by dragging its icon onto a segment or a visible HUD cell. Dedupe moves every window of the app; one-icon-per-window mode moves only the dragged window. Hovering a segment highlights it and eases its content up briefly. Drop destinations highlight only the segment or HUD cell directly under the pointer, so the highlight matches the cursor and gaps clear it. Display separators and the add button are never drop targets, a space deleted mid-drag cancels the swap, the dragged space is not offered as its own HUD target, and the HUD and strip repaint again as yabai applies the reorder. On macOS 27.2 upstream yabai cannot move spaces, so Spacemap swaps their window contents instead; empty spaces and Mission Control order stay unchanged until a patched yabai is installed.
@@ -45,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Thumbnails now draw the desktop wallpaper beneath the window captures, and off-screen windows are queried so spaces that are not visible still show their windows.
 
 ### Changed
+- Removed the old hardcoded theme set and its first-run `.smthemes` seeding. The theme list now comes only from the 20 bundled iTerm2 themes and themes installed from the Theme Library. An existing `theme` name that no longer exists falls back to the default until another theme is chosen.
+- Settings now groups by workflow: **General**, **Spaces**, **HUD**, **Glyph Strip**, **Hotkeys**, and **Advanced**. Space names and profiles sit under Spaces, and hotkeys have their own sidebar section instead of living under Behavior.
+- Hotkeys gained a **HUD** subsection with configurable **Move Space Left** and **Move Space Right**, **New Space**, **Delete Space**, and **Cycle Layout** actions. They follow the Space Drag Action mode while the HUD is open.
 - Settings shortcut recorders use native-looking keycaps: each modifier and key draws as its own small key, the field shows a focus ring while recording, and an unset shortcut reads “Not Set”.
 - The app no longer bundles sketchybar-app-font. It downloads the current release on first launch, then checks daily under the automatic update mode; manual checks remain available. Font updates default to automatic, and replacing an already-loaded face restarts Spacemap because CoreText caches it by PostScript name.
 - Memory trim: the window-space poll runs every second instead of every half second, the icon cache keeps 64 icons instead of 200, and hidden HUD thumbnail frames are dropped after 30 seconds unless the HUD reopens.
@@ -69,8 +66,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Advanced pane now reports Accessibility and Screen Recording status with request buttons and deep links into the matching System Settings panes. Thumbnail cells request Screen Recording the first time they are selected, and the app asks on launch when thumbnails are already configured.
 
 ### Fixed
-- Clicking the menu-bar glyph strip targets the segment that was pressed, even if the status item reflows before release. A drag that moves past the threshold is no longer treated as a click, so it cannot focus the wrong space on mouse-up.
-- After a sketchybar-app-font update the glyph strip reloads the new file in place. The updater clears the metadata cache and the strip rebuilds its face from the new font URL, so no relaunch is needed.
+- Clicking the menu-bar glyph strip targets the visibly hovered segment, even if the status item reflows before release. A drag that moves past the threshold is no longer treated as a click, so it cannot focus the wrong space on mouse-up.
+- Dragging from the menu-bar glyph strip now survives the status item's own early mouse-up. The gesture finishes on the real release, so space reorders and app moves reach their destination.
+- After a sketchybar-app-font update, Spacemap restarts when the strip had already loaded a face. CoreText pins the old face by PostScript name, so an in-place swap drew the previous release's glyph shapes.
 - The HUD and glyph strip now notice a window moving to another space. yabai emits no signal for `window --space`, so a lightweight window-to-space fingerprint is polled twice a second and triggers a refresh on change.
 - Permission checks no longer run on the main thread. TCC can stall while Spacemap is removed from Device Control & Access; the probe times out and tears its event taps down instead of freezing every click and key. Event taps are disabled before their run-loop source is detached, and a revoked HUD tap relaunches Spacemap so the WindowServer always releases the old tap.
 - The HUD no longer swallows every key while visible. It captures only key presses it acts on, so a stale or revoked Accessibility tap cannot lock out the keyboard.

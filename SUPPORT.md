@@ -59,7 +59,7 @@ Try these quick checks:
 1. Confirm `yabai` and `skhd` are installed and running.
 2. Confirm Spacemap has Accessibility permission.
 3. Restart the HUD after config changes.
-4. For Settings issues, identify the affected category: Grid, Space Names, Appearance, Behavior, or Debug/Advanced.
+4. For Settings issues, identify the affected category: General, Spaces, HUD, Glyph Strip, Hotkeys, or Advanced.
 5. Check `TASKS.md` for known issues.
 6. Check `CHANGELOG.md` for recent behavior changes.
 
