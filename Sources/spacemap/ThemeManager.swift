@@ -257,8 +257,35 @@ class ThemeManager {
     /// Writes a theme as TOML so custom themes stay hand-editable. Refuses a
     /// symlinked target, like every other config write.
     @discardableResult
-    static func save(theme: AppTheme, name: String) -> String? {
+    /// Editing an existing theme never overwrites its source file. The first
+    /// save creates `<name> (Edited)`; later saves update that copy.
+    static func saveDestinationName(_ name: String) -> String {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        let exists = isBundledTheme(trimmed) || userThemeExists(trimmed)
+        return editedCopyName(trimmed, existing: exists)
+    }
+
+    /// Pure naming rule behind `saveDestinationName`: an existing theme gains
+    /// one `(Edited)` suffix; saving that copy again keeps its name.
+    static func editedCopyName(_ name: String, existing: Bool) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        if normalizedName(trimmed).hasSuffix(" (edited)") { return trimmed }
+        return existing ? "\(trimmed) (Edited)" : trimmed
+    }
+
+    private static func userThemeExists(_ name: String) -> Bool {
+        let safe = name
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+        let file = themesDir().appendingPathComponent(safe + ".toml")
+        return FileManager.default.fileExists(atPath: file.path)
+    }
+
+    static func save(theme: AppTheme, name: String) -> String? {
+        let trimmed = saveDestinationName(name)
         guard !trimmed.isEmpty else { return nil }
         let safe = trimmed
             .replacingOccurrences(of: "/", with: "-")

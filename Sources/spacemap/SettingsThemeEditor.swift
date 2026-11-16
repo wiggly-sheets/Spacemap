@@ -22,7 +22,7 @@ struct SettingsThemeEditor: View {
                 Button("Load Selected") { load(theme) }
                     .liquidGlassButtonStyle()
             }
-            SettingsFootnote(text: "Load Selected copies the selected theme into the fields below. Change the name before saving to create a new theme; keep it to overwrite the file you loaded.")
+            SettingsFootnote(text: "Load Selected copies the selected theme into the fields below. Saving an existing theme writes a separate \"(Edited)\" copy, so the original stays untouched. Change the name to create a new theme instead.")
 
             ForEach(AppTheme.colorNames, id: \.self) { key in
                 HStack {
@@ -51,7 +51,7 @@ struct SettingsThemeEditor: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            SettingsFootnote(text: "Saving writes a TOML theme into ~/.config/spacemap/themes and selects it. External edits reload on Load Selected or the next Settings open.")
+            SettingsFootnote(text: "Saving writes a TOML theme into ~/.config/spacemap/themes and selects it. Saving a bundled or installed theme creates an (Edited) copy; saving that copy updates it. External edits reload on Load Selected or the next Settings open.")
         }
         .onAppear { load(theme) }
         .onChange(of: theme) { load($0) }
