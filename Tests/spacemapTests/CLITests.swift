@@ -36,6 +36,10 @@ final class CLITests: XCTestCase {
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--help"]), .command(.help))
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--version"]), .command(.version))
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--config"]), .command(.config))
+        XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--print-config"]), .command(.printConfig))
+        XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--status"]), .command(.status))
+        XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--update"]), .command(.update))
+        XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--update-font"]), .command(.updateFont))
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--trigger"]), .command(.trigger))
         XCTAssertEqual(CLI.parse(arguments: ["spacemap"]), .none)
     }
@@ -75,6 +79,25 @@ final class CLITests: XCTestCase {
         XCTAssertEqual(CLI.versionLine(shortVersion: nil), "Spacemap Unknown")
     }
 
+    func testStatusLinesReportEveryField() {
+        XCTAssertEqual(
+            CLI.statusLines(
+                version: "1.2.3",
+                appPath: "/Applications/Spacemap.app",
+                configPath: "/Users/me/.config/spacemap/config.toml",
+                running: true,
+                yabaiAvailable: false
+            ),
+            [
+                "Spacemap 1.2.3",
+                "App: /Applications/Spacemap.app",
+                "Config: /Users/me/.config/spacemap/config.toml",
+                "Running: yes",
+                "yabai: unavailable",
+            ]
+        )
+    }
+
     func testUnknownOptionExitsWithUsageCode() {
         let cli = CLI(yabaiService: MockYabaiService())
         XCTAssertEqual(cli.runIfRequested(arguments: ["spacemap", "--bogus"]) ?? -1, 2)
@@ -82,7 +105,7 @@ final class CLITests: XCTestCase {
     }
 
     func testMoveToApplicationsUsesPathComponents() {
-        let applicationsPaths = ["/Applications", "/Users/me/Applications"]
+        let applicationsPaths = ["/Applications"]
         XCTAssertTrue(CLIToolsService.isInApplications(
             appPath: "/Applications/Spacemap.app",
             applicationsPaths: applicationsPaths
@@ -91,16 +114,8 @@ final class CLITests: XCTestCase {
             appPath: "/Applications/Spacemap.app/",
             applicationsPaths: applicationsPaths
         ))
-        XCTAssertTrue(CLIToolsService.isInApplications(
-            appPath: "/Users/me/Applications/Spacemap.app",
-            applicationsPaths: applicationsPaths
-        ))
         XCTAssertFalse(CLIToolsService.isInApplications(
             appPath: "/Applications-old/Spacemap.app",
-            applicationsPaths: applicationsPaths
-        ))
-        XCTAssertFalse(CLIToolsService.isInApplications(
-            appPath: "/Users/me/Applications-old/Spacemap.app",
             applicationsPaths: applicationsPaths
         ))
         XCTAssertFalse(CLIToolsService.isInApplications(
@@ -109,15 +124,12 @@ final class CLITests: XCTestCase {
         ))
     }
 
-    func testDefaultApplicationsPathsIncludeTheUserFolder() {
-        let userApplications = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Applications", isDirectory: true)
-            .appendingPathComponent("Spacemap.app")
-        XCTAssertTrue(CLIToolsService.isInApplications(appPath: userApplications.path))
+    func testDefaultApplicationsPathIsSystemApplications() {
+        XCTAssertEqual(CLIToolsService.applicationsPaths, ["/Applications"])
     }
 
     func testMovePromptRespectsDeclinedFlag() {
-        let applicationsPaths = ["/Applications", "/Users/me/Applications"]
+        let applicationsPaths = ["/Applications"]
         XCTAssertTrue(CLIToolsService.shouldPromptToMove(
             appPath: "/Users/me/Downloads/Spacemap.app",
             hasDeclined: false,
@@ -133,7 +145,7 @@ final class CLITests: XCTestCase {
             hasDeclined: false,
             applicationsPaths: applicationsPaths
         ))
-        XCTAssertFalse(CLIToolsService.shouldPromptToMove(
+        XCTAssertTrue(CLIToolsService.shouldPromptToMove(
             appPath: "/Users/me/Applications/Spacemap.app",
             hasDeclined: false,
             applicationsPaths: applicationsPaths

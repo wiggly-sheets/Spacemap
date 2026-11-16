@@ -4,7 +4,11 @@ enum CLICommand: Equatable {
     case version
     case help
     case config
+    case printConfig
+    case status
     case trigger
+    case update
+    case updateFont
     case focusSpace(SpaceFocusTarget)
     case configPreset(String)
 }
@@ -32,6 +36,10 @@ final class CLI {
                          SELECTOR: 1-16, prev, next, first, last,
                                    recent, mouse, or a space label
       --config           Open the config file in the default editor and exit
+      --print-config     Print the resolved config as TOML and exit
+      --status           Print app, config, running, and yabai status
+      --update           Check for app updates in the running app and exit
+      --update-font      Check for app font updates in the running app and exit
       --config-preset NAME
                          Apply a config preset from ~/.config/spacemap/presets
                          and exit (the running app reloads immediately)
@@ -67,6 +75,14 @@ final class CLI {
                 return .command(.help)
             case "--config":
                 return .command(.config)
+            case "--print-config":
+                return .command(.printConfig)
+            case "--status":
+                return .command(.status)
+            case "--update":
+                return .command(.update)
+            case "--update-font":
+                return .command(.updateFont)
             case "--trigger":
                 return .command(.trigger)
             case "--settings", "--show-menu", "--restarting":
@@ -89,6 +105,22 @@ final class CLI {
     /// fabricated 1.0.0).
     static func versionLine(shortVersion: String? = AppVersion.short) -> String {
         "Spacemap \(shortVersion ?? AppVersion.unknown)"
+    }
+
+    static func statusLines(
+        version: String,
+        appPath: String,
+        configPath: String,
+        running: Bool,
+        yabaiAvailable: Bool
+    ) -> [String] {
+        [
+            "Spacemap \(version)",
+            "App: \(appPath)",
+            "Config: \(configPath)",
+            "Running: \(running ? "yes" : "no")",
+            "yabai: \(yabaiAvailable ? "available" : "unavailable")",
+        ]
     }
 
     func runIfRequested(arguments: [String]) -> Int32? {
@@ -116,6 +148,26 @@ final class CLI {
                 fputs("spacemap: failed to open config: \(error.localizedDescription)\n", stderr)
                 return 1
             }
+        case .command(.printConfig):
+            let result = AppConfig.loadReportingResult()
+            print(ConfigLoader.tomlConfigString(from: result.values, includeHeaderComments: false))
+            return 0
+        case .command(.status):
+            let running = (try? SpacemapCommand.health.send()) != nil
+            print(Self.statusLines(
+                version: AppVersion.short,
+                appPath: AppVersion.bundlePath,
+                configPath: AppConfig.configPath,
+                running: running,
+                yabaiAvailable: yabaiService.isYabaiRunning(forceRefresh: true)
+            ).joined(separator: "\n"))
+            return 0
+        case .command(.update):
+            do { try SpacemapCommand.update.send() } catch { fputs("spacemap: \(error)\n", stderr); return 1 }
+            return 0
+        case .command(.updateFont):
+            do { try SpacemapCommand.updateFont.send() } catch { fputs("spacemap: \(error)\n", stderr); return 1 }
+            return 0
         case .command(.trigger):
             do { try SpacemapCommand.toggle.send() } catch { fputs("spacemap: \(error)\n", stderr); return 1 }
             return 0

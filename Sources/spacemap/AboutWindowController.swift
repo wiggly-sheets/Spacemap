@@ -4,8 +4,32 @@ import AppKit
 enum AppVersion {
     static let unknown = "Unknown"
 
+    /// A CLI launched through `/usr/local/bin/spacemap` has a `Bundle.main`
+    /// outside the app. Resolve the executable's symlink and walk back to the
+    /// enclosing `.app` so version strings stay the same in CLI and About.
+    private static var infoBundle: Bundle {
+        if Bundle.main.bundleURL.pathExtension == "app" {
+            return .main
+        }
+        guard let executable = Bundle.main.executableURL?.resolvingSymlinksInPath() else {
+            return .main
+        }
+        let appURL = executable
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        guard appURL.pathExtension == "app", let bundle = Bundle(url: appURL) else {
+            return .main
+        }
+        return bundle
+    }
+
     static var short: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? unknown
+        (infoBundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? unknown
+    }
+
+    static var bundlePath: String {
+        infoBundle.bundlePath
     }
 
     static func formatted(shortVersion: String?, build: String?) -> String {
@@ -17,7 +41,7 @@ enum AppVersion {
     }
 
     static var display: String {
-        let info = Bundle.main.infoDictionary ?? [:]
+        let info = infoBundle.infoDictionary ?? [:]
         return formatted(
             shortVersion: info["CFBundleShortVersionString"] as? String,
             build: info["CFBundleVersion"] as? String

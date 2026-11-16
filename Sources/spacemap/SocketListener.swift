@@ -9,6 +9,8 @@ final class SocketListener {
     private let onToggle: () -> Void
     private let onSettings: () -> Void
     private let onReloadConfig: () -> Void
+    private let onUpdate: () -> Void
+    private let onUpdateFont: () -> Void
     private var serverFd: Int32 = -1
     private var source: DispatchSourceRead?
     private var healthTimer: DispatchSourceTimer?
@@ -41,7 +43,9 @@ final class SocketListener {
         onShow: @escaping () -> Void,
         onToggle: @escaping () -> Void,
         onSettings: @escaping () -> Void,
-        onReloadConfig: @escaping () -> Void = {}
+        onReloadConfig: @escaping () -> Void = {},
+        onUpdate: @escaping () -> Void = {},
+        onUpdateFont: @escaping () -> Void = {}
     ) {
         self.socketPath = socketPath
         self.healthInterval = healthInterval
@@ -51,6 +55,8 @@ final class SocketListener {
         self.onToggle = onToggle
         self.onSettings = onSettings
         self.onReloadConfig = onReloadConfig
+        self.onUpdate = onUpdate
+        self.onUpdateFont = onUpdateFont
         listenerQueue.setSpecific(key: queueKey, value: ())
         guard SpacemapCommand.validatedSocketPath(socketPath) != nil else {
             fputs("spacemap/SocketListener: refusing invalid socket path\n", stderr)
@@ -173,6 +179,12 @@ final class SocketListener {
         }
         if byte == SpacemapCommand.reloadConfig.rawValue || byte == Character("6").asciiValue {
             return .reloadConfig
+        }
+        if byte == SpacemapCommand.update.rawValue || byte == Character("7").asciiValue {
+            return .update
+        }
+        if byte == SpacemapCommand.updateFont.rawValue || byte == Character("8").asciiValue {
+            return .updateFont
         }
         return .refresh
     }
@@ -529,6 +541,10 @@ final class SocketListener {
             self.onRefresh()
         case .reloadConfig:
             self.onReloadConfig()
+        case .update:
+            self.onUpdate()
+        case .updateFont:
+            self.onUpdateFont()
         case .health:
             break
         }

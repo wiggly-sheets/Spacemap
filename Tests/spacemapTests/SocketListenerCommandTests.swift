@@ -43,6 +43,11 @@ final class SocketListenerCommandTests: XCTestCase {
         XCTAssertEqual(SocketListener.command(for: 0xFF), .refresh)
     }
 
+    func testCommandForUpdateRawValue() {
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.update.rawValue), .update)
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.updateFont.rawValue), .updateFont)
+    }
+
 
     func testSendCommandReturnsFalseForInvalidPath() {
         let result = SocketListener.sendCommand(to: "/nonexistent/socket/path", command: SpacemapCommand.show.rawValue)

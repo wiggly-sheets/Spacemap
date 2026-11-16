@@ -18,6 +18,23 @@ the menu bar application and waits for the configured hotkey.
 *--version*
 	Print the Spacemap version and exit.
 
+*--status*
+	Print the app version, bundle path, config path, running state, and yabai
+	availability.
+
+*--print-config*
+	Print the resolved configuration as TOML and exit.
+
+*--update*
+	Ask the running Spacemap application to check for app updates.
+
+*--update-font*
+	Ask the running Spacemap application to check for app font updates.
+
+*--config-preset* _NAME_
+	Apply a preset from _$HOME/.config/spacemap/presets_ and exit. A running
+	application reloads the new configuration.
+
 *--trigger*
 	Toggle the HUD in the running Spacemap application and exit.
 

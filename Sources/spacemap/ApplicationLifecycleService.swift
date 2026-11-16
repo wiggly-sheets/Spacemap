@@ -230,6 +230,12 @@ final class ApplicationLifecycleService {
             onSettings: { [weak self] in DispatchQueue.main.async { self?.services.showSettingsWindow() } },
             onReloadConfig: { [weak self] in
                 DispatchQueue.main.async { self?.applyConfigReplacedExternally() }
+            },
+            onUpdate: { [weak self] in
+                DispatchQueue.main.async { self?.services.checkForUpdates() }
+            },
+            onUpdateFont: { [weak self] in
+                DispatchQueue.main.async { self?.services.checkForFontUpdate() }
             }
         )
         // stop() preserves the nonce, but rebuilding the listener is the

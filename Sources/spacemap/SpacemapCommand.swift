@@ -7,6 +7,8 @@ enum SpacemapCommand: UInt8, Equatable {
     case toggle = 4
     case health = 5
     case reloadConfig = 6
+    case update = 7
+    case updateFont = 8
 
     /// Per-user temp dir ($TMPDIR, mode 0700), not the shared /tmp stencil.
     /// Predictable /tmp paths let another user pre-create the socket.

@@ -5,7 +5,7 @@
 .nh
 .ad l
 .\" Begin generated content:
-.TH "SPACEMAP" "1" "2026\-10\-12"
+.TH "SPACEMAP" "1" "2026\-11\-16"
 .PP
 .SH NAME
 .PP
@@ -25,6 +25,33 @@ the menu bar application and waits for the configured hotkey.\&
 \fB\-\-version\fR
 .RS 4
 Print the Spacemap version and exit.\&
+.PP
+.RE
+\fB\-\-status\fR
+.RS 4
+Print the app version, bundle path, config path, running state, and yabai
+availability.\&
+.PP
+.RE
+\fB\-\-print\-config\fR
+.RS 4
+Print the resolved configuration as TOML and exit.\&
+.PP
+.RE
+\fB\-\-update\fR
+.RS 4
+Ask the running Spacemap application to check for app updates.\&
+.PP
+.RE
+\fB\-\-update\-font\fR
+.RS 4
+Ask the running Spacemap application to check for app font updates.\&
+.PP
+.RE
+\fB\-\-config\-preset\fR \fINAME\fR
+.RS 4
+Apply a preset from \fI$HOME/.\&config/spacemap/presets\fR and exit.\& A running
+application reloads the new configuration.\&
 .PP
 .RE
 \fB\-\-trigger\fR

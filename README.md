@@ -195,12 +195,17 @@ Launching the app from Applications installs `spacemap` and its manual page when
 
 ```bash
 spacemap --version       # print version
+spacemap --status        # app, config, running, and yabai status
 spacemap --trigger       # toggle HUD
 spacemap --space next    # focus next space, then show HUD
 spacemap --space 4       # focus space 4, then show HUD
 spacemap --space web     # focus yabai space label "web"
 spacemap --settings      # open Settings
 spacemap --config        # open config file
+spacemap --print-config  # print the resolved config as TOML
+spacemap --update        # check for app updates
+spacemap --update-font   # check for app font updates
+spacemap --config-preset NAME  # apply a config preset
 ```
 
 `--space` accepts `1`–`16`, `prev`, `next`, `first`, `last`, `recent`, `mouse`, or a [yabai](https://github.com/koekeishiya/yabai) space label.
@@ -395,7 +400,7 @@ Manual installs can download the newest DMG from [Releases](https://github.com/w
 git clone https://github.com/wiggly-sheets/Spacemap.git
 cd Spacemap
 
-make run       # build, install to ~/Applications, launch
+make run       # build, install to /Applications, launch
 make test      # changelog check and unit tests
 make verify    # version, architecture, localizations, signature
 make app       # assemble Spacemap.app (universal)

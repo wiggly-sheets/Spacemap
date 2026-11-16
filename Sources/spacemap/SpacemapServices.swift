@@ -144,6 +144,25 @@ final class SpacemapServices {
     func showAboutWindow() { settingsService.showAboutWindow() }
     func installCommandLineTools() { cliToolsService.installCommandLineTools() }
     func checkForUpdates() { cliToolsService.checkForUpdates() }
+    func checkForFontUpdate() {
+        let installedTag = AppConfig.load().appFont.installedVersion
+        let hadFace = AppGlyphFont.load() != nil
+        Task {
+            do {
+                switch try await AppFontUpdater.runCheck(installedTag: installedTag) {
+                case .upToDate:
+                    AppFontUpdater.recordCheck(installedTag: nil)
+                case .updated(let info):
+                    AppFontUpdater.recordCheck(installedTag: info.tag)
+                    if hadFace {
+                        AppFontUpdater.relaunchIfGlyphStripUsesFont(AppConfig.load())
+                    }
+                }
+            } catch {
+                NSLog("spacemap/AppFont: update check failed — \(error.localizedDescription)")
+            }
+        }
+    }
     func restartApp() { cliToolsService.restartApp() }
     func toggleLoginAtLogin() { cliToolsService.toggleLoginAtLogin() }
     func handleDeepLink(_ action: DeepLinkAction) { deepLinkService.handleDeepLink(action) }
@@ -195,7 +214,9 @@ final class SpacemapServices {
         onShow: @escaping () -> Void,
         onToggle: @escaping () -> Void,
         onSettings: @escaping () -> Void,
-        onReloadConfig: @escaping () -> Void = {}
+        onReloadConfig: @escaping () -> Void = {},
+        onUpdate: @escaping () -> Void = {},
+        onUpdateFont: @escaping () -> Void = {}
     ) -> SocketListener {
         SocketListener(
             socketPath: socketPath,
@@ -204,7 +225,9 @@ final class SpacemapServices {
             onShow: onShow,
             onToggle: onToggle,
             onSettings: onSettings,
-            onReloadConfig: onReloadConfig
+            onReloadConfig: onReloadConfig,
+            onUpdate: onUpdate,
+            onUpdateFont: onUpdateFont
         )
     }
 }
