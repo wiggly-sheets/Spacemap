@@ -8,13 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- CLI commands for `--status`, `--print-config`, `--update`, and `--update-font`. Status reports the app path, config path, running state, and yabai availability; config printing emits the resolved TOML without launching the app; the update commands forward to the running app. `--version` also reads the app bundle through the CLI symlink instead of printing "Unknown".
+- Every HUD action now has user-configurable shortcuts in Settings > Hotkeys and the `[hudKeys]` table. Defaults remain vim keys and arrow keys for movement, with the existing action keys for first/last/recent space, close, create, delete, and layouts.
 - Config presets: a preset is one complete config.toml under `~/.config/spacemap/presets/`, applied from Settings > Advanced > Config Presets or with `spacemap --config-preset NAME`. Switching saves the current settings into the outgoing preset first, so edits made while a preset is active survive the next switch. Create a preset from the current config, from defaults, or from another preset.
 - Import and export a full config file from Settings > Advanced. Exports leave out font install state, which is machine state rather than taste.
+
+### Changed
+- HUD navigation is now edited as individual action bindings instead of the arrow-key, vim-key, and extended-key toggles. Each action accepts several shortcuts, and an empty list leaves that action unbound.
+- Local installs, the CLI symlink target, and the move-to-Applications prompt now use `/Applications` again. `make run` installs there, and a copy in `~/Applications` no longer counts as installed.
 
 ### Removed
 - Config parsing no longer accepts pre-2.0 key names: `hideMenuBarIcon`, `useThemeTint`, `glassAmount`, bare boolean `glyphStrip`, `backgroundStyle = "transparent"`, direct numeric keys under `[spaceNames]`, and per-style opacities that inherited `backgroundAlpha`. Missing per-style opacity keys now fall back to that style's own default.
 
 ### Fixed
+- HUD key editors no longer repeat the first action's rows in Settings when several actions have bindings. Each editor keeps its rows in one container instead of sharing row identities with its siblings.
+- The menu-bar glyph strip now resolves a click against the pointer position instead of the cached hover segment, so a refresh that reflows the strip no longer makes the first click focus the old segment. Clicks also keep the command captured at press time, and a rebuilt status item drops any in-flight press and its global mouse monitor. A press whose release never arrives finishes once the physical button is up, and a tiny pointer wobble that crosses the drag threshold without reaching another space still runs the click.
+- Menu-bar strip clicks now hit-test the physical pointer, because status-item events can deliver the item's center as the click point and repeatedly focus the same space. The command is still captured at press, so a refresh cannot retarget it. Clicks without a draggable run finish on the local release; drag-capable runs finish on the real release through the global monitor. Drags still start only from a space number or app icon.
+- The menu-bar glyph strip now disappears for the visibility hotkey, fullscreen hiding, and when the strip is disabled. Hover and drop hit tests require the pointer inside the item, the add button works in menu-bar mode, and a drop keeps the space it targeted if a refresh reorders segments mid-drag.
+- Font updates that need a restart now use the same detached relaunch helper as the Restart menu item. A failed helper launch leaves the app running instead of quitting without a replacement.
 - A theme name that has no matching theme file is no longer treated as a broken value. The HUD still falls back to the default look, but config.toml keeps the name, so a pending catalog download, a removed custom theme, or a build without bundled themes can no longer silently reset the theme.
 
 ## [2.0.0] - 2026-11-16

@@ -301,9 +301,9 @@ The release notes are the section of `CHANGELOG.md` for the released version. A 
 | `make app-arm` | Build and assemble the arm64 .app bundle |
 | `make app-intel` | Build and assemble the x86_64 .app bundle |
 | `make app-universal` | Build and assemble the universal .app bundle |
-| `make install` | Install to `~/Applications` |
+| `make install` | Install to `/Applications` |
 | `make run` | Install and launch |
-| `make dev1` | Uninstall (remove from `~/Applications`) |
+| `make dev1` | Uninstall (remove from `/Applications`) |
 | `make dev2` | Reinstall and relaunch |
 | `make clean` | Remove build artifacts |
 | `make config` | Create default config |

@@ -48,7 +48,7 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | File | Purpose |
 |------|---------|
 | `~/.config/spacemap/config.toml` | User configuration (reloads on HUD open; Settings applies hotkeys immediately) |
-| `/Applications/Spacemap.app` | Installed application bundle |
+| `/Applications/Spacemap.app` | Local `make run` install |
 | `/usr/local/bin/spacemap` | CLI symlink (if installed) |
 | `$TMPDIR/spacemap_<username>.socket` (`NSTemporaryDirectory()`) | Unix domain socket for yabai signals |
 | `Console.app` | View logs (filter by "spacemap") |

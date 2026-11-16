@@ -6,7 +6,7 @@ APP_NAME = spacemap
 BINARY_NAME = Spacemap
 APP_BUNDLE = Spacemap.app
 APP_CONTENTS = $(APP_BUNDLE)/Contents
-INSTALL_DIR ?= $(HOME)/Applications
+INSTALL_DIR ?= /Applications
 INSTALL_PATH = $(INSTALL_DIR)/$(APP_BUNDLE)
 VERSION  := $(shell cat VERSION 2>/dev/null || git tag --sort=-v:refname 2>/dev/null | head -1 | sed 's/^v//' || grep -A1 CFBundleShortVersionString Sources/spacemap/Info.plist | tail -1 | sed 's/.*<string>\(.*\)<\/string>.*/\1/' || echo "0.0.0")
 # SwiftPM links through clang with only a deployment-target triple, so the
@@ -472,8 +472,8 @@ distconfig:
 	@cat ~/.config/spacemap/config.toml
 
 symlink:
-	ln -sf /Applications/Spacemap.app/Contents/MacOS/$(BINARY_NAME) /usr/local/bin/spacemap
-	@echo "Symlink created: /usr/local/bin/spacemap → /Applications/Spacemap.app/Contents/MacOS/$(BINARY_NAME)"
+	ln -sf $(INSTALL_PATH)/Contents/MacOS/$(BINARY_NAME) /usr/local/bin/spacemap
+	@echo "Symlink created: /usr/local/bin/spacemap → $(INSTALL_PATH)/Contents/MacOS/$(BINARY_NAME)"
 	@echo "Note: You may need to run with sudo for /usr/local/bin access"
 
 unsymlink:

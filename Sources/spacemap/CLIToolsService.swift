@@ -21,6 +21,33 @@ struct AppRestartPlan: Equatable {
             arguments: ["-c", script, "spacemap-restart", "\(parentPID)", bundlePath]
         )
     }
+
+    /// Starts a detached helper, then quits. The helper waits for this PID to
+    /// exit before opening the bundle, so LaunchServices cannot re-activate the
+    /// old instance and a failed launch leaves this process running.
+    static func relaunch() {
+        let plan = make(
+            bundlePath: Bundle.main.bundleURL.path,
+            parentPID: ProcessInfo.processInfo.processIdentifier
+        )
+        let helper = Process()
+        helper.executableURL = URL(fileURLWithPath: plan.executablePath)
+        helper.arguments = plan.arguments
+        helper.standardInput = FileHandle.nullDevice
+        helper.standardOutput = FileHandle.nullDevice
+        helper.standardError = FileHandle.nullDevice
+        do {
+            try helper.run()
+            // Retain until process exit; the helper outlives this call.
+            retainedRestartHelpers.append(helper)
+        } catch {
+            NSLog("Spacemap: relaunch helper failed — \(error.localizedDescription)")
+            return
+        }
+        NSApp.terminate(nil)
+    }
+
+    private static var retainedRestartHelpers: [Process] = []
 }
 
 final class CLIToolsService {
@@ -28,20 +55,13 @@ final class CLIToolsService {
     private let manPageSymlinkPath = "/usr/local/share/man/man1/spacemap.1"
     private let applicationsPath = "/Applications"
 
-    /// `/Applications` holds a Homebrew install; `~/Applications` holds a
-    /// local `make run` install. Both count as installed.
-    static var applicationsPaths: [String] {
-        [
-            "/Applications",
-            FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Applications", isDirectory: true).path,
-        ]
-    }
+    /// System Applications is the single install location. The CLI, updates,
+    /// and the move prompt all resolve against it.
+    static let applicationsPaths = ["/Applications"]
 
     private static let askedLaunchAtLoginKey = "HasAskedLaunchAtLogin"
     private static let askedUpdatePreferenceKey = "HasAskedUpdatePreference"
     private static let declinedMoveToApplicationsKey = "HasDeclinedMoveToApplications"
-    private static var retainedRestartHelpers: [Process] = []
 
     private let onUpdateSparkleConfig: (UpdateMode) -> Void
     private let sparkleController: SPUStandardUpdaterController
@@ -527,27 +547,7 @@ final class CLIToolsService {
     }
 
     func restartApp() {
-        let plan = AppRestartPlan.make(
-            bundlePath: Bundle.main.bundleURL.path,
-            parentPID: ProcessInfo.processInfo.processIdentifier
-        )
-        let helper = Process()
-        helper.executableURL = URL(fileURLWithPath: plan.executablePath)
-        helper.arguments = plan.arguments
-        helper.standardInput = FileHandle.nullDevice
-        helper.standardOutput = FileHandle.nullDevice
-        helper.standardError = FileHandle.nullDevice
-        do {
-            try helper.run()
-            // The helper waits for this PID to disappear before opening the
-            // bundle, so retain it until process exit.
-            Self.retainedRestartHelpers.append(helper)
-        } catch {
-            NSLog("spacemap/restart: helper launch failed — \(error.localizedDescription)")
-        }
-        // Terminate first; opening the bundle while the app is still running
-        // makes LaunchServices just re-activate the old instance.
-        NSApp.terminate(nil)
+        AppRestartPlan.relaunch()
     }
 
     static func launchAtLoginIsEnabled(status: SMAppService.Status) -> Bool {

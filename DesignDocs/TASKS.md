@@ -15,7 +15,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **CLI Options**: `--version`, `--help`, `--config`, `--trigger`, `--space <selector>`, `--show-menu`, `--settings`
 - **Settings Window**: Permanent System Settings-style sidebar with highlighted categories, separate live-save detail forms, space-name editor, and hotkey recorder
 - **Launch at Login**: Toggle with state indicator and first-launch prompt
-- **Move to Applications Prompt**: First-launch prompt to move app to /Applications
+- **Move to Applications Prompt**: First-launch prompt to move app to `/Applications`
 - **TOML-only Config**: Uses grouped Settings-aligned TOML at `~/.config/spacemap/config.toml`
 - **Config File Self-Heal**: Auto-generates on first launch and repairs missing or invalid fields
 - **Config Validation**: Validates TOML keys and values on load

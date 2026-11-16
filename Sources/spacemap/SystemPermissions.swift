@@ -68,13 +68,9 @@ enum SystemPermissions {
     }
 
     /// Screen Recording is read at process start, so a new grant needs a new
-    /// process. Starts a fresh copy, then quits this one.
+    /// process. Starts a fresh copy after this one exits, then quits this one.
     static func relaunch() {
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
-            DispatchQueue.main.async { NSApp.terminate(nil) }
-        }
+        AppRestartPlan.relaunch()
     }
 
     private static func open(_ address: String) {
