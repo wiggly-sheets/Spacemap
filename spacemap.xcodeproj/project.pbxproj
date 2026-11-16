@@ -846,8 +846,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = -Onone;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
-				MARKETING_VERSION = "1.1.1";
-				CURRENT_PROJECT_VERSION = "1.1.1";
+				MARKETING_VERSION = "2.0.0";
+				CURRENT_PROJECT_VERSION = "2.0.0";
 			};
 			name = Debug;
 		};
@@ -874,8 +874,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = -O;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
-				MARKETING_VERSION = "1.1.1";
-				CURRENT_PROJECT_VERSION = "1.1.1";
+				MARKETING_VERSION = "2.0.0";
+				CURRENT_PROJECT_VERSION = "2.0.0";
 			};
 			name = Release;
 		};
@@ -903,8 +903,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = -Onone;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
-				MARKETING_VERSION = "1.1.1";
-				CURRENT_PROJECT_VERSION = "1.1.1";
+				MARKETING_VERSION = "2.0.0";
+				CURRENT_PROJECT_VERSION = "2.0.0";
 			};
 			name = Debug;
 		};
@@ -932,8 +932,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = -O;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
-				MARKETING_VERSION = "1.1.1";
-				CURRENT_PROJECT_VERSION = "1.1.1";
+				MARKETING_VERSION = "2.0.0";
+				CURRENT_PROJECT_VERSION = "2.0.0";
 			};
 			name = Release;
 		};
@@ -961,8 +961,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = -Onone;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
-				MARKETING_VERSION = "1.1.1";
-				CURRENT_PROJECT_VERSION = "1.1.1";
+				MARKETING_VERSION = "2.0.0";
+				CURRENT_PROJECT_VERSION = "2.0.0";
 			};
 			name = Debug;
 		};
@@ -990,8 +990,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = -O;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
-				MARKETING_VERSION = "1.1.1";
-				CURRENT_PROJECT_VERSION = "1.1.1";
+				MARKETING_VERSION = "2.0.0";
+				CURRENT_PROJECT_VERSION = "2.0.0";
 			};
 			name = Release;
 		};
@@ -1019,8 +1019,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = -Onone;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
-				MARKETING_VERSION = "1.1.1";
-				CURRENT_PROJECT_VERSION = "1.1.1";
+				MARKETING_VERSION = "2.0.0";
+				CURRENT_PROJECT_VERSION = "2.0.0";
 			};
 			name = Debug;
 		};
@@ -1048,8 +1048,8 @@
 				SWIFT_OPTIMIZATION_LEVEL = -O;
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
-				MARKETING_VERSION = "1.1.1";
-				CURRENT_PROJECT_VERSION = "1.1.1";
+				MARKETING_VERSION = "2.0.0";
+				CURRENT_PROJECT_VERSION = "2.0.0";
 			};
 			name = Release;
 		};
