@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Config parsing no longer accepts pre-2.0 key names: `hideMenuBarIcon`, `useThemeTint`, `glassAmount`, bare boolean `glyphStrip`, `backgroundStyle = "transparent"`, direct numeric keys under `[spaceNames]`, and per-style opacities that inherited `backgroundAlpha`. Missing per-style opacity keys now fall back to that style's own default.
 
+### Fixed
+- A theme name that has no matching theme file is no longer treated as a broken value. The HUD still falls back to the default look, but config.toml keeps the name, so a pending catalog download, a removed custom theme, or a build without bundled themes can no longer silently reset the theme.
+
 ## [2.0.0] - 2026-11-16
 
 ### Added

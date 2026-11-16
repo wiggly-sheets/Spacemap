@@ -576,7 +576,13 @@ enum TOMLConfigDecoder {
             values.showSpaceNames = showSpaceNames
         }
 
-        values.theme = validatedThemeName(value("theme"))
+        // A theme that is not installed yet must not be repaired away: the HUD
+        // already falls back to the default look at use time, and rewriting the
+        // file would destroy the user's choice (catalog download pending, theme
+        // file removed, or a build without bundled themes).
+        if let name: String = value("theme") {
+            values.theme = String(name.prefix(128))
+        }
         if let name: String = value("mode") {
             values.mode = themeMode(from: name)
         }

@@ -131,9 +131,9 @@ final class ConfigTests: XCTestCase {
         """)
 
         XCTAssertEqual(c.cols, 4)
-        // Quoted `#` survives parsing, but the name is not a known theme so
-        // decode flags repair and it resolves to the default.
-        XCTAssertEqual(c.theme, GridConfig.default.theme)
+        // Quoted `#` survives parsing and the name is kept even when no theme
+        // file matches it; the HUD falls back to the default look at use time.
+        XCTAssertEqual(c.theme, "tokyo # night")
     }
 
     func testHUDPositionPresetsAndInvalidCustomFallBack() {
