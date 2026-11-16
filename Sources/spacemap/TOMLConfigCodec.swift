@@ -406,45 +406,33 @@ enum TOMLConfigDecoder {
             "spacesGlassClearVariant", "spacesGlassRegularVariant", "spacesGlassTintedVariant",
             "spacesGlassTintedMaterial", "spacesOpacity", "spacesCornerRadius"
         ])
-        // Legacy fallback: pre-[advanced] files keep showExtraWindows under
-        // [behavior]. Capture before flatten drops the section; [advanced]
-        // and top level win when present.
-        let legacyShowExtra = (result["behavior"] as? [String: Any])?["showExtraWindows"]
         flatten("behavior", keys: [
             "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
             "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange", "hudAnimationsEnabled", "hudAnimationStyle", "hudEntranceStyle", "showBSPLayoutBadge", "showStackLayoutBadge", "showFloatLayoutBadge", "showHUDInteractionFeedback", "spaceDropMode", "spaceDragFocus", "windowDragFocus",
-            "focusSpaceOnWindowDropModifier", "presence", "hideMenuBarIcon", "showThumbnailWallpaper",
+            "focusSpaceOnWindowDropModifier", "presence", "showThumbnailWallpaper",
             "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode",
             // Inline `hotkey = { ... }` / `hudPosition = { ... }` under
             // [behavior] must survive flatten just like the dotted form.
             "hotkey", "pinnedHotkey", "glyphStripHotkey", "hudMoveSpaceBackHotkey", "hudMoveSpaceForwardHotkey", "hudNewSpaceHotkey", "hudDeleteSpaceHotkey", "hudCycleLayoutHotkey", "hudPosition"
         ])
         flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows", "refuseUntrustedYabai"])
-        if result["showExtraWindows"] == nil, let legacyShowExtra {
-            result["showExtraWindows"] = legacyShowExtra
-        }
 
-        // `[spaceNames]` has held three shapes over time: a names map, the
-        // showSpaceNames toggle, and a nested `names` map. Merge them instead
-        // of dropping direct entries; anything non-numeric still reaches the
-        // decoder and flags repair.
-        var directSpaceNames: [String: Any] = [:]
+        // `[spaceNames]` holds the showSpaceNames toggle; the names live in the
+        // nested `names` table (written as `[spaceNames.names]`).
+        var spaceNames: [String: Any] = [:]
         if let section = result.removeValue(forKey: "spaceNames") as? [String: Any] {
-            for (key, value) in section {
-                if key == "showSpaceNames" {
-                    result["showSpaceNames"] = value
-                } else if key == "names", let nested = value as? [String: Any] {
-                    directSpaceNames.merge(nested) { _, new in new }
-                } else {
-                    directSpaceNames[key] = value
-                }
+            if let show = section["showSpaceNames"] {
+                result["showSpaceNames"] = show
+            }
+            if let nested = section["names"] as? [String: Any] {
+                spaceNames.merge(nested) { _, new in new }
             }
         }
         if let nested = result.removeValue(forKey: "spaceNames.names") as? [String: Any] {
-            directSpaceNames.merge(nested) { _, new in new }
+            spaceNames.merge(nested) { _, new in new }
         }
-        if !directSpaceNames.isEmpty {
-            result["spaceNames"] = directSpaceNames
+        if !spaceNames.isEmpty {
+            result["spaceNames"] = spaceNames
         }
         if let hotkey = result.removeValue(forKey: "behavior.hotkey") {
             result["hotkey"] = hotkey
@@ -641,11 +629,6 @@ enum TOMLConfigDecoder {
         }
         if let name: String = value("presence") {
             values.presence = parsedEnum(from: name)
-        } else if let hide: Bool = value("hideMenuBarIcon") {
-            // Legacy: hidden menu bar icon meant a menu-bar-less app.
-            values.presence = hide ? AppPresence.none : .menuBar
-        } else if let hide: Int = value("hideMenuBarIcon") {
-            values.presence = hide == 0 ? .menuBar : AppPresence.none
         }
         values.glyphStrip = glyphStripConfig(from: object)
         if let name: String = value("menuBarDisplayMode") {
@@ -740,23 +723,6 @@ enum TOMLConfigDecoder {
     }
 
 
-    /// Unknown theme names stay nil so `toGridConfig` flags repair and heals
-    /// the file, instead of silently falling back at every use site. Lookup
-    /// mirrors `ThemeManager.named`: normalized (spaces/hyphens/underscores)
-    /// first, then compact (`tokyonight` -> `tokyo night`). The user's
-    /// spelling is preserved so a save does not rewrite it.
-    private static func validatedThemeName(_ name: String?) -> String? {
-        guard let name else { return nil }
-        // `default` is the built-in fallback, not a selectable theme.
-        if ThemeManager.normalizedName(name) == "default" { return name }
-        let names = ThemeManager.shared.allNames()
-        let normalized = ThemeManager.normalizedName(name)
-        if names.contains(normalized) { return name }
-        let compact = ThemeManager.compactName(name)
-        if names.contains(where: { ThemeManager.compactName($0) == compact }) { return name }
-        return nil
-    }
-
     private static func parseHotkeyTable(_ table: [String: Any]) -> HotkeyConfig? {
         guard let kind = table["keyKind"] as? String,
               let modifierNames = table["modifiers"] as? [String] else {
@@ -791,13 +757,7 @@ enum TOMLConfigDecoder {
     }
     /// `[glyphStrip]` table. Unknown enum names fall back to that key's default
     /// instead of failing the whole load, matching how the other enum keys behave.
-    /// A bare `glyphStrip = true` is the legacy on/off form and maps to `enabled`.
     private static func glyphStripConfig(from object: [String: Any]) -> GlyphStripConfig? {
-        if let enabled = object["glyphStrip"] as? Bool {
-            var config = GlyphStripConfig.default
-            config.enabled = enabled
-            return config
-        }
         guard let table = object["glyphStrip"] as? [String: Any] else { return nil }
         var config = GlyphStripConfig.default
         if let value = table["enabled"] as? Bool { config.enabled = value }
@@ -827,18 +787,6 @@ enum TOMLConfigDecoder {
         }
         if let name = table["glassStyle"] as? String {
             config.glassStyle = parsedEnum(from: name) ?? GlyphStripConfig.default.glassStyle
-        } else {
-            // Older files only had a continuous amount plus a tint toggle.
-            // Map them onto the closest of the three native positions.
-            let legacyTint = table["useThemeTint"] as? Bool
-            let legacyAmount = number(table["glassAmount"])
-            if legacyTint == false {
-                config.glassStyle = .regular
-            } else if let legacyAmount {
-                config.glassStyle = legacyAmount <= 0.02 ? .clear : .tinted
-            } else if legacyTint == true {
-                config.glassStyle = .tinted
-            }
         }
         if let value = variant(table["glassClearVariant"]) { config.glassClearVariant = value }
         if let value = variant(table["glassRegularVariant"]) { config.glassRegularVariant = value }
@@ -847,14 +795,10 @@ enum TOMLConfigDecoder {
             config.glassTintedMaterial = parsedEnum(from: name) ?? GlyphStripConfig.default.glassTintedMaterial
         }
         if let value = number(table["backgroundOpacity"]) { config.backgroundOpacity = value }
-        // New per-style keys inherit the shared value from older configs. Clear
-        // used to be painted at 15% of its value, so inherit that share to keep
-        // existing strips looking the same.
-        let sharedOpacity = config.backgroundOpacity
-        config.glassClearOpacity = number(table["glassClearOpacity"]) ?? sharedOpacity * 0.15
-        config.glassRegularOpacity = number(table["glassRegularOpacity"]) ?? sharedOpacity
-        config.glassTintedOpacity = number(table["glassTintedOpacity"]) ?? sharedOpacity
-        config.solidOpacity = number(table["solidOpacity"]) ?? sharedOpacity
+        if let value = number(table["glassClearOpacity"]) { config.glassClearOpacity = value }
+        if let value = number(table["glassRegularOpacity"]) { config.glassRegularOpacity = value }
+        if let value = number(table["glassTintedOpacity"]) { config.glassTintedOpacity = value }
+        if let value = number(table["solidOpacity"]) { config.solidOpacity = value }
         if let value = table["matchBackgroundOpacity"] as? Bool { config.matchBackgroundOpacity = value }
         if let value = table["matchHUDAppearance"] as? Bool { config.matchHUDAppearance = value }
         if let value = number(table["cornerRadius"]) { config.cornerRadius = value }

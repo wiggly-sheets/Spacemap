@@ -15,16 +15,6 @@ enum CellStyle: Int, CaseIterable, Identifiable, Equatable {
 enum HUDBackgroundStyle: String, CaseIterable, Identifiable, Codable, Equatable {
     case glass, solid
     var id: String { rawValue }
-
-    /// Legacy `transparent` loads as solid: a solid fill at zero opacity is the
-    /// same result, so the third style had no separate behaviour to keep.
-    init?(rawValue: String) {
-        switch rawValue.lowercased() {
-        case "glass": self = .glass
-        case "solid", "transparent": self = .solid
-        default: return nil
-        }
-    }
 }
 enum HUDGlassStyle: String, CaseIterable, Identifiable, Codable, Equatable {
     /// Left end of the native Liquid Glass scale: minimal backing.

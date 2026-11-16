@@ -230,21 +230,17 @@ struct ConfigValues {
         let resolvedTintedVariant = min(max(glassTintedVariant ?? defaults.glassTintedVariant, 0), 21)
         let resolvedGlassTintedMaterial = glassTintedMaterial ?? defaults.glassTintedMaterial
         let resolvedBackgroundAlpha = valid(backgroundAlpha, defaults.backgroundAlpha) { (0...1).contains($0) }
-        // Per-style keys are new: absent values inherit `backgroundAlpha` so
-        // older configs keep their look without triggering a repair. Clear used
-        // to be painted at 15% of its value, so inherit that effective share.
-        let legacyClearOpacity = resolvedBackgroundAlpha * 0.15
         let resolvedGlassClearOpacity = valid(
-            glassClearOpacity ?? legacyClearOpacity, defaults.glassClearOpacity
+            glassClearOpacity, defaults.glassClearOpacity
         ) { (0...1).contains($0) }
         let resolvedGlassRegularOpacity = valid(
-            glassRegularOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
+            glassRegularOpacity, defaults.glassRegularOpacity
         ) { (0...1).contains($0) }
         let resolvedGlassTintedOpacity = valid(
-            glassTintedOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
+            glassTintedOpacity, defaults.glassTintedOpacity
         ) { (0...1).contains($0) }
         let resolvedSolidOpacity = valid(
-            solidOpacity ?? resolvedBackgroundAlpha, resolvedBackgroundAlpha
+            solidOpacity, defaults.solidOpacity
         ) { (0...1).contains($0) }
         let resolvedShowMode = orDefault(showMode, defaults.showMode)
         let resolvedMultiMonitorMode = orDefault(multiMonitorHUDMode, defaults.multiMonitorHUDMode)

@@ -22,6 +22,10 @@ final class ConfigValuesTests: XCTestCase {
 
         values.maxSpaces = 12
         values.backgroundAlpha = 0.5
+        values.glassClearOpacity = 0.05
+        values.glassRegularOpacity = 0.35
+        values.glassTintedOpacity = 0.45
+        values.solidOpacity = 0.5
         values.backgroundStyle = .glass
         values.glassStyle = .tinted
         values.hudShadow = false
@@ -85,6 +89,10 @@ final class ConfigValuesTests: XCTestCase {
         strip.backgroundMaterial = .liquidGlass
         strip.shape = .pill
         strip.backgroundOpacity = 0.5
+        strip.glassClearOpacity = 0.05
+        strip.glassRegularOpacity = 0.35
+        strip.glassTintedOpacity = 0.45
+        strip.solidOpacity = 0.5
         strip.cornerRadius = 6
         strip.showDisplaySeparators = false
         strip.showAddSpaceButton = false
@@ -422,19 +430,6 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertTrue(AppPresence.both.showsMenuBar)
         XCTAssertFalse(AppPresence.none.showsDock)
         XCTAssertFalse(AppPresence.none.showsMenuBar)
-    }
-
-    func testMissingPerStyleOpacityInheritsBackgroundAlpha() {
-        var values = ConfigValues()
-        values.backgroundAlpha = 0.6
-
-        let config = values.toGridConfig().config
-
-        // Clear keeps its old effective value: backgroundAlpha scaled by 15%.
-        XCTAssertEqual(config.glassClearOpacity, 0.09, accuracy: 1e-9)
-        XCTAssertEqual(config.glassRegularOpacity, 0.6)
-        XCTAssertEqual(config.glassTintedOpacity, 0.6)
-        XCTAssertEqual(config.solidOpacity, 0.6)
     }
 
     func testNewMaterialAndShapeKeysRoundTripThroughTheConfigString() throws {

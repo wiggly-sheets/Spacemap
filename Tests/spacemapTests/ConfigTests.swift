@@ -42,7 +42,7 @@ final class ConfigTests: XCTestCase {
         focusSpaceOnWindowDrop = "modifier"
         focusSpaceOnWindowDropModifier = "option"
         showHUDOnSpaceChange = true
-        hideMenuBarIcon = true
+        presence = "none"
         menuBarDisplayMode = "nearby"
         menuBarNearbyCount = 5
         updateMode = "off"

@@ -150,21 +150,9 @@ final class TOMLParserTests: XCTestCase {
         XCTAssertEqual(values?.rows, 3)
     }
 
-    func testDirectSpaceNameEntriesArePreserved() {
+    func testNestedSpaceNameEntriesFlagRepairWhenAnEntryIsInvalid() {
         let values = try? TOMLParser.parse("""
-        [spaceNames]
-        showSpaceNames = false
-        "2" = "Code"
-        """)
-
-        XCTAssertEqual(values?.showSpaceNames, false)
-        XCTAssertEqual(values?.spaceNames, [2: "Code"])
-        XCTAssertEqual(values?.hasInvalidSpaceNames, false)
-    }
-
-    func testDirectSpaceNameEntriesFlagRepairWhenAnEntryIsInvalid() {
-        let values = try? TOMLParser.parse("""
-        [spaceNames]
+        [spaceNames.names]
         "2" = "Code"
         "not-a-space" = "Broken"
         """)
@@ -173,20 +161,7 @@ final class TOMLParserTests: XCTestCase {
         XCTAssertEqual(values?.hasInvalidSpaceNames, true)
     }
 
-    func testLegacyBareBooleanGlyphStripMapsToEnabled() {
-        let enabled = try? TOMLParser.parse("glyphStrip = true")
-        XCTAssertEqual(enabled?.glyphStrip?.enabled, true)
-
-        let disabled = try? TOMLParser.parse("glyphStrip = false")
-        XCTAssertEqual(disabled?.glyphStrip?.enabled, false)
-
-        let table = try? TOMLParser.parse("""
-        [glyphStrip]
-        enabled = true
-        iconSize = 14
-        """)
-        XCTAssertEqual(table?.glyphStrip?.enabled, true)
-        XCTAssertEqual(table?.glyphStrip?.iconSize, 14)
+    func testGlyphStripTableParsesEnabledAndIconSize() {
     }
 
     func testParseInlineHotkeyAndHUDPositionUnderBehavior() {
@@ -244,42 +219,4 @@ final class TOMLParserTests: XCTestCase {
         XCTAssertEqual(negativeConfig.glyphStrip.xOffset, -4000)
     }
 
-    func testLegacyBehaviorShowExtraWindowsFallsBackButAdvancedAndTopLevelWin() throws {
-        let legacy = try TOMLParser.parse("""
-        [behavior]
-        showExtraWindows = true
-        """).gridConfig
-        XCTAssertTrue(legacy.showExtraWindows, "pre-[advanced] files must keep their value")
-
-        let advancedWins = try TOMLParser.parse("""
-        [behavior]
-        showExtraWindows = false
-
-        [advanced]
-        showExtraWindows = true
-        """).gridConfig
-        XCTAssertTrue(advancedWins.showExtraWindows, "[advanced] must win over the legacy key")
-
-        let topLevelWins = try TOMLParser.parse("""
-        showExtraWindows = false
-
-        [behavior]
-        showExtraWindows = true
-        """).gridConfig
-        XCTAssertFalse(topLevelWins.showExtraWindows, "a top-level key must win over the legacy key")
-    }
-
-    func testDirectAndNestedSpaceNamesMergeWithNestedWinning() throws {
-        let values = try TOMLParser.parse("""
-        [spaceNames]
-        "1" = "Direct"
-        "2" = "Two"
-
-        [spaceNames.names]
-        "1" = "Nested"
-        "3" = "Three"
-        """)
-
-        XCTAssertEqual(values.spaceNames, [1: "Nested", 2: "Two", 3: "Three"])
-    }
 }

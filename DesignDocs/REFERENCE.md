@@ -74,13 +74,13 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[appearance]` | `hudFontSize` | `12` | Space-number point size, clamped 8...48 |
 | `[appearance]` | `hudTextColor` | `""` | Optional hex override for HUD text. Empty follows the theme |
 | `[appearance]` | `theme` / `mode` | `default` / `auto` | Color theme; `light`, `dark`, or `auto` |
-| `[appearance]` | `backgroundAlpha` | 0.3 | Shared HUD opacity 0–1 when `matchBackgroundOpacity` is on; otherwise the legacy fallback |
-| `[appearance]` | `backgroundStyle` | `glass` | `glass` or `solid`; solid at zero opacity hides the fill. Legacy `transparent` reads as `solid` |
+| `[appearance]` | `backgroundAlpha` | 0.3 | Shared HUD opacity 0–1 when `matchBackgroundOpacity` is on |
+| `[appearance]` | `backgroundStyle` | `glass` | `glass` or `solid`; solid at zero opacity hides the fill |
 | `[appearance]` | `glassStyle` | `regular` | Glass sub-type: `clear` (native light material), `regular` (frosted), or `tinted` (accent over a chosen material) |
 | `[appearance]` | `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` | 11 / 5 / 2 | Private `NSGlassEffectView._variant` finish per style, 0–21, freely chosen in Settings. Variant numbers and the probe approach follow [JulianWindeck/liquid-glass](https://github.com/JulianWindeck/liquid-glass) |
 | `[appearance]` | `glassTintedMaterial` | `clear` | Material under the tint: `clear` or `regular` |
-| `[appearance]` | `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` | inherits `backgroundAlpha` | Per-glass-style opacity 0–1. Glass clamps to its floor (clear 0.35, regular 0.40, tinted 0.45) so it never becomes a hole. Used when `matchBackgroundOpacity` is off |
-| `[appearance]` | `solidOpacity` | inherits `backgroundAlpha` | Solid HUD fill opacity 0–1 (no blur; zero is fully transparent) |
+| `[appearance]` | `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` | 0.05 / 0.35 / 0.35 | Per-glass-style opacity 0–1. Glass clamps to its floor (clear 0.35, regular 0.40, tinted 0.45) so it never becomes a hole. Used when `matchBackgroundOpacity` is off |
+| `[appearance]` | `solidOpacity` | 0.35 | Solid HUD fill opacity 0–1 (no blur; zero is fully transparent) |
 | `[appearance]` | `matchBackgroundOpacity` | false | Link all HUD styles to `backgroundAlpha`; the glass floor still applies |
 | `[appearance]` | `hudShadow` | true | Draw HUD panel shadow |
 | `[appearance]` | `hudCornerRadius` | 10 | Outer HUD panel corner radius, 0–60; space cells are unaffected |
@@ -110,7 +110,7 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[behavior]` | `windowDragFocus` | `destination` | Focus after moving an app icon to another space: `stay`, `destination`, or `source` |
 | HUD drag | — | — | Drag a cell to rearrange spaces; drag an app icon to move its windows. Deduped icons move every window of the app, one-icon-per-window moves only that window |
 | `[behavior]` | `showThumbnailWallpaper` | true | Draw the desktop wallpaper behind thumbnail cells. Off leaves the desktop transparent behind the windows |
-| `[behavior]` | `presence` / `updateMode` | `menuBar` / `notify` | Where Spacemap appears: `dock`, `menuBar`, `both`, or `none`. `none` and `menuBar` use an accessory policy, so no Dock icon. Legacy `hideMenuBarIcon` reads as `none` when true and `menuBar` when false. Sparkle `auto‖notify‖off`; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
+| `[behavior]` | `presence` / `updateMode` | `menuBar` / `notify` | Where Spacemap appears: `dock`, `menuBar`, `both`, or `none`. `none` and `menuBar` use an accessory policy, so no Dock icon. Sparkle `auto‖notify‖off`; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `[behavior]` | `menuBarDisplayMode` (+ `menuBarNearbyCount`) | `icon` (3) | `icon‖dots‖current‖nearby‖all`; nearby count clamped 1–16 |
 | `[spaceNames]` | `showSpaceNames`; names in `[spaceNames.names]` | true | Per-space names plus `[spaceNameProfiles]` sets (see Settings) |
 | `[glyphStrip]` | `enabled` / `theme` | false / inherits app | Enable the strip; empty theme follows the app theme |

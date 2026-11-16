@@ -78,7 +78,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `hudFontName` | String | `""` | PostScript family | HUD text font; empty uses the system font |
 | `hudFontSize` | Double | `12` | `8...48` | HUD space-number size; other text scales |
 | `hudTextColor` | String | `""` | Valid hex or empty | HUD text override; empty follows the theme |
-| `presence` | String | `menuBar` | `dock‖menuBar‖both‖none` | Where Spacemap appears; legacy `hideMenuBarIcon` still loads |
+| `presence` | String | `menuBar` | `dock‖menuBar‖both‖none` | Where Spacemap appears |
 | `menuBarDisplayMode` / `menuBarNearbyCount` | String / Int | `icon` / 3 | `icon‖dots‖current‖nearby‖all` / 1–16 | Menu-bar preview mode and nearby count |
 | `useVimKeys` / `useArrowKeys` / `useExtendedKeys` | Bool | false / false / true | — | hjkl / arrows / extended navigation keys |
 | `jumpToSpaceEnabled` | Bool | `false` | — | Number-key space jumps (multi-digit supported) |
