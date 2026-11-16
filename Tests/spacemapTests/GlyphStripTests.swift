@@ -1172,6 +1172,14 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertTrue(GlyphStrip.exceedsDragThreshold(CGVector(dx: -4, dy: 4)))
     }
 
+    func testDragOnlyDropsOnAnotherSpace() {
+        XCTAssertTrue(GlyphStrip.dragResolvesToDrop(hudTarget: 3, targetSpace: nil, sourceSpace: 2))
+        XCTAssertTrue(GlyphStrip.dragResolvesToDrop(hudTarget: nil, targetSpace: 3, sourceSpace: 2))
+        XCTAssertFalse(GlyphStrip.dragResolvesToDrop(hudTarget: nil, targetSpace: 2, sourceSpace: 2))
+        XCTAssertFalse(GlyphStrip.dragResolvesToDrop(hudTarget: nil, targetSpace: nil, sourceSpace: 2))
+        XCTAssertFalse(GlyphStrip.dragResolvesToDrop(hudTarget: nil, targetSpace: 3, sourceSpace: nil))
+    }
+
     func testTallContentIsClampedToTheRowHeight() {
         let frame = GlyphStrip.frame(
             contentSize: CGSize(width: 200, height: 900),

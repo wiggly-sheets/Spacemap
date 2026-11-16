@@ -119,6 +119,7 @@ final class GlyphStripPanelController: NSObject {
     fileprivate var focusedSpaceIndex: Int?
     private var hoveredSegment: Int?
     fileprivate var dragTargetSegment: Int?
+    private var dragTargetSpaceIndex: Int?
     /// Resolves a drop onto a HUD cell in AppKit screen coordinates. Set by
     /// `SpacemapServices`; nil keeps strip-only dragging.
     var hudSpaceAtPoint: ((NSPoint) -> Int?)?
@@ -700,6 +701,8 @@ final class GlyphStripPanelController: NSObject {
             let view = GlyphStripStatusView(controller: self)
             view.autoresizingMask = [.width, .height]
             item.button?.addSubview(view)
+            item.button?.target = self
+            item.button?.action = #selector(statusItemClicked(_:))
             statusView = view
             statusItem = item
         }
@@ -707,6 +710,7 @@ final class GlyphStripPanelController: NSObject {
     }
 
     private func removeStatusItem() {
+        statusView?.cancelGesture()
         if let statusItem {
             NSStatusBar.system.removeStatusItem(statusItem)
         }
@@ -729,7 +733,17 @@ final class GlyphStripPanelController: NSObject {
         if statusView?.frame != button.bounds {
             statusView?.frame = button.bounds
         }
+        statusView?.refreshHover()
         statusView?.needsDisplay = true
+    }
+
+    /// The status-bar button can own the click tracking even when its custom
+    /// subview draws the strip. Use the button action as a fallback so a click
+    /// that never reaches `GlyphStripStatusView.mouseDown` still focuses.
+    @objc private func statusItemClicked(_ sender: Any?) {
+        guard let event = NSApp.currentEvent, let view = statusView else { return }
+        let point = view.convert(event.locationInWindow, from: nil)
+        view.handleButtonClick(at: point, eventTime: event.timestamp)
     }
 
     // MARK: - Panel
@@ -769,6 +783,10 @@ final class GlyphStripPanelController: NSObject {
     }
 
     private func hide() {
+        // A menu-bar item is a separate surface; ordering out the panel does
+        // not remove it. Drop it before any early return so hotkey, fullscreen,
+        // and disabled hides all take effect.
+        removeStatusItem()
         // An in-flight refresh must not re-present a strip the user just hid or
         // disabled. Bumping the generation makes every pending reply stale, and
         // cancelling the coalesced work stops a queued pass from starting.
@@ -1176,6 +1194,8 @@ final class GlyphStripPanelController: NSObject {
     // MARK: - Input
 
     fileprivate func handle(_ command: GlyphStrip.Command) {
+        if case .focusSpace(let index) = command {
+        }
         switch command {
         case .focusSpace(let index):
             yabaiService.focusSpaceAsync(index)
@@ -1248,14 +1268,17 @@ final class GlyphStripPanelController: NSObject {
     }
 
     /// The space currently highlighted as the drop destination. Drop uses
-    /// this same value so highlight and result cannot diverge.
-    fileprivate var dragTargetSpace: Int? {
-        dragTargetSegment.flatMap { segments.indices.contains($0) ? segments[$0].spaceIndex : nil }
-    }
+    /// this same value so highlight and result cannot diverge. Stored at
+    /// targeting time, because a refresh can reorder segment indices mid-drag.
+    fileprivate var dragTargetSpace: Int? { dragTargetSpaceIndex }
 
     fileprivate func setDragTarget(_ segment: Int?) {
-        guard dragTargetSegment != segment else { return }
+        let space = segment.flatMap {
+            segments.indices.contains($0) ? segments[$0].spaceIndex : nil
+        }
+        guard dragTargetSegment != segment || dragTargetSpaceIndex != space else { return }
         dragTargetSegment = segment
+        dragTargetSpaceIndex = space
         glyphs?.needsDisplay = true
         statusView?.needsDisplay = true
     }
@@ -1887,11 +1910,21 @@ private final class GlyphStripStatusView: NSView {
     private enum Payload {
         case space(Int)
         case windows([Int], source: Int)
+
+        var sourceSpace: Int {
+            switch self {
+            case .space(let source): return source
+            case .windows(_, let source): return source
+            }
+        }
     }
 
     private var tracking: NSTrackingArea?
     private var hoveredSegment: Int?
     private var pressSegment: Int?
+    private var pressCommand: GlyphStrip.Command?
+    private var lastMouseDownTime: TimeInterval = 0
+    private var lastHandledClickTime: TimeInterval = 0
     private var pressPoint: NSPoint?
     private var pressScreenLocation: NSPoint?
     private var globalDragMonitor: Any?
@@ -1962,6 +1995,25 @@ private final class GlyphStripStatusView: NSView {
             RunLoop.main.add(timer, forMode: .common)
             hoverTimer = timer
         }
+        needsDisplay = true
+    }
+
+    /// Re-hit-tests the resting pointer after a menu-bar reflow, so the
+    /// highlight and the next click name the same segment.
+    fileprivate func refreshHover() {
+        guard let window else {
+            hoveredSegment = nil
+            hoverProgress = 0
+            needsDisplay = true
+            return
+        }
+        let point = convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
+        let segment = segment(at: point)
+        guard segment != hoveredSegment else { return }
+        hoveredSegment = segment
+        hoverProgress = segment == nil ? 0 : 1
+        hoverTimer?.invalidate()
+        hoverTimer = nil
         needsDisplay = true
     }
 
@@ -2056,26 +2108,59 @@ private final class GlyphStripStatusView: NSView {
         NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 3), xRadius: 3, yRadius: 3).fill()
     }
 
+    /// The status item can deliver a synthesized center press when another
+    /// menu-bar window forwards the click. Prefer the physical pointer, which
+    /// still names the segment the user aimed at.
+    private func clickPoint(eventPoint: NSPoint) -> NSPoint {
+        if let cursor = pointInView(), bounds.contains(cursor) {
+            return cursor
+        }
+        return eventPoint
+    }
+
     override func mouseDown(with event: NSEvent) {
         guard let controller else { return }
-        pressPoint = convert(event.locationInWindow, from: nil)
+        let eventPoint = convert(event.locationInWindow, from: nil)
+        let pressPoint = clickPoint(eventPoint: eventPoint)
+        // A lost mouse-up from the previous press would otherwise leave a
+        // monitor and a pressed segment behind for this click to inherit.
+        removeGlobalDragMonitor()
+        pressSegment = nil
+        pressCommand = nil
+        lastMouseDownTime = event.timestamp
+        self.pressPoint = pressPoint
         pressScreenLocation = NSEvent.mouseLocation
         didDrag = false
         dragActivated = false
         payload = nil
-        // The pointer can rest while a menu-bar refresh reflows the item, so
-        // the hover the user sees is the segment they mean. Prefer it over a
-        // fresh hit test.
-        let hitSegment = hoveredSegment ?? segment(at: pressPoint ?? .zero)
+        // Menu-bar refreshes can reflow the item under a resting pointer, so
+        // the cached hover may name a segment that is no longer under the
+        // cursor. Hit-test the press point instead of trusting it.
+        let hitSegment = segment(at: pressPoint)
         guard let segment = hitSegment,
-              controller.segments.indices.contains(segment),
-              let point = pressPoint,
-              let run = run(at: point, in: segment),
-              let space = controller.segments[segment].spaceIndex else { return }
+              controller.segments.indices.contains(segment) else {
+            return
+        }
+        // The add button has no space index and nothing to drag. It waits for
+        // the local mouse-up, which closes the status item's tracking loop.
+        if controller.segments[segment].runs == [.add] {
+            pressSegment = segment
+            pressCommand = .createSpace
+            return
+        }
+        guard let space = controller.segments[segment].spaceIndex else { return }
         pressSegment = segment
+        // Capture the command at press time: a refresh between press and
+        // release can reorder segments, and the click must still target the
+        // space the user pressed.
+        pressCommand = controller.command(forSegment: segment, click: .left)
+        // Run geometry only matters for a drag. A missing run must not swallow
+        // a plain click while the strip is repainting.
+        let run = run(at: pressPoint, in: segment)
         if run == 0, controller.segments[segment].runs.first?.isIndex == true {
             payload = .space(space)
-        } else if controller.runWindows.indices.contains(segment),
+        } else if let run,
+                  controller.runWindows.indices.contains(segment),
                   controller.runWindows[segment].indices.contains(run),
                   !controller.runWindows[segment][run].isEmpty {
             payload = .windows(controller.runWindows[segment][run].map(\.id), source: space)
@@ -2085,9 +2170,27 @@ private final class GlyphStripStatusView: NSView {
         }
     }
 
-    /// A status item lives in AppKit's menu-bar scene, which can swallow the
-    /// dragged/up stream before this view sees it. A global monitor still sees
-    /// the physical mouse events, so the gesture works for both strip modes.
+    /// Fallback for a status-item button that receives a click while its
+    /// custom subview does not. The button action fires on mouse-up.
+    fileprivate func handleButtonClick(at eventPoint: NSPoint, eventTime: TimeInterval) {
+        // A press that reached the view already owns its own release path.
+        guard abs(eventTime - lastMouseDownTime) > 0.5 else {
+            return
+        }
+        let point = clickPoint(eventPoint: eventPoint)
+        guard lastHandledClickTime != eventTime,
+              bounds.contains(point),
+              let controller,
+              let segment = segment(at: point),
+              controller.segments.indices.contains(segment),
+              let command = controller.command(forSegment: segment, click: .left) else { return }
+        lastHandledClickTime = eventTime
+        controller.handle(command)
+    }
+
+    /// A status-item view can lose the dragged/up stream while its button
+    /// tracks the mouse. The global monitor supplies those events for drags
+    /// that begin on a space number or app icon.
     private func installGlobalDragMonitor() {
         removeGlobalDragMonitor()
         globalDragMonitor = NSEvent.addGlobalMonitorForEvents(
@@ -2110,6 +2213,30 @@ private final class GlyphStripStatusView: NSView {
         }
     }
 
+    /// Drops an in-flight press when the status item is rebuilt or removed, so
+    /// a global monitor cannot outlive its view or finish a drag that no longer
+    /// has a strip.
+    fileprivate func cancelGesture() {
+        let activated = dragActivated
+        removeGlobalDragMonitor()
+        pressSegment = nil
+        pressCommand = nil
+        pressPoint = nil
+        pressScreenLocation = nil
+        payload = nil
+        didDrag = false
+        dragActivated = false
+        if activated {
+            controller?.onDragSourceSpace?(nil)
+            controller?.onDragActive?(false)
+            controller?.setDragTarget(nil)
+        }
+    }
+
+    deinit {
+        removeGlobalDragMonitor()
+    }
+
     override func mouseDragged(with event: NSEvent) {
         guard let controller, payload != nil else { return }
         if !didDrag {
@@ -2127,13 +2254,14 @@ private final class GlyphStripStatusView: NSView {
             controller.setDragTarget(nil)
             return
         }
-        controller.setDragTarget(target == pressSegment ? nil : target)
+        let targetSpace = controller.segments[target].spaceIndex
+        controller.setDragTarget(targetSpace == payloadSourceSpace ? nil : target)
     }
 
     override func mouseUp(with event: NSEvent) {
         // A status item sends its own mouse-up immediately after mouse-down.
-        // The real gesture continues in the global monitor, so do not finish
-        // or clear the press until that monitor sees the release.
+        // For a draggable press the real gesture continues in the global
+        // monitor, so do not finish until that monitor sees the release.
         if globalDragMonitor != nil && !didDrag && !dragActivated {
             return
         }
@@ -2150,8 +2278,9 @@ private final class GlyphStripStatusView: NSView {
         let targetSpace = controller.dragTargetSpace
             ?? pointInView().flatMap { segment(at: $0) }
                 .flatMap { controller.segments.indices.contains($0) ? controller.segments[$0].spaceIndex : nil }
-        let pressedSegment = pressSegment
+        let pressedCommand = pressCommand
         pressSegment = nil
+        pressCommand = nil
         pressPoint = nil
         pressScreenLocation = nil
         payload = nil
@@ -2164,23 +2293,37 @@ private final class GlyphStripStatusView: NSView {
         }
 
         if dragged {
-            // A completed drag never turns into a focus click, even when it
-            // ends over empty menu bar.
-            if let currentPayload {
-                performDrop(currentPayload, hudTarget: hudTarget, targetSpace: targetSpace, controller: controller)
+            // A tiny pointer wobble during a click can pass the drag threshold.
+            // Only a drag that reached some other space is a drop; otherwise
+            // finish it as the click the user made.
+            let sourceSpace = currentPayload?.sourceSpace
+            if GlyphStrip.dragResolvesToDrop(
+                hudTarget: hudTarget,
+                targetSpace: targetSpace,
+                sourceSpace: sourceSpace
+            ) {
+                if let currentPayload {
+                    performDrop(currentPayload, hudTarget: hudTarget, targetSpace: targetSpace, controller: controller)
+                }
+            } else if let pressedCommand {
+                controller.handle(pressedCommand)
             }
             return
         }
 
-        // The status item can reflow between press and release. Resolve the
-        // click against the segment that was pressed, never the new geometry.
-        guard let pressedSegment,
-              let command = controller.command(forSegment: pressedSegment, click: .left) else {
-            return
-        }
-        controller.handle(command)
+        // The status item can reflow between press and release. Use the
+        // command captured at press time, never the new geometry.
+        guard let pressedCommand else { return }
+        controller.handle(pressedCommand)
     }
 
+    private var payloadSourceSpace: Int? {
+        switch payload {
+        case .space(let source)?: return source
+        case .windows(_, let source)?: return source
+        case .none: return nil
+        }
+    }
     private func activateDragSource(_ payload: Payload, controller: GlyphStripPanelController) {
         switch payload {
         case .space(let source):
@@ -2215,7 +2358,7 @@ private final class GlyphStripStatusView: NSView {
 
     override func rightMouseDown(with event: NSEvent) {
         guard let controller,
-              let segment = hoveredSegment ?? segment(at: convert(event.locationInWindow, from: nil)),
+              let segment = segment(at: convert(event.locationInWindow, from: nil)),
               let command = controller.command(forSegment: segment, click: .right) else { return }
         controller.handle(command)
     }
@@ -2232,7 +2375,7 @@ private final class GlyphStripStatusView: NSView {
     }
 
     private func segment(at point: NSPoint) -> Int? {
-        guard let controller else { return nil }
+        guard let controller, bounds.contains(point) else { return nil }
         var x = contentOffset
         for (index, width) in controller.segmentWidths.enumerated() {
             if point.x >= x && point.x < x + width { return index }

@@ -289,6 +289,15 @@ enum GlyphStrip {
         max(abs(delta.dx), abs(delta.dy)) >= threshold
     }
 
+    /// A drag only performs a drop when it reaches another space. Ending on the
+    /// pressed space or outside every target is a click, so a slight pointer
+    /// wobble cannot eat the click.
+    static func dragResolvesToDrop(hudTarget: Int?, targetSpace: Int?, sourceSpace: Int?) -> Bool {
+        if hudTarget != nil { return true }
+        guard let targetSpace, let sourceSpace else { return false }
+        return targetSpace != sourceSpace
+    }
+
     /// The gap between the two notch areas, or the whole row when the display
     /// has no notch.
     private static func notchArea(left: CGRect?, right: CGRect?, menuBarRow: CGRect) -> CGRect {
