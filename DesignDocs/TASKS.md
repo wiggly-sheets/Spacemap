@@ -90,7 +90,7 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Custom HUD Position Memory**: Custom positions persist when switching presets; stored in `CUSTOM_HUD_X`/`CUSTOM_HUD_Y`
 - **Debug/Advanced Settings Section**: Socket Health Interval moved to dedicated section
 - **Backend Health Diagnostics**: Live yabai process and Spacemap signal-socket status in Debug/Advanced settings
-- **Settings UI Reorganization**: Five separate sidebar categories (Grid, Space Names, Appearance, Behavior, Debug/Advanced) with a permanently visible selected category
+- **Settings UI Reorganization**: Six workflow categories (General, Spaces, HUD, Glyph Strip, Hotkeys, Advanced) with expandable subsections and a permanently visible selected category
 - **Native Hotkey Recorder**: Clear button plus regular, F13–F20, and media-key recording
 
 ### Distribution & Builds

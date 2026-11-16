@@ -155,12 +155,12 @@ Available themes with hex color values (9 roles: background, focused, text, drop
 - Sends `settingsChanged` notification on save — observed by AppDelegate to restart both hotkey monitors
 
 ### Categories
-- **Grid** — layout, display topology, cell rendering, and window visibility
-- **Space Names** — name visibility, per-space text, and named profiles (separate section below the names form)
-- **Appearance** — themes, appearance mode, transparency, and scaling
-- **Behavior** — normal, pinned, and glyph-strip hotkeys, positioning, navigation, drag/drop focus, menu bar, and updates
-- **Glyph Strip** — always-visible menu-bar strip: contents, appearance (glass style, per-style finish 0...21, tinted material, per-style opacity, shape and corner radius), click bindings, and placement (`[glyphStrip]`)
-- **Debug/Advanced** — socket health interval
+- **General** — app presence, both menu-bar items, updates, and the app font
+- **Spaces** — layout, display topology, cell rendering, window visibility, names, and profiles
+- **HUD** — themes and glass, HUD spacing, position, navigation, window drop, feedback, and motion
+- **Glyph Strip** — floating or menu-bar strip: placement, padding, contents, appearance, hover, and click bindings (`[glyphStrip]`)
+- **Hotkeys** — global and app shortcuts, plus HUD-specific actions
+- **Advanced** — permissions, socket health, and diagnostics
 
 The sidebar is a fixed pane rather than a collapsible `NavigationSplitView`. Selecting a row replaces the detail form; categories are not anchors in one continuous scrolling form.
 
