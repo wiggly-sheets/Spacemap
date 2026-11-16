@@ -19,9 +19,17 @@ final class AppGlyphFontTests: XCTestCase {
         try Data(contentsOf: try installedFontURL())
     }
 
+    private func loadedFont() throws -> AppGlyphFont {
+        guard let font = AppGlyphFont.load() else {
+            throw XCTSkip("sketchybar-app-font failed to load")
+        }
+        return font
+    }
+
     func testInstalledFontHasAppMetadataRecord() throws {
+        let data = try bundledFontData()
         let payload = try XCTUnwrap(
-            AppGlyphFont.appMetadataPayload(in: try bundledFontData()),
+            AppGlyphFont.appMetadataPayload(in: data),
             "meta/APPM table not found"
         )
         XCTAssertGreaterThan(payload.count, 0)
@@ -37,7 +45,7 @@ final class AppGlyphFontTests: XCTestCase {
     }
 
     func testKnownLigaturesMapToExpectedAppNames() throws {
-        let font = try XCTUnwrap(AppGlyphFont.load(), "sketchybar-app-font failed to load")
+        let font = try loadedFont()
 
         // Finder aliases change between font releases; the stable contract is
         // that the primary name and known aliases resolve.
@@ -53,14 +61,14 @@ final class AppGlyphFontTests: XCTestCase {
     }
 
     func testDefaultGlyphIsNonEmptyAndUsedForUnknownApps() throws {
-        let font = try XCTUnwrap(AppGlyphFont.load())
+        let font = try loadedFont()
 
         XCTAssertEqual(font.glyph(forApp: "Totally Unknown App"), font.glyph(forApp: AppGlyphFont.defaultLigature))
         XCTAssertFalse(font.glyph(forApp: "Totally Unknown App").isEmpty)
     }
 
     func testExactMatchWinsAndPrefixMatchesAreSupported() throws {
-        let font = try XCTUnwrap(AppGlyphFont.load())
+        let font = try loadedFont()
 
         XCTAssertEqual(font.glyph(forApp: "Finder"), font.glyph(forApp: "访达"))
         // Every installed mapping resolves to something other than the default.
@@ -512,7 +520,7 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(segments.map { $0.runs == [.separator] }, [false, false, true, false, false])
     }
 
-    func testSpaceGlyphRunIsOrderedByReadingOrder() {
+    func testSpaceGlyphRunIsOrderedByReadingOrder() throws {
         var windows = [
             YabaiWindow(id: 3, app: "Terminal", space: 1, frame: .init(x: 100, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal"),
             YabaiWindow(id: 1, app: "Safari", space: 1, frame: .init(x: 0, y: 40, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal"),
@@ -524,9 +532,12 @@ final class GlyphStripTests: XCTestCase {
             windows[index].isRootWindow = true
         }
 
+        guard let font = AppGlyphFont.load() else {
+            throw XCTSkip("sketchybar-app-font is not installed")
+        }
         let segments = GlyphStrip.segments(
             for: state(spaces: [space(index: 1)], windows: windows, maxSpaces: 1),
-            font: AppGlyphFont.load()
+            font: font
         )
 
         let glyphs = segments[0].runs.compactMap { run -> String? in
@@ -535,9 +546,9 @@ final class GlyphStripTests: XCTestCase {
         }
         XCTAssertEqual(glyphs.count, 3)
         XCTAssertEqual(glyphs, [
-            AppGlyphFont.load()?.glyph(forApp: "Notes"),
-            AppGlyphFont.load()?.glyph(forApp: "Safari"),
-            AppGlyphFont.load()?.glyph(forApp: "Terminal")
+            font.glyph(forApp: "Notes"),
+            font.glyph(forApp: "Safari"),
+            font.glyph(forApp: "Terminal")
         ])
     }
 
@@ -1599,7 +1610,9 @@ final class GlyphStripTests: XCTestCase {
     /// glyph occupies the same 15.521pt cell at 11pt, which is precisely why
     /// adjacent icons touch and why `iconSpacing` has to supply the tracking.
     func testAppGlyphAdvanceIsReadFromTheFontAndIsUniform() throws {
-        let font = try XCTUnwrap(AppGlyphFont.load())
+        guard let font = AppGlyphFont.load() else {
+            throw XCTSkip("sketchybar-app-font is not installed")
+        }
         let nsFont = try XCTUnwrap(font.face(size: 11))
         func advance(_ app: String) -> CGFloat {
             NSAttributedString(
