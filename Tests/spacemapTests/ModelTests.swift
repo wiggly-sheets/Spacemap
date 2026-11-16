@@ -385,16 +385,6 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(t.rect3, 0x34c759)
     }
 
-    func testAppThemeBuiltinThemesHaveDistinctColors() {
-        let themes: [AppTheme] = [.default, .tokyonight, .catppuccin, .dracula, .nord]
-        for (i, a) in themes.enumerated() {
-            for (j, b) in themes.enumerated() where i != j {
-                XCTAssertNotEqual(a.background, b.background, "Themes \(i) and \(j) share background color")
-            }
-        }
-    }
-
-
     func testDisplayIndexForMissingSpaceReturnsNil() {
         let state = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: nil)
         XCTAssertNil(state.displayIndex(forSpace: 99), "Unknown space should return nil")

@@ -176,7 +176,7 @@ final class ConfigLoaderTests: XCTestCase {
         values.cols = 7
         values.rows = 4
         values.cellStyle = .hybrid
-        values.theme = "dracula"
+        values.theme = "default"
         values.showMode = .active
         values.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: .maskCommand)
         values.hudShadow = false
@@ -191,7 +191,7 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(config.cols, 7)
         XCTAssertEqual(config.rows, 4)
         XCTAssertEqual(config.cellStyle, .hybrid)
-        XCTAssertEqual(config.theme, "dracula")
+        XCTAssertEqual(config.theme, "default")
         XCTAssertEqual(config.showMode, .active)
         XCTAssertEqual(config.hotkey.keyCode, 49)
         XCTAssertTrue(config.hotkey.modifiers.contains(.maskCommand))
@@ -335,31 +335,6 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(values.gridConfig.cols, 8)
         XCTAssertEqual(values.gridConfig.rows, 10)
         XCTAssertEqual(values.gridConfig.glyphStrip.maxIconsPerSpace, 8)
-    }
-
-    func testAdvertisedThemeSpellingLoadsWithoutRepair() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-loader-theme-spelling-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        let valid = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
-            includeHeaderComments: true
-        )
-        for name in ["monokai-dark", "tokyonight"] {
-            let variant = valid.replacingOccurrences(
-                of: "theme = \"default\"",
-                with: "theme = \"\(name)\""
-            )
-            try variant.write(toFile: path, atomically: true, encoding: .utf8)
-
-            let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
-
-            XCTAssertFalse(needsRepair, "\(name) should resolve")
-            XCTAssertEqual(values.gridConfig.theme, name, "spelling must be preserved")
-        }
     }
 
     func testUpdateWritesOnceWhenRepairIsNeeded() throws {

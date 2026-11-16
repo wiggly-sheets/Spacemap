@@ -293,7 +293,7 @@ final class SettingsTests: XCTestCase {
     private static func fullNonDefaultConfig() -> GridConfig {
         var strip = GlyphStripConfig.default
         strip.enabled = true
-        strip.theme = "nord"
+        strip.theme = "default"
         strip.showSpaceNumbers = false
         strip.showLayoutSuffix = false
         strip.showAppIcons = false
@@ -340,7 +340,7 @@ final class SettingsTests: XCTestCase {
         config.socketHealthInterval = 45
         config.uiScale = 0.7
         config.autoHideTimeout = 12
-        config.theme = "nord"
+        config.theme = "default"
         config.showMode = .active
         config.multiMonitorHUDMode = .separate
         config.unifiedHUDVisibility = .all

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Removed the old hardcoded theme set and its first-run `.smthemes` seeding. The theme list now comes only from the 20 bundled iTerm2 themes and themes installed from the Theme Library. An existing `theme` name that no longer exists falls back to the default until another theme is chosen.
 - Settings now groups by workflow: **General**, **Spaces**, **HUD**, **Glyph Strip**, **Hotkeys**, and **Advanced**. Space names and profiles sit under Spaces, and hotkeys have their own sidebar section instead of living under Behavior.
 - Hotkeys gained a **HUD** subsection with configurable **Move Space Left** and **Move Space Right** actions. They follow the Space Drag Action mode while the HUD is open.
 

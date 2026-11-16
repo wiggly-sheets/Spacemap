@@ -25,7 +25,7 @@ final class ConfigTests: XCTestCase {
         "2" = "Code"
 
         [appearance]
-        theme = "dracula"
+        theme = "default"
         mode = "dark"
         backgroundAlpha = 0.5
         iconScale = 0.8
@@ -81,7 +81,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(c.showMultiAppIcons)
         XCTAssertTrue(c.showSpaceNames)
         XCTAssertEqual(c.spaceNames, [1: "Term", 2: "Code"])
-        XCTAssertEqual(c.theme, "dracula")
+        XCTAssertEqual(c.theme, "default")
         XCTAssertEqual(c.mode, .dark)
         XCTAssertEqual(c.backgroundAlpha, 0.5, accuracy: 0.001)
         XCTAssertEqual(c.iconScale, 0.8, accuracy: 0.001)
@@ -238,7 +238,7 @@ final class ConfigTests: XCTestCase {
         rows = "broken"
 
         [appearance]
-        theme = "nord"
+        theme = "default"
         """
         try malformed.write(toFile: path, atomically: true, encoding: .utf8)
         let repaired = AppConfig.load(from: path)
@@ -246,11 +246,11 @@ final class ConfigTests: XCTestCase {
 
         XCTAssertEqual(repaired.cols, 5)
         XCTAssertEqual(repaired.rows, GridConfig.default.rows)
-        XCTAssertEqual(repaired.theme, "nord")
+        XCTAssertEqual(repaired.theme, "default")
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), malformed)
         XCTAssertTrue(healed.contains("[grid]"))
         XCTAssertTrue(healed.contains("[behavior]"))
-        XCTAssertEqual(AppConfig.load(from: path).theme, "nord")
+        XCTAssertEqual(AppConfig.load(from: path).theme, "default")
     }
 
     func testLoadLeavesInvalidTOMLUntouchedAndUsesDefaults() throws {

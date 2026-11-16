@@ -198,6 +198,7 @@ _assemble:
 	cp Sources/spacemap/AppIcon.icns $(BUNDLE)/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(BUNDLE)/Contents/Resources/Assets.car
 	cp -R $(LOCALIZATION_DIRS) $(BUNDLE)/Contents/Resources/
+	rm -rf $(BUNDLE)/Contents/Resources/Themes
 	cp -R $(THEME_RESOURCE_DIR) $(BUNDLE)/Contents/Resources/Themes
 	cp $(MAN_PAGE) $(BUNDLE)/Contents/Resources/spacemap.1
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(BUNDLE)
@@ -331,6 +332,8 @@ install: app
 	cp Sources/spacemap/AppIcon.icns $(INSTALL_PATH)/Contents/Resources/AppIcon.icns
 	cp Assets/AppIcon/Assets.car $(INSTALL_PATH)/Contents/Resources/Assets.car
 	cp -R $(APP_CONTENTS)/Resources/*.lproj $(INSTALL_PATH)/Contents/Resources/
+	rm -rf $(INSTALL_PATH)/Contents/Resources/Themes
+	rm -rf $(INSTALL_PATH)/Contents/Resources/Themes
 	cp -R $(APP_CONTENTS)/Resources/Themes $(INSTALL_PATH)/Contents/Resources/Themes
 	cp $(MAN_PAGE) $(INSTALL_PATH)/Contents/Resources/spacemap.1
 	@$(MAKE) --no-print-directory verify-localizations BUNDLE=$(INSTALL_PATH)

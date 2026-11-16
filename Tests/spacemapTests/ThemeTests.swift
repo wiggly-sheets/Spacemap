@@ -167,23 +167,6 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(theme, AppTheme.default)
     }
 
-    func testBuiltinThemesExist() {
-        XCTAssertNotEqual(AppTheme.named("tokyo night"), AppTheme.default)
-        XCTAssertNotEqual(AppTheme.named("catppuccin"), AppTheme.default)
-        XCTAssertNotEqual(AppTheme.named("dracula"), AppTheme.default)
-        XCTAssertNotEqual(AppTheme.named("nord"), AppTheme.default)
-    }
-
-    func testHyphenatedThemeNamesResolveToTheSameThemeAsSpacedNames() {
-        let manager = ThemeManager()
-
-        XCTAssertEqual(manager.named("monokai-dark"), manager.named("monokai dark"))
-        XCTAssertEqual(manager.named("atom-one-dark"), manager.named("atom one dark"))
-        XCTAssertEqual(manager.named("tokyonight"), manager.named("tokyo night"))
-        XCTAssertNotEqual(manager.named("monokai-dark"), AppTheme.default)
-        XCTAssertNotEqual(manager.named("tokyonight"), AppTheme.default)
-    }
-
     func testThemeNameNormalizationCollapsesSeparatorsAndWhitespace() {
         XCTAssertEqual(ThemeManager.normalizedName("  Monokai--Dark  "), "monokai dark")
         XCTAssertEqual(ThemeManager.normalizedName("Atom_One_Dark"), "atom one dark")
