@@ -167,6 +167,21 @@ final class ThemeTests: XCTestCase {
         XCTAssertEqual(theme, AppTheme.default)
     }
 
+    func testEditingAnExistingThemeTargetsAnEditedCopy() {
+        XCTAssertEqual(
+            ThemeManager.editedCopyName("Dracula", existing: true),
+            "Dracula (Edited)"
+        )
+        XCTAssertEqual(
+            ThemeManager.editedCopyName("Dracula (Edited)", existing: true),
+            "Dracula (Edited)"
+        )
+        XCTAssertEqual(
+            ThemeManager.editedCopyName("Dracula", existing: false),
+            "Dracula"
+        )
+    }
+
     func testThemeNameNormalizationCollapsesSeparatorsAndWhitespace() {
         XCTAssertEqual(ThemeManager.normalizedName("  Monokai--Dark  "), "monokai dark")
         XCTAssertEqual(ThemeManager.normalizedName("Atom_One_Dark"), "atom one dark")
