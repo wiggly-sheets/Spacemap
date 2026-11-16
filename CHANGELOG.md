@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bundle 20 popular iTerm2 themes and add a floating Theme Library with color previews, search, one-click install/remove, and Apply. The remaining catalog is fetched from the `spacemap-themes` index, cached, and refreshed once a day; bundled themes stay read-only.
 - A locked glyph strip can reorder spaces by dragging a space number onto another segment, or move an app by dragging its icon onto a segment or a visible HUD cell. Dedupe moves every window of the app; one-icon-per-window mode moves only the dragged window. Hovering a segment highlights it and eases its content up briefly. Drop destinations highlight only the segment or HUD cell directly under the pointer, so the highlight matches the cursor and gaps clear it. Display separators and the add button are never drop targets, a space deleted mid-drag cancels the swap, the dragged space is not offered as its own HUD target, and the HUD and strip repaint again as yabai applies the reorder. On macOS 27.2 upstream yabai cannot move spaces, so Spacemap swaps their window contents instead; empty spaces and Mission Control order stay unchanged until a patched yabai is installed.
 - Glyph strip `[glyphStrip] autoResizeMaxLength` (default 0, off): target width or height. Icon, number, and spacing sizes grow when there is spare room and shrink when over the target, with an 8pt legibility floor.
+- Glyph strip padding can be locked to one value for all sides (default) or split into horizontal and vertical values. `padding`/`lockPadding` and `horizontalPadding`/`verticalPadding` control it, and separate vertical padding now insets horizontal strips too.
+- Glyph strip `[glyphStrip] displayMode` (`floating` default or `menuBarItem`) places the strip in the menu bar instead of a floating panel. Menu-bar mode keeps contents, clicks, hover and space/app drags, but drops shape, glass, free placement and vertical layouts. General > Menu Bar now holds both the Spacemap menu-bar controls and the glyph-strip menu-bar toggle, and both items can be visible at once.
+
 - Custom glyph-strip placement now uses the usable screen area (menu bar and Dock excluded) and also gives way to edge-anchored accessory windows such as third-party docks. A vertical strip that runs out of height wraps space blocks into extra columns instead of drawing off screen.
 - HUD entrance styles: `fade`, slide from each screen edge, or scale, chosen with `hudEntranceStyle` and timed by `hudAnimationStyle`. Space cells now animate on insert and animate a slight scale on the drop target; the glyph strip fades in and out with the same motion setting.
 - Glyph strip layout letters now follow the HUD: `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge` (default true) and bsp shows `b`. Vertical strips gain `verticalPadding` (default 4).
@@ -34,7 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HUD layout letters can be hidden per layout type (`showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, all on by default). Only shown when Space Layout is on; hiding a letter leaves the badge blank but the space keeps its layout.
 - Deleting the focused space now returns to the space before it instead of yabai's fallback to the first space.
 - The Settings sidebar splits Behavior into Hotkeys, HUD, Navigation, Window Drop, HUD Feedback, Menu Bar, and Updates, so each group is one click away.
-- Custom themes can live in `.toml` files in `~/.config/spacemap/themes` (quoted hex values and `[colors]` sections), and Appearance gained a Theme Editor that clones the selected theme, edits any colour by picker or typed hex, and saves a TOML file. Saving selects the theme; external file edits reload with the theme list.
+- HUD text colour override in Appearance. Leave it empty to follow the theme, or set a hex colour when a dark theme makes space numbers and names hard to read.
+- Missing-space cells now use a clearer dashed outline: thicker line, wider dashes and stronger colour.
+- The glyph strip now repaints on the leading edge of a change instead of waiting out the full debounce, reuses the parsed app-font face across refreshes, and keeps burst coalescing so space or window changes stay responsive without extra yabai queries.
+- Custom themes can live in `.toml` files in `~/.config/spacemap/themes` (quoted hex values and `[colors]` sections), and Appearance gained a Theme Editor that clones the selected theme, edits any colour by picker or typed hex, and saves a TOML file. Saving an existing theme writes a separate `(Edited)` copy, so the original stays untouched; saving that copy updates it. Saving selects the theme; external file edits reload with the theme list.
 - HUD motion is configurable through `[behavior] hudAnimationsEnabled` (default `true`) and `hudAnimationStyle` (`natural`, `springy`, `fast`). It fades the panel and animates cell focus, add, and delete changes. Turning it off makes every change instant.
 - Thumbnails now draw the desktop wallpaper beneath the window captures, and off-screen windows are queried so spaces that are not visible still show their windows.
 
@@ -63,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Advanced pane now reports Accessibility and Screen Recording status with request buttons and deep links into the matching System Settings panes. Thumbnail cells request Screen Recording the first time they are selected, and the app asks on launch when thumbnails are already configured.
 
 ### Fixed
+- Clicking the menu-bar glyph strip targets the segment that was pressed, even if the status item reflows before release. A drag that moves past the threshold is no longer treated as a click, so it cannot focus the wrong space on mouse-up.
 - After a sketchybar-app-font update the glyph strip reloads the new file in place. The updater clears the metadata cache and the strip rebuilds its face from the new font URL, so no relaunch is needed.
 - The HUD and glyph strip now notice a window moving to another space. yabai emits no signal for `window --space`, so a lightweight window-to-space fingerprint is polled twice a second and triggers a refresh on change.
 - Permission checks no longer run on the main thread. TCC can stall while Spacemap is removed from Device Control & Access; the probe times out and tears its event taps down instead of freezing every click and key. Event taps are disabled before their run-loop source is detached, and a revoked HUD tap relaunches Spacemap so the WindowServer always releases the old tap.
@@ -772,3 +779,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic HUD grid overlay
 - yabai workspace visualization
 - App adaptation from existing sharing (github/intellij-plantuml-plugin)
+
+- Glyph strip padding can be locked to one value for all sides (default) or split into horizontal and vertical padding; separate vertical padding now insets horizontal strips too. The strip can also run as a menu-bar item instead of a floating panel.
