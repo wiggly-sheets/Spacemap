@@ -16,11 +16,9 @@ struct SettingsBehavior: View {
     @Binding var hudNewSpaceHotkeyString: String
     @Binding var hudDeleteSpaceHotkeyString: String
     @Binding var hudCycleLayoutHotkeyString: String
+    @Binding var hudKeys: HUDKeyBindings
     @Binding var hudPositionKind: HUDPositionKind
     @Binding var autoHideTimeout: Int
-    @Binding var useArrowKeys: Bool
-    @Binding var useVimKeys: Bool
-    @Binding var useExtendedKeys: Bool
     @Binding var jumpToSpaceEnabled: Bool
     @Binding var displayNavigationWrap: DisplayNavigationWrap
     @Binding var focusSpaceOnWindowDrop: WindowDropFocusMode
@@ -172,7 +170,18 @@ struct SettingsBehavior: View {
                 coordinator: hotkeyRecorderCoordinator
             )
             .onChange(of: hudCycleLayoutHotkeyString) { _ in onSave() }
-            SettingsFootnote(text: "While the HUD is open, moves the focused space, creates or deletes a space, or cycles BSP, stack and float. Space moves follow the Space Drag Action setting.")
+            ForEach(HUDKeyAction.allCases, id: \.rawValue) { action in
+                HUDKeyBindingEditor(
+                    label: action.label,
+                    bindings: Binding(
+                        get: { hudKeys[action] },
+                        set: { hudKeys[action] = $0 }
+                    ),
+                    coordinator: hotkeyRecorderCoordinator
+                )
+            }
+            .onChange(of: hudKeys) { _ in onSave() }
+            SettingsFootnote(text: "Defaults are vim keys (h/j/k/l) and arrow keys. Clear a shortcut to unbind it; add a shortcut for an extra binding.")
         }
     }
 
@@ -198,26 +207,17 @@ struct SettingsBehavior: View {
 
     private var navigationSection: some View {
         Section(header: SettingsSectionHeader(title: "Navigation").settingsAnchor("behavior.navigation")) {
-            Toggle("Navigate with Arrow Keys (←↑↓→)", isOn: $useArrowKeys)
-                .onChange(of: useArrowKeys) { _ in onSave() }
-            Toggle("Navigate with Vim Keys (hjkl)", isOn: $useVimKeys)
-                .onChange(of: useVimKeys) { _ in onSave() }
-            Toggle("Navigate with Extended Keys", isOn: $useExtendedKeys)
-                .onChange(of: useExtendedKeys) { _ in onSave() }
-            SettingsFootnote(text: "n/p = previous/next space, f/e = first/last space, r = recent space, a/t/w = create/create+focus/destroy space, b/s/u = bsp/stack/float layout, esc/c = close the HUD.")
             Toggle("Jump to Space with Number Keys", isOn: $jumpToSpaceEnabled)
                 .onChange(of: jumpToSpaceEnabled) { _ in onSave() }
 
-            if useArrowKeys || useVimKeys || useExtendedKeys {
-                GlassSegmentedPicker("Display Navigation", selection: $displayNavigationWrap, options: [
-                    (title: "Wrap Within Display", value: .within),
-                    (title: "Wrap Between Displays", value: .between),
-                ])
-                .onChange(of: displayNavigationWrap) { _ in onSave() }
-                SettingsFootnote(text: displayNavigationWrap == .within
-                    ? "Keeps navigation within the display containing the focused space."
-                    : "Allows navigation to wrap from one display's spaces into another's.")
-            }
+            GlassSegmentedPicker("Display Navigation", selection: $displayNavigationWrap, options: [
+                (title: "Wrap Within Display", value: .within),
+                (title: "Wrap Between Displays", value: .between),
+            ])
+            .onChange(of: displayNavigationWrap) { _ in onSave() }
+            SettingsFootnote(text: displayNavigationWrap == .within
+                ? "Keeps navigation within the display containing the focused space."
+                : "Allows navigation to wrap from one display's spaces into another's.")
 
         }
     }

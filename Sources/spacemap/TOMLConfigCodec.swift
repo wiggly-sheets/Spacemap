@@ -407,8 +407,7 @@ enum TOMLConfigDecoder {
             "spacesGlassTintedMaterial", "spacesOpacity", "spacesCornerRadius"
         ])
         flatten("behavior", keys: [
-            "autoHideTimeout", "displayNavigationWrap", "useVimKeys", "useArrowKeys",
-            "useExtendedKeys", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange", "hudAnimationsEnabled", "hudAnimationStyle", "hudEntranceStyle", "showBSPLayoutBadge", "showStackLayoutBadge", "showFloatLayoutBadge", "showHUDInteractionFeedback", "spaceDropMode", "spaceDragFocus", "windowDragFocus",
+            "autoHideTimeout", "displayNavigationWrap", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange", "hudAnimationsEnabled", "hudAnimationStyle", "hudEntranceStyle", "showBSPLayoutBadge", "showStackLayoutBadge", "showFloatLayoutBadge", "showHUDInteractionFeedback", "spaceDropMode", "spaceDragFocus", "windowDragFocus",
             "focusSpaceOnWindowDropModifier", "presence", "showThumbnailWallpaper",
             "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode",
             // Inline `hotkey = { ... }` / `hudPosition = { ... }` under
@@ -599,9 +598,6 @@ enum TOMLConfigDecoder {
         if let name: String = value("displayNavigationWrap") {
             values.displayNavigationWrap = displayNavigationWrap(from: name)
         }
-        values.useVimKeys = value("useVimKeys")
-        values.useArrowKeys = value("useArrowKeys")
-        values.useExtendedKeys = value("useExtendedKeys")
         values.jumpToSpaceEnabled = value("jumpToSpaceEnabled")
         values.customHUDX = rangedDouble("customHUDX")
         values.customHUDY = rangedDouble("customHUDY")
@@ -669,6 +665,15 @@ enum TOMLConfigDecoder {
         }
         if let table = object["hudCycleLayoutHotkey"] as? [String: Any] {
             values.hudCycleLayoutHotkey = parseHotkeyTable(table)
+        }
+        if let table = object["hudKeys"] as? [String: Any] {
+            var bindings = HUDKeyBindings.default
+            for (name, raw) in table {
+                guard let action = HUDKeyAction(rawValue: name),
+                      let names = raw as? [String] else { continue }
+                bindings[action] = names.compactMap { Hotkey.parseHotkey($0) }
+            }
+            values.hudKeys = bindings
         }
 
         if let table = object["hudPosition"] as? [String: Any],

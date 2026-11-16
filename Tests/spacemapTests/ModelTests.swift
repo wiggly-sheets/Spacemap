@@ -319,8 +319,7 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(c.unifiedHUDVisibility, .active)
         XCTAssertEqual(c.separateHUDVisibility, .all)
         XCTAssertEqual(c.displayNavigationWrap, .within)
-        XCTAssertFalse(c.useVimKeys)
-        XCTAssertFalse(c.useArrowKeys)
+        XCTAssertEqual(c.hudKeys, HUDKeyBindings.default)
         XCTAssertTrue(c.pinnedHotkey.isDisabled)
         XCTAssertEqual(c.hudPosition, .center)
     }

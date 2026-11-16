@@ -58,9 +58,7 @@ final class HUDInput {
 
     private weak var panel: NSPanel?
     private var isVisible = false
-    private var useArrowKeys = false
-    private var useVimKeys = false
-    private var useExtendedKeys = false
+    private var hudKeys = HUDKeyBindings.default
     private var jumpToSpaceEnabled = false
     private var hudMoveBackHotkey = HotkeyConfig(key: .none, modifiers: [])
     private var hudMoveForwardHotkey = HotkeyConfig(key: .none, modifiers: [])
@@ -121,9 +119,7 @@ final class HUDInput {
     }
 
     func updateConfig(
-        useArrowKeys: Bool,
-        useVimKeys: Bool,
-        useExtendedKeys: Bool = true,
+        hudKeys: HUDKeyBindings = .default,
         jumpToSpaceEnabled: Bool = false,
         hudMoveBackHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
         hudMoveForwardHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
@@ -131,9 +127,7 @@ final class HUDInput {
         hudDeleteSpaceHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
         hudCycleLayoutHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
     ) {
-        self.useArrowKeys = useArrowKeys
-        self.useVimKeys = useVimKeys
-        self.useExtendedKeys = useExtendedKeys
+        self.hudKeys = hudKeys
         self.jumpToSpaceEnabled = jumpToSpaceEnabled
         self.hudMoveBackHotkey = hudMoveBackHotkey
         self.hudMoveForwardHotkey = hudMoveForwardHotkey
@@ -718,19 +712,7 @@ final class HUDInput {
         if jumpToSpaceEnabled, let number = Self.numberFromKeyCode(keyCode: keyCode, flags: flags) {
             return .enterSpaceNumber(number)
         }
-        if let direction = Self.navigationDirection(
-            keyCode: keyCode,
-            flags: flags,
-            useArrowKeys: useArrowKeys,
-            useVimKeys: useVimKeys
-        ) {
-            return .navigate(direction: direction)
-        }
-        if let action = Self.extendedKeyAction(
-            keyCode: keyCode,
-            flags: flags,
-            useExtendedKeys: useExtendedKeys
-        ) {
+        if let action = Self.hudKeyAction(keyCode: keyCode, flags: flags, bindings: hudKeys) {
             return action
         }
         return .none
@@ -809,63 +791,37 @@ final class HUDInput {
         keyCode == 43 && flags.contains(.maskCommand)
     }
 
-    static func navigationDirection(
+    /// First binding that matches wins. Bindings match modifiers exactly.
+    static func hudKeyAction(
         keyCode: CGKeyCode,
         flags: CGEventFlags,
-        useArrowKeys: Bool,
-        useVimKeys: Bool
-    ) -> SpaceNavigationDirection? {
-        guard !flags.contains(.maskControl),
-              !flags.contains(.maskCommand),
-              !flags.contains(.maskAlternate) else { return nil }
-        if useArrowKeys {
-            switch keyCode {
-            case 123: return .left
-            case 124: return .right
-            case 125: return .down
-            case 126: return .up
-            default: break
-            }
-        }
-        if useVimKeys {
-            switch keyCode {
-            case 38: return .down
-            case 40: return .up
-            case 37: return .right
-            case 4: return .left
-            default: break
+        bindings: HUDKeyBindings
+    ) -> InputAction? {
+        for action in HUDKeyAction.allCases {
+            for binding in bindings[action]
+            where hotkeyMatches(binding, keyCode: keyCode, flags: flags) {
+                return inputAction(for: action)
             }
         }
         return nil
     }
 
-    /// n/p/f/e/r/esc/c/a/t/w/b/s/u — aliases for arrow navigation plus grid-edge jumps,
-    /// recent-space switch, close, space add/focus/destroy, and current-space layout.
-    /// `n`/`p` are plain aliases of the left/right arrows.
-    static func extendedKeyAction(
-        keyCode: CGKeyCode,
-        flags: CGEventFlags,
-        useExtendedKeys: Bool
-    ) -> InputAction? {
-        guard useExtendedKeys,
-              !flags.contains(.maskControl),
-              !flags.contains(.maskCommand),
-              !flags.contains(.maskAlternate) else { return nil }
-        switch keyCode {
-        case 45: return .navigate(direction: .right) // n
-        case 35: return .navigate(direction: .left)  // p
-        case 3: return .navigateFirst                // f
-        case 14: return .navigateLast                // e
-        case 15: return .focusRecent                 // r
-        case 53: return .closeHUD                    // esc
-        case 8: return .closeHUD                     // c
-        case 0: return .createSpace                  // a
-        case 17: return .createAndFocusNewestSpace   // t
-        case 13: return .destroyCurrentSpace         // w
-        case 11: return .setSpaceLayout(.bsp)        // b
-        case 1: return .setSpaceLayout(.stack)       // s
-        case 32: return .setSpaceLayout(.float)      // u
-        default: return nil
+    private static func inputAction(for action: HUDKeyAction) -> InputAction {
+        switch action {
+        case .left: return .navigate(direction: .left)
+        case .right: return .navigate(direction: .right)
+        case .up: return .navigate(direction: .up)
+        case .down: return .navigate(direction: .down)
+        case .goFirst: return .navigateFirst
+        case .goLast: return .navigateLast
+        case .recent: return .focusRecent
+        case .close: return .closeHUD
+        case .createSpace: return .createSpace
+        case .createAndFocusSpace: return .createAndFocusNewestSpace
+        case .destroySpace: return .destroyCurrentSpace
+        case .layoutBSP: return .setSpaceLayout(.bsp)
+        case .layoutStack: return .setSpaceLayout(.stack)
+        case .layoutFloat: return .setSpaceLayout(.float)
         }
     }
 

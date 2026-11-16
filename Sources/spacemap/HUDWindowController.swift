@@ -86,9 +86,7 @@ class HUDWindowController {
             hudDisplay?.quartzPoint(fromAppKit: point) ?? point
         }
         hudInput.updateConfig(
-            useArrowKeys: config.useArrowKeys,
-            useVimKeys: config.useVimKeys,
-            useExtendedKeys: config.useExtendedKeys,
+            hudKeys: config.hudKeys,
             jumpToSpaceEnabled: config.jumpToSpaceEnabled,
             hudMoveBackHotkey: config.hudMoveSpaceBackHotkey,
             hudMoveForwardHotkey: config.hudMoveSpaceForwardHotkey,
@@ -405,7 +403,15 @@ class HUDWindowController {
         _config = nil
         services.themeService.reloadIfChanged()
         hudInput.config = config
-        hudInput.updateConfig(useArrowKeys: config.useArrowKeys, useVimKeys: config.useVimKeys, useExtendedKeys: config.useExtendedKeys, jumpToSpaceEnabled: config.jumpToSpaceEnabled)
+        hudInput.updateConfig(
+            hudKeys: config.hudKeys,
+            jumpToSpaceEnabled: config.jumpToSpaceEnabled,
+            hudMoveBackHotkey: config.hudMoveSpaceBackHotkey,
+            hudMoveForwardHotkey: config.hudMoveSpaceForwardHotkey,
+            hudNewSpaceHotkey: config.hudNewSpaceHotkey,
+            hudDeleteSpaceHotkey: config.hudDeleteSpaceHotkey,
+            hudCycleLayoutHotkey: config.hudCycleLayoutHotkey
+        )
         hudDisplay.updateConfig(config)
         coordinator.reloadConfig()
         reconcilePanelDragMonitor()

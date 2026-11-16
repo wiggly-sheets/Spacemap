@@ -48,76 +48,62 @@ final class HUDInputTests: XCTestCase {
         XCTAssertFalse(HUDInput.isSettingsShortcut(keyCode: 0, flags: .maskCommand))
     }
 
-    func testNavigationDirectionRespectsEnabledModesAndModifiers() {
-        let cases: [(CGKeyCode, CGEventFlags, Bool, Bool, SpaceNavigationDirection?)] = [
-            (123, [], true, false, .left), (124, [], true, false, .right),
-            (125, [], true, false, .down), (126, [], true, false, .up),
-            (4, [], false, true, .left), (37, [], false, true, .right),
-            (38, [], false, true, .down), (40, [], false, true, .up),
-            (123, .maskCommand, true, false, nil), (123, [], false, false, nil),
-            (6, [], true, true, nil)
+    func testDefaultHUDKeysRouteVimArrowsAndActions() {
+        let defaults = HUDKeyBindings.default
+        let cases: [(CGKeyCode, InputAction)] = [
+            (4, .navigate(direction: .left)), (37, .navigate(direction: .right)),
+            (40, .navigate(direction: .up)), (38, .navigate(direction: .down)),
+            (123, .navigate(direction: .left)), (124, .navigate(direction: .right)),
+            (125, .navigate(direction: .down)), (126, .navigate(direction: .up)),
+            (3, .navigateFirst), (14, .navigateLast), (15, .focusRecent),
+            (53, .closeHUD), (8, .closeHUD),
+            (0, .createSpace), (17, .createAndFocusNewestSpace), (13, .destroyCurrentSpace),
+            (11, .setSpaceLayout(.bsp)), (1, .setSpaceLayout(.stack)),
+            (32, .setSpaceLayout(.float)),
         ]
 
-        for (keyCode, flags, arrows, vim, expected) in cases {
+        for (keyCode, expected) in cases {
             XCTAssertEqual(
-                HUDInput.navigationDirection(
-                    keyCode: keyCode,
-                    flags: flags,
-                    useArrowKeys: arrows,
-                    useVimKeys: vim
-                ),
+                HUDInput.hudKeyAction(keyCode: keyCode, flags: [], bindings: defaults),
                 expected
             )
         }
+        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 45, flags: [], bindings: defaults)) // n
+        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 4, flags: .maskCommand, bindings: defaults))
+        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 4, flags: .maskShift, bindings: defaults))
     }
 
-    func testExtendedKeyActionMapsKeysAndRespectsToggleAndModifiers() {
-        let cases: [(CGKeyCode, CGEventFlags, Bool, InputAction?)] = [
-            (45, [], true, .navigate(direction: .right)), // n
-            (35, [], true, .navigate(direction: .left)),  // p
-            (3, [], true, .navigateFirst),                // f
-            (14, [], true, .navigateLast),                // e
-            (15, [], true, .focusRecent),                 // r
-            (53, [], true, .closeHUD),                    // esc
-            (8, [], true, .closeHUD),                     // c
-            (45, [], false, nil),
-            (15, [], false, nil),
-            (45, .maskCommand, true, nil),
-            (45, .maskControl, true, nil),
-            (45, .maskAlternate, true, nil),
-            (15, .maskCommand, true, nil),
-            (15, .maskControl, true, nil),
-            (15, .maskAlternate, true, nil),
-            (45, .maskShift, true, .navigate(direction: .right)),
-            (12, [], true, nil)                            // q
+    func testCustomHUDKeysReplaceDefaults() throws {
+        var bindings = HUDKeyBindings.default
+        bindings[.left] = [
+            try XCTUnwrap(Hotkey.parseHotkey("x")),
+            try XCTUnwrap(Hotkey.parseHotkey("cmd+h")),
         ]
 
-        for (keyCode, flags, enabled, expected) in cases {
-            XCTAssertEqual(
-                HUDInput.extendedKeyAction(
-                    keyCode: keyCode,
-                    flags: flags,
-                    useExtendedKeys: enabled
-                ),
-                expected
-            )
-        }
+        XCTAssertEqual(
+            HUDInput.hudKeyAction(keyCode: 7, flags: [], bindings: bindings),
+            .navigate(direction: .left)
+        )
+        XCTAssertEqual(
+            HUDInput.hudKeyAction(keyCode: 4, flags: .maskCommand, bindings: bindings),
+            .navigate(direction: .left)
+        )
+        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 4, flags: [], bindings: bindings))
+        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 123, flags: [], bindings: bindings))
     }
 
-    func testHandleHUDKeyDownReturnsExtendedActionsWhenEnabled() {
+    func testHandleHUDKeyDownUsesConfiguredHUDKeys() {
         let input = HUDInput(panel: nil)
-        input.updateConfig(useArrowKeys: false, useVimKeys: false, useExtendedKeys: true)
+        input.updateConfig(hudKeys: .default)
         func event(_ key: CGKeyCode) -> CGEvent {
             CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true)!
         }
 
-        XCTAssertEqual(input.handleHUDKeyDown(event(45)), .navigate(direction: .right))
-        XCTAssertEqual(input.handleHUDKeyDown(event(35)), .navigate(direction: .left))
-        XCTAssertEqual(input.handleHUDKeyDown(event(3)), .navigateFirst)
-        XCTAssertEqual(input.handleHUDKeyDown(event(14)), .navigateLast)
-        XCTAssertEqual(input.handleHUDKeyDown(event(15)), .focusRecent)
+        XCTAssertEqual(input.handleHUDKeyDown(event(4)), .navigate(direction: .left))
         XCTAssertEqual(input.handleHUDKeyDown(event(53)), .closeHUD)
-        XCTAssertEqual(input.handleHUDKeyDown(event(8)), .closeHUD)
+        XCTAssertEqual(input.handleHUDKeyDown(event(0)), .createSpace)
+        XCTAssertEqual(input.handleHUDKeyDown(event(32)), .setSpaceLayout(.float))
+        XCTAssertEqual(input.handleHUDKeyDown(event(45)), .none)
     }
 
     func testNavigateToFirstAndLastMoveAcrossUnifiedGrid() {

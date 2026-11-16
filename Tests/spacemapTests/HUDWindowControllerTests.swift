@@ -144,9 +144,7 @@ final class HUDWindowControllerTests: XCTestCase {
                 withIntermediateDirectories: true
             )
             var initial = GridConfig.default
-            initial.useArrowKeys = false
-            initial.useVimKeys = false
-            initial.useExtendedKeys = true
+            initial.hudKeys = .default
             initial.jumpToSpaceEnabled = false
             initial.hudShadow = true
             initial.hudPosition = .center
@@ -183,9 +181,7 @@ final class HUDWindowControllerTests: XCTestCase {
             }
             let panel = try XCTUnwrap(controller.inputPanel)
             let input = try XCTUnwrap(hudInput(of: controller))
-            XCTAssertEqual(input.config?.useArrowKeys, false)
-            XCTAssertEqual(input.config?.useVimKeys, false)
-            XCTAssertEqual(input.config?.useExtendedKeys, true)
+            XCTAssertEqual(input.config?.hudKeys, HUDKeyBindings.default)
             XCTAssertTrue(panel.hasShadow)
 
             let themesPath = home.appendingPathComponent(".config/spacemap/themes").path
@@ -209,9 +205,9 @@ final class HUDWindowControllerTests: XCTestCase {
             )
 
             var updated = initial
-            updated.useArrowKeys = true
-            updated.useVimKeys = true
-            updated.useExtendedKeys = false
+            var hudKeys = HUDKeyBindings.default
+            hudKeys[.left] = [HotkeyConfig(key: .keyCode(7), modifiers: [])]
+            updated.hudKeys = hudKeys
             updated.jumpToSpaceEnabled = true
             updated.hudShadow = false
             updated.hudPosition = .custom(x: 0.2, y: 0.2)
@@ -221,9 +217,12 @@ final class HUDWindowControllerTests: XCTestCase {
 
             controller.reloadConfig()
 
-            XCTAssertEqual(input.config?.useArrowKeys, true)
-            XCTAssertEqual(input.config?.useVimKeys, true)
-            XCTAssertEqual(input.config?.useExtendedKeys, false)
+            XCTAssertEqual(input.config?.hudKeys, updated.hudKeys)
+            XCTAssertNil(HUDInput.hudKeyAction(
+                keyCode: 4,
+                flags: [],
+                bindings: input.config?.hudKeys ?? .default
+            ), "the reloaded config must replace the old navigation keys")
             XCTAssertEqual(input.config?.jumpToSpaceEnabled, true)
             XCTAssertFalse(panel.hasShadow, "display must receive the reloaded appearance")
             XCTAssertEqual(coordinator.config, updated, "coordinator must receive the reloaded config")

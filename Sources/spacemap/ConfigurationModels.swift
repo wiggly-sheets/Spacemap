@@ -560,6 +560,75 @@ enum MediaKey: String, Codable, CaseIterable, Equatable {
     case brightnessDown = "brightness-down"
 }
 
+/// Actions a HUD key can trigger. The raw value is the `[hudKeys]` TOML key.
+enum HUDKeyAction: String, CaseIterable, Equatable {
+    case left, right, up, down
+    case goFirst = "first"
+    case goLast = "last"
+    case recent, close
+    case createSpace = "newSpace"
+    case createAndFocusSpace = "newSpaceAndFocus"
+    case destroySpace = "deleteSpace"
+    case layoutBSP = "layoutBSP"
+    case layoutStack = "layoutStack"
+    case layoutFloat = "layoutFloat"
+
+    var label: String {
+        switch self {
+        case .left: return "Left"
+        case .right: return "Right"
+        case .up: return "Up"
+        case .down: return "Down"
+        case .goFirst: return "First Space"
+        case .goLast: return "Last Space"
+        case .recent: return "Recent Space"
+        case .close: return "Close HUD"
+        case .createSpace: return "New Space"
+        case .createAndFocusSpace: return "New Space and Focus"
+        case .destroySpace: return "Delete Space"
+        case .layoutBSP: return "BSP Layout"
+        case .layoutStack: return "Stack Layout"
+        case .layoutFloat: return "Float Layout"
+        }
+    }
+}
+
+/// Every HUD action maps to a list of key bindings. Missing actions are unbound.
+struct HUDKeyBindings: Equatable {
+    private var keys: [HUDKeyAction: [HotkeyConfig]]
+
+    init(_ keys: [HUDKeyAction: [HotkeyConfig]] = [:]) {
+        self.keys = keys
+    }
+
+    subscript(action: HUDKeyAction) -> [HotkeyConfig] {
+        get { keys[action] ?? [] }
+        set { keys[action] = newValue }
+    }
+
+    private static func key(_ name: String) -> HotkeyConfig {
+        Hotkey.parseHotkey(name) ?? HotkeyConfig(key: .none, modifiers: [])
+    }
+
+    /// Vim and arrow defaults. Editing one action does not touch the others.
+    static let `default` = HUDKeyBindings([
+        .left: [key("h"), key("left")],
+        .right: [key("l"), key("right")],
+        .up: [key("k"), key("up")],
+        .down: [key("j"), key("down")],
+        .goFirst: [key("f")],
+        .goLast: [key("e")],
+        .recent: [key("r")],
+        .close: [key("escape"), key("c")],
+        .createSpace: [key("a")],
+        .createAndFocusSpace: [key("t")],
+        .destroySpace: [key("w")],
+        .layoutBSP: [key("b")],
+        .layoutStack: [key("s")],
+        .layoutFloat: [key("u")]
+    ])
+}
+
 /// `[appFont]` table: how the glyph font gets updated, plus install state so
 /// auto mode does not re-download the release every launch.
 struct AppFontConfig: Equatable {
@@ -598,6 +667,8 @@ struct GridConfig: Equatable {
     var hudNewSpaceHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
     var hudDeleteSpaceHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
     var hudCycleLayoutHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
+    /// Navigation and HUD actions while the HUD is open.
+    var hudKeys: HUDKeyBindings = .default
     var socketHealthInterval: Int
     var uiScale: Double
     var autoHideTimeout: Int
@@ -669,9 +740,6 @@ struct GridConfig: Equatable {
     var menuBarDisplayMode: MenuBarDisplayMode = .icon
     var menuBarNearbyCount: Int = 3
     var spaceNames: [Int: String]
-    var useVimKeys: Bool
-    var useArrowKeys: Bool
-    var useExtendedKeys: Bool = true
     var jumpToSpaceEnabled: Bool = false
     var hudPosition: HUDPosition
     var customHUDX: Double = 0.5
@@ -749,8 +817,7 @@ struct GridConfig: Equatable {
         hudIconSource: .nativeIcons, hudIconStripSeparate: false,
         hudIconStripSource: .nativeIcons,
         presence: .menuBar, glyphStrip: .default, menuBarDisplayMode: .icon,
-        menuBarNearbyCount: 3, spaceNames: [:], useVimKeys: false,
-        useArrowKeys: false, jumpToSpaceEnabled: false, hudPosition: .center, customHUDX: 0.5,
+        menuBarNearbyCount: 3, spaceNames: [:], jumpToSpaceEnabled: false, hudPosition: .center, customHUDX: 0.5,
         customHUDY: 0.5, showExtraWindows: false,
         focusSpaceOnWindowDrop: .never, focusSpaceOnWindowDropModifier: .command,
         showHUDOnSpaceChange: false,

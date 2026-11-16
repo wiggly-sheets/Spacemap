@@ -409,9 +409,6 @@ enum ConfigLoader {
             "[behavior]",
             "autoHideTimeout = \(values.autoHideTimeout ?? defaults.autoHideTimeout)",
             "displayNavigationWrap = \(tomlString((values.displayNavigationWrap ?? defaults.displayNavigationWrap).rawValue))",
-            "useVimKeys = \(values.useVimKeys ?? defaults.useVimKeys)",
-            "useArrowKeys = \(values.useArrowKeys ?? defaults.useArrowKeys)",
-            "useExtendedKeys = \(values.useExtendedKeys ?? defaults.useExtendedKeys)",
             "jumpToSpaceEnabled = \(values.jumpToSpaceEnabled ?? defaults.jumpToSpaceEnabled)",
             "customHUDX = \(values.customHUDX ?? defaults.customHUDX)",
             "customHUDY = \(values.customHUDY ?? defaults.customHUDY)",
@@ -466,6 +463,15 @@ enum ConfigLoader {
             section: "behavior.hudCycleLayoutHotkey",
             to: &lines
         )
+
+        lines += ["", "[hudKeys]"]
+        let hudKeys = values.hudKeys ?? defaults.hudKeys
+        for action in HUDKeyAction.allCases {
+            let names = hudKeys[action]
+                .filter { !$0.isDisabled }
+                .map(Hotkey.hotkeyToString)
+            lines.append("\(action.rawValue) = \(tomlStringArray(names))")
+        }
 
         lines += ["", "[behavior.hudPosition]"]
         switch values.hudPosition ?? defaults.hudPosition {

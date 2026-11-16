@@ -34,9 +34,6 @@ final class ConfigTests: XCTestCase {
         [behavior]
         autoHideTimeout = 10
         displayNavigationWrap = "between"
-        useVimKeys = true
-        useArrowKeys = true
-        useExtendedKeys = true
         customHUDX = 0.25
         customHUDY = 0.75
         focusSpaceOnWindowDrop = "modifier"
@@ -46,6 +43,10 @@ final class ConfigTests: XCTestCase {
         menuBarDisplayMode = "nearby"
         menuBarNearbyCount = 5
         updateMode = "off"
+
+        [hudKeys]
+        left = ["x"]
+        layoutBSP = ["b", "cmd+b"]
 
         [behavior.hotkey]
         keyKind = "keyCode"
@@ -88,9 +89,10 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.uiScale, 0.75, accuracy: 0.001)
         XCTAssertEqual(c.autoHideTimeout, 10)
         XCTAssertEqual(c.displayNavigationWrap, .between)
-        XCTAssertTrue(c.useVimKeys)
-        XCTAssertTrue(c.useArrowKeys)
-        XCTAssertTrue(c.useExtendedKeys)
+        XCTAssertEqual(c.hudKeys[.left].compactMap(\.keyCode), [7])
+        XCTAssertEqual(c.hudKeys[.layoutBSP].compactMap(\.keyCode), [11, 11])
+        XCTAssertEqual(c.hudKeys[.layoutBSP].last?.modifiers, .maskCommand)
+        XCTAssertEqual(c.hudKeys[.right], HUDKeyBindings.default[.right])
         XCTAssertEqual(c.focusSpaceOnWindowDrop, .modifier)
         XCTAssertEqual(c.focusSpaceOnWindowDropModifier, .option)
         XCTAssertTrue(c.showHUDOnSpaceChange)

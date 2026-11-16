@@ -46,9 +46,7 @@ final class ConfigValuesTests: XCTestCase {
         values.showMultiAppIcons = true
         values.showSpaceNames = true
         values.spaceNames = [1: "Term", 2: "Code"]
-        values.useVimKeys = true
-        values.useArrowKeys = true
-        values.useExtendedKeys = true
+        values.hudKeys = .default
         values.jumpToSpaceEnabled = true
         values.hudPosition = .custom(x: 0.25, y: 0.75)
         values.customHUDX = 0.25
@@ -132,9 +130,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertTrue(config.showMultiAppIcons)
         XCTAssertTrue(config.showSpaceNames)
         XCTAssertEqual(config.spaceNames, [1: "Term", 2: "Code"])
-        XCTAssertTrue(config.useVimKeys)
-        XCTAssertTrue(config.useArrowKeys)
-        XCTAssertTrue(config.useExtendedKeys)
+        XCTAssertEqual(config.hudKeys, HUDKeyBindings.default)
         XCTAssertTrue(config.jumpToSpaceEnabled)
         XCTAssertEqual(config.hudPosition, .custom(x: 0.25, y: 0.75))
         XCTAssertEqual(config.customHUDX, 0.25, accuracy: 0.001)
@@ -538,20 +534,22 @@ final class ConfigValuesTests: XCTestCase {
                        "old configs without the key load with the strip hotkey unbound")
     }
 
-    func testUseExtendedKeysRoundTripsAndDefaultsTrueWhenMissing() throws {
+    func testHUDKeysRoundTripAndDefaultWhenMissing() throws {
         var values = ConfigValues()
-        values.useExtendedKeys = false
+        var keys = HUDKeyBindings.default
+        keys[.left] = [HotkeyConfig(key: .keyCode(7), modifiers: [])]
+        values.hudKeys = keys
 
         let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
         let reread = try TOMLParser.parse(toml)
 
-        XCTAssertEqual(reread.useExtendedKeys, false)
+        XCTAssertEqual(reread.hudKeys, keys)
 
         let defaults = ConfigValues()
         let (config, needsRepair) = defaults.toGridConfig()
 
-        XCTAssertTrue(config.useExtendedKeys, "old configs without the key load with extended keys enabled")
-        XCTAssertTrue(needsRepair, "the nil key should flag repair so the file is rewritten, like its siblings")
+        XCTAssertEqual(config.hudKeys, HUDKeyBindings.default, "old configs without the table load with vim and arrow keys")
+        XCTAssertTrue(needsRepair, "the nil table should flag repair so the file is rewritten, like its siblings")
     }
 
     func testGlyphStripHotkeyRoundTripsThroughTheConfigString() throws {

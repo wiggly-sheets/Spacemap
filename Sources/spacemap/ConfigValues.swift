@@ -13,6 +13,7 @@ struct ConfigValues {
     var hudNewSpaceHotkey: HotkeyConfig?
     var hudDeleteSpaceHotkey: HotkeyConfig?
     var hudCycleLayoutHotkey: HotkeyConfig?
+    var hudKeys: HUDKeyBindings?
     var socketHealthInterval: Int?
     var uiScale: Double?
     var autoHideTimeout: Int?
@@ -64,9 +65,6 @@ struct ConfigValues {
     var menuBarDisplayMode: MenuBarDisplayMode?
     var menuBarNearbyCount: Int?
     var spaceNames: [Int: String]?
-    var useVimKeys: Bool?
-    var useArrowKeys: Bool?
-    var useExtendedKeys: Bool?
     var jumpToSpaceEnabled: Bool?
     var hudPosition: HUDPosition?
     var customHUDX: Double?
@@ -109,6 +107,7 @@ struct ConfigValues {
         self.hudNewSpaceHotkey = config.hudNewSpaceHotkey
         self.hudDeleteSpaceHotkey = config.hudDeleteSpaceHotkey
         self.hudCycleLayoutHotkey = config.hudCycleLayoutHotkey
+        self.hudKeys = config.hudKeys
         self.socketHealthInterval = config.socketHealthInterval
         self.uiScale = config.uiScale
         self.autoHideTimeout = config.autoHideTimeout
@@ -160,9 +159,6 @@ struct ConfigValues {
         self.menuBarDisplayMode = config.menuBarDisplayMode
         self.menuBarNearbyCount = config.menuBarNearbyCount
         self.spaceNames = config.spaceNames
-        self.useVimKeys = config.useVimKeys
-        self.useArrowKeys = config.useArrowKeys
-        self.useExtendedKeys = config.useExtendedKeys
         self.jumpToSpaceEnabled = config.jumpToSpaceEnabled
         self.hudPosition = config.hudPosition
         self.customHUDX = config.customHUDX
@@ -261,6 +257,7 @@ struct ConfigValues {
         let resolvedHUDNewSpaceHotkey = orDefault(hudNewSpaceHotkey, defaults.hudNewSpaceHotkey)
         let resolvedHUDDeleteSpaceHotkey = orDefault(hudDeleteSpaceHotkey, defaults.hudDeleteSpaceHotkey)
         let resolvedHUDCycleLayoutHotkey = orDefault(hudCycleLayoutHotkey, defaults.hudCycleLayoutHotkey)
+        let resolvedHUDKeys = orDefault(hudKeys, defaults.hudKeys)
 
         let resolvedHudPosition: HUDPosition
         switch hudPosition {
@@ -302,6 +299,7 @@ struct ConfigValues {
             hudNewSpaceHotkey: resolvedHUDNewSpaceHotkey,
             hudDeleteSpaceHotkey: resolvedHUDDeleteSpaceHotkey,
             hudCycleLayoutHotkey: resolvedHUDCycleLayoutHotkey,
+            hudKeys: resolvedHUDKeys,
             socketHealthInterval: oversizeClamped(socketHealthInterval, defaults.socketHealthInterval, in: 1...3600),
             uiScale: valid(uiScale, defaults.uiScale) { (0...1).contains($0) },
             autoHideTimeout: valid(autoHideTimeout, defaults.autoHideTimeout) { $0 >= 0 },
@@ -353,9 +351,6 @@ struct ConfigValues {
             menuBarDisplayMode: resolvedMenuBarDisplayMode,
             menuBarNearbyCount: oversizeClamped(menuBarNearbyCount, defaults.menuBarNearbyCount, in: 1...16),
             spaceNames: spaceNames ?? defaults.spaceNames,
-            useVimKeys: orDefault(useVimKeys, defaults.useVimKeys),
-            useArrowKeys: orDefault(useArrowKeys, defaults.useArrowKeys),
-            useExtendedKeys: orDefault(useExtendedKeys, defaults.useExtendedKeys),
             jumpToSpaceEnabled: orDefault(jumpToSpaceEnabled, defaults.jumpToSpaceEnabled),
             hudPosition: resolvedHudPosition,
             customHUDX: valid(customHUDX, defaults.customHUDX) { (0...1).contains($0) },

@@ -368,9 +368,9 @@ final class SettingsTests: XCTestCase {
         config.menuBarDisplayMode = .nearby
         config.menuBarNearbyCount = 7
         config.spaceNames = [1: "Code", 2: "Web"]
-        config.useVimKeys = true
-        config.useArrowKeys = true
-        config.useExtendedKeys = false
+        var hudKeys = HUDKeyBindings.default
+        hudKeys[.left] = [HotkeyConfig(key: .keyCode(7), modifiers: [])]
+        config.hudKeys = hudKeys
         config.jumpToSpaceEnabled = true
         config.hudPosition = .custom(x: 0.25, y: 0.75)
         config.customHUDX = 0.25

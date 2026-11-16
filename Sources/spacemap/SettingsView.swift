@@ -39,6 +39,7 @@ struct SettingsView: View {
     @State private var hudNewSpaceHotkeyString: String = "none"
     @State private var hudDeleteSpaceHotkeyString: String = "none"
     @State private var hudCycleLayoutHotkeyString: String = "none"
+    @State private var hudKeys: HUDKeyBindings = .default
     @State private var socketHealthInterval: Int = 60
     @State private var uiScale: Double = 1.0
     @State private var autoHideTimeout: Int = 0
@@ -90,9 +91,6 @@ struct SettingsView: View {
     @State private var glyphStrip: GlyphStripConfig = .default
     @State private var menuBarDisplayMode: MenuBarDisplayMode = .icon
     @State private var menuBarNearbyCount: Int = 3
-    @State private var useVimKeys: Bool = false
-    @State private var useArrowKeys: Bool = false
-    @State private var useExtendedKeys: Bool = true
     @State private var jumpToSpaceEnabled: Bool = false
     @State private var hudPositionKind: HUDPositionKind = .center
     @State private var spaceNameInputs: [Int: String] = [:]
@@ -170,6 +168,7 @@ struct SettingsView: View {
         _hudNewSpaceHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudNewSpaceHotkey))
         _hudDeleteSpaceHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudDeleteSpaceHotkey))
         _hudCycleLayoutHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudCycleLayoutHotkey))
+        _hudKeys = State(initialValue: config.hudKeys)
         _socketHealthInterval = State(initialValue: config.socketHealthInterval)
         _uiScale = State(initialValue: config.uiScale)
         _autoHideTimeout = State(initialValue: config.autoHideTimeout)
@@ -220,9 +219,6 @@ struct SettingsView: View {
         _glyphStrip = State(initialValue: config.glyphStrip.clamped())
         _menuBarDisplayMode = State(initialValue: config.menuBarDisplayMode)
         _menuBarNearbyCount = State(initialValue: config.menuBarNearbyCount)
-        _useVimKeys = State(initialValue: config.useVimKeys)
-        _useArrowKeys = State(initialValue: config.useArrowKeys)
-        _useExtendedKeys = State(initialValue: config.useExtendedKeys)
         _jumpToSpaceEnabled = State(initialValue: config.jumpToSpaceEnabled)
         _hudPositionKind = State(initialValue: HUDPositionKind(from: config.hudPosition))
         _lastCustomHUDX = State(initialValue: config.customHUDX)
@@ -293,6 +289,7 @@ struct SettingsView: View {
             hudNewSpaceHotkey: AppConfig.parseHotkey(hudNewSpaceHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
             hudDeleteSpaceHotkey: AppConfig.parseHotkey(hudDeleteSpaceHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
             hudCycleLayoutHotkey: AppConfig.parseHotkey(hudCycleLayoutHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
+            hudKeys: hudKeys,
             socketHealthInterval: socketHealthInterval,
             uiScale: uiScale,
             autoHideTimeout: autoHideTimeout,
@@ -344,9 +341,6 @@ struct SettingsView: View {
             menuBarDisplayMode: menuBarDisplayMode,
             menuBarNearbyCount: menuBarNearbyCount,
             spaceNames: spaceNameInputs,
-            useVimKeys: useVimKeys,
-            useArrowKeys: useArrowKeys,
-            useExtendedKeys: useExtendedKeys,
             jumpToSpaceEnabled: jumpToSpaceEnabled,
             hudPosition: hudPosition,
             customHUDX: lastCustomHUDX,
@@ -571,11 +565,9 @@ struct SettingsView: View {
             hudNewSpaceHotkeyString: $hudNewSpaceHotkeyString,
             hudDeleteSpaceHotkeyString: $hudDeleteSpaceHotkeyString,
             hudCycleLayoutHotkeyString: $hudCycleLayoutHotkeyString,
+            hudKeys: $hudKeys,
             hudPositionKind: $hudPositionKind,
             autoHideTimeout: $autoHideTimeout,
-            useArrowKeys: $useArrowKeys,
-            useVimKeys: $useVimKeys,
-            useExtendedKeys: $useExtendedKeys,
             jumpToSpaceEnabled: $jumpToSpaceEnabled,
             displayNavigationWrap: $displayNavigationWrap,
             focusSpaceOnWindowDrop: $focusSpaceOnWindowDrop,

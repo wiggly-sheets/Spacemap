@@ -306,6 +306,69 @@ struct HotkeyRecorder: View {
     }
 }
 
+/// Edits every key bound to one HUD action. Extra rows can be removed; the
+/// first row keeps the action label.
+struct HUDKeyBindingEditor: View {
+    let label: String
+    @Binding var bindings: [HotkeyConfig]
+    let coordinator: HotkeyRecorderCoordinator
+
+    var body: some View {
+        // Keep one editor in one container. Flattening its rows into the Form
+        // gives sibling editors the same row identities, and SwiftUI can then
+        // duplicate or reuse the first action's label.
+        VStack(alignment: .leading, spacing: 4) {
+            if bindings.isEmpty {
+                HStack(spacing: 8) {
+                    Text(label)
+                    Spacer()
+                    Text("Not Set")
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            ForEach(bindings.indices, id: \.self) { index in
+                HStack(spacing: 4) {
+                    HotkeyRecorder(
+                        label: index == 0 ? label : "",
+                        hotkey: hotkeyBinding(at: index),
+                        coordinator: coordinator
+                    )
+                    if index > 0 {
+                        Button {
+                            bindings.remove(at: index)
+                        } label: {
+                            Image(systemName: "minus.circle")
+                                .foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Remove shortcut")
+                        .accessibilityLabel("Remove shortcut")
+                    }
+                }
+            }
+            Button("Add Shortcut") {
+                bindings.append(HotkeyConfig(key: .none, modifiers: []))
+            }
+            .liquidGlassButtonStyle()
+            .controlSize(.small)
+        }
+    }
+
+    private func hotkeyBinding(at index: Int) -> Binding<String> {
+        Binding(
+            get: {
+                guard bindings.indices.contains(index) else { return "none" }
+                return Hotkey.hotkeyToString(bindings[index])
+            },
+            set: { value in
+                guard bindings.indices.contains(index) else { return }
+                bindings[index] = AppConfig.parseHotkey(value)
+                    ?? HotkeyConfig(key: .none, modifiers: [])
+            }
+        )
+    }
+}
+
 /// One shortcut key, drawn as a compact physical keycap.
 private struct Keycap: View {
     let caption: String
