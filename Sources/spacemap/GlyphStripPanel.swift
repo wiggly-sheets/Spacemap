@@ -134,6 +134,7 @@ final class GlyphStripPanelController: NSObject {
     /// Reduce Transparency changes swap the native glass for the legacy
     /// effect view; nothing else reassigns the material while the strip is up.
     private var accessibilityObserver: NSObjectProtocol?
+    private var wakeObserver: NSObjectProtocol?
 
     init(yabaiService: YabaiService) {
         self.yabaiService = yabaiService
@@ -174,6 +175,31 @@ final class GlyphStripPanelController: NSObject {
         ) { [weak self] _ in
             self?.relayoutBackground()
         }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleWake()
+        }
+    }
+
+    /// Sleep can freeze a press or hover highlight on the menu-bar view.
+    /// Clear both without rebuilding the status item: AppKit is still
+    /// restoring the menu bar, and replacing the item steals the first click.
+    private func handleWake() {
+        // Rebuilding the status item here steals the first post-wake click:
+        // AppKit is still restoring the menu bar and the new item is not yet
+        // the one under the cursor. Clear any stale press and repaint instead.
+        cancelGesture()
+        statusView?.refreshHover()
+        if let panel, panel.isVisible {
+            applyFrame(to: panel)
+        }
+    }
+
+    private func cancelGesture() {
+        statusView?.cancelGesture()
     }
 
     deinit {
@@ -184,6 +210,9 @@ final class GlyphStripPanelController: NSObject {
         }
         if let accessibilityObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver)
+        }
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
         }
     }
 
@@ -1933,6 +1962,7 @@ private final class GlyphStripStatusView: NSView {
     private var dragActivated = false
     private var hoverProgress: CGFloat = 0
     private var hoverTimer: Timer?
+    private var hoverWatchdog: Timer?
     private var contentAnimationStart: CFTimeInterval?
     private var contentAnimationSegments: [Int] = []
     private var contentAnimationTimer: Timer?
@@ -1971,18 +2001,21 @@ private final class GlyphStripStatusView: NSView {
         hoveredSegment = nil
         hoverTimer?.invalidate()
         hoverTimer = nil
+        stopHoverWatchdog()
         hoverProgress = 0
         needsDisplay = true
     }
 
     private func updateHover(_ event: NSEvent) {
-        let segment = segment(at: convert(event.locationInWindow, from: nil))
+        let eventPoint = convert(event.locationInWindow, from: nil)
+        let segment = segment(at: clickPoint(eventPoint: eventPoint))
         guard segment != hoveredSegment else { return }
         hoveredSegment = segment
         hoverProgress = segment == nil ? 0 : 0
         hoverTimer?.invalidate()
         hoverTimer = nil
         if segment != nil {
+            startHoverWatchdog()
             let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
                 guard let self else { timer.invalidate(); return }
                 self.hoverProgress = min(1, self.hoverProgress + 1.0 / 8.0)
@@ -2004,6 +2037,7 @@ private final class GlyphStripStatusView: NSView {
         guard let window else {
             hoveredSegment = nil
             hoverProgress = 0
+            stopHoverWatchdog()
             needsDisplay = true
             return
         }
@@ -2014,7 +2048,33 @@ private final class GlyphStripStatusView: NSView {
         hoverProgress = segment == nil ? 0 : 1
         hoverTimer?.invalidate()
         hoverTimer = nil
+        if segment == nil {
+            stopHoverWatchdog()
+        } else {
+            startHoverWatchdog()
+        }
         needsDisplay = true
+    }
+
+    /// The menu bar can reflow or an overlay can swallow `mouseExited`.
+    /// Reconcile a visible hover against the physical pointer until it clears.
+    private func startHoverWatchdog() {
+        guard hoverWatchdog == nil else { return }
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            self.refreshHover()
+            if self.hoveredSegment == nil {
+                timer.invalidate()
+                self.hoverWatchdog = nil
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        hoverWatchdog = timer
+    }
+
+    private func stopHoverWatchdog() {
+        hoverWatchdog?.invalidate()
+        hoverWatchdog = nil
     }
 
     fileprivate func animateContentChange(segments: [Int]) {
@@ -2235,6 +2295,7 @@ private final class GlyphStripStatusView: NSView {
 
     deinit {
         removeGlobalDragMonitor()
+        stopHoverWatchdog()
     }
 
     override func mouseDragged(with event: NSEvent) {
