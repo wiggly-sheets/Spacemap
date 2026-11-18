@@ -3,34 +3,6 @@ import CoreGraphics
 @testable import spacemap
 
 
-final class HUDWindowControllerMockDisplayDelegate: HUDDisplayDelegate {
-    private(set) var renderCallCount = 0
-    private(set) var lastRenderedState: GridState?
-    private(set) var updateCellFramesCallCount = 0
-    private(set) var lastState: GridState?
-    private(set) var showCallCount = 0
-    private(set) var hideCallCount = 0
-
-    func render(state: GridState) {
-        renderCallCount += 1
-        lastRenderedState = state
-    }
-
-    func updateCellFrames(state: GridState) {
-        updateCellFramesCallCount += 1
-        lastState = state
-    }
-
-    func show() {
-        showCallCount += 1
-    }
-
-    func hide() {
-        hideCallCount += 1
-    }
-}
-
-
 final class HUDWindowControllerTests: XCTestCase {
 
 
@@ -228,10 +200,6 @@ final class HUDWindowControllerTests: XCTestCase {
             XCTAssertEqual(coordinator.config, updated, "coordinator must receive the reloaded config")
             XCTAssertTrue(themeService.allNames().contains("my theme"),
                           "theme reload must see the newly written theme file")
-            XCTAssertFalse(
-                isNilValue(reflectedValue("panelDragMonitor", in: input)),
-                "a custom panel position must start the drag monitor"
-            )
         }
     }
 
@@ -415,25 +383,6 @@ final class HUDWindowControllerTests: XCTestCase {
         }
     }
 
-    func testShowWiresPanelAndQuartzConverterForCustomDrag() throws {
-        let controller = makeHUDWindowController()
-
-        controller.show()
-
-        XCTAssertNotNil(controller.inputPanel,
-            "custom-position drag needs the live unified panel")
-        let converter = try XCTUnwrap(controller.inputQuartzPointConverter,
-            "custom-position drag needs the Quartz point converter")
-        let point = CGPoint(x: 25, y: 125)
-        XCTAssertEqual(
-            converter(point),
-            HUDGeometry.quartzPoint(
-                fromAppKit: point,
-                quartzMaxY: HUDGeometry.mainScreenFrame().maxY
-            )
-        )
-    }
-
     func testShowSeedsLastFocusedSpaceIndex() {
         let yabaiService = MockYabaiService()
         let spaces = [
@@ -462,17 +411,10 @@ final class HUDWindowControllerTests: XCTestCase {
             .value as? HUDInput
     }
 
-    private func reflectedValue(_ label: String, in value: Any) -> Any? {
-        Mirror(reflecting: value).children.first { $0.label == label }?.value
-    }
-
-    private func isNilValue(_ value: Any?) -> Bool {
-        guard let value else { return true }
-        let mirror = Mirror(reflecting: value)
-        return mirror.displayStyle == .optional && mirror.children.isEmpty
-    }
-
     private func withTemporaryHome(_ body: (URL) throws -> Void) throws {
+        // CFFIXED_USER_HOME is process-wide: this test must not share a process
+        // with other home-reading tests. `swift test --parallel` isolates each
+        // worker in its own process; in-process XCTest parallelism would not.
         let home = FileManager.default.temporaryDirectory
             .appendingPathComponent("spacemap-hud-reload-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)

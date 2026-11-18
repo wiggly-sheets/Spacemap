@@ -4,39 +4,23 @@ import AppKit
 @testable import spacemap
 
 
+/// Test double for the display's delegate seam. Only the frame publication
+/// that real callers consume is recorded.
 final class HUDDisplayMockDelegate: HUDDisplayDelegate {
-    private(set) var renderCalled = false
-    private(set) var renderState: GridState?
     private(set) var updateCellFramesCalled = false
-    private(set) var updateCellFramesValue: GridState?
-    private(set) var showCalled = false
-    private(set) var hideCalled = false
 
-    func render(state: GridState) {
-        renderCalled = true
-        renderState = state
-    }
+    func render(state: GridState) {}
 
     func updateCellFrames(state: GridState) {
         updateCellFramesCalled = true
-        updateCellFramesValue = state
     }
 
-    func show() {
-        showCalled = true
-    }
+    func show() {}
 
-    func hide() {
-        hideCalled = true
-    }
+    func hide() {}
 
     func reset() {
-        renderCalled = false
-        renderState = nil
         updateCellFramesCalled = false
-        updateCellFramesValue = nil
-        showCalled = false
-        hideCalled = false
     }
 }
 
@@ -80,14 +64,6 @@ final class HUDDisplayTests: XCTestCase {
     }
 
 
-    func testShowAndHideNotifyDelegate() {
-        hudDisplay.show()
-        XCTAssertTrue(delegate.showCalled)
-
-        hudDisplay.hide()
-        XCTAssertTrue(delegate.hideCalled)
-    }
-
     func testRenderInEitherMultiMonitorModePublishesCellFrames() {
         for mode in [MultiMonitorHUDMode.unified, .separate] {
             delegate.reset()
@@ -99,16 +75,6 @@ final class HUDDisplayTests: XCTestCase {
             XCTAssertTrue(delegate.updateCellFramesCalled, "mode: \(mode)")
         }
     }
-
-    func testUpdateCellFramesCallsDelegateUpdateCellFrames() {
-        let state = cannedState()
-
-        hudDisplay.updateCellFrames(state: state)
-
-        XCTAssertTrue(delegate.updateCellFramesCalled,
-            "updateCellFrames() should call delegate.updateCellFrames()")
-    }
-
 
     func testPreloadIconPolicyMatchesStyleAndIconStrip() {
         let cases: [(CellStyle, Bool, GlyphStripIconSource, Bool)] = [

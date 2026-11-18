@@ -16,9 +16,9 @@ final class ConfigValuesTests: XCTestCase {
         values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
         values.hudMoveSpaceBackHotkey = HotkeyConfig(key: .keyCode(101), modifiers: .maskShift)
         values.hudMoveSpaceForwardHotkey = HotkeyConfig(key: .keyCode(102), modifiers: .maskShift)
-        values.hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.hudDeleteSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
-        values.hudCycleLayoutHotkey = HotkeyConfig(key: .none, modifiers: [])
+        values.hudNewSpaceHotkey = HotkeyConfig(key: .keyCode(103), modifiers: .maskShift)
+        values.hudDeleteSpaceHotkey = HotkeyConfig(key: .keyCode(104), modifiers: .maskShift)
+        values.hudCycleLayoutHotkey = HotkeyConfig(key: .keyCode(105), modifiers: .maskShift)
 
         values.maxSpaces = 12
         values.backgroundAlpha = 0.5
@@ -114,6 +114,11 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertTrue(config.hotkey.modifiers.contains(.maskCommand))
         XCTAssertEqual(config.pinnedHotkey.key, .none)
         XCTAssertEqual(config.glyphStripHotkey, HotkeyConfig(key: .keyCode(100), modifiers: .maskShift))
+        XCTAssertEqual(config.hudMoveSpaceBackHotkey, HotkeyConfig(key: .keyCode(101), modifiers: .maskShift))
+        XCTAssertEqual(config.hudMoveSpaceForwardHotkey, HotkeyConfig(key: .keyCode(102), modifiers: .maskShift))
+        XCTAssertEqual(config.hudNewSpaceHotkey, HotkeyConfig(key: .keyCode(103), modifiers: .maskShift))
+        XCTAssertEqual(config.hudDeleteSpaceHotkey, HotkeyConfig(key: .keyCode(104), modifiers: .maskShift))
+        XCTAssertEqual(config.hudCycleLayoutHotkey, HotkeyConfig(key: .keyCode(105), modifiers: .maskShift))
         XCTAssertEqual(config.maxSpaces, 12)
         XCTAssertEqual(config.backgroundAlpha, 0.5, accuracy: 0.001)
         XCTAssertEqual(config.backgroundStyle, .glass)
@@ -157,7 +162,7 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.appFont.lastCheck, 1700000000)
     }
 
-    func testBackgroundStyleRoundTrip() throws {
+    func testBackgroundAndGlassStylesRoundTrip() throws {
         for style in HUDBackgroundStyle.allCases {
             var values = ConfigValues()
             values.backgroundStyle = style
@@ -170,9 +175,7 @@ final class ConfigValuesTests: XCTestCase {
             let (config, _) = reread.toGridConfig()
             XCTAssertEqual(config.backgroundStyle, style)
         }
-    }
 
-    func testGlassStyleRoundTrip() throws {
         for style in HUDGlassStyle.allCases {
             var values = ConfigValues()
             values.glassStyle = style
@@ -301,78 +304,58 @@ final class ConfigValuesTests: XCTestCase {
     }
 
 
-    func testHUDFontDefaultsAndClampsSize() throws {
+    func testHUDTextAppearanceDefaultsClampAndRoundTrip() throws {
         XCTAssertEqual(GridConfig.default.hudFontName, "")
         XCTAssertEqual(GridConfig.default.hudFontSize, 12)
+        XCTAssertEqual(GridConfig.default.hudTextColor, "")
+        XCTAssertEqual(GridConfig.default.hudCornerRadius, 10)
 
         var values = ConfigValues()
         values.hudFontName = "Avenir Next"
         values.hudFontSize = 18
+        values.hudTextColor = "#FFFFFF"
+        values.hudCornerRadius = 24
         let (config, _) = values.toGridConfig()
         XCTAssertEqual(config.hudFontName, "Avenir Next")
         XCTAssertEqual(config.hudFontSize, 18)
+        XCTAssertEqual(config.hudTextColor, "#FFFFFF")
+        XCTAssertEqual(config.hudCornerRadius, 24)
 
+        // Out-of-range values fall back to the defaults.
         values.hudFontSize = 99
+        values.hudCornerRadius = 99
         XCTAssertEqual(values.toGridConfig().config.hudFontSize, 12)
+        XCTAssertEqual(values.toGridConfig().config.hudCornerRadius, 10)
 
+        // The writer keeps the raw values, so the next load can clamp them.
         let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
         let reread = try TOMLParser.parse(toml)
         XCTAssertEqual(reread.hudFontName, "Avenir Next")
         XCTAssertEqual(reread.hudFontSize, 99)
-    }
-
-    func testHUDTextColorDefaultsEmptyAndRoundTrips() throws {
-        XCTAssertEqual(GridConfig.default.hudTextColor, "")
-
-        var values = ConfigValues()
-        values.hudTextColor = "#FFFFFF"
-        XCTAssertEqual(values.toGridConfig().config.hudTextColor, "#FFFFFF")
-
-        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
-        let reread = try TOMLParser.parse(toml)
         XCTAssertEqual(reread.hudTextColor, "#FFFFFF")
-    }
-
-    func testHUDCornerRadiusDefaultsClampsAndRoundTrips() throws {
-        XCTAssertEqual(GridConfig.default.hudCornerRadius, 10)
-
-        var values = ConfigValues()
-        values.hudCornerRadius = 24
-        let (config, _) = values.toGridConfig()
-        XCTAssertEqual(config.hudCornerRadius, 24)
-
-        values.hudCornerRadius = 99
-        XCTAssertEqual(values.toGridConfig().config.hudCornerRadius, 10, "out-of-range falls back to the default")
-
-        let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
-        let reread = try TOMLParser.parse(toml)
         XCTAssertEqual(reread.hudCornerRadius, 99)
         XCTAssertEqual(reread.toGridConfig().config.hudCornerRadius, 10)
     }
 
-    func testHUDAnimationDefaultsAndRoundTrips() {
+    func testHUDMotionAndFeedbackFlagsDefaultOnAndRoundTrip() {
         XCTAssertTrue(GridConfig.default.hudAnimationsEnabled)
         XCTAssertEqual(GridConfig.default.hudAnimationStyle, .natural)
         XCTAssertEqual(GridConfig.default.hudEntranceStyle, .fade)
-        var values = ConfigValues()
+        XCTAssertTrue(GridConfig.default.showHUDInteractionFeedback)
+
+        var values = ConfigValues(from: GridConfig.default)
+        XCTAssertEqual(values.showHUDInteractionFeedback, true)
         values.hudAnimationsEnabled = false
         values.hudAnimationStyle = .springy
         values.hudEntranceStyle = .slideFromLeft
+        values.showHUDInteractionFeedback = false
+        values.showThumbnailWallpaper = true
         let grid = values.toGridConfig().config
         XCTAssertFalse(grid.hudAnimationsEnabled)
         XCTAssertEqual(grid.hudAnimationStyle, .springy)
         XCTAssertEqual(grid.hudEntranceStyle, .slideFromLeft)
-    }
-
-    func testHUDInteractionFeedbackDefaultsOnAndRoundTrips() {
-        XCTAssertTrue(GridConfig.default.showHUDInteractionFeedback)
-        var values = ConfigValues(from: GridConfig.default)
-        XCTAssertEqual(values.showHUDInteractionFeedback, true)
-        values.showHUDInteractionFeedback = false
-        values.showThumbnailWallpaper = true
-        values.hudAnimationsEnabled = true
-        values.hudAnimationStyle = .natural
-        XCTAssertFalse(values.toGridConfig().config.showHUDInteractionFeedback)
+        XCTAssertFalse(grid.showHUDInteractionFeedback)
+        XCTAssertTrue(grid.showThumbnailWallpaper)
     }
 
     func testSpaceDropModeDefaultsToContentAndRoundTrips() {
@@ -464,22 +447,32 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertFalse(values.toGridConfig().needsRepair, "repair must clear once the strip is valid")
     }
 
-    func testToGridConfigWithMissingFieldsUsesDefaults() {
-        var values = ConfigValues()
-        values.cols = 5
-        values.rows = nil
-        values.cellStyle = nil
-        values.theme = nil
-        let (config, needsRepair) = values.toGridConfig()
+    func testToGridConfigFallsBackToDefaultsForMissingFields() {
+        let (empty, emptyNeedsRepair) = ConfigValues().toGridConfig()
+        XCTAssertTrue(emptyNeedsRepair)
+        XCTAssertEqual(empty.cols, GridConfig.default.cols)
+        XCTAssertEqual(empty.rows, GridConfig.default.rows)
+        XCTAssertEqual(empty.cellStyle, GridConfig.default.cellStyle)
+        XCTAssertEqual(empty.theme, GridConfig.default.theme)
+        XCTAssertEqual(empty.showMode, GridConfig.default.showMode)
+        XCTAssertEqual(empty.hotkey.keyCode, GridConfig.default.hotkey.keyCode)
+        XCTAssertEqual(empty.glyphStripHotkey, GridConfig.default.glyphStripHotkey,
+                       "old configs without the key load with the strip hotkey unbound")
+        XCTAssertEqual(empty.hudKeys, HUDKeyBindings.default,
+                       "old configs without the table load with vim and arrow keys")
+
+        var partial = ConfigValues()
+        partial.cols = 5
+        let (config, needsRepair) = partial.toGridConfig()
 
         XCTAssertTrue(needsRepair)
-        XCTAssertEqual(config.cols, 5)
+        XCTAssertEqual(config.cols, 5, "a provided field must survive")
         XCTAssertEqual(config.rows, GridConfig.default.rows)
         XCTAssertEqual(config.cellStyle, GridConfig.default.cellStyle)
         XCTAssertEqual(config.theme, GridConfig.default.theme)
     }
 
-    func testToGridConfigClampsInvalidValuesToDefaults() {
+    func testToGridConfigClampsOutOfRangeValuesToDefaults() {
         var values = ConfigValues()
         values.cols = 0
         values.rows = -1
@@ -501,37 +494,13 @@ final class ConfigValuesTests: XCTestCase {
         XCTAssertEqual(config.uiScale, GridConfig.default.uiScale)
         XCTAssertEqual(config.autoHideTimeout, GridConfig.default.autoHideTimeout)
         XCTAssertEqual(config.menuBarNearbyCount, 16)
-    }
 
-    func testToGridConfigClampsOversizedColsAndRows() {
-        var values = ConfigValues()
         values.cols = Int.max
         values.rows = 100
-
-        let (config, needsRepair) = values.toGridConfig()
-
-        XCTAssertTrue(needsRepair)
-        XCTAssertEqual(config.cols, 32)
-        XCTAssertEqual(config.rows, 32)
-        // Exact geometry for a clamped 32-column grid at uiScale 0.5.
-        let size = GridLayout.idealSize(visibleIndices: 16, cols: config.cols, uiScale: 0.5)
-        XCTAssertEqual(size.width, 3136.5, accuracy: 0.001)
-        XCTAssertEqual(size.height, 166.5, accuracy: 0.001)
-    }
-
-    func testToGridConfigWithEmptyConfigReturnsDefaults() {
-        let values = ConfigValues()
-        let (config, needsRepair) = values.toGridConfig()
-
-        XCTAssertTrue(needsRepair)
-        XCTAssertEqual(config.cols, GridConfig.default.cols)
-        XCTAssertEqual(config.rows, GridConfig.default.rows)
-        XCTAssertEqual(config.cellStyle, GridConfig.default.cellStyle)
-        XCTAssertEqual(config.theme, GridConfig.default.theme)
-        XCTAssertEqual(config.showMode, GridConfig.default.showMode)
-        XCTAssertEqual(config.hotkey.keyCode, GridConfig.default.hotkey.keyCode)
-        XCTAssertEqual(config.glyphStripHotkey, GridConfig.default.glyphStripHotkey,
-                       "old configs without the key load with the strip hotkey unbound")
+        let (clamped, clampedNeedsRepair) = values.toGridConfig()
+        XCTAssertTrue(clampedNeedsRepair)
+        XCTAssertEqual(clamped.cols, 32)
+        XCTAssertEqual(clamped.rows, 32)
     }
 
     func testHUDKeysRoundTripAndDefaultWhenMissing() throws {

@@ -160,48 +160,6 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(invalid.hudPosition, .center)
     }
 
-    func testCustomHUDAndMultiDisplaySettingsRoundTripThroughDisk() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-config-roundtrip-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
-
-        let original = AppConfig.parseConfig("""
-        [grid]
-        multiMonitorHUDMode = "separate"
-        unifiedHUDVisibility = "all"
-        separateHUDVisibility = "active"
-
-        [behavior]
-        displayNavigationWrap = "between"
-        customHUDX = 0.23
-        customHUDY = 0.81
-        menuBarDisplayMode = "all"
-        menuBarNearbyCount = 7
-
-        [behavior.hudPosition]
-        kind = "custom"
-        x = 0.23
-        y = 0.81
-        """)
-        AppConfig.saveConfig(original, to: path)
-        let reloaded = AppConfig.load(from: path)
-
-        XCTAssertEqual(reloaded.multiMonitorHUDMode, .separate)
-        XCTAssertEqual(reloaded.unifiedHUDVisibility, .all)
-        XCTAssertEqual(reloaded.separateHUDVisibility, .active)
-        XCTAssertEqual(reloaded.displayNavigationWrap, .between)
-        XCTAssertEqual(reloaded.menuBarDisplayMode, .all)
-        XCTAssertEqual(reloaded.menuBarNearbyCount, 7)
-        XCTAssertEqual(reloaded.customHUDX, 0.23, accuracy: 0.001)
-        XCTAssertEqual(reloaded.customHUDY, 0.81, accuracy: 0.001)
-        XCTAssertEqual(reloaded.hudPosition, .custom(x: 0.23, y: 0.81))
-    }
-
     func testLoadCreatesGroupedDefaultTOMLWhenFileIsMissing() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("spacemap-config-generation-\(UUID().uuidString)")
@@ -222,76 +180,6 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(generated.contains("[behavior.hotkey]"))
         XCTAssertTrue(generated.contains("[advanced]"))
         XCTAssertEqual(AppConfig.load(from: path).cols, GridConfig.default.cols)
-    }
-
-    func testLoadRepairsFieldsAndPreservesValidValues() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-config-repair-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
-
-        let malformed = """
-        [grid]
-        cols = 5
-        rows = "broken"
-
-        [appearance]
-        theme = "default"
-        """
-        try malformed.write(toFile: path, atomically: true, encoding: .utf8)
-        let repaired = AppConfig.load(from: path)
-        let healed = try String(contentsOfFile: path, encoding: .utf8)
-
-        XCTAssertEqual(repaired.cols, 5)
-        XCTAssertEqual(repaired.rows, GridConfig.default.rows)
-        XCTAssertEqual(repaired.theme, "default")
-        XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), malformed)
-        XCTAssertTrue(healed.contains("[grid]"))
-        XCTAssertTrue(healed.contains("[behavior]"))
-        XCTAssertEqual(AppConfig.load(from: path).theme, "default")
-    }
-
-    func testLoadLeavesInvalidTOMLUntouchedAndUsesDefaults() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-config-invalid-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
-
-        let invalid = "[grid\ncols = 5"
-        try invalid.write(toFile: path, atomically: true, encoding: .utf8)
-        let loaded = AppConfig.load(from: path)
-
-        XCTAssertEqual(loaded.cols, GridConfig.default.cols)
-        XCTAssertEqual(loaded.theme, GridConfig.default.theme)
-        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), invalid)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: path + ".bak"))
-    }
-
-    func testJSONIsRejectedAndLeftUntouched() throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("spacemap-config-json-rejection-\(UUID().uuidString)")
-        let path = directory.appendingPathComponent("config.toml").path
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
-
-        let json = #"{"cols": 5}"#
-        try json.write(toFile: path, atomically: true, encoding: .utf8)
-        let loaded = AppConfig.load(from: path)
-
-        XCTAssertEqual(loaded.cols, GridConfig.default.cols)
-        XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), json)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: path + ".bak"))
     }
 
     func testPlainConfigIsRejectedAndReplacedWithDefaults() throws {

@@ -153,13 +153,13 @@ final class HUDInputTests: XCTestCase {
 
     func testAccessibilityRevocationNotifiesOwner() {
         let input = HUDInput(panel: nil)
-        let revoked = expectation(description: "accessibility revocation")
+        var revoked = false
         input.updateVisibility(true)
-        input.onAccessibilityRevoked = { revoked.fulfill() }
+        input.onAccessibilityRevoked = { revoked = true }
 
         input.handleAccessibilityState(isTrusted: false)
 
-        wait(for: [revoked], timeout: 0.1)
+        XCTAssertTrue(revoked)
     }
 
     func testReopeningWhileUntrustedNotifiesEachPresentation() {

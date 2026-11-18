@@ -102,7 +102,6 @@ final class GridStateCoordinatorTests: XCTestCase {
         var callCount = 0
         let mock = MockYabaiService()
         mock.buildGridStateClosure = { _, _ in
-            Thread.sleep(forTimeInterval: 0.5)
             callCount += 1
             return self.cannedState(focusedIndex: callCount)
         }
@@ -114,12 +113,12 @@ final class GridStateCoordinatorTests: XCTestCase {
             firstCompletionCalled = true
         }
 
-        Thread.sleep(forTimeInterval: 0.1)
-
+        // Both fetches run and queue their main-thread completions before the
+        // run loop drains, so only the newer generation may publish.
         let fetch2Exp = expectation(description: "fetch 2 (authoritative)")
         asyncCoordinator.fetch { fetch2Exp.fulfill() }
 
-        waitForExpectations(timeout: 3.0)
+        waitForExpectations(timeout: 2.0)
         XCTAssertEqual(asyncCoordinator.latestState?.focusedIndex, 2,
             "latestState should reflect the second (non-stale) fetch")
         XCTAssertFalse(firstCompletionCalled,
@@ -131,7 +130,6 @@ final class GridStateCoordinatorTests: XCTestCase {
         var callCount = 0
         let mock = MockYabaiService()
         mock.buildGridStateClosure = { _, _ in
-            Thread.sleep(forTimeInterval: 0.5)
             callCount += 1
             return self.cannedState(focusedIndex: callCount)
         }
@@ -143,12 +141,11 @@ final class GridStateCoordinatorTests: XCTestCase {
             firstCompletionCalled = true
         }
 
-        Thread.sleep(forTimeInterval: 0.1)
-
+        // Same generation guard as fetch(), exercised through refresh().
         let fetch2Exp = expectation(description: "refresh (authoritative)")
         asyncCoordinator.refresh { fetch2Exp.fulfill() }
 
-        waitForExpectations(timeout: 3.0)
+        waitForExpectations(timeout: 2.0)
         XCTAssertEqual(asyncCoordinator.latestState?.focusedIndex, 2,
             "latestState should reflect the second (non-stale) fetch")
         XCTAssertFalse(firstCompletionCalled,

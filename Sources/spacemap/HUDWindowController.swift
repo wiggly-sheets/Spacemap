@@ -195,7 +195,6 @@ class HUDWindowController {
 
     /// Test seam: the input's drag target must be the live HUD panel.
     var inputPanel: NSPanel? { hudInput.currentPanel }
-    var inputQuartzPointConverter: ((CGPoint) -> CGPoint)? { hudInput.quartzPointConverter }
     var hudDisplayForTesting: HUDDisplay { hudDisplay }
     var seededFocusedSpaceIndex: Int? { hudInput.lastFocusedSpaceIndex }
 

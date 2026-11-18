@@ -49,6 +49,8 @@ final class ConfigLoaderTests: XCTestCase {
         let repaired = try String(contentsOfFile: path, encoding: .utf8)
 
         XCTAssertTrue(needsRepair)
+        XCTAssertEqual(values.gridConfig.cols, ConfigValues(from: .default).gridConfig.cols,
+                       "valid neighbours must survive the repair")
         XCTAssertEqual(values.gridConfig.rows, GridConfig.default.rows)
         XCTAssertEqual(values.gridConfig.cellStyle, GridConfig.default.cellStyle)
         XCTAssertEqual(values.gridConfig.hotkey.key, GridConfig.default.hotkey.key)
@@ -165,6 +167,9 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), original)
     }
 
+    /// Single save/load contract for the config codec: every shape the app
+    /// exposes (grid, keyCode and media-key hotkeys, multi-display, custom HUD
+    /// position) survives a disk trip, and a self-written file needs no repair.
     func testSaveRoundTrip() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("spacemap-loader-roundtrip-\(UUID().uuidString)")
@@ -179,8 +184,19 @@ final class ConfigLoaderTests: XCTestCase {
         values.theme = "default"
         values.showMode = .active
         values.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: .maskCommand)
+        values.pinnedHotkey = HotkeyConfig(key: .mediaKey(.playPause), modifiers: .maskControl)
+        values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
         values.hudShadow = false
         values.jumpToSpaceEnabled = true
+        values.multiMonitorHUDMode = .separate
+        values.unifiedHUDVisibility = .all
+        values.separateHUDVisibility = .active
+        values.displayNavigationWrap = .between
+        values.menuBarDisplayMode = .all
+        values.menuBarNearbyCount = 7
+        values.hudPosition = .custom(x: 0.23, y: 0.81)
+        values.customHUDX = 0.23
+        values.customHUDY = 0.81
 
         ConfigLoader.save(values, to: path)
 
@@ -195,8 +211,20 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(config.showMode, .active)
         XCTAssertEqual(config.hotkey.keyCode, 49)
         XCTAssertTrue(config.hotkey.modifiers.contains(.maskCommand))
+        XCTAssertEqual(config.pinnedHotkey.mediaKey, .playPause)
+        XCTAssertTrue(config.pinnedHotkey.modifiers.contains(.maskControl))
+        XCTAssertEqual(config.glyphStripHotkey, values.glyphStripHotkey)
         XCTAssertFalse(config.hudShadow)
         XCTAssertTrue(config.jumpToSpaceEnabled)
+        XCTAssertEqual(config.multiMonitorHUDMode, .separate)
+        XCTAssertEqual(config.unifiedHUDVisibility, .all)
+        XCTAssertEqual(config.separateHUDVisibility, .active)
+        XCTAssertEqual(config.displayNavigationWrap, .between)
+        XCTAssertEqual(config.menuBarDisplayMode, .all)
+        XCTAssertEqual(config.menuBarNearbyCount, 7)
+        XCTAssertEqual(config.hudPosition, .custom(x: 0.23, y: 0.81))
+        XCTAssertEqual(config.customHUDX, 0.23, accuracy: 0.001)
+        XCTAssertEqual(config.customHUDY, 0.81, accuracy: 0.001)
     }
 
     func testBackgroundStyleRepairsInvalidToDefault() throws {
