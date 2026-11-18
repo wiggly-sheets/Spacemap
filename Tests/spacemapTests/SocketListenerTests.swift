@@ -274,7 +274,10 @@ final class SocketListenerTests: XCTestCase {
 
         var clients: [Int32] = []
         for _ in 0..<10 {
-            clients.append(try connectClient(to: socketPath))
+            // The burst exceeds the kernel listen backlog (8). A refused
+            // connect is kernel queue pressure, not the user-space overflow
+            // this test covers, so retry until the accept loop keeps up.
+            clients.append(try connectClientRetrying(to: socketPath))
         }
         defer { clients.forEach { close($0) } }
 
@@ -408,6 +411,21 @@ final class SocketListenerTests: XCTestCase {
             Thread.sleep(forTimeInterval: 0.01)
         }
         return false
+    }
+
+    /// The burst exceeds the kernel listen backlog (8), so a connect can be
+    /// refused until the accept loop frees a queue slot. Kernel queue
+    /// pressure is not what this test covers: retry briefly.
+    private func connectClientRetrying(to path: String, timeout: TimeInterval = 1) throws -> Int32 {
+        let deadline = Date().addingTimeInterval(timeout)
+        while true {
+            do {
+                return try connectClient(to: path)
+            } catch let error as POSIXError where
+                error.code == .ECONNREFUSED && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.005)
+            }
+        }
     }
 
     private func connectClient(to path: String) throws -> Int32 {
