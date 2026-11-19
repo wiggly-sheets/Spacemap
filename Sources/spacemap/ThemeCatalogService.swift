@@ -48,7 +48,9 @@ final class ThemeCatalogService: ObservableObject {
     }()
     private let lastRefreshKey = "themeCatalogLastRefresh"
     private var started = false
-    private let themeStore: ThemeStore
+    // shortcut: assigned once in the nonisolated init before the instance
+    // escapes; read-only afterward, and only from main-actor methods.
+    private nonisolated(unsafe) let themeStore: ThemeStore
 
     /// Nonisolated so `SpacemapServices` can build the catalog at init; the
     /// instance never touches published state until `start()` on the main actor.

@@ -228,7 +228,7 @@ final class ThumbnailCache {
                 }
                 async let windowImagesTask = Self.captureWindows(targets)
                 let windowImages = await windowImagesTask
-                let desktopImages: [CGRect: CGImage]
+                var desktopImages: [FrameKey: CGImage]
                 if effectiveRequests.contains(where: \.includeWallpaper) {
                     desktopImages = await Self.captureDesktops(
                         requests: effectiveRequests,
@@ -244,7 +244,7 @@ final class ThumbnailCache {
                     if let image = Self.composite(
                         request: request,
                         windowImages: windowImages,
-                        desktopImage: request.includeWallpaper ? desktopImages[request.displayFrame] : nil
+                        desktopImage: request.includeWallpaper ? desktopImages[FrameKey(request.displayFrame)] : nil
                     ) {
                         captures[request.spaceIndex] = image
                     }
@@ -435,22 +435,38 @@ final class ThumbnailCache {
     /// One wallpaper-only image per display, drawn beneath the window images.
     /// Every window on the display is excluded, so the capture is desktop
     /// background, not the current space.
+    /// CGRect gains Hashable only in macOS 15; deployment target is 13,
+    /// so the cache keys displays on their four components instead.
+    private struct FrameKey: Hashable {
+        let x: Double
+        let y: Double
+        let width: Double
+        let height: Double
+
+        init(_ frame: CGRect) {
+            x = frame.minX
+            y = frame.minY
+            width = frame.width
+            height = frame.height
+        }
+    }
+
     private static func captureDesktops(
         requests: [CaptureRequest],
         displays: [SCDisplay],
         windows: [SCWindow]
-    ) async -> [CGRect: CGImage] {
-        var seen = Set<CGRect>()
-        let jobs: [(CGRect, SCDisplay, CGSize)] = requests.compactMap { request in
-            guard seen.insert(request.displayFrame).inserted,
+    ) async -> [FrameKey: CGImage] {
+        var seen = Set<FrameKey>()
+        let jobs: [(FrameKey, SCDisplay, CGSize)] = requests.compactMap { request in
+            guard seen.insert(FrameKey(request.displayFrame)).inserted,
                   let display = displays.first(where: { $0.frame == request.displayFrame }) else {
                 return nil
             }
-            return (request.displayFrame, display, request.outputSize)
+            return (FrameKey(request.displayFrame), display, request.outputSize)
         }
         return await withTaskGroup(
-            of: (CGRect, CGImage?).self,
-            returning: [CGRect: CGImage].self
+            of: (FrameKey, CGImage?).self,
+            returning: [FrameKey: CGImage].self
         ) { group in
             for job in jobs {
                 group.addTask {
@@ -464,7 +480,7 @@ final class ThumbnailCache {
                     )
                 }
             }
-            var results: [CGRect: CGImage] = [:]
+            var results: [FrameKey: CGImage] = [:]
             for await (frame, image) in group {
                 if let image { results[frame] = image }
             }

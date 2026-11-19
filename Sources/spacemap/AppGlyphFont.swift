@@ -232,7 +232,7 @@ final class AppGlyphFont {
     /// Only the user and system Fonts folders are candidates.
     static func candidateURLs() -> [URL] {
         let name = "\(resourceName).ttf"
-        var urls: [URL] = [
+        let urls: [URL] = [
             URL(fileURLWithPath: NSString(string: "~/Library/Fonts/\(name)").expandingTildeInPath),
             URL(fileURLWithPath: "/Library/Fonts/\(name)")
         ]

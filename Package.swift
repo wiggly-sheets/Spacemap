@@ -22,7 +22,6 @@ let package = Package(
             resources: [
                 .process("AppIcon.icns"),
                 .process("spacemap.icns"),
-                .process("Assets.xcassets"),
                 .process("Resources"),
             ],
             linkerSettings: [
