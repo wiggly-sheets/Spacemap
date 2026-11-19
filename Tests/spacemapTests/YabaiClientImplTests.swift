@@ -290,9 +290,13 @@ final class YabaiClientImplTests: XCTestCase {
 
         client.yabaiProcessCheck = { true }
         client.yabaiExecutableOverride = true
+        let listing = signalListing(label: "spacemap_space_changed", nonce: hex)
         let actionLock = NSLock()
         var actions: [String] = []
         client.commandRunnerOverride = { _, arguments, _ in
+            if arguments.contains("--list") {
+                return listing
+            }
             if arguments.contains("--add"),
                let action = arguments.first(where: { $0.hasPrefix("action=") }) {
                 actionLock.lock()
@@ -318,6 +322,211 @@ final class YabaiClientImplTests: XCTestCase {
                           "registered action must carry the nonce: \(action)")
             XCTAssertFalse(action.contains("/usr/bin/false"))
         }
+    }
+
+    /// Socket path with a written nonce file: registration refuses to run
+    /// without one, and the file is removed at teardown.
+    private func makeNonceSocket() throws -> String {
+        let socketPath = (NSTemporaryDirectory() as NSString)
+            .appendingPathComponent("smr_\(UUID().uuidString.prefix(8)).sock")
+        let noncePath = SpacemapCommand.noncePath(for: socketPath)
+        try Data(repeating: 0xef, count: 32).write(to: URL(fileURLWithPath: noncePath), options: .atomic)
+        addTeardownBlock { try? FileManager.default.removeItem(atPath: noncePath) }
+        return socketPath
+    }
+
+    /// Hex of the nonce `makeNonceSocket` writes.
+    private var fixtureNonceHex: String { String(repeating: "ef", count: 32) }
+
+    /// `yabai -m signal --list` output for one registered signal, in the real
+    /// shape: label and action live in the same object, label first.
+    private func signalListing(label: String, nonce: String) -> String {
+        """
+        [
+        {
+        	"index":0,
+        	"label":"\(label)",
+        	"app":"",
+        	"title":"",
+        	"active":true,
+        	"event":"space_changed",
+        	"action":"printf 'r:\(nonce)' | /usr/bin/nc -U /tmp/s.sock"
+        }
+        ]
+        """
+    }
+
+    func testRegisterSignalsRetriesUntilTheDaemonAcceptsTheSignal() throws {
+        let socketPath = try makeNonceSocket()
+        client.yabaiProcessCheck = { true }
+        client.yabaiExecutableOverride = true
+        // Run the backoff inline, but record it: the delays are the only thing
+        // keeping the attempts apart in production.
+        var delays: [TimeInterval] = []
+        client.signalRetryScheduler = { delay, pass in
+            delays.append(delay)
+            pass()
+        }
+
+        let listing = signalListing(label: "spacemap_space_changed", nonce: fixtureNonceHex)
+        // A just-restarted daemon accepts the add but keeps no signal until the
+        // last bounded attempt; all five backoff delays must be observed.
+        var listCalls = 0
+        var addCalls = 0
+        client.commandRunnerOverride = { _, arguments, _ in
+            if arguments.contains("--list") {
+                listCalls += 1
+                return listCalls <= 5 ? "" : listing
+            }
+            if arguments.contains("--add") { addCalls += 1 }
+            return ""
+        }
+
+        client.registerSignals(socketPath: socketPath)
+
+        XCTAssertEqual(listCalls, 6, "verification must retry until the table holds the signal")
+        XCTAssertEqual(addCalls, 6, "each failed pass re-adds the signal once")
+        XCTAssertEqual(delays, [1, 2, 4, 8, 16], "backoff must grow between passes")
+    }
+
+    func testRegisterSignalsGivesUpAfterTheBoundedRetries() throws {
+        let socketPath = try makeNonceSocket()
+        client.yabaiProcessCheck = { true }
+        client.yabaiExecutableOverride = true
+        client.signalRetryScheduler = { _, pass in pass() }
+
+        var listCalls = 0
+        var addCalls = 0
+        client.commandRunnerOverride = { _, arguments, _ in
+            if arguments.contains("--list") { listCalls += 1 }
+            if arguments.contains("--add") { addCalls += 1 }
+            return ""
+        }
+
+        client.registerSignals(socketPath: socketPath)
+
+        // One immediate pass plus one per retry delay.
+        let attempts = YabaiClientImpl.signalRegistrationRetryDelays.count + 1
+        XCTAssertEqual(listCalls, attempts, "retries must stop at the bounded attempt count")
+        XCTAssertEqual(addCalls, attempts)
+    }
+
+    func testRegisterSignalsSchedulesNoRetryAfterASuccessfulFirstPass() throws {
+        let socketPath = try makeNonceSocket()
+        client.yabaiProcessCheck = { true }
+        client.yabaiExecutableOverride = true
+        var scheduled = 0
+        client.signalRetryScheduler = { _, pass in
+            scheduled += 1
+            pass()
+        }
+
+        let listing = signalListing(label: "spacemap_space_changed", nonce: fixtureNonceHex)
+        var listCalls = 0
+        client.commandRunnerOverride = { _, arguments, _ in
+            if arguments.contains("--list") {
+                listCalls += 1
+                return listing
+            }
+            return ""
+        }
+
+        client.registerSignals(socketPath: socketPath)
+
+        XCTAssertEqual(listCalls, 1)
+        XCTAssertEqual(scheduled, 0, "a successful first pass must not schedule a retry")
+    }
+
+    func testRegisterSignalsRetriesWhenTheListingThrows() throws {
+        let socketPath = try makeNonceSocket()
+        client.yabaiProcessCheck = { true }
+        client.yabaiExecutableOverride = true
+        var delays: [TimeInterval] = []
+        client.signalRetryScheduler = { delay, pass in
+            delays.append(delay)
+            pass()
+        }
+
+        let listing = signalListing(label: "spacemap_space_changed", nonce: fixtureNonceHex)
+        // A daemon that is not ready yet refuses the list query outright.
+        var listCalls = 0
+        var addCalls = 0
+        client.commandRunnerOverride = { _, arguments, _ in
+            if arguments.contains("--list") {
+                listCalls += 1
+                guard listCalls > 1 else {
+                    throw NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "not ready"])
+                }
+                return listing
+            }
+            if arguments.contains("--add") { addCalls += 1 }
+            return ""
+        }
+
+        client.registerSignals(socketPath: socketPath)
+
+        XCTAssertEqual(listCalls, 2, "a throwing listing must retry instead of giving up")
+        XCTAssertEqual(addCalls, 2)
+        XCTAssertEqual(delays, [1], "the retry used the first backoff delay")
+    }
+
+    func testRegisterSignalsRejectsASignalCarryingAStaleNonce() throws {
+        let socketPath = try makeNonceSocket()
+        client.yabaiProcessCheck = { true }
+        client.yabaiExecutableOverride = true
+        var delays: [TimeInterval] = []
+        client.signalRetryScheduler = { delay, pass in
+            delays.append(delay)
+            pass()
+        }
+
+        let stale = signalListing(label: "spacemap_space_changed",
+                                  nonce: String(repeating: "ab", count: 32))
+        let live = signalListing(label: "spacemap_space_changed", nonce: fixtureNonceHex)
+        // A stale signal from before a nonce rotation survives the remove (or
+        // the remove failed), so the first listing still shows the label.
+        var listCalls = 0
+        client.commandRunnerOverride = { _, arguments, _ in
+            if arguments.contains("--list") {
+                listCalls += 1
+                return listCalls == 1 ? stale : live
+            }
+            return ""
+        }
+
+        client.registerSignals(socketPath: socketPath)
+
+        XCTAssertEqual(listCalls, 2, "an old nonce in the action must not count as registered")
+        XCTAssertEqual(delays, [1], "the retry stops once the live signal is listed")
+    }
+
+    func testNewRegistrationSupersedesAPendingRetryChain() throws {
+        let socketPath = try makeNonceSocket()
+        client.yabaiProcessCheck = { true }
+        client.yabaiExecutableOverride = true
+        var pending: [() -> Void] = []
+        client.signalRetryScheduler = { _, pass in pending.append(pass) }
+
+        // Count every runner call, not only listings: a stale pass that
+        // removed signals then stopped before listing must also fail this test.
+        var runnerCalls = 0
+        client.commandRunnerOverride = { _, _, _ in
+            runnerCalls += 1
+            return ""
+        }
+
+        client.registerSignals(socketPath: socketPath)
+        XCTAssertEqual(pending.count, 1, "a failed pass leaves one retry pending")
+        client.registerSignals(socketPath: socketPath)
+        XCTAssertEqual(pending.count, 2)
+
+        let callsBeforeStaleRun = runnerCalls
+        pending[0]()
+        XCTAssertEqual(runnerCalls, callsBeforeStaleRun,
+                       "a superseded retry chain must stop instead of running yabai")
+        pending[1]()
+        XCTAssertGreaterThan(runnerCalls, callsBeforeStaleRun,
+                             "the newest chain still retries")
     }
 
     func testDotPreviewsOnlyRefreshForWorkspaceTopology() {
