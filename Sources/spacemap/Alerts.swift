@@ -56,20 +56,14 @@ final class AlertsServiceImpl: AlertsService {
     }
 
     func isMRUSpacesEnabled() -> Bool {
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-        proc.arguments = ["read", "com.apple.dock", "mru-spaces"]
-        let pipe = Pipe()
-        proc.standardOutput = pipe
-        proc.standardError = Pipe()
-        do {
-            try proc.run()
-        } catch {
+        // Bounded so a wedged `defaults` cannot block the caller forever.
+        guard let output = try? ProcessRunner.run(
+            executable: "/usr/bin/defaults",
+            arguments: ["read", "com.apple.dock", "mru-spaces"],
+            timeout: 10
+        ) else {
             return false
         }
-        proc.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8) ?? ""
         return output.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
     }
 
@@ -83,15 +77,17 @@ final class AlertsServiceImpl: AlertsService {
 
         let response = present(alert)
         if response == .alertSecondButtonReturn {
-            let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
-            task.arguments = ["write", "com.apple.dock", "mru-spaces", "-bool", "false"]
-            try? task.run()
-            task.waitUntilExit()
-            let dock = Process()
-            dock.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
-            dock.arguments = ["Dock"]
-            try? dock.run()
+            // Both commands are bounded; a failure is ignored as before.
+            _ = try? ProcessRunner.run(
+                executable: "/usr/bin/defaults",
+                arguments: ["write", "com.apple.dock", "mru-spaces", "-bool", "false"],
+                timeout: 10
+            )
+            _ = try? ProcessRunner.run(
+                executable: "/usr/bin/killall",
+                arguments: ["Dock"],
+                timeout: 10
+            )
         }
     }
 

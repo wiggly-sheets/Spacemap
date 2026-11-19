@@ -287,7 +287,7 @@ final class CLIToolsService {
             updateMode = .off
         }
 
-        AppConfig.updateConfig { $0.updateMode = updateMode }
+        ConfigStore.updateConfig { $0.updateMode = updateMode }
         onUpdateSparkleConfig(updateMode)
     }
 
@@ -571,18 +571,13 @@ final class CLIToolsService {
     }
 
     private func verifyBundleSignature(at url: URL) -> Bool {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        task.arguments = ["--verify", url.path]
-        task.standardOutput = FileHandle.nullDevice
-        task.standardError = FileHandle.nullDevice
-        do {
-            try task.run()
-            task.waitUntilExit()
-            return task.terminationStatus == 0
-        } catch {
-            return false
-        }
+        // Bounded like the yabai trust check: a wedged codesign must not block
+        // the move forever. Output was already discarded; any failure is false.
+        (try? ProcessRunner.run(
+            executable: "/usr/bin/codesign",
+            arguments: ["--verify", url.path],
+            timeout: 10
+        )) != nil
     }
 
     func checkForUpdates() {
