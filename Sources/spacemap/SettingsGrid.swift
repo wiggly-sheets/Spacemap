@@ -97,7 +97,9 @@ struct SettingsGrid: View {
                 (title: "Simple", value: .simple),
             ])
             .onChange(of: cellStyle) { style in
-                if style == .thumbnails { SystemPermissions.requestScreenRecordingOrOpenSettings() }
+                if style == .thumbnails, SystemPermissions.needsScreenRecordingRequest() {
+                    SystemPermissions.requestScreenRecordingOrOpenSettings()
+                }
             }
             if cellStyle == .thumbnails {
                 Toggle("Show Wallpaper in Thumbnails", isOn: $showThumbnailWallpaper)

@@ -63,6 +63,12 @@ enum SystemPermissions {
         return false
     }
 
+    /// Whether a switch to thumbnail cells should ask for Screen Recording at
+    /// all. A granted permission needs no prompt and no System Settings pane.
+    static func needsScreenRecordingRequest(hasPermission: Bool = hasScreenRecording) -> Bool {
+        !hasPermission
+    }
+
     static func openScreenRecordingSettings() {
         open("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
     }

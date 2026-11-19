@@ -127,6 +127,14 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(options[index].label, "3×4 (Custom)")
     }
 
+    func testSwitchingToThumbnailsAsksForScreenRecordingOnlyWhenItIsMissing() {
+        XCTAssertTrue(SystemPermissions.needsScreenRecordingRequest(hasPermission: false))
+        XCTAssertFalse(
+            SystemPermissions.needsScreenRecordingRequest(hasPermission: true),
+            "a granted permission must not prompt or open System Settings"
+        )
+    }
+
     func testEveryHUDCommandHasADistinctDisplayName() {
         let labels = HUDCommand.allCases.map(\.label)
 

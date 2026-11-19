@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `customHUDX`/`customHUDY`, the glyph strip's `xOffset`/`yOffset` keys, and the `spacemap.hudCustomScreenIdentifier` UserDefaults entry are gone: the fraction-plus-screen scheme above replaces them. That also drops the strip's `yOffset` menu-bar nudge; anchored placements centre in the menu bar row.
 
 ### Fixed
+- Thumbnail cells now render on the native spaces glass, with the corner radius following the spaces settings. The space capture draws above the glass background.
+- Switching the cell style to thumbnails no longer prompts for Screen Recording, or opens its System Settings pane, when the permission is already granted. Users who have not granted it still get the request and the pane.
 - Yabai signal registration now verifies that yabai's signal table holds the `spacemap_space_changed` signal after the adds, and retries the remove-then-add pass with a bounded backoff (6 attempts over about 30 s) when the daemon is not ready yet. A daemon that has just restarted accepts a signal add and silently keeps nothing; Spacemap used to give up on the first silent failure, which froze the strip until the next restart.
 - The glyph strip no longer freezes after yabai restarts while Spacemap is open. Spacemap notices the new yabai daemon, registers its signals again, and repaints the strip, so space changes highlight again without restarting Spacemap. The strip also repaints when a space change opens the HUD, and it keeps its last good frame while yabai is down instead of showing a lone add button.
 - A theme editor field that is not a six-digit hex value now turns red and blocks Save, instead of silently saving that colour as black while the other fields saved normally.

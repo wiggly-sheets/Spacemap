@@ -171,7 +171,9 @@ var body: some View {
             case .icons:
                 iconGrid()
             case .thumbnails:
-                thumbnailImage(spaceIndex)
+                // Glass cells host the capture inside SpaceGlassView so it
+                // stays above the native glass.
+                if !usesGlassBackground { thumbnailImage(spaceIndex) }
             case .simple:
                 EmptyView()
             }
@@ -266,18 +268,19 @@ var body: some View {
         case .solid(let color, let opacity):
             RoundedRectangle(cornerRadius: cellCornerRadius).fill(color.opacity(opacity))
         case .glass(let appearance):
-            // Thumbnails use SwiftUI glass: a native NSGlassEffectView composites
-            // over SwiftUI drawing and hid the capture. SwiftUI glass keeps the
-            // thumbnail on top; it cannot apply the private AppKit variant.
-            if case .thumbnails = cellStyle {
-                thumbnailGlass(appearance)
-                    .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
-            } else {
-                SpaceGlassView(appearance: appearance)
-                .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
-                .overlay {
-                    // Focus and drop still read over the glass; the glass
-                    // itself carries no theme fill.
+            // The capture for a thumbnail cell rides above the glass inside
+            // SpaceGlassView: SwiftUI drawing under a glass effect view reads as
+            // the desktop, which is what hid the capture when the glass was a
+            // plain SwiftUI background.
+            SpaceGlassView(
+                appearance: appearance,
+                capture: cellStyle.drawsCaptureAboveGlass ? thumbnailCapture : nil
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
+            .overlay {
+                // The theme fill would wash out a capture; focus and drop
+                // already read from the 2.5 pt border.
+                if !cellStyle.drawsCaptureAboveGlass {
                     RoundedRectangle(cornerRadius: cellCornerRadius)
                         .fill(backgroundColor.opacity(0.45))
                 }
@@ -285,31 +288,14 @@ var body: some View {
         }
     }
 
-    @ViewBuilder
-    private func thumbnailGlass(_ appearance: SpaceGlassAppearance) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cellCornerRadius)
-        #if compiler(>=6.2)
-        if #available(macOS 26.0, *), GlassSupport.isAvailable {
-            Color.clear
-                .glassEffect(glassValue(appearance), in: shape)
-                .opacity(appearance.opacity)
-        } else {
-            shape
-                .fill(appearance.material == .clear ? Material.ultraThinMaterial : Material.regularMaterial)
-                .opacity(appearance.opacity)
-        }
-        #else
-        shape
-            .fill(appearance.material == .clear ? Material.ultraThinMaterial : Material.regularMaterial)
-            .opacity(appearance.opacity)
-        #endif
+    private var usesGlassBackground: Bool {
+        if case .glass = spaceBackground { return true }
+        return false
     }
 
-    @available(macOS 26.0, *)
-    private func glassValue(_ appearance: SpaceGlassAppearance) -> Glass {
-        let base: Glass = appearance.material == .clear ? .clear : .regular
-        guard let tint = appearance.tint else { return base }
-        return base.tint(Color(nsColor: tint))
+    private var thumbnailCapture: NSImage? {
+        guard #available(macOS 14.0, *) else { return nil }
+        return thumbnailStore.image(forSpace: spaceIndex)
     }
 
     private var backgroundColor: Color {

@@ -229,26 +229,7 @@ struct GridView: View {
     }
 
     private var spaceBackground: CellSpaceBackground {
-        let config = state.config
-        guard !config.spacesMatchBackground else { return .theme }
-        switch config.spacesBackgroundStyle {
-        case .none:
-            return .none
-        case .solid:
-            return .solid(Color(hex: resolvedTheme.cellBg), config.spacesOpacity)
-        case .glass:
-            let style = config.spacesGlassStyle
-            let variant = style == .clear
-                ? config.spacesGlassClearVariant
-                : (style == .regular ? config.spacesGlassRegularVariant : config.spacesGlassTintedVariant)
-            return .glass(SpaceGlassAppearance(
-                material: style.material(tintedMaterial: config.spacesGlassTintedMaterial),
-                variant: variant,
-                tint: style == .tinted ? GlyphStrip.color(for: "focused", theme: resolvedTheme) : nil,
-                opacity: CGFloat(config.spacesOpacity),
-                cornerRadius: CGFloat(config.spacesCornerRadius)
-            ))
-        }
+        CellSpaceBackground.from(config: state.config, resolvedTheme: resolvedTheme)
     }
 
     private var effectiveScale: CGFloat { GridLayout.effectiveScale(for: uiScale) }
