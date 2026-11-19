@@ -119,7 +119,7 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[behavior]` | `showThumbnailWallpaper` | true | Draw the desktop wallpaper behind thumbnail cells. Off leaves the desktop transparent behind the windows |
 | `[behavior]` | `presence` / `updateMode` | `menuBar` / `notify` | Where Spacemap appears: `dock`, `menuBar`, `both`, or `none`. `none` and `menuBar` use an accessory policy, so no Dock icon. Sparkle `auto‖notify‖off`; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `[behavior]` | `menuBarDisplayMode` (+ `menuBarNearbyCount`) | `icon` (3) | `icon‖dots‖current‖nearby‖all`; nearby count clamped 1–16 |
-| `[spaceNames]` | `showSpaceNames`; names in `[spaceNames.names]` | true | Per-space names plus `[spaceNameProfiles]` sets (see Settings) |
+| `[spaceNames]` | `showSpaceNames` / `namingMode`; names in `[spaceNames.names]` | true / `custom` | Per-space names plus `[spaceNameProfiles]` sets (see Settings). `namingMode = "auto"` names each space after the app of its leftmost visible window in the HUD cells, strip labels, and fuzzy name jumps; typed names stay saved for `custom` |
 | `[glyphStrip]` | `enabled` / `theme` | false / inherits app | Enable the strip; empty theme follows the app theme |
 | `[glyphStrip]` | `displayMode` | `floating` | `floating` panel or `menuBarItem` status item. Menu-bar mode keeps contents, clicks, hover and drags; drops shape, glass, free placement and vertical layouts |
 | `[glyphStrip]` | `padding` / `lockPadding` | 4 / true | One padding for every side; unlock to use `horizontalPadding` and `verticalPadding` (0–40) |

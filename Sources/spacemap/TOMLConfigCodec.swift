@@ -401,12 +401,15 @@ enum TOMLConfigDecoder {
         flatten("behavior", keys: ConfigSchema.flattenedKeys(in: "behavior") + ["showThumbnailWallpaper"])
         flatten("advanced", keys: ConfigSchema.flattenedKeys(in: "advanced"))
 
-        // `[spaceNames]` holds the showSpaceNames toggle; the names live in the
-        // nested `names` table (written as `[spaceNames.names]`).
+        // `[spaceNames]` holds the showSpaceNames toggle and namingMode; the
+        // names live in the nested `names` table (written as `[spaceNames.names]`).
         var spaceNames: [String: Any] = [:]
         if let section = result.removeValue(forKey: "spaceNames") as? [String: Any] {
             if let show = section["showSpaceNames"] {
                 result["showSpaceNames"] = show
+            }
+            if let naming = section["namingMode"] {
+                result["namingMode"] = naming
             }
             if let nested = section["names"] as? [String: Any] {
                 spaceNames.merge(nested) { _, new in new }
@@ -484,6 +487,11 @@ enum TOMLConfigDecoder {
             config.showSpaceNames = showSpaceNames
         } else {
             needsRepair = true
+        }
+        // New key: absent in old files heals silently, like the other keys added
+        // to an existing section. An unknown value falls back to custom.
+        if let name = object["namingMode"] as? String {
+            config.namingMode = parsedEnum(from: name) ?? SpacemapConfig.default.namingMode
         }
 
         // Out-of-range strip numbers clamp in memory and flag a rewrite.

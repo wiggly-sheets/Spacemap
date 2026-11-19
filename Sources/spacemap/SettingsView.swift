@@ -132,7 +132,8 @@ struct SettingsView: View {
                     spaceNameInputs: draft.binding(\.spaceNames),
                     maxSpaces: draft.binding(\.maxSpaces),
                     profiles: draft.binding(\.spaceNameProfiles),
-                    activeProfileIndex: draft.binding(\.activeSpaceNameProfileIndex)
+                    activeProfileIndex: draft.binding(\.activeSpaceNameProfileIndex),
+                    namingMode: draft.binding(\.namingMode)
                 )
 
             case .hud:

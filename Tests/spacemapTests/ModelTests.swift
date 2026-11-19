@@ -207,6 +207,75 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(state.windows(forSpace: 3).count, 0)
     }
 
+    /// Auto naming: each space takes its leftmost visible window's app, hidden
+    /// and minimized windows never name a space, and an empty space has none.
+    func testAutoNamingDerivesEachSpaceNameFromItsLeftmostVisibleWindow() {
+        let spaces = [1, 2, 3].map {
+            YabaiSpace(id: $0, index: $0, display: 1, hasFocus: false, isVisible: true, label: nil)
+        }
+        let hideLeftmost = YabaiWindow(
+            id: 1, app: "Hidden", space: 1,
+            frame: .init(x: -100, y: 0, w: 10, h: 10),
+            isHidden: true, isMinimized: false, subLayer: "normal"
+        )
+        let windows = [
+            hideLeftmost,
+            YabaiWindow(id: 2, app: "Notes", space: 1, frame: .init(x: 0, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal"),
+            YabaiWindow(id: 3, app: "Safari", space: 1, frame: .init(x: 100, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal"),
+            YabaiWindow(id: 4, app: "Mail", space: 2, frame: .init(x: -50, y: 0, w: 10, h: 10), isHidden: false, isMinimized: true, subLayer: "normal"),
+            YabaiWindow(id: 5, app: "  Xcode  ", space: 2, frame: .init(x: 0, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal"),
+        ]
+        var config = SpacemapConfig.default
+        config.namingMode = .auto
+        config.spaceNames = [1: "Typed"]
+        let state = GridState(config: config, spaces: spaces, windows: windows, displayBounds: .zero, focusedIndex: nil)
+
+        XCTAssertEqual(state.resolvedSpaceNames, [1: "Notes", 2: "Xcode"],
+                       "leftmost visible app wins, padded app names are trimmed, and space 3 stays nameless")
+
+        config.namingMode = .custom
+        let custom = GridState(config: config, spaces: spaces, windows: windows, displayBounds: .zero, focusedIndex: nil)
+        XCTAssertEqual(custom.resolvedSpaceNames, [1: "Typed"],
+                       "custom mode keeps the profile's typed names")
+    }
+
+    /// Auto naming must skip windows the HUD never draws, even though they are
+    /// neither hidden nor minimized: zero-size placeholders, sticky followers,
+    /// and fully transparent windows.
+    func testAutoNamingIgnoresWindowsTheHUDNeverDraws() {
+        let spaces = [1, 2].map {
+            YabaiSpace(id: $0, index: $0, display: 1, hasFocus: false, isVisible: true, label: nil)
+        }
+        var placeholder = YabaiWindow(
+            id: 1, app: "Placeholder", space: 1, frame: .init(x: -300, y: 0, w: 0, h: 0),
+            isHidden: false, isMinimized: false, subLayer: "normal"
+        )
+        placeholder.isVisible = true
+        var sticky = YabaiWindow(
+            id: 2, app: "Sticky", space: 1, frame: .init(x: -200, y: 0, w: 10, h: 10),
+            isHidden: false, isMinimized: false, subLayer: "normal"
+        )
+        sticky.isSticky = true
+        var transparent = YabaiWindow(
+            id: 3, app: "Transparent", space: 1, frame: .init(x: -100, y: 0, w: 10, h: 10),
+            isHidden: false, isMinimized: false, subLayer: "normal"
+        )
+        transparent.opacity = 0
+        let windows = [
+            placeholder,
+            sticky,
+            transparent,
+            YabaiWindow(id: 4, app: "Finder", space: 1, frame: .init(x: 0, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal"),
+            YabaiWindow(id: 5, app: "Ghost", space: 2, frame: .init(x: 0, y: 0, w: 0, h: 0), isHidden: false, isMinimized: false, subLayer: "normal"),
+        ]
+        var config = SpacemapConfig.default
+        config.namingMode = .auto
+        let state = GridState(config: config, spaces: spaces, windows: windows, displayBounds: .zero, focusedIndex: nil)
+
+        XCTAssertEqual(state.resolvedSpaceNames, [1: "Finder"],
+                       "undrawn windows skip naming, and the leftmost drawn window still wins")
+    }
+
     func testGridStateEquality() {
         let a = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: 1)
         let b = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: 1)

@@ -172,3 +172,32 @@ struct GridState: Equatable {
         Array(Set(spaces.map(\.display))).sorted()
     }
 }
+
+extension GridState {
+    /// Names every surface displays: the active profile's typed names, or in
+    /// auto mode the app of each space's leftmost visible window. Derived names
+    /// are read-only, so custom names and profiles survive a switch back.
+    var resolvedSpaceNames: [Int: String] {
+        guard config.namingMode == .auto else { return config.spaceNames }
+        var names: [Int: String] = [:]
+        for space in spaces {
+            let app = YabaiWindow.inReadingOrder(
+                windows(forSpace: space.index).filter {
+                    // Only windows the HUD can draw may name a space: skip
+                    // hidden, minimized, zero-size placeholders, sticky
+                    // followers, and fully transparent phantoms.
+                    !$0.isHidden
+                        && !$0.isMinimized
+                        && $0.frame.w > 0
+                        && $0.frame.h > 0
+                        && ($0.opacity ?? 1) > 0
+                        && $0.isSticky != true
+                }
+            ).first?.app.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let app, !app.isEmpty {
+                names[space.index] = app
+            }
+        }
+        return names
+    }
+}

@@ -19,6 +19,7 @@ final class ConfigTests: XCTestCase {
 
         [spaceNames]
         showSpaceNames = true
+        namingMode = "auto"
 
         [spaceNames.names]
         "1" = "Term"
@@ -80,6 +81,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertFalse(c.showIconStrip)
         XCTAssertTrue(c.showMultiAppIcons)
         XCTAssertTrue(c.showSpaceNames)
+        XCTAssertEqual(c.namingMode, .auto)
         XCTAssertEqual(c.spaceNames, [1: "Term", 2: "Code"])
         XCTAssertEqual(c.theme, "default")
         XCTAssertEqual(c.mode, .dark)
@@ -173,6 +175,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(loaded.theme, SpacemapConfig.default.theme)
         XCTAssertTrue(generated.contains("[grid]"))
         XCTAssertTrue(generated.contains("[spaceNames.names]"))
+        XCTAssertTrue(generated.contains("namingMode = \"custom\""))
         XCTAssertTrue(generated.contains("[appearance]"))
         XCTAssertTrue(generated.contains("[behavior.hotkey]"))
         XCTAssertTrue(generated.contains("[advanced]"))

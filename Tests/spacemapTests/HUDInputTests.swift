@@ -453,6 +453,29 @@ final class HUDInputTests: XCTestCase {
         input.stop()
     }
 
+    /// Auto naming feeds the same fuzzy candidates as typed names, using each
+    /// space's leftmost window app.
+    func testAutoNamingModeMatchesTheLeftmostWindowApp() {
+        let input = makeTypingInput(
+            names: [1: "Typed"],
+            windows: [
+                YabaiWindow(
+                    id: 1, app: "Safari", space: 1,
+                    frame: .init(x: 0, y: 0, w: 10, h: 10),
+                    isHidden: false, isMinimized: false, subLayer: "normal"
+                )
+            ],
+            namingMode: .auto
+        )
+        var jumped: [Int] = []
+        input.onFocusSpaceChanged = { jumped.append($0) }
+
+        press(input, 1) // s: matches the derived "Safari", not the typed name
+
+        waitUntil("the derived app name jumps") { jumped == [1] }
+        input.stop()
+    }
+
     /// Entry state is applied one main-queue turn after classification, so a
     /// fast backspace must be judged against a synchronous count; otherwise it
     /// classifies as unhandled and leaks into the focused app.
@@ -996,7 +1019,12 @@ private final class RecordingHUDInputDelegate: HUDInputDelegate {
 extension HUDInputTests {
     /// A visible HUD whose key map is empty, so every letter reaches the
     /// typed-jump path instead of a binding.
-    func makeTypingInput(names: [Int: String], jumpToSpaceEnabled: Bool = true) -> HUDInput {
+    func makeTypingInput(
+        names: [Int: String],
+        windows: [YabaiWindow] = [],
+        namingMode: SpaceNamingMode = .custom,
+        jumpToSpaceEnabled: Bool = true
+    ) -> HUDInput {
         let input = HUDInput(
             panel: nil,
             tapFactory: { _, _, _, _, _, _ in makeFakeEventTapPort() },
@@ -1008,13 +1036,15 @@ extension HUDInputTests {
         input.updateConfig(hudKeys: HUDKeyBindings(), jumpToSpaceEnabled: jumpToSpaceEnabled)
         var config = SpacemapConfig.default
         config.spaceNames = names
-        let spaces = names.keys.sorted().map {
+        config.namingMode = namingMode
+        let indices = Set(names.keys).union(windows.map(\.space)).sorted()
+        let spaces = indices.map {
             YabaiSpace(id: $0, index: $0, display: 1, hasFocus: false, isVisible: nil, label: nil)
         }
         input.currentState = GridState(
             config: config,
             spaces: spaces,
-            windows: [],
+            windows: windows,
             displayBounds: .zero,
             focusedIndex: spaces.first?.index
         )

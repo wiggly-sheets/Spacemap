@@ -7,17 +7,26 @@ struct SettingsSpaceNames: View {
     @Binding var maxSpaces: Int
     @Binding var profiles: [SpaceNameProfile]
     @Binding var activeProfileIndex: Int
+    @Binding var namingMode: SpaceNamingMode
 
     @State private var editingProfileIndex: Int?
     @State private var newProfileName: String = ""
 
     var body: some View {
         Section(header: SettingsSectionHeader(title: "Space Names").settingsAnchor("spaceNames.names")) {
+            Picker("Names", selection: $namingMode) {
+                Text("Custom").tag(SpaceNamingMode.custom)
+                Text("Auto from apps").tag(SpaceNamingMode.auto)
+            }
+            if namingMode == .auto {
+                SettingsFootnote(text: "Each space takes the app of its leftmost visible window. Typed names stay saved but are ignored while auto is on, and an empty space shows its number.")
+            }
             Toggle("Show Space Names", isOn: $showSpaceNames)
 
             if showSpaceNames {
-                SettingsFootnote(text: "Each input corresponds to its space number, up to Max Spaces.")
-
+                if namingMode == .custom {
+                    SettingsFootnote(text: "Each input corresponds to its space number, up to Max Spaces.")
+                }
                 ForEach(1...max(1, maxSpaces), id: \.self) { spaceIndex in
                     HStack {
                         Text("Space \(spaceIndex):")
@@ -26,6 +35,7 @@ struct SettingsSpaceNames: View {
                             .textFieldStyle(.roundedBorder)
                     }
                 }
+                .disabled(namingMode == .auto)
             }
         }
 
@@ -65,6 +75,7 @@ struct SettingsSpaceNames: View {
 
                         if editingProfileIndex == index {
                             ProfileEditor(profile: $profiles[index], maxSpaces: maxSpaces)
+                                .disabled(namingMode == .auto)
                                 // Editing the active profile must update the
                                 // names the strip and HUD actually render.
                                 .onChange(of: profiles[index].spaceNames) { names in

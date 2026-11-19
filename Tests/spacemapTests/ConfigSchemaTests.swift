@@ -53,6 +53,7 @@ final class ConfigSchemaTests: XCTestCase {
         config.showIconStrip = false
         config.showMultiAppIcons = true
         config.showSpaceNames = true
+        config.namingMode = .auto
         config.spaceNames = [1: "Term", 2: "Code"]
         config.hudKeys = .default
         config.jumpToSpaceEnabled = true
@@ -141,6 +142,7 @@ final class ConfigSchemaTests: XCTestCase {
         XCTAssertFalse(decoded.showIconStrip)
         XCTAssertTrue(decoded.showMultiAppIcons)
         XCTAssertTrue(decoded.showSpaceNames)
+        XCTAssertEqual(decoded.namingMode, .auto)
         XCTAssertEqual(decoded.spaceNames, [1: "Term", 2: "Code"])
         XCTAssertEqual(decoded.hudKeys, HUDKeyBindings.default)
         XCTAssertTrue(decoded.jumpToSpaceEnabled)
@@ -165,6 +167,31 @@ final class ConfigSchemaTests: XCTestCase {
         XCTAssertEqual(decoded.appFont.updateMode, .auto)
         XCTAssertEqual(decoded.appFont.installedVersion, "v3.0.5")
         XCTAssertEqual(decoded.appFont.lastCheck, 1700000000)
+    }
+
+    func testNamingModeRoundTripsAndHealsSilently() throws {
+        var config = SpacemapConfig.default
+        config.namingMode = .auto
+
+        let written = written(config)
+        XCTAssertTrue(written.contains("namingMode = \"auto\""), "the writer emits the mode under [spaceNames]")
+
+        let reread = try decoded(written)
+        XCTAssertEqual(reread.config.namingMode, .auto)
+        XCTAssertFalse(reread.needsRepair)
+
+        // Older files have no namingMode line: the key defaults without forcing
+        // a rewrite, like the other keys added to an existing section.
+        let legacy = written.replacingOccurrences(of: "namingMode = \"auto\"\n", with: "")
+        let healed = try decoded(legacy)
+        XCTAssertEqual(healed.config.namingMode, .custom)
+        XCTAssertFalse(healed.needsRepair)
+
+        // An unknown value falls back to custom rather than failing the load.
+        let unknown = written.replacingOccurrences(of: "namingMode = \"auto\"", with: "namingMode = \"guess\"")
+        let repaired = try decoded(unknown)
+        XCTAssertEqual(repaired.config.namingMode, .custom)
+        XCTAssertFalse(repaired.needsRepair)
     }
 
     func testBackgroundAndGlassStylesRoundTrip() throws {

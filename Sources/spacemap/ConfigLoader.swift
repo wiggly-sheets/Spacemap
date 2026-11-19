@@ -337,6 +337,7 @@ enum ConfigLoader {
             "",
             "[spaceNames]",
             "showSpaceNames = \(config.showSpaceNames)",
+            "namingMode = \(tomlString(config.namingMode.rawValue))",
             "",
             "[spaceNames.names]"
         ]

@@ -371,7 +371,6 @@ final class GlyphStripPanelController: NSObject {
         inFlightGeneration = generation
         // Single config snapshot for the whole render pass.
         let strip = config.glyphStrip
-        let options = Self.segmentOptions(for: config)
         coordinator.refresh { [weak self] in
             guard let self else { return }
             guard generation == self.refreshGeneration,
@@ -380,6 +379,8 @@ final class GlyphStripPanelController: NSObject {
                 self.finishRefresh(generation: generation)
                 return
             }
+            // Auto naming reads the space windows, so options wait for the state.
+            let options = Self.segmentOptions(for: self.config, state: state)
             let focused = state.focusedIndex
             if let font = self.glyphFont {
                 // The face was parsed once per process. Reuse it instead of
@@ -609,8 +610,8 @@ final class GlyphStripPanelController: NSObject {
 
     /// The one place app config becomes segment options, so a new strip key is
     /// wired once for every render path.
-    fileprivate static func segmentOptions(for config: SpacemapConfig) -> GlyphStrip.Options {
-        GlyphStrip.Options(config.glyphStrip, spaceNames: config.spaceNames)
+    static func segmentOptions(for config: SpacemapConfig, state: GridState) -> GlyphStrip.Options {
+        GlyphStrip.Options(config.glyphStrip, spaceNames: state.resolvedSpaceNames)
     }
 
     private func presentMenuBarItem() {

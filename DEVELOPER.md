@@ -83,6 +83,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `hudKeys` | Table | vim + arrow movement keys | per-action hotkey lists | HUD-only action bindings; each action takes several shortcuts, and an empty list leaves it unbound |
 | `jumpToSpaceEnabled` | Bool | `false` | — | Number-key space jumps (multi-digit supported) |
 | `hudPosition` | Table `kind` + fractions | `center` | `center‖top‖bottom‖custom` (plus `x`/`y` 0–1 and optional `screen` display identity) | HUD placement; the screen identity keeps a custom position on its display |
+| `namingMode` | String | `custom` | `custom‖auto` | `auto` derives each space name from its leftmost visible window's app; `custom` uses the typed names |
 | `spaceNames` + `spaceNameProfiles` | Map / profiles | — | — | `[spaceNames.names]` quoted-number keys + named profile sets |
 | `socketHealthInterval` | Int | 60 | > 0 | Socket health check interval (seconds) |
 | `showExtraWindows` | Bool | false | — | Display utility/background window records |

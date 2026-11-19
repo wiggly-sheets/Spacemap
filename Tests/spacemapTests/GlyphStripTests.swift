@@ -570,9 +570,9 @@ final class GlyphStripTests: XCTestCase {
 
     // MARK: - [glyphStrip] table
 
-    private func window(_ id: Int, _ app: String, x: CGFloat = 0) -> YabaiWindow {
+    private func window(_ id: Int, _ app: String, x: CGFloat = 0, space: Int = 1) -> YabaiWindow {
         var window = YabaiWindow(
-            id: id, app: app, space: 1,
+            id: id, app: app, space: space,
             frame: .init(x: x, y: 0, w: 10, h: 10),
             isHidden: false, isMinimized: false, subLayer: "normal"
         )
@@ -721,6 +721,70 @@ final class GlyphStripTests: XCTestCase {
 
         XCTAssertEqual(singleSegment(options, windows: []).runs, [],
                        "the numbers toggle still controls the leading run")
+    }
+
+    func testAutoNamingModeNamesTheStripLabelFromTheLeftmostWindowApp() {
+        var config = SpacemapConfig.default
+        config.namingMode = .auto
+        config.maxSpaces = 2
+        config.glyphStrip.spaceLabelStyle = .names
+        let windows = [
+            window(1, "Safari", x: 100),
+            window(2, "Terminal", x: 0),
+            window(3, "Mail", x: 0, space: 2),
+        ]
+        let spaces = [space(index: 1), space(index: 2)]
+        let state = GridState(
+            config: config,
+            spaces: spaces,
+            windows: windows,
+            displayBounds: .zero,
+            focusedIndex: nil
+        )
+        let options = GlyphStrip.Options(state.config.glyphStrip, spaceNames: state.resolvedSpaceNames)
+
+        let segments = GlyphStrip.segments(for: state, options: options)
+
+        XCTAssertEqual(segments[0].runs.first, .index("Terminal"),
+                       "the leftmost window app names the space, not the typed profile name")
+        XCTAssertEqual(segments[1].runs.first, .index("Mail"))
+    }
+
+    func testSegmentOptionsCarryAutoDerivedNames() {
+        var config = SpacemapConfig.default
+        config.namingMode = .auto
+        config.spaceNames = [1: "Typed"]
+        let windows = [window(1, "Safari", x: 0)]
+        let state = GridState(
+            config: config,
+            spaces: [space(index: 1)],
+            windows: windows,
+            displayBounds: .zero,
+            focusedIndex: nil
+        )
+
+        let options = GlyphStripPanelController.segmentOptions(for: config, state: state)
+
+        XCTAssertEqual(options.spaceNames[1], "Safari",
+                       "strip options read the derived auto name, never the typed one")
+    }
+
+    func testSegmentOptionsPassThroughCustomNames() {
+        var config = SpacemapConfig.default
+        config.namingMode = .custom
+        config.spaceNames = [1: "Typed"]
+        let state = GridState(
+            config: config,
+            spaces: [space(index: 1)],
+            windows: [window(1, "Safari", x: 0)],
+            displayBounds: .zero,
+            focusedIndex: nil
+        )
+
+        let options = GlyphStripPanelController.segmentOptions(for: config, state: state)
+
+        XCTAssertEqual(options.spaceNames[1], "Typed",
+                       "custom mode passes the typed profile names through")
     }
 
     // MARK: - Click actions

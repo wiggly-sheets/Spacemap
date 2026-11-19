@@ -44,6 +44,7 @@ struct GridView: View {
     private let activeSpaceIndices: Set<Int>
     private let labelBySpaceIndex: [Int: String]
     private let typeBySpaceIndex: [Int: String]
+    private let nameBySpaceIndex: [Int: String]
     private let displayIndexBySpace: [Int: Int]
     private let boundsByDisplayIndex: [Int: CGRect]
 
@@ -162,7 +163,7 @@ struct GridView: View {
     private func makeCell(for spaceIndex: Int, row: Int) -> some View {
         let cellSpaceIndex = spaceIndex
         let cellSpaceLabel = spaceLabel(for: spaceIndex)
-        let cellSpaceName = state.config.spaceNames[spaceIndex]
+        let cellSpaceName = nameBySpaceIndex[spaceIndex]
         let cellIsFocused = spaceIndex == state.focusedIndex
         let cellIsDropTarget = dropTargetSpaceIndex == spaceIndex
         let cellWindows = state.windows(forSpace: spaceIndex)
@@ -319,6 +320,7 @@ struct GridView: View {
                 space.type.map { (space.index, $0) }
             }
         )
+        self.nameBySpaceIndex = state.resolvedSpaceNames
         self.displayIndexBySpace = Dictionary(
             uniqueKeysWithValues: state.spaces.map { ($0.index, $0.display) }
         )

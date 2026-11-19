@@ -405,7 +405,7 @@ final class HUDInput {
     /// config, so the current topology decides what may match. Unnamed spaces
     /// are not candidates; digits already jump by index.
     private var spaceNames: [Int: String] {
-        let names = currentState?.config.spaceNames ?? [:]
+        let names = currentState?.resolvedSpaceNames ?? [:]
         let existing = Set(currentState?.spaces.map(\.index) ?? [])
         return names.filter { existing.contains($0.key) }
     }

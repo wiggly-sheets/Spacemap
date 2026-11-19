@@ -323,6 +323,35 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(reloaded.spaceNameProfiles[1].spaceNames, [2: "Two"], "the inactive profile stays untouched")
     }
 
+    /// Auto naming is a display choice: switching modes must leave the typed
+    /// names in the profile untouched so switching back restores them.
+    func testSwitchingNamingModeNeverRewritesProfileNames() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-naming-mode-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        var seeded = SpacemapConfig.default
+        seeded.spaceNameProfiles = [
+            SpaceNameProfile(name: "Work", spaceNames: [1: "One"]),
+            SpaceNameProfile(name: "Play", spaceNames: [2: "Two"]),
+        ]
+        seeded.spaceNames = [1: "One"]
+        let draft = makeDraft(seeded, at: path, debounce: 5)
+
+        draft.binding(\.namingMode).wrappedValue = .auto
+        draft.flush()
+
+        let reloaded = ConfigStore.load(from: path)
+        XCTAssertEqual(reloaded.namingMode, .auto)
+        XCTAssertEqual(reloaded.spaceNames, [1: "One"], "typed names stay saved")
+        XCTAssertEqual(reloaded.spaceNameProfiles[0].spaceNames, [1: "One"])
+        XCTAssertEqual(reloaded.spaceNameProfiles[1].spaceNames, [2: "Two"])
+    }
+
     /// The Glass Style picker once lost its save attachment; a control write
     /// must reach the draft and the file.
     func testAControlBindingWritesTheDraftAndTheSavePersistsIt() throws {
