@@ -108,6 +108,7 @@ class HUDWindowController {
         hudInput.onRefresh = { [weak self] in self?.refresh() }
         hudInput.onShowSettings = { [weak self] in self?.showSettings() }
         hudInput.onNumberEntry = { [weak self] feedback in self?.hudDisplay.updateDisplayNumber(feedback) }
+        hudInput.onTypedText = { [weak self] text in self?.hudDisplay.updateDisplayTypedText(text) }
         hudInput.onPanelDragEnded = { [weak self] in self?.hudDisplay.savePanelPosition() }
         hudInput.onAccessibilityRevoked = { [weak self] in self?.hide() }
         // Drag targeting is controller glue: the presenter decides when a

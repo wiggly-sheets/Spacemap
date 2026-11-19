@@ -78,8 +78,17 @@ final class HUDDisplay {
     }
 
     func updateDisplayNumber(_ feedback: HUDNumberFeedback?, clearAfter delay: TimeInterval? = nil) {
-        guard currentConfig.showHUDInteractionFeedback else { return }
+        // A clear must always land: the setting can flip off mid-hold, and a
+        // dropped nil would leave stale text in the overlay.
+        guard feedback == nil || currentConfig.showHUDInteractionFeedback else { return }
         numberState.update(feedback, clearAfter: delay)
+    }
+
+    /// Typed letters for a fuzzy space-name jump, gated like digit feedback and
+    /// drawn by the same overlay.
+    func updateDisplayTypedText(_ text: String?) {
+        guard text == nil || currentConfig.showHUDInteractionFeedback else { return }
+        numberState.updateTypedText(text)
     }
 
     /// Action feedback is optional; the action itself never depends on it.

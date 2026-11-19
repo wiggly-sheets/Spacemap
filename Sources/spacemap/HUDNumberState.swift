@@ -13,24 +13,40 @@ struct HUDNumberFeedback: Equatable {
 /// body is not re-rendered, and no state fetch is needed to show a digit.
 final class HUDNumberState: ObservableObject {
     @Published private(set) var feedback: HUDNumberFeedback?
+    /// Typed letters for a fuzzy space-name jump. Shares this observable so the
+    /// one overlay host repaints without a grid render.
+    @Published private(set) var typedText: String?
     private var clearWork: DispatchWorkItem?
 
     /// Shows `feedback`, or clears when nil. Invalid numbers can ask for a
-    /// short hold so the user sees the miss before it disappears.
+    /// short hold so the user sees the miss before it disappears. One typed
+    /// readout at a time: a digit also ends a held letter readout.
     func update(_ feedback: HUDNumberFeedback?, clearAfter delay: TimeInterval? = nil) {
         clearWork?.cancel()
         clearWork = nil
         self.feedback = feedback
+        if feedback != nil { typedText = nil }
         guard feedback != nil, let delay else { return }
         let work = DispatchWorkItem { [weak self] in self?.feedback = nil }
         clearWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
     }
+
+    /// Shows typed letters, or clears when nil. Holds are scheduled by the
+    /// caller, exactly like number entry. A letter also ends a held digit.
+    func updateTypedText(_ text: String?) {
+        if text != nil {
+            clearWork?.cancel()
+            clearWork = nil
+            feedback = nil
+        }
+        typedText = text
+    }
 }
 
 /// Large typed-number readout. Exists draws in the theme text colour; a space
 /// that does not exist draws in the drop-target colour with a strike so the
-/// miss is obvious.
+/// miss is obvious. Typed letters for a fuzzy jump reuse this overlay, smaller.
 struct HUDNumberOverlay: View {
     @ObservedObject var state: HUDNumberState
     let theme: AppTheme
@@ -38,7 +54,12 @@ struct HUDNumberOverlay: View {
     var overrideColor: Color? = nil
 
     var body: some View {
-        if let feedback = state.feedback {
+        if let text = state.typedText {
+            Text(text)
+                .font(HUDFont.font(name: fontName, size: 44, weight: .semibold))
+                .foregroundStyle((overrideColor ?? Color(hex: theme.text)).opacity(0.9))
+                .allowsHitTesting(false)
+        } else if let feedback = state.feedback {
             Text("\(feedback.number)")
                 .font(HUDFont.font(name: fontName, size: 96, weight: .bold))
                 .foregroundStyle(

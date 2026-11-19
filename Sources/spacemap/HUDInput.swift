@@ -5,6 +5,11 @@ import CoreGraphics
 enum HUDKeyPress: Equatable {
     case command(HUDCommand)
     case number(Int)
+    case letter(String)
+    /// A held key repeating keyDown. Consumed, but never re-enters the prefix.
+    case letterRepeat
+    case letterBackspace
+    case letterCancel
     case showSettings
     case none
 }
@@ -54,6 +59,7 @@ final class HUDInput {
     /// Panel drags disarm auto-hide for their duration.
     var onPanelDragChanged: ((Bool) -> Void)?
     var onNumberEntry: ((HUDNumberFeedback?) -> Void)?
+    var onTypedText: ((String?) -> Void)?
     var onFocusSpaceChanged: ((Int) -> Void)?
     var onPanelDragEnded: (() -> Void)?
     var onAccessibilityRevoked: (() -> Void)?
@@ -61,6 +67,16 @@ final class HUDInput {
     private var pendingNumber = ""
     private var numberEntryTimer: Timer?
     private var numberEntryGeneration = 0
+    /// Letters typed for a fuzzy space-name jump. Cleared by `stop()`, so a
+    /// hide never leaves a prefix behind.
+    private var pendingLetters = ""
+    private var letterEntryTimer: Timer?
+    private var letterEntryGeneration = 0
+    /// Synchronous count of classified letter presses. `pendingLetters` is
+    /// applied one main-queue turn after classification, so backspace and
+    /// escape must decide against this count; otherwise a fast second key sees
+    /// an empty prefix and leaks through to the focused app.
+    private var letterEntryCount = 0
     /// Trust cached from the reconciliation path. The event-tap callback runs
     /// on every keystroke and must not syscall AXIsProcessTrusted per event.
     private(set) var cachedAccessibilityTrusted = false
@@ -131,6 +147,7 @@ final class HUDInput {
         pollTimer = nil
         pollTicks = 0
         clearNumberEntry()
+        clearLetterEntry()
         onStopForTesting?(pollTimer == nil)
     }
 
@@ -310,6 +327,8 @@ final class HUDInput {
     }
 
     private func handleNumberEntry(_ number: Int) {
+        // One typed readout at a time: a digit ends any letter prefix.
+        if !pendingLetters.isEmpty { clearLetterEntry() }
         let indices = currentState?.spaces.map(\.index) ?? []
         pendingNumber = Self.appendedNumber("\(number)", to: pendingNumber, indices: indices)
         numberEntryTimer?.invalidate()
@@ -380,6 +399,151 @@ final class HUDInput {
         pendingNumber = ""
         numberEntryGeneration += 1
         onNumberEntry?(nil)
+    }
+
+    /// Named spaces that still exist at jump time. A name outlives its space in
+    /// config, so the current topology decides what may match. Unnamed spaces
+    /// are not candidates; digits already jump by index.
+    private var spaceNames: [Int: String] {
+        let names = currentState?.config.spaceNames ?? [:]
+        let existing = Set(currentState?.spaces.map(\.index) ?? [])
+        return names.filter { existing.contains($0.key) }
+    }
+
+    private func handleLetterEntry(_ letter: String) {
+        // One typed readout at a time: a letter ends any number entry.
+        if !pendingNumber.isEmpty { clearNumberEntry() }
+        pendingLetters += letter
+        letterEntryCount = pendingLetters.count
+        evaluatePendingLetters()
+    }
+
+    private func handleLetterBackspace() {
+        guard !pendingLetters.isEmpty else { return }
+        pendingLetters.removeLast()
+        letterEntryCount = pendingLetters.count
+        evaluatePendingLetters()
+    }
+
+    /// Same shape as digit entry: a prefix that only one space can match
+    /// resolves at once; a prefix shared by several spaces waits 0.3s for the
+    /// next letter; a prefix that matches nothing holds briefly and keeps
+    /// collecting, because the user may be mid-word.
+    private func evaluatePendingLetters() {
+        letterEntryTimer?.invalidate()
+        letterEntryTimer = nil
+        letterEntryGeneration += 1
+        guard !pendingLetters.isEmpty else {
+            onTypedText?(nil)
+            return
+        }
+        let matches = Self.nameMatchOutcome(prefix: pendingLetters, names: spaceNames)
+        onTypedText?(Self.letterFeedback(
+            prefix: pendingLetters,
+            matches: matches.matches,
+            mustWait: matches.mustWait,
+            names: spaceNames
+        ))
+        guard !matches.matches.isEmpty else {
+            let generation = letterEntryGeneration
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                guard let self, self.letterEntryGeneration == generation else { return }
+                self.onTypedText?(nil)
+            }
+            return
+        }
+        guard matches.mustWait else {
+            processPendingLetters()
+            return
+        }
+        letterEntryTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            self?.processPendingLetters()
+        }
+    }
+
+    private func processPendingLetters() {
+        let entered = pendingLetters
+        letterEntryTimer?.invalidate()
+        letterEntryTimer = nil
+        pendingLetters = ""
+        letterEntryCount = 0
+        letterEntryGeneration += 1
+        guard !entered.isEmpty else {
+            onTypedText?(nil)
+            return
+        }
+        let outcome = Self.nameMatchOutcome(prefix: entered, names: spaceNames)
+        // Only a unique best match jumps; an ambiguous prefix that timed out
+        // just ends the entry rather than guessing a space.
+        let target = outcome.mustWait ? nil : outcome.matches.first
+        // Hold the typed text either way; the generation stops an old hold from
+        // erasing a newer entry. Same hold rule as a typed number.
+        let generation = letterEntryGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + (target == nil ? 0.6 : 0.4)) { [weak self] in
+            guard let self, self.letterEntryGeneration == generation else { return }
+            self.onTypedText?(nil)
+        }
+        guard let target else { return }
+        NSLog("spacemap/HUD: jump to named space \(target)")
+        focus(space: target)
+    }
+
+    private func clearLetterEntry() {
+        letterEntryTimer?.invalidate()
+        letterEntryTimer = nil
+        pendingLetters = ""
+        letterEntryCount = 0
+        letterEntryGeneration += 1
+        onTypedText?(nil)
+    }
+
+    /// Spaces a typed prefix selects, ranked: exact name prefixes first, then
+    /// subsequence matches, each in ascending space order. Trimmed and
+    /// case-insensitive; unnamed and blank names never match. `mustWait` is
+    /// true while one ranked tier still holds several spaces, because a
+    /// shorter prefix may then be completed by the next letter.
+    static func nameMatchOutcome(prefix: String, names: [Int: String]) -> (matches: [Int], mustWait: Bool) {
+        let needle = prefix.lowercased()
+        guard !needle.isEmpty else { return ([], false) }
+        let candidates = names
+            .compactMap { index, name -> (index: Int, name: String)? in
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                return trimmed.isEmpty ? nil : (index, trimmed)
+            }
+            .sorted { $0.index < $1.index }
+        let exact = candidates.filter { $0.name.hasPrefix(needle) }.map(\.index)
+        let fuzzy = candidates.filter {
+            !$0.name.hasPrefix(needle) && isSubsequence(needle, of: $0.name)
+        }.map(\.index)
+        // A single exact prefix decides the space even when subsequence matches
+        // exist; only a tie inside the best tier is ambiguous.
+        let topTierCount = exact.isEmpty ? fuzzy.count : exact.count
+        return (exact + fuzzy, topTierCount > 1)
+    }
+
+    /// Letters appear in `needle` order inside `haystack`, not necessarily
+    /// adjacent.
+    static func isSubsequence(_ needle: String, of haystack: String) -> Bool {
+        var rest = haystack[...]
+        for character in needle {
+            guard let position = rest.firstIndex(of: character) else { return false }
+            rest = rest[rest.index(after: position)...]
+        }
+        return true
+    }
+
+    /// The typed prefix, plus the space name once the best tier is one space.
+    static func letterFeedback(
+        prefix: String,
+        matches: [Int],
+        mustWait: Bool,
+        names: [Int: String]
+    ) -> String {
+        guard !mustWait,
+              let index = matches.first,
+              let name = names[index]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !name.isEmpty else { return prefix }
+        return "\(prefix) → \(name)"
     }
 
     /// Never swallow a key the HUD does not act on. A stale or revoked tap
@@ -547,6 +711,38 @@ final class HUDInput {
         if let command = hudKeys.tableCommand(for: keyCode, flags: flags) {
             return .command(command)
         }
+        // Only unbound, unmodified keys reach typed letter entry.
+        guard jumpToSpaceEnabled else { return .none }
+        let letter = Self.letterFromKeyCode(keyCode: keyCode, flags: flags)
+        // Shift alone types a letter, not a binding modifier: a binding on the
+        // bare key still wins, so Shift+W runs a `w` command.
+        if letter != nil, Self.isShiftOnly(flags) {
+            let bare = flags.subtracting(.maskShift)
+            if let command = hudKeys.legacyCommand(for: keyCode, flags: bare) {
+                return .command(command)
+            }
+            if let command = hudKeys.tableCommand(for: keyCode, flags: bare) {
+                return .command(command)
+            }
+        }
+        if let letter {
+            // A held key repeats keyDown. A repeat must not grow the prefix or
+            // re-fire a jump, so it is consumed as a no-op.
+            if event.getIntegerValueField(.keyboardEventAutorepeat) != 0 {
+                return .letterRepeat
+            }
+            letterEntryCount += 1
+            return .letter(letter)
+        }
+        guard letterEntryCount > 0, Self.isUnmodified(flags) else { return .none }
+        if keyCode == Self.backspaceKeyCode {
+            letterEntryCount = max(0, letterEntryCount - 1)
+            return .letterBackspace
+        }
+        if keyCode == Self.escapeKeyCode {
+            letterEntryCount = 0
+            return .letterCancel
+        }
         return .none
     }
 
@@ -554,17 +750,35 @@ final class HUDInput {
         switch press {
         case .command(let command):
             DispatchQueue.main.async { [weak self] in
-                self?.delegate?.perform(command)
+                guard let self else { return }
+                // The command owns the keystroke, so it also cancels any typed
+                // prefix: a pending ambiguity timer must not repaint or jump
+                // after the command runs.
+                clearNumberEntry()
+                clearLetterEntry()
+                delegate?.perform(command)
             }
         case .number(let number):
             DispatchQueue.main.async { [weak self] in
                 self?.handleNumberEntry(number)
             }
+        case .letter(let letter):
+            DispatchQueue.main.async { [weak self] in
+                self?.handleLetterEntry(letter)
+            }
+        case .letterBackspace:
+            DispatchQueue.main.async { [weak self] in
+                self?.handleLetterBackspace()
+            }
+        case .letterCancel:
+            DispatchQueue.main.async { [weak self] in
+                self?.clearLetterEntry()
+            }
         case .showSettings:
             DispatchQueue.main.async { [weak self] in
                 self?.onShowSettings?()
             }
-        case .none:
+        case .none, .letterRepeat:
             break
         }
     }
@@ -574,9 +788,7 @@ final class HUDInput {
     }
 
     static func numberFromKeyCode(keyCode: CGKeyCode, flags: CGEventFlags) -> Int? {
-        guard !flags.contains(.maskControl),
-              !flags.contains(.maskCommand),
-              !flags.contains(.maskAlternate) else { return nil }
+        guard isUnmodified(flags) else { return nil }
         switch keyCode {
         case 18: return 1
         case 19: return 2
@@ -598,6 +810,57 @@ final class HUDInput {
         case 89: return 7
         case 91: return 8
         case 92: return 9
+        default: return nil
+        }
+    }
+
+    static let backspaceKeyCode: CGKeyCode = 51
+    static let escapeKeyCode: CGKeyCode = 53
+
+    /// ⌘/ctrl/alt chords belong to the system, not to type-to-jump. Shift is
+    /// allowed; letters match case-insensitively.
+    static func isUnmodified(_ flags: CGEventFlags) -> Bool {
+        !flags.contains(.maskControl)
+            && !flags.contains(.maskCommand)
+            && !flags.contains(.maskAlternate)
+    }
+
+    /// Shift on its own types a letter; a chord with a real modifier is not
+    /// typed at all.
+    static func isShiftOnly(_ flags: CGEventFlags) -> Bool {
+        isUnmodified(flags) && flags.contains(.maskShift)
+    }
+
+    /// ANSI letter keys, matching `Hotkey`'s alphanumeric table.
+    static func letterFromKeyCode(keyCode: CGKeyCode, flags: CGEventFlags) -> String? {
+        guard isUnmodified(flags) else { return nil }
+        switch keyCode {
+        case 0: return "a"
+        case 11: return "b"
+        case 8: return "c"
+        case 2: return "d"
+        case 14: return "e"
+        case 3: return "f"
+        case 5: return "g"
+        case 4: return "h"
+        case 34: return "i"
+        case 38: return "j"
+        case 40: return "k"
+        case 37: return "l"
+        case 46: return "m"
+        case 45: return "n"
+        case 31: return "o"
+        case 35: return "p"
+        case 12: return "q"
+        case 15: return "r"
+        case 1: return "s"
+        case 17: return "t"
+        case 32: return "u"
+        case 9: return "v"
+        case 13: return "w"
+        case 7: return "x"
+        case 16: return "y"
+        case 6: return "z"
         default: return nil
         }
     }
