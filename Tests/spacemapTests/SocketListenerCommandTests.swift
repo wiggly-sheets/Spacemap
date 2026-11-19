@@ -4,32 +4,32 @@ import XCTest
 final class SocketListenerCommandTests: XCTestCase {
 
 
-    func testCommandForShowRawValue() {
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.show.rawValue), .show)
+    func testCommandForShowSocketByte() {
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.show.socketByte!), .show)
     }
 
     func testCommandForShowASCIIValue() {
         XCTAssertEqual(SocketListener.command(for: Character("2").asciiValue!), .show)
     }
 
-    func testCommandForToggleRawValue() {
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.toggle.rawValue), .toggle)
+    func testCommandForToggleSocketByte() {
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.toggle.socketByte!), .toggle)
     }
 
     func testCommandForToggleASCIIValue() {
         XCTAssertEqual(SocketListener.command(for: Character("4").asciiValue!), .toggle)
     }
 
-    func testCommandForSettingsRawValue() {
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.settings.rawValue), .settings)
+    func testCommandForSettingsSocketByte() {
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.settings.socketByte!), .settings)
     }
 
     func testCommandForSettingsASCIIValue() {
         XCTAssertEqual(SocketListener.command(for: Character("3").asciiValue!), .settings)
     }
 
-    func testCommandForHealthRawValue() {
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.health.rawValue), .health)
+    func testCommandForHealthSocketByte() {
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.health.socketByte!), .health)
     }
 
     func testCommandForHealthASCIIValue() {
@@ -43,14 +43,23 @@ final class SocketListenerCommandTests: XCTestCase {
         XCTAssertEqual(SocketListener.command(for: 0xFF), .refresh)
     }
 
-    func testCommandForUpdateRawValue() {
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.update.rawValue), .update)
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.updateFont.rawValue), .updateFont)
+    func testCommandForUpdateSocketByte() {
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.update.socketByte!), .update)
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.updateFont.socketByte!), .updateFont)
+    }
+
+    func testCommandForReloadConfigSocketByte() {
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.reloadConfig.socketByte!), .reloadConfig)
+        XCTAssertEqual(SocketListener.command(for: Character("6").asciiValue!), .reloadConfig)
+    }
+
+    func testCommandForRefreshSocketByte() {
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.refresh.socketByte!), .refresh)
     }
 
 
     func testSendCommandReturnsFalseForInvalidPath() {
-        let result = SocketListener.sendCommand(to: "/nonexistent/socket/path", command: SpacemapCommand.show.rawValue)
+        let result = SocketListener.sendCommand(to: "/nonexistent/socket/path", command: SpacemapCommand.show.socketByte!)
         XCTAssertFalse(result)
     }
 

@@ -57,27 +57,27 @@ enum SingleInstanceGuard {
     }
 
     static func forwardingURL(for argument: String) -> URL? {
-        switch argument {
-        case "--settings": return URL(string: "spacemap://settings")
-        case "--show-menu": return URL(string: "spacemap://menu")
-        default: return nil
-        }
+        guard let target = CLIFlagTable.row(for: argument)?.target,
+              case .deliver(_, let deepLink) = target,
+              let deepLink else { return nil }
+        return URL(string: deepLink)
     }
 
     /// Commands that can be delivered straight over the live socket; the deep
     /// link stays as a fallback when the probe or write fails.
     static func socketCommand(for argument: String) -> SpacemapCommand? {
-        switch argument {
-        case "--settings": return .settings
-        default: return nil
-        }
+        guard let target = CLIFlagTable.row(for: argument)?.target,
+              case .deliver(let command, _) = target,
+              command.socketByte != nil else { return nil }
+        return command
     }
 
     static func forward(arguments: [String], socketPath: String = SpacemapCommand.socketPath) {
         let socketIsLive = SocketListener.isSocketLive(path: socketPath)
         for argument in arguments {
-            if socketIsLive, let command = socketCommand(for: argument) {
-                if SocketListener.sendCommand(to: socketPath, command: command.rawValue) {
+            if socketIsLive, let command = socketCommand(for: argument),
+               let byte = command.socketByte {
+                if SocketListener.sendCommand(to: socketPath, command: byte) {
                     continue
                 }
                 NSLog("spacemap/single-instance: socket forward failed for %@", argument)
@@ -100,7 +100,7 @@ struct SpacemapEntry {
         // DEBUG builds skip CLI handling so Xcode runs always launch the HUD;
         // release builds exit early for --version/--trigger/--space/--config.
         #if !DEBUG
-        AppConfig.silentMode = true
+        ConfigStore.silentMode = true
         if let status = CLI(yabaiService: YabaiClientImpl()).runIfRequested(arguments: CommandLine.arguments) {
             exit(status)
         }

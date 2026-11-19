@@ -1,14 +1,45 @@
 import Foundation
 
-enum SpacemapCommand: UInt8, Equatable {
-    case refresh = 1
-    case show = 2
-    case settings = 3
-    case toggle = 4
-    case health = 5
-    case reloadConfig = 6
-    case update = 7
-    case updateFont = 8
+/// Every action argv can name, plus every command that can arrive over the
+/// single-instance socket. One enum keeps the flag table, the wire protocol,
+/// and the deep-link handoff from drifting apart.
+enum SpacemapCommand: Equatable {
+    // Socket protocol commands.
+    case refresh
+    case show
+    case settings
+    case toggle
+    case health
+    case reloadConfig
+    case update
+    case updateFont
+    // App action delivered only by deep link.
+    case showMenu
+    // CLI-only actions: they print or act in the CLI process and exit.
+    case version
+    case help
+    case config
+    case printConfig
+    case status
+    // Launch marker read from argv by the running app.
+    case restarting
+
+    /// Byte on the single-instance socket; nil for commands that never travel
+    /// over it.
+    var socketByte: UInt8? {
+        switch self {
+        case .refresh: return 1
+        case .show: return 2
+        case .settings: return 3
+        case .toggle: return 4
+        case .health: return 5
+        case .reloadConfig: return 6
+        case .update: return 7
+        case .updateFont: return 8
+        case .showMenu, .version, .help, .config, .printConfig, .status, .restarting:
+            return nil
+        }
+    }
 
     /// Per-user temp dir ($TMPDIR, mode 0700), not the shared /tmp stencil.
     /// Predictable /tmp paths let another user pre-create the socket.
@@ -88,6 +119,7 @@ enum SpacemapCommand: UInt8, Equatable {
         case connectFailed
         case writeFailed
         case invalidSocketPath
+        case notSendable
 
         var description: String {
             switch self {
@@ -95,11 +127,13 @@ enum SpacemapCommand: UInt8, Equatable {
             case .connectFailed: return "Failed to connect to spacemap socket"
             case .writeFailed: return "Failed to write command to socket"
             case .invalidSocketPath: return "Refusing to connect: socket path outside allowlist"
+            case .notSendable: return "Command cannot be sent over the socket"
             }
         }
     }
 
     func send() throws {
+        guard let byte = socketByte else { throw SendError.notSendable }
         guard Self.validatedSocketPath(Self.socketPath) != nil else {
             throw SendError.invalidSocketPath
         }
@@ -122,7 +156,7 @@ enum SpacemapCommand: UInt8, Equatable {
             throw SendError.connectFailed
         }
 
-        var frame = Data([rawValue])
+        var frame = Data([byte])
         if let nonce = Self.currentNonceHex() {
             frame.append(contentsOf: (":" + nonce).utf8)
         }

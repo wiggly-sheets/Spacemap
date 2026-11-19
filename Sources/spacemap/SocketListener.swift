@@ -165,25 +165,25 @@ final class SocketListener {
     }
 
     static func command(for byte: UInt8) -> SpacemapCommand {
-        if byte == SpacemapCommand.show.rawValue || byte == Character("2").asciiValue {
+        if byte == SpacemapCommand.show.socketByte || byte == Character("2").asciiValue {
             return .show
         }
-        if byte == SpacemapCommand.settings.rawValue || byte == Character("3").asciiValue {
+        if byte == SpacemapCommand.settings.socketByte || byte == Character("3").asciiValue {
             return .settings
         }
-        if byte == SpacemapCommand.toggle.rawValue || byte == Character("4").asciiValue {
+        if byte == SpacemapCommand.toggle.socketByte || byte == Character("4").asciiValue {
             return .toggle
         }
-        if byte == SpacemapCommand.health.rawValue || byte == Character("5").asciiValue {
+        if byte == SpacemapCommand.health.socketByte || byte == Character("5").asciiValue {
             return .health
         }
-        if byte == SpacemapCommand.reloadConfig.rawValue || byte == Character("6").asciiValue {
+        if byte == SpacemapCommand.reloadConfig.socketByte || byte == Character("6").asciiValue {
             return .reloadConfig
         }
-        if byte == SpacemapCommand.update.rawValue || byte == Character("7").asciiValue {
+        if byte == SpacemapCommand.update.socketByte || byte == Character("7").asciiValue {
             return .update
         }
-        if byte == SpacemapCommand.updateFont.rawValue || byte == Character("8").asciiValue {
+        if byte == SpacemapCommand.updateFont.socketByte || byte == Character("8").asciiValue {
             return .updateFont
         }
         return .refresh
@@ -546,6 +546,9 @@ final class SocketListener {
         case .updateFont:
             self.onUpdateFont()
         case .health:
+            break
+        case .showMenu, .version, .help, .config, .printConfig, .status, .restarting:
+            // No socket byte, so command(for:) never returns them.
             break
         }
     }

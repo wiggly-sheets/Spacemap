@@ -43,7 +43,7 @@ final class SocketListenerTests: XCTestCase {
     }
 
     func testShowCommandFromYabaiSignal() {
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.show.rawValue), .show)
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.show.socketByte!), .show)
     }
 
     func testASCIIShowCommandFromYabaiSignal() {
@@ -51,7 +51,7 @@ final class SocketListenerTests: XCTestCase {
     }
 
     func testBinaryShowCommandFromCLI() {
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.show.rawValue), .show)
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.show.socketByte!), .show)
     }
 
     func testUnknownCommandRefreshes() {
@@ -59,11 +59,11 @@ final class SocketListenerTests: XCTestCase {
     }
 
     func testBinaryToggleCommandFromCLI() {
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.toggle.rawValue), .toggle)
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.toggle.socketByte!), .toggle)
     }
 
     func testHealthProbeDoesNotTriggerRefresh() {
-        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.health.rawValue), .health)
+        XCTAssertEqual(SocketListener.command(for: SpacemapCommand.health.socketByte!), .health)
         XCTAssertEqual(SocketListener.command(for: Character("5").asciiValue!), .health)
     }
 
@@ -86,7 +86,7 @@ final class SocketListenerTests: XCTestCase {
 
         let stalledClientSocket = try connectClient(to: socketPath)
         defer { close(stalledClientSocket) }
-        XCTAssertTrue(SocketListener.sendCommand(to: socketPath, command: SpacemapCommand.refresh.rawValue))
+        XCTAssertTrue(SocketListener.sendCommand(to: socketPath, command: SpacemapCommand.refresh.socketByte!))
 
         wait(for: [refreshed], timeout: 1)
         let started = Date()
@@ -196,12 +196,12 @@ final class SocketListenerTests: XCTestCase {
     func testParseFrameRejectsBareFrameWhenNonceExpected() {
         let nonce = String(repeating: "a", count: 64)
         XCTAssertNil(SocketListener.parseFrame(
-            Data([SpacemapCommand.show.rawValue]),
+            Data([SpacemapCommand.show.socketByte!]),
             nonce: nonce
         ))
         XCTAssertEqual(
             SocketListener.parseFrame(
-                Data([SpacemapCommand.show.rawValue]) + Data((":" + nonce).utf8),
+                Data([SpacemapCommand.show.socketByte!]) + Data((":" + nonce).utf8),
                 nonce: nonce
             ),
             .show
@@ -285,7 +285,7 @@ final class SocketListenerTests: XCTestCase {
         // command connects, so the kernel backlog itself is not the thing
         // under test.
         Thread.sleep(forTimeInterval: 0.05)
-        XCTAssertTrue(SocketListener.sendCommand(to: socketPath, command: SpacemapCommand.refresh.rawValue))
+        XCTAssertTrue(SocketListener.sendCommand(to: socketPath, command: SpacemapCommand.refresh.socketByte!))
         wait(for: [refreshed], timeout: 2)
     }
 

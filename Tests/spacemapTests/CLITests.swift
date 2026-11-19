@@ -7,7 +7,7 @@ final class CLITests: XCTestCase {
         for index in 1...16 {
             XCTAssertEqual(
                 CLI.parse(arguments: ["spacemap", "--space", "\(index)"]),
-                .command(.focusSpace(SpaceFocusTarget(argument: "\(index)")!))
+                .focusSpace(SpaceFocusTarget(argument: "\(index)")!)
             )
         }
     }
@@ -15,21 +15,28 @@ final class CLITests: XCTestCase {
     func testParsesNamedAndLabelSpaceSelectors() {
         XCTAssertEqual(
             CLI.parse(arguments: ["spacemap", "--space", "recent"]),
-            .command(.focusSpace(SpaceFocusTarget(argument: "recent")!))
+            .focusSpace(SpaceFocusTarget(argument: "recent")!)
         )
         XCTAssertEqual(
             CLI.parse(arguments: ["spacemap", "--space", "web"]),
-            .command(.focusSpace(SpaceFocusTarget(argument: "web")!))
+            .focusSpace(SpaceFocusTarget(argument: "web")!)
         )
     }
 
     func testRejectsMissingAndOutOfRangeSpaceSelectors() {
-        guard case .error = CLI.parse(arguments: ["spacemap", "--space"]) else {
-            return XCTFail("Expected missing selector error")
-        }
-        guard case .error = CLI.parse(arguments: ["spacemap", "--space", "17"]) else {
-            return XCTFail("Expected out-of-range selector error")
-        }
+        XCTAssertEqual(
+            CLI.parse(arguments: ["spacemap", "--space"]),
+            .error("--space requires next, prev, first, last, recent, mouse, a label, or an index from 1 to 16")
+        )
+        XCTAssertEqual(
+            CLI.parse(arguments: ["spacemap", "--space", "17"]),
+            .error("--space requires next, prev, first, last, recent, mouse, a label, or an index from 1 to 16")
+        )
+        // A following flag is not a selector.
+        XCTAssertEqual(
+            CLI.parse(arguments: ["spacemap", "--space", "--version"]),
+            .error("--space requires next, prev, first, last, recent, mouse, a label, or an index from 1 to 16")
+        )
     }
 
     func testParsesOtherExitOnlyCommands() {
@@ -38,9 +45,9 @@ final class CLITests: XCTestCase {
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--config"]), .command(.config))
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--print-config"]), .command(.printConfig))
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--status"]), .command(.status))
+        XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--trigger"]), .command(.toggle))
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--update"]), .command(.update))
         XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--update-font"]), .command(.updateFont))
-        XCTAssertEqual(CLI.parse(arguments: ["spacemap", "--trigger"]), .command(.trigger))
         XCTAssertEqual(CLI.parse(arguments: ["spacemap"]), .none)
     }
 
@@ -64,13 +71,55 @@ final class CLITests: XCTestCase {
     func testParsesConfigPresetAndRejectsMissingOrUnsafeNames() {
         XCTAssertEqual(
             CLI.parse(arguments: ["spacemap", "--config-preset", "My Work"]),
-            .command(.configPreset("My Work"))
+            .configPreset("My Work")
         )
-        guard case .error = CLI.parse(arguments: ["spacemap", "--config-preset"]) else {
-            return XCTFail("Expected missing preset name error")
+        XCTAssertEqual(
+            CLI.parse(arguments: ["spacemap", "--config-preset"]),
+            .error("--config-preset requires a preset name (letters, digits, spaces, - or _)")
+        )
+        XCTAssertEqual(
+            CLI.parse(arguments: ["spacemap", "--config-preset", "../escape"]),
+            .error("--config-preset requires a preset name (letters, digits, spaces, - or _)")
+        )
+        XCTAssertEqual(
+            CLI.parse(arguments: ["spacemap", "--config-preset", "--version"]),
+            .error("--config-preset requires a preset name (letters, digits, spaces, - or _)")
+        )
+    }
+
+    func testEveryTableFlagIsRecognised() {
+        for row in CLIFlagTable.rows {
+            let arguments: [String]
+            switch row.target {
+            case .focusSpace:
+                arguments = ["spacemap", row.flag, "1"]
+            case .configPreset:
+                arguments = ["spacemap", row.flag, "Work"]
+            case .exit, .deliver, .marker:
+                arguments = ["spacemap", row.flag]
+            }
+            XCTAssertNotEqual(
+                CLI.parse(arguments: arguments),
+                .error("unknown option: \(row.flag)"),
+                "\(row.flag) must be in the flag table"
+            )
         }
-        guard case .error = CLI.parse(arguments: ["spacemap", "--config-preset", "../escape"]) else {
-            return XCTFail("Expected unsafe preset name error")
+    }
+
+    func testFlagTableHasUniqueFlags() {
+        let flags = CLIFlagTable.rows.map(\.flag)
+        XCTAssertEqual(Set(flags).count, flags.count)
+        XCTAssertTrue(flags.allSatisfy { $0.hasPrefix("--") })
+    }
+
+    func testDeliverAndMarkerFlagsFallThroughToLaunch() {
+        for row in CLIFlagTable.rows {
+            switch row.target {
+            case .deliver, .marker:
+                XCTAssertEqual(CLI.parse(arguments: ["spacemap", row.flag]), .none)
+            case .exit, .focusSpace, .configPreset:
+                continue
+            }
         }
     }
 
@@ -242,6 +291,25 @@ final class CLITests: XCTestCase {
         XCTAssertNil(SingleInstanceGuard.forwardingURL(for: "--version"))
         XCTAssertEqual(SingleInstanceGuard.socketCommand(for: "--settings"), .settings)
         XCTAssertNil(SingleInstanceGuard.socketCommand(for: "--show-menu"))
+    }
+
+    func testEveryDeliveredFlagForwardsAccordingToTheTable() {
+        for row in CLIFlagTable.rows {
+            guard case .deliver(let command, let deepLink) = row.target else { continue }
+            XCTAssertEqual(
+                SingleInstanceGuard.socketCommand(for: row.flag),
+                command.socketByte == nil ? nil : command
+            )
+            XCTAssertEqual(
+                SingleInstanceGuard.forwardingURL(for: row.flag)?.absoluteString,
+                deepLink
+            )
+        }
+        XCTAssertEqual(
+            CLIFlagTable.deliveredCommands(in: ["spacemap", "--show-menu", "--settings"]),
+            [.showMenu, .settings]
+        )
+        XCTAssertEqual(CLIFlagTable.deliveredCommands(in: ["spacemap", "--trigger"]), [])
     }
 
     func testSettingsForwardUsesLiveSocketFirst() {

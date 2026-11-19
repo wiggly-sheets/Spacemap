@@ -3,12 +3,21 @@ import XCTest
 @testable import spacemap
 
 final class SpacemapCommandTests: XCTestCase {
-    func testCommandRawValuesMatchSocketProtocol() {
-        XCTAssertEqual(SpacemapCommand.refresh.rawValue, 1)
-        XCTAssertEqual(SpacemapCommand.show.rawValue, 2)
-        XCTAssertEqual(SpacemapCommand.settings.rawValue, 3)
-        XCTAssertEqual(SpacemapCommand.toggle.rawValue, 4)
-        XCTAssertEqual(SpacemapCommand.health.rawValue, 5)
+    func testSocketBytesMatchSocketProtocol() {
+        XCTAssertEqual(SpacemapCommand.refresh.socketByte, 1)
+        XCTAssertEqual(SpacemapCommand.show.socketByte, 2)
+        XCTAssertEqual(SpacemapCommand.settings.socketByte, 3)
+        XCTAssertEqual(SpacemapCommand.toggle.socketByte, 4)
+        XCTAssertEqual(SpacemapCommand.health.socketByte, 5)
+        XCTAssertEqual(SpacemapCommand.reloadConfig.socketByte, 6)
+        XCTAssertEqual(SpacemapCommand.update.socketByte, 7)
+        XCTAssertEqual(SpacemapCommand.updateFont.socketByte, 8)
+    }
+
+    func testCLIOnlyCommandsHaveNoSocketByte() {
+        for command: SpacemapCommand in [.version, .help, .config, .printConfig, .status, .showMenu, .restarting] {
+            XCTAssertNil(command.socketByte, "\(command) must not travel over the socket")
+        }
     }
 
     func testSocketPathFormat() {
@@ -22,7 +31,7 @@ final class SpacemapCommandTests: XCTestCase {
 
     func testAllCommandsAreDistinct() {
         let commands: [SpacemapCommand] = [.refresh, .show, .settings, .toggle, .health]
-        let rawValues = commands.map(\.rawValue)
-        XCTAssertEqual(Set(rawValues).count, rawValues.count, "All command raw values should be unique")
+        let rawValues = commands.compactMap(\.socketByte)
+        XCTAssertEqual(Set(rawValues).count, rawValues.count, "All command socket bytes should be unique")
     }
 }
