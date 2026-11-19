@@ -15,7 +15,7 @@ final class HUDDisplay {
     private var displayPanels: [Int: NSPanel] = [:]
     private var hostingView: NSHostingView<AnyView>?
     private var displayHostingViews: [Int: NSHostingView<AnyView>] = [:]
-    private var currentConfig: GridConfig = .default
+    private var currentConfig: SpacemapConfig = .default
     private(set) var hoveredCell: Int? = nil
     /// Typed-number readout channel. Separate from the rendered grid so a
     /// digit repaints the overlay only.
@@ -23,7 +23,10 @@ final class HUDDisplay {
     private let noticeState = HUDNoticeState()
     private(set) var renderedState: GridState?
     private var yabaiService: YabaiService
-    private let themeService: ThemeManager
+    private let themeStore: ThemeStore
+    /// Panel lifecycle: window construction and the non-motion ordering path.
+    /// Entrance motion stays here because the frames are HUD-style policy.
+    private let presenter = PanelPresenter()
     /// Shared, cheap hover channel for the rendered grid. Hover changes only
     /// mutate this observable, so SwiftUI repaints the border/background of
     /// the affected cells without icon/thumbnail work or panel resizing.
@@ -52,12 +55,12 @@ final class HUDDisplay {
     var onSpaceDragStart: ((Int) -> Void)?
     var onWindowDragStart: ((Int) -> Void)?
 
-    init(yabaiService: YabaiService, themeService: ThemeManager = .shared) {
+    init(yabaiService: YabaiService, themeStore: ThemeStore) {
         self.yabaiService = yabaiService
-        self.themeService = themeService
+        self.themeStore = themeStore
     }
 
-    func updateConfig(_ config: GridConfig) {
+    func updateConfig(_ config: SpacemapConfig) {
         let wasShowingThumbnails = currentConfig.cellStyle == .thumbnails
         currentConfig = config
         panel?.hasShadow = config.hudShadow
@@ -199,7 +202,7 @@ final class HUDDisplay {
         }
     }
 
-    static func shouldPreloadIcons(config: GridConfig) -> Bool {
+    static func shouldPreloadIcons(config: SpacemapConfig) -> Bool {
         guard config.hudIconSource == .nativeIcons else { return false }
         return config.cellStyle == .icons || config.cellStyle == .hybrid || config.showIconStrip
     }
@@ -267,60 +270,56 @@ final class HUDDisplay {
         )
     }
 
-    static let customScreenDefaultsKey = "spacemap.hudCustomScreenIdentifier"
     static let hudPositionChangedNotification = Notification.Name("hudPositionChanged")
 
-    /// Stable-ish display identity used to restore a custom position on the
-    /// screen it was dragged on. Falls back to the localized name.
-    static func displayIdentifier(for screen: NSScreen) -> String {
-        let key = NSDeviceDescriptionKey("NSScreenNumber")
-        if let number = screen.deviceDescription[key] as? NSNumber {
-            let displayID = CGDirectDisplayID(number.uint32Value)
-            if let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue() {
-                return CFUUIDCreateString(nil, uuid) as String
-            }
+    /// The custom position a panel frame represents on `screen`: the same
+    /// fraction `normalizedPosition` computes plus that display's identity.
+    /// Nil when the panel is larger than the screen, so no fraction exists.
+    /// Fractions are clamped: a drag can push the panel past a screen edge,
+    /// and the decoder rejects out-of-range values, which would reset the
+    /// position to Center.
+    static func customPosition(
+        panelFrame: CGRect,
+        screenFrame: CGRect,
+        screen: NSScreen
+    ) -> HUDPosition? {
+        guard let normalized = normalizedPosition(panelFrame: panelFrame, screenFrame: screenFrame) else {
+            return nil
         }
-        return screen.localizedName
-    }
-
-    static func screen(
-        matchingIdentifier identifier: String,
-        screens: [NSScreen] = NSScreen.screens
-    ) -> NSScreen? {
-        screens.first { displayIdentifier(for: $0) == identifier }
+        return .custom(
+            x: Double(min(max(normalized.x, 0), 1)),
+            y: Double(min(max(normalized.y, 0), 1)),
+            screen: ScreenContext.displayIdentifier(for: screen)
+        )
     }
 
     private func restoredCustomScreenFrame() -> CGRect? {
-        guard case .custom = currentConfig.hudPosition,
-              let identifier = UserDefaults.standard.string(forKey: Self.customScreenDefaultsKey)
+        guard let identifier = currentConfig.hudPosition.screenIdentifier,
+              let screen = ScreenContext.screen(matchingIdentifier: identifier)
         else { return nil }
-        return Self.screen(matchingIdentifier: identifier)?.frame
+        return screen.frame
     }
 
     func savePanelPosition() {
         guard let panel = unifiedPanel ?? displayPanels.first?.value else { return }
         guard let screen = panel.screen ?? NSScreen.main else { return }
-        guard let normalized = Self.normalizedPosition(panelFrame: panel.frame, screenFrame: screen.frame) else { return }
-        let x = Double(normalized.x)
-        let y = Double(normalized.y)
+        guard let position = Self.customPosition(
+            panelFrame: panel.frame,
+            screenFrame: screen.frame,
+            screen: screen
+        ) else { return }
         // Atomic read-modify-write so a concurrent AppFontUpdater save cannot
-        // be clobbered by this load+save pair. Only persist the screen pairing
-        // when the fraction actually landed, otherwise the next restore would
-        // combine a new screen with an old fraction.
-        let saved = AppConfig.updateConfig { config in
-            config.hudPosition = .custom(x: x, y: y)
-            config.customHUDX = x
-            config.customHUDY = y
+        // be clobbered by this load+save pair. Fractions and the display
+        // identity land in the same key, so a restore can never combine a new
+        // screen with an old fraction.
+        let saved = ConfigStore.updateConfig { config in
+            config.hudPosition = position
         }
         guard saved else {
-            NSLog("spacemap/HUDDisplay: failed to persist custom position x=%.2f y=%.2f", x, y)
+            NSLog("spacemap/HUDDisplay: failed to persist custom position %@", String(describing: position))
             return
         }
-        UserDefaults.standard.set(
-            Self.displayIdentifier(for: screen),
-            forKey: Self.customScreenDefaultsKey
-        )
-        NSLog("spacemap/HUDDisplay: saved custom position x=%.2f y=%.2f", x, y)
+        NSLog("spacemap/HUDDisplay: saved custom position %@", String(describing: position))
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
         NotificationCenter.default.post(name: Self.hudPositionChangedNotification, object: nil)
     }
@@ -495,9 +494,8 @@ final class HUDDisplay {
         }
         // NSAnimationContext needs a running app; unit tests create windows but
         // do not spin an app event loop, so animate only in the real app.
-        guard currentConfig.hudAnimationsEnabled, NSApp != nil, NSApp.isRunning else {
-            panel.alphaValue = 1
-            panel.orderFrontRegardless()
+        guard PanelPresenter.canAnimate(currentConfig.hudAnimationsEnabled) else {
+            presenter.present(panel, duration: 0, animated: false)
             return
         }
         let target = panel.frame
@@ -579,7 +577,7 @@ final class HUDDisplay {
             style: currentConfig.glassStyle,
             tintedMaterial: currentConfig.glassTintedMaterial,
             opacity: CGFloat(currentConfig.effectiveBackgroundOpacity(for: .glass)),
-            tint: GlyphStrip.color(for: "focused", theme: themeService.named(currentConfig.theme))
+            tint: GlyphStrip.color(for: "focused", theme: themeStore.named(currentConfig.theme))
                 ?? .controlAccentColor,
             cornerRadius: CGFloat(currentConfig.hudCornerRadius),
             variant: currentConfig.glassStyle == .clear
@@ -599,7 +597,7 @@ final class HUDDisplay {
             self?.yabaiService.focusSpaceAsync(index)
             self?.delegate?.hide()
         }, uiScale: currentConfig.uiScale, theme: currentConfig.theme,
-           resolvedTheme: themeService.named(currentConfig.theme), spaceIndices: spaceIndices,
+           resolvedTheme: themeStore.named(currentConfig.theme), spaceIndices: spaceIndices,
            usesNativeGlass: Self.nativeGlassAvailable && currentConfig.backgroundStyle == .glass,
            hudAnimation: currentConfig.hudAnimationsEnabled ? currentConfig.hudAnimationStyle : nil,
            onSpaceDrop: onSpaceDrop,
@@ -610,7 +608,7 @@ final class HUDDisplay {
     }
 
     private func cellFrames(for cells: [Int], in panel: NSPanel) -> [(spaceIndex: Int, frame: CGRect)] {
-        HUDGeometry.cellFrames(
+        ScreenContext.cellFrames(
             for: cells,
             panelFrame: panel.frame,
             config: currentConfig,
@@ -619,57 +617,32 @@ final class HUDDisplay {
     }
 
     private var availableScreenFrames: [CGRect] {
-        screenFramesOverride ?? NSScreen.screens.map(\.frame)
+        ScreenContext.availableScreenFrames(override: screenFramesOverride)
     }
 
     private func screenFrame(forDisplay displayIndex: Int, in state: GridState) -> CGRect? {
-        let frames = availableScreenFrames
-        guard !frames.isEmpty else { return nil }
-        guard let yabaiDisplay = state.displays.first(where: { $0.index == displayIndex }) else {
-            // No yabai topology yet: positional fallback, but never clamp a
-            // nonexistent display onto the main screen (that stacked panels).
-            let fallbackIndex = displayIndex - 1
-            return frames.indices.contains(fallbackIndex) ? frames[fallbackIndex] : nil
-        }
-
-        let yabaiFrame = yabaiDisplay.frame.cgFrame
-        let appKitFrame = CGRect(
-            x: yabaiFrame.minX,
-            y: quartzMainScreenFrame.maxY - yabaiFrame.maxY,
-            width: yabaiFrame.width,
-            height: yabaiFrame.height
+        ScreenContext.screenFrame(
+            forDisplay: displayIndex,
+            in: state,
+            frames: availableScreenFrames,
+            quartzMaxY: quartzMainScreenFrame.maxY
         )
-        guard let index = Self.bestScreenIndex(
-            for: appKitFrame,
-            screenFrames: frames
-        ) else { return nil }
-        return frames[index]
     }
 
     /// Resolve display indices to physical screen frames, dropping duplicate
     /// frames (mirrored/stale yabai topology) so two logical displays can
-    /// never stack two HUD panels on one screen. If nothing matches, keep the
-    /// HUD usable with a single main-screen panel rather than painting nothing.
+    /// never stack two HUD panels on one screen.
     private func screenAssignments(
         for displayIndices: [Int],
         in state: GridState
     ) -> [(displayIndex: Int, frame: CGRect)] {
-        // Array + equality instead of Set: CGRect's Hashable conformance is
-        // macOS 15+, and this deployment target is macOS 13.
-        var seenFrames: [CGRect] = []
-        var assignments: [(displayIndex: Int, frame: CGRect)] = []
-        for displayIndex in displayIndices {
-            guard let frame = screenFrame(forDisplay: displayIndex, in: state) else { continue }
-            guard !seenFrames.contains(frame) else { continue }
-            seenFrames.append(frame)
-            assignments.append((displayIndex, frame))
-        }
-        if assignments.isEmpty,
-           let mainFrame = screenFramesOverride?.first ?? NSScreen.main?.frame,
-           let first = displayIndices.first {
-            assignments.append((first, mainFrame))
-        }
-        return assignments
+        ScreenContext.screenAssignments(
+            for: displayIndices,
+            in: state,
+            frames: availableScreenFrames,
+            quartzMaxY: quartzMainScreenFrame.maxY,
+            mainFrame: screenFramesOverride?.first ?? NSScreen.main?.frame
+        )
     }
 
     static func deduplicatedAssignments(
@@ -681,35 +654,6 @@ final class HUDDisplay {
             seenFrames.append(assignment.screenFrame)
             return true
         }
-    }
-
-    /// Tolerance for a yabai display frame vs. an AppKit screen frame. Sum of
-    /// origin/size deltas; bigger than this is a stale or scaled-away display.
-    static let screenMatchTolerance: CGFloat = 200
-
-    static func bestScreenIndex(
-        for targetFrame: CGRect,
-        screenFrames: [CGRect],
-        tolerance: CGFloat = HUDDisplay.screenMatchTolerance
-    ) -> Int? {
-        guard !screenFrames.isEmpty else { return nil }
-        var bestIndex = 0
-        var bestScore = CGFloat.greatestFiniteMagnitude
-        for (index, frame) in screenFrames.enumerated() {
-            let score = screenMatchScore(frame, targetFrame: targetFrame)
-            if score < bestScore {
-                bestScore = score
-                bestIndex = index
-            }
-        }
-        return bestScore <= tolerance ? bestIndex : nil
-    }
-
-    static func screenMatchScore(_ screenFrame: CGRect, targetFrame: CGRect) -> CGFloat {
-        abs(screenFrame.minX - targetFrame.minX) +
-            abs(screenFrame.minY - targetFrame.minY) +
-            abs(screenFrame.width - targetFrame.width) +
-            abs(screenFrame.height - targetFrame.height)
     }
 
     private func closeDisplayPanels() {
@@ -729,25 +673,18 @@ final class HUDDisplay {
     }
 
     private func makePanel() -> NSPanel {
-        let p = NSPanel(
-            contentRect: .zero,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        p.isOpaque = false
-        p.backgroundColor = .clear
-        p.level = .floating
-        p.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
-        p.hasShadow = currentConfig.hudShadow
-        return p
+        presenter.makePanel(PanelPresenter.Surface(
+            level: .floating,
+            hasShadow: currentConfig.hudShadow,
+            collectionBehavior: [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        ))
     }
 
     private var quartzMainScreenFrame: CGRect {
-        HUDGeometry.mainScreenFrame()
+        ScreenContext.mainScreenFrame()
     }
 
     func quartzPoint(fromAppKit point: CGPoint) -> CGPoint {
-        HUDGeometry.quartzPoint(fromAppKit: point, quartzMaxY: quartzMainScreenFrame.maxY)
+        ScreenContext.quartzPoint(fromAppKit: point, quartzMaxY: quartzMainScreenFrame.maxY)
     }
 }

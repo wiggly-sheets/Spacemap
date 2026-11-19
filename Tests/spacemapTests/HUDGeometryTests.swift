@@ -2,11 +2,11 @@ import XCTest
 import CoreGraphics
 @testable import spacemap
 
-final class HUDGeometryTests: XCTestCase {
+final class ScreenContextGeometryTests: XCTestCase {
 
     /// uiScale 0.5 → scale 2.25: cell 180×112.5, gap 13.5, pad 27.
-    private func config(cols: Int = 2) -> GridConfig {
-        var config = GridConfig.default
+    private func config(cols: Int = 2) -> SpacemapConfig {
+        var config = SpacemapConfig.default
         config.cols = cols
         config.uiScale = 0.5
         return config
@@ -17,7 +17,7 @@ final class HUDGeometryTests: XCTestCase {
         let panelFrame = CGRect(x: 100, y: 200, width: 500, height: 300)
         let quartzMaxY: CGFloat = 1440
 
-        let frames = HUDGeometry.cellFrames(
+        let frames = ScreenContext.cellFrames(
             for: [1, 2, 3],
             panelFrame: panelFrame,
             config: config(),
@@ -40,7 +40,7 @@ final class HUDGeometryTests: XCTestCase {
         let quartzMaxY: CGFloat = 1080
         let config = config()
 
-        let frames = HUDGeometry.cellFrames(
+        let frames = ScreenContext.cellFrames(
             for: [7],
             panelFrame: panelFrame,
             config: config,
@@ -62,7 +62,7 @@ final class HUDGeometryTests: XCTestCase {
     }
 
     func testCellFramesEmptyInputReturnsEmpty() {
-        XCTAssertTrue(HUDGeometry.cellFrames(
+        XCTAssertTrue(ScreenContext.cellFrames(
             for: [],
             panelFrame: CGRect(x: 0, y: 0, width: 100, height: 100),
             config: config(),
@@ -71,7 +71,7 @@ final class HUDGeometryTests: XCTestCase {
     }
 
     func testCellFramesClampColumnsToCellCount() {
-        let frames = HUDGeometry.cellFrames(
+        let frames = ScreenContext.cellFrames(
             for: [1, 2],
             panelFrame: CGRect(x: 0, y: 0, width: 500, height: 300),
             config: config(cols: 8),
@@ -84,8 +84,62 @@ final class HUDGeometryTests: XCTestCase {
 
     func testQuartzPointFlipsAppKitY() {
         XCTAssertEqual(
-            HUDGeometry.quartzPoint(fromAppKit: CGPoint(x: 10, y: 100), quartzMaxY: 1440),
+            ScreenContext.quartzPoint(fromAppKit: CGPoint(x: 10, y: 100), quartzMaxY: 1440),
             CGPoint(x: 10, y: 1340)
         )
+    }
+
+    func testQuartzFlipIsItsOwnInverse() {
+        let quartzMaxY: CGFloat = 1080
+        let quartz = CGRect(x: 100, y: 200, width: 800, height: 600)
+
+        let appKit = ScreenContext.appKitFrame(forQuartzFrame: quartz, quartzMaxY: quartzMaxY)
+        XCTAssertEqual(appKit, CGRect(x: 100, y: 280, width: 800, height: 600))
+        XCTAssertEqual(
+            ScreenContext.appKitFrame(forQuartzFrame: appKit, quartzMaxY: quartzMaxY),
+            quartz
+        )
+
+        let point = CGPoint(x: 10, y: 100)
+        let flipped = ScreenContext.quartzPoint(fromAppKit: point, quartzMaxY: quartzMaxY)
+        XCTAssertEqual(flipped, CGPoint(x: 10, y: 980))
+        XCTAssertEqual(
+            ScreenContext.quartzPoint(fromAppKit: flipped, quartzMaxY: quartzMaxY),
+            point
+        )
+    }
+
+    func testMenuBarRowWithoutScreenUsesTheFallbackHeight() {
+        XCTAssertEqual(ScreenContext.menuBarRow(on: nil), CGRect(x: 0, y: 0, width: 0, height: 24))
+    }
+
+    func testBestScreenIndexAcceptsNearFramesWithinToleranceAndRejectsStaleOnes() {
+        let primary = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let near = CGRect(x: 4, y: -3, width: 1920, height: 1076)
+        let stale = CGRect(x: 0, y: 2400, width: 1920, height: 1080)
+
+        XCTAssertEqual(ScreenContext.bestScreenIndex(for: near, screenFrames: [primary]), 0)
+        XCTAssertNil(
+            ScreenContext.bestScreenIndex(for: stale, screenFrames: [primary]),
+            "a display frame beyond the tolerance is stale, not the main screen"
+        )
+    }
+
+    func testSafeScreenFrameReservesOnlyDockLikeEdgeObstacles() {
+        let full = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let visible = CGRect(x: 0, y: 0, width: 1440, height: 875)
+        let dock = CGRect(x: 200, y: 0, width: 1040, height: 60)
+        // A floating window and a corner window are not edge furniture.
+        let floating = CGRect(x: 500, y: 300, width: 400, height: 300)
+        let corner = CGRect(x: 0, y: 0, width: 200, height: 200)
+
+        let safe = ScreenContext.safeScreenFrame(
+            visibleFrame: visible,
+            screenFrame: full,
+            obstacles: [floating, corner, dock]
+        )
+
+        XCTAssertEqual(safe.minY, 64, accuracy: 0.0001, "the dock plus a 4pt gap")
+        XCTAssertEqual(safe.width, 1440, accuracy: 0.0001, "side and floating windows change nothing")
     }
 }

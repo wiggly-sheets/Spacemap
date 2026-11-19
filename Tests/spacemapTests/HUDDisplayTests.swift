@@ -31,11 +31,11 @@ final class HUDDisplayTests: XCTestCase {
     private var hudDisplay: HUDDisplay!
 
     private func makeHUDDisplay() -> HUDDisplay {
-        HUDDisplay(yabaiService: MockYabaiService())
+        HUDDisplay(yabaiService: MockYabaiService(), themeStore: makeTemporaryThemeStore())
     }
 
     private func cannedState(
-        config: GridConfig = .default,
+        config: SpacemapConfig = .default,
         spaces: [YabaiSpace] = [],
         windows: [YabaiWindow] = [],
         displays: [YabaiDisplay] = []
@@ -67,7 +67,7 @@ final class HUDDisplayTests: XCTestCase {
     func testRenderInEitherMultiMonitorModePublishesCellFrames() {
         for mode in [MultiMonitorHUDMode.unified, .separate] {
             delegate.reset()
-            var config = GridConfig.default
+            var config = SpacemapConfig.default
             config.multiMonitorHUDMode = mode
 
             hudDisplay.render(state: cannedState(config: config))
@@ -85,7 +85,7 @@ final class HUDDisplayTests: XCTestCase {
             (.icons, true, .sbarFont, false)
         ]
         for (style, showIconStrip, iconSource, expected) in cases {
-            var config = GridConfig.default
+            var config = SpacemapConfig.default
             config.cellStyle = style
             config.showIconStrip = showIconStrip
             config.hudIconSource = iconSource
@@ -102,7 +102,7 @@ final class HUDDisplayTests: XCTestCase {
         guard #available(macOS 14.0, *) else {
             throw XCTSkip("thumbnail refresh requires macOS 14")
         }
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.cellStyle = .thumbnails
         hudDisplay.updateConfig(config)
 
@@ -127,7 +127,7 @@ final class HUDDisplayTests: XCTestCase {
     }
 
     func testUpdateStateRemovesStaleDisplayPanels() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.multiMonitorHUDMode = .unified
         config.unifiedHUDVisibility = .all
         hudDisplay.screenFramesOverride = [
@@ -150,7 +150,7 @@ final class HUDDisplayTests: XCTestCase {
     }
 
     func testUpdateStateDedupesMirroredScreenFrames() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.multiMonitorHUDMode = .unified
         config.unifiedHUDVisibility = .all
         let mirrored = CGRect(x: 0, y: 0, width: 1440, height: 900)
@@ -167,7 +167,7 @@ final class HUDDisplayTests: XCTestCase {
     }
 
     func testUpdateStateCreatesPanelsInSeparateMode() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.multiMonitorHUDMode = .separate
         config.separateHUDVisibility = .all
         hudDisplay.screenFramesOverride = [CGRect(x: 0, y: 0, width: 1440, height: 900)]
@@ -203,7 +203,7 @@ final class HUDDisplayTests: XCTestCase {
     }
 
     func testUpdateHoveredCellDoesNoRenderOrPreloadWork() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.cellStyle = .thumbnails
         hudDisplay.updateConfig(config)
         hudDisplay.screenFramesOverride = [CGRect(x: 0, y: 0, width: 1440, height: 900)]
@@ -227,7 +227,7 @@ final class HUDDisplayTests: XCTestCase {
     }
 
     func testPrewarmOnlyWarmsIconsNeverCapturesThumbnails() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.cellStyle = .thumbnails
         hudDisplay.updateConfig(config)
 
@@ -248,7 +248,7 @@ final class HUDDisplayTests: XCTestCase {
             panelFrame: panelFrame,
             screenFrame: screenFrame
         ))
-        let origin = HUDPosition.custom(x: Double(normalized.x), y: Double(normalized.y))
+        let origin = HUDPosition.custom(x: Double(normalized.x), y: Double(normalized.y), screen: nil)
             .point(for: panelSize, screen: screenFrame)
 
         XCTAssertEqual(origin.x, panelFrame.minX, accuracy: 0.0001)
@@ -268,8 +268,8 @@ final class HUDDisplayTests: XCTestCase {
             CGRect(x: 1920, y: 0, width: 2560, height: 1440)
         ]
 
-        XCTAssertEqual(HUDDisplay.bestScreenIndex(for: screens[1], screenFrames: screens), 1)
-        XCTAssertNil(HUDDisplay.bestScreenIndex(
+        XCTAssertEqual(ScreenContext.bestScreenIndex(for: screens[1], screenFrames: screens), 1)
+        XCTAssertNil(ScreenContext.bestScreenIndex(
             for: CGRect(x: 5000, y: 5000, width: 1920, height: 1080),
             screenFrames: screens
         ), "a display frame matching no screen must be rejected")
@@ -292,13 +292,91 @@ final class HUDDisplayTests: XCTestCase {
         guard let main = NSScreen.main else {
             throw XCTSkip("no display available in this environment")
         }
-        let identifier = HUDDisplay.displayIdentifier(for: main)
+        let identifier = ScreenContext.displayIdentifier(for: main)
 
         XCTAssertFalse(identifier.isEmpty)
         XCTAssertTrue(
-            HUDDisplay.screen(matchingIdentifier: identifier, screens: [main]) === main
+            ScreenContext.screen(matchingIdentifier: identifier, screens: [main]) === main
         )
-        XCTAssertNil(HUDDisplay.screen(matchingIdentifier: "missing-display", screens: [main]))
+        XCTAssertNil(ScreenContext.screen(matchingIdentifier: "missing-display", screens: [main]))
+        XCTAssertNil(ScreenContext.screen(matchingIdentifier: "", screens: [main]),
+                     "an unpaired custom position must not match a screen")
+    }
+
+    /// A finished drag stores the fraction pair with the display it landed on,
+    /// so a restore replays the exact origin instead of combining a new screen
+    /// with an old fraction.
+    func testCustomPositionCarriesFractionsAndScreenIdentity() throws {
+        guard let main = NSScreen.main else {
+            throw XCTSkip("no display available in this environment")
+        }
+        let screenFrame = CGRect(x: 100, y: 50, width: 1600, height: 1000)
+        let panelSize = CGSize(width: 420, height: 260)
+        let panelFrame = CGRect(x: 500, y: 300, width: panelSize.width, height: panelSize.height)
+
+        let position = try XCTUnwrap(HUDDisplay.customPosition(
+            panelFrame: panelFrame,
+            screenFrame: screenFrame,
+            screen: main
+        ))
+
+        XCTAssertEqual(position.screenIdentifier, ScreenContext.displayIdentifier(for: main))
+        let origin = position.point(for: panelSize, screen: screenFrame)
+        XCTAssertEqual(origin.x, panelFrame.minX, accuracy: 0.0001)
+        XCTAssertEqual(origin.y, panelFrame.minY, accuracy: 0.0001)
+    }
+
+    /// Dragging the HUD past a screen edge yields a fraction outside 0...1.
+    /// The decoder rejects such a value and resets the position to Center, so
+    /// the saved fraction must clamp and survive the reload unchanged.
+    func testCustomPositionClampsPanelDraggedPastScreenEdge() throws {
+        guard let main = NSScreen.main else {
+            throw XCTSkip("no display available in this environment")
+        }
+        let screenFrame = CGRect(x: 0, y: 0, width: 1600, height: 1000)
+        let panelFrame = CGRect(x: -120, y: 940, width: 420, height: 260)
+
+        let position = try XCTUnwrap(HUDDisplay.customPosition(
+            panelFrame: panelFrame,
+            screenFrame: screenFrame,
+            screen: main
+        ))
+        guard case .custom(let x, let y, _) = position else {
+            return XCTFail("expected a custom position")
+        }
+        XCTAssertEqual(x, 0, "a panel dragged off the left edge clamps to 0")
+        XCTAssertEqual(y, 1, "a panel dragged off the top edge clamps to 1")
+
+        var config = SpacemapConfig.default
+        config.hudPosition = position
+        let (reread, needsRepair) = try TOMLParser.parse(
+            ConfigLoader.tomlConfigString(from: config, includeHeaderComments: false)
+        )
+        XCTAssertFalse(needsRepair)
+        XCTAssertEqual(reread.hudPosition, position, "clamped fractions must re-decode unchanged")
+    }
+
+    /// A strip straddling two displays belongs to the one holding most of it,
+    /// so a drag saves the display it visibly sits on instead of the first one
+    /// it touches.
+    func testLargestIntersectionPicksMajorityScreen() {
+        let left = CGRect(x: 0, y: 0, width: 1600, height: 1000)
+        let right = CGRect(x: 1600, y: 0, width: 1200, height: 1000)
+
+        // 200 points over the left display, 300 over the right one.
+        let straddling = CGRect(x: 1400, y: 400, width: 500, height: 60)
+        XCTAssertEqual(
+            ScreenContext.largestIntersection(screenFrames: [left, right], frame: straddling),
+            1
+        )
+        XCTAssertNil(ScreenContext.largestIntersection(screenFrames: [], frame: straddling))
+        XCTAssertNil(
+            ScreenContext.largestIntersection(
+                screenFrames: [left],
+                frame: CGRect(x: 4000, y: 4000, width: 100, height: 60)
+            ),
+            "a frame on no screen has no majority"
+        )
     }
 
     func testRenderLeavesPanelOriginAloneWhilePanelDragIsActive() throws {
