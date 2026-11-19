@@ -35,7 +35,7 @@ class HotkeyHandler {
         stopHotkeys()
     }
 
-    func restartHotkeys(config: GridConfig) {
+    func restartHotkeys(config: SpacemapConfig) {
         stopHotkeys()
         startHotkey(config: config)
         startPinnedHotkey(config: config)
@@ -56,14 +56,14 @@ class HotkeyHandler {
             ?? HotkeyMonitor(config: config, onTrigger: onTrigger)
     }
 
-    private func startHotkey(config: GridConfig) {
+    private func startHotkey(config: SpacemapConfig) {
         guard !config.hotkey.isDisabled else { return }
         let monitor = makeMonitor(config: config.hotkey, onTrigger: onToggle)
         monitor.start()
         hotkey = monitor
     }
 
-    private func startPinnedHotkey(config: GridConfig) {
+    private func startPinnedHotkey(config: SpacemapConfig) {
         guard !config.pinnedHotkey.isDisabled else { return }
         guard Hotkey.bindingIdentity(config.pinnedHotkey) != Hotkey.bindingIdentity(config.hotkey) else {
             NSLog("Spacemap: pinned HUD hotkey matches the normal hotkey; pinned binding ignored")
@@ -74,7 +74,7 @@ class HotkeyHandler {
         pinnedHotkey = monitor
     }
 
-    private func startGlyphStripHotkey(config: GridConfig) {
+    private func startGlyphStripHotkey(config: SpacemapConfig) {
         guard !config.glyphStripHotkey.isDisabled else { return }
         let binding = Hotkey.bindingIdentity(config.glyphStripHotkey)
         guard binding != Hotkey.bindingIdentity(config.hotkey),

@@ -14,7 +14,7 @@ final class ConfigPresetStoreTests: XCTestCase {
             directory: root.appendingPathComponent("presets").path,
             configPath: root.appendingPathComponent("config.toml").path
         )
-        ConfigLoader.save(GridConfig.default, to: store.configPath)
+        ConfigLoader.save(SpacemapConfig.default, to: store.configPath)
     }
 
     override func tearDownWithError() throws {
@@ -27,7 +27,7 @@ final class ConfigPresetStoreTests: XCTestCase {
         XCTAssertTrue(store.apply("work"))
 
         // Edit while "work" is active; the preset file may lag until a switch.
-        var edited = ConfigLoader.load(from: store.configPath, silentMode: true).values.gridConfig
+        var edited = ConfigLoader.load(from: store.configPath, silentMode: true).config
         edited.cols = 5
         ConfigLoader.save(edited, to: store.configPath)
 
@@ -37,13 +37,13 @@ final class ConfigPresetStoreTests: XCTestCase {
         let work = ConfigLoader.load(
             from: root.appendingPathComponent("presets/work.toml").path,
             silentMode: true
-        ).values.gridConfig
+        ).config
         XCTAssertEqual(work.cols, 5, "outgoing preset must capture edits made while it was active")
-        XCTAssertEqual(ConfigLoader.load(from: store.configPath, silentMode: true).values.gridConfig.cols, 8)
+        XCTAssertEqual(ConfigLoader.load(from: store.configPath, silentMode: true).config.cols, 8)
     }
 
     func testPresetBuiltFromAnotherPresetCopiesItsSettings() throws {
-        var base = GridConfig.default
+        var base = SpacemapConfig.default
         base.cols = 6
         ConfigLoader.save(base, to: store.configPath)
 
@@ -54,9 +54,52 @@ final class ConfigPresetStoreTests: XCTestCase {
         let copy = ConfigLoader.load(
             from: root.appendingPathComponent("presets/copy.toml").path,
             silentMode: true
-        ).values.gridConfig
+        ).config
         XCTAssertEqual(copy.cols, 6)
         XCTAssertFalse(store.create("copy", from: .defaults), "existing presets are never overwritten")
+    }
+
+    /// A hand-written preset is partial; applying it must write a complete,
+    /// resolved config.toml rather than pass the partial text through.
+    func testApplyingAPartialPresetResolvesTheWholeConfig() throws {
+        let presets = root.appendingPathComponent("presets")
+        try FileManager.default.createDirectory(at: presets, withIntermediateDirectories: true)
+        try """
+        [grid]
+        cols = 4
+        rows = 3
+        """.write(toFile: presets.appendingPathComponent("partial.toml").path,
+                  atomically: true, encoding: .utf8)
+
+        XCTAssertTrue(store.apply("partial"))
+
+        let applied = ConfigLoader.load(from: store.configPath, silentMode: true).config
+        XCTAssertEqual(applied.cols, 4)
+        XCTAssertEqual(applied.rows, 3)
+        XCTAssertEqual(applied.cellStyle, SpacemapConfig.default.cellStyle,
+                       "keys the preset omits come from the defaults")
+
+        let text = try String(contentsOfFile: store.configPath, encoding: .utf8)
+        XCTAssertTrue(text.contains("[glyphStrip]"), "the written config is complete, not partial")
+        XCTAssertTrue(text.contains("[appearance]"))
+    }
+
+    /// The preset text is repaired before it lands: an out-of-range value never
+    /// reaches config.toml raw.
+    func testApplyingAPresetWritesRepairedValues() throws {
+        let presets = root.appendingPathComponent("presets")
+        try FileManager.default.createDirectory(at: presets, withIntermediateDirectories: true)
+        try """
+        [appearance]
+        spacesCornerRadius = 999.0
+        """.write(toFile: presets.appendingPathComponent("broken.toml").path,
+                  atomically: true, encoding: .utf8)
+
+        XCTAssertTrue(store.apply("broken"))
+
+        let text = try String(contentsOfFile: store.configPath, encoding: .utf8)
+        XCTAssertTrue(text.contains("spacesCornerRadius = 60.0"))
+        XCTAssertFalse(text.contains("999"))
     }
 
     func testUnsafePresetNamesAreRejected() {
@@ -67,7 +110,7 @@ final class ConfigPresetStoreTests: XCTestCase {
     }
 
     func testExportThenImportLeavesOutFontInstallState() throws {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.cols = 7
         config.appFont.installedVersion = "v9.9.9"
         config.appFont.lastCheck = 42
@@ -83,14 +126,14 @@ final class ConfigPresetStoreTests: XCTestCase {
             configPath: root.appendingPathComponent("other-config.toml").path
         )
         XCTAssertTrue(target.importConfig(from: exported))
-        let imported = ConfigLoader.load(from: target.configPath, silentMode: true).values.gridConfig
+        let imported = ConfigLoader.load(from: target.configPath, silentMode: true).config
         XCTAssertEqual(imported.cols, 7)
         XCTAssertEqual(imported.appFont.installedVersion, "")
         XCTAssertEqual(imported.appFont.lastCheck, 0)
     }
 
     func testImportRejectsUnparsableFileWithoutTouchingConfig() throws {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.cols = 4
         ConfigLoader.save(config, to: store.configPath)
 
@@ -98,7 +141,7 @@ final class ConfigPresetStoreTests: XCTestCase {
         try "this is not = = toml [".write(to: broken, atomically: true, encoding: .utf8)
 
         XCTAssertFalse(store.importConfig(from: broken))
-        XCTAssertEqual(ConfigLoader.load(from: store.configPath, silentMode: true).values.gridConfig.cols, 4)
+        XCTAssertEqual(ConfigLoader.load(from: store.configPath, silentMode: true).config.cols, 4)
     }
 
     func testDeletingTheActivePresetClearsThePointerButKeepsTheConfig() throws {

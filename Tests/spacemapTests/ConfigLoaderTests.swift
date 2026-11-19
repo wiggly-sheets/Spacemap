@@ -19,8 +19,7 @@ final class ConfigLoaderTests: XCTestCase {
         """
         try toml.write(toFile: path, atomically: true, encoding: .utf8)
 
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
-        let config = values.gridConfig
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
 
         XCTAssertTrue(needsRepair)
         XCTAssertEqual(config.cols, 6)
@@ -36,7 +35,7 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let valid = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
+            from: SpacemapConfig.default,
             includeHeaderComments: true
         )
         let invalid = valid
@@ -45,16 +44,16 @@ final class ConfigLoaderTests: XCTestCase {
             .replacingOccurrences(of: "keyKind = \"keyCode\"", with: "keyKind = \"broken\"")
         try invalid.write(toFile: path, atomically: true, encoding: .utf8)
 
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         let repaired = try String(contentsOfFile: path, encoding: .utf8)
 
         XCTAssertTrue(needsRepair)
-        XCTAssertEqual(values.gridConfig.cols, ConfigValues(from: .default).gridConfig.cols,
+        XCTAssertEqual(config.cols, SpacemapConfig.default.cols,
                        "valid neighbours must survive the repair")
-        XCTAssertEqual(values.gridConfig.rows, GridConfig.default.rows)
-        XCTAssertEqual(values.gridConfig.cellStyle, GridConfig.default.cellStyle)
-        XCTAssertEqual(values.gridConfig.hotkey.key, GridConfig.default.hotkey.key)
-        XCTAssertTrue(repaired.contains("rows = \(GridConfig.default.rows)"))
+        XCTAssertEqual(config.rows, SpacemapConfig.default.rows)
+        XCTAssertEqual(config.cellStyle, SpacemapConfig.default.cellStyle)
+        XCTAssertEqual(config.hotkey.key, SpacemapConfig.default.hotkey.key)
+        XCTAssertTrue(repaired.contains("rows = \(SpacemapConfig.default.rows)"))
         XCTAssertTrue(repaired.contains("cellStyle = \"rects\""))
         XCTAssertTrue(repaired.contains("keyKind = \"keyCode\""))
         XCTAssertFalse(repaired.contains("broken"))
@@ -69,7 +68,7 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let valid = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
+            from: SpacemapConfig.default,
             includeHeaderComments: true
         )
         let invalid = valid.replacingOccurrences(
@@ -78,11 +77,11 @@ final class ConfigLoaderTests: XCTestCase {
         )
         try invalid.write(toFile: path, atomically: true, encoding: .utf8)
 
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         let repaired = try String(contentsOfFile: path, encoding: .utf8)
 
         XCTAssertTrue(needsRepair)
-        XCTAssertEqual(values.gridConfig.spaceNames, [:])
+        XCTAssertEqual(config.spaceNames, [:])
         XCTAssertFalse(repaired.contains("not-a-space"))
         XCTAssertFalse(repaired.contains("\"1\" = 42"))
     }
@@ -95,7 +94,7 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let valid = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
+            from: SpacemapConfig.default,
             includeHeaderComments: true
         )
         let mixed = valid.replacingOccurrences(
@@ -104,11 +103,11 @@ final class ConfigLoaderTests: XCTestCase {
         )
         try mixed.write(toFile: path, atomically: true, encoding: .utf8)
 
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         let repaired = try String(contentsOfFile: path, encoding: .utf8)
 
         XCTAssertTrue(needsRepair)
-        XCTAssertEqual(values.gridConfig.spaceNames, [1: "Work"])
+        XCTAssertEqual(config.spaceNames, [1: "Work"])
         XCTAssertTrue(repaired.contains("\"1\" = \"Work\""))
         XCTAssertFalse(repaired.contains("\"bad\""))
     }
@@ -127,7 +126,7 @@ final class ConfigLoaderTests: XCTestCase {
 
         XCTAssertEqual(result.status, .parseFailed)
         XCTAssertTrue(result.needsRepair)
-        XCTAssertEqual(result.values.gridConfig.cols, GridConfig.default.cols)
+        XCTAssertEqual(result.config.cols, SpacemapConfig.default.cols)
         XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), invalid)
         XCTAssertFalse(FileManager.default.fileExists(atPath: path + ".bak"))
     }
@@ -158,10 +157,10 @@ final class ConfigLoaderTests: XCTestCase {
         let original = "cols = 5"
         try original.write(toFile: path, atomically: true, encoding: .utf8)
 
-        var values = ConfigValues()
-        values.cols = 10
+        var config = SpacemapConfig.default
+        config.cols = 10
 
-        ConfigLoader.save(values, to: path)
+        ConfigLoader.save(config, to: path)
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: path + ".bak"))
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), original)
@@ -177,31 +176,28 @@ final class ConfigLoaderTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        var values = ConfigValues()
-        values.cols = 7
-        values.rows = 4
-        values.cellStyle = .hybrid
-        values.theme = "default"
-        values.showMode = .active
-        values.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: .maskCommand)
-        values.pinnedHotkey = HotkeyConfig(key: .mediaKey(.playPause), modifiers: .maskControl)
-        values.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
-        values.hudShadow = false
-        values.jumpToSpaceEnabled = true
-        values.multiMonitorHUDMode = .separate
-        values.unifiedHUDVisibility = .all
-        values.separateHUDVisibility = .active
-        values.displayNavigationWrap = .between
-        values.menuBarDisplayMode = .all
-        values.menuBarNearbyCount = 7
-        values.hudPosition = .custom(x: 0.23, y: 0.81)
-        values.customHUDX = 0.23
-        values.customHUDY = 0.81
+        var written = SpacemapConfig.default
+        written.cols = 7
+        written.rows = 4
+        written.cellStyle = .hybrid
+        written.theme = "default"
+        written.showMode = .active
+        written.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: .maskCommand)
+        written.pinnedHotkey = HotkeyConfig(key: .mediaKey(.playPause), modifiers: .maskControl)
+        written.glyphStripHotkey = HotkeyConfig(key: .keyCode(100), modifiers: .maskShift)
+        written.hudShadow = false
+        written.jumpToSpaceEnabled = true
+        written.multiMonitorHUDMode = .separate
+        written.unifiedHUDVisibility = .all
+        written.separateHUDVisibility = .active
+        written.displayNavigationWrap = .between
+        written.menuBarDisplayMode = .all
+        written.menuBarNearbyCount = 7
+        written.hudPosition = .custom(x: 0.23, y: 0.81, screen: "display-A")
 
-        ConfigLoader.save(values, to: path)
+        ConfigLoader.save(written, to: path)
 
-        let (loadedValues, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
-        let (config, _) = loadedValues.toGridConfig()
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
 
         XCTAssertFalse(needsRepair)
         XCTAssertEqual(config.cols, 7)
@@ -213,7 +209,7 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertTrue(config.hotkey.modifiers.contains(.maskCommand))
         XCTAssertEqual(config.pinnedHotkey.mediaKey, .playPause)
         XCTAssertTrue(config.pinnedHotkey.modifiers.contains(.maskControl))
-        XCTAssertEqual(config.glyphStripHotkey, values.glyphStripHotkey)
+        XCTAssertEqual(config.glyphStripHotkey, written.glyphStripHotkey)
         XCTAssertFalse(config.hudShadow)
         XCTAssertTrue(config.jumpToSpaceEnabled)
         XCTAssertEqual(config.multiMonitorHUDMode, .separate)
@@ -222,9 +218,7 @@ final class ConfigLoaderTests: XCTestCase {
         XCTAssertEqual(config.displayNavigationWrap, .between)
         XCTAssertEqual(config.menuBarDisplayMode, .all)
         XCTAssertEqual(config.menuBarNearbyCount, 7)
-        XCTAssertEqual(config.hudPosition, .custom(x: 0.23, y: 0.81))
-        XCTAssertEqual(config.customHUDX, 0.23, accuracy: 0.001)
-        XCTAssertEqual(config.customHUDY, 0.81, accuracy: 0.001)
+        XCTAssertEqual(config.hudPosition, .custom(x: 0.23, y: 0.81, screen: "display-A"))
     }
 
     func testBackgroundStyleRepairsInvalidToDefault() throws {
@@ -235,7 +229,7 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let valid = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
+            from: SpacemapConfig.default,
             includeHeaderComments: true
         )
         let invalid = valid
@@ -243,12 +237,12 @@ final class ConfigLoaderTests: XCTestCase {
             .replacingOccurrences(of: "glassStyle = \"regular\"", with: "glassStyle = \"broken\"")
         try invalid.write(toFile: path, atomically: true, encoding: .utf8)
 
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         let repaired = try String(contentsOfFile: path, encoding: .utf8)
 
         XCTAssertTrue(needsRepair)
-        XCTAssertEqual(values.gridConfig.backgroundStyle, GridConfig.default.backgroundStyle)
-        XCTAssertEqual(values.gridConfig.glassStyle, GridConfig.default.glassStyle)
+        XCTAssertEqual(config.backgroundStyle, SpacemapConfig.default.backgroundStyle)
+        XCTAssertEqual(config.glassStyle, SpacemapConfig.default.glassStyle)
         XCTAssertTrue(repaired.contains("backgroundStyle = \"glass\""))
         XCTAssertTrue(repaired.contains("glassStyle = \"regular\""))
         XCTAssertFalse(repaired.contains("broken"))
@@ -256,7 +250,7 @@ final class ConfigLoaderTests: XCTestCase {
 
     func testGeneratedConfigHasBackgroundStylesInAppearanceSection() {
         let toml = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
+            from: SpacemapConfig.default,
             includeHeaderComments: true
         )
         let appearance = toml.components(separatedBy: "[appearance]").last ?? ""
@@ -291,7 +285,7 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let valid = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
+            from: SpacemapConfig.default,
             includeHeaderComments: true
         )
         let invalid = valid
@@ -304,10 +298,10 @@ final class ConfigLoaderTests: XCTestCase {
 
         XCTAssertTrue(firstRepair)
         XCTAssertFalse(secondRepair, "the repaired file must not re-trigger repair")
-        XCTAssertEqual(first.gridConfig.cols, 32)
-        XCTAssertEqual(first.gridConfig.glyphStrip.maxIconsPerSpace, 16)
-        XCTAssertEqual(second.gridConfig.cols, 32)
-        XCTAssertEqual(second.gridConfig.glyphStrip.maxIconsPerSpace, 16)
+        XCTAssertEqual(first.cols, 32)
+        XCTAssertEqual(first.glyphStrip.maxIconsPerSpace, 16)
+        XCTAssertEqual(second.cols, 32)
+        XCTAssertEqual(second.glyphStrip.maxIconsPerSpace, 16)
         XCTAssertTrue(try String(contentsOfFile: path, encoding: .utf8).contains("cols = 32"))
         // A second save would have rotated the first backup; its absence
         // proves the converged load did not rewrite anything.
@@ -321,19 +315,19 @@ final class ConfigLoaderTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        var values = ConfigValues()
-        values.cols = 12
-        values.rows = 4
-        ConfigLoader.save(values, to: path)
+        var written = SpacemapConfig.default
+        written.cols = 12
+        written.rows = 4
+        ConfigLoader.save(written, to: path)
 
         XCTAssertTrue(ConfigLoader.update(at: path, silentMode: true) { config in
             config.rows = 7
         })
 
-        let (reloaded, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         XCTAssertFalse(needsRepair)
-        XCTAssertEqual(reloaded.gridConfig.cols, 12)
-        XCTAssertEqual(reloaded.gridConfig.rows, 7)
+        XCTAssertEqual(config.cols, 12)
+        XCTAssertEqual(config.rows, 7)
     }
 
     func testLoadAcceptsBenignTOMLVariantsWithoutRepair() throws {
@@ -344,7 +338,7 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let valid = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
+            from: SpacemapConfig.default,
             includeHeaderComments: true
         )
         let variant = valid
@@ -357,12 +351,12 @@ final class ConfigLoaderTests: XCTestCase {
             )
         try variant.write(toFile: path, atomically: true, encoding: .utf8)
 
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
 
         XCTAssertFalse(needsRepair)
-        XCTAssertEqual(values.gridConfig.cols, 8)
-        XCTAssertEqual(values.gridConfig.rows, 10)
-        XCTAssertEqual(values.gridConfig.glyphStrip.maxIconsPerSpace, 8)
+        XCTAssertEqual(config.cols, 8)
+        XCTAssertEqual(config.rows, 10)
+        XCTAssertEqual(config.glyphStrip.maxIconsPerSpace, 8)
     }
 
     func testUpdateWritesOnceWhenRepairIsNeeded() throws {
@@ -373,7 +367,7 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         let valid = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
+            from: SpacemapConfig.default,
             includeHeaderComments: true
         )
         let invalid = valid.replacingOccurrences(of: "cols = 8", with: "cols = 100")
@@ -385,10 +379,10 @@ final class ConfigLoaderTests: XCTestCase {
 
         // A repair write before the mutation would have rotated the backup.
         XCTAssertFalse(FileManager.default.fileExists(atPath: path + ".bak.1"))
-        let (reloaded, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         XCTAssertFalse(needsRepair)
-        XCTAssertEqual(reloaded.gridConfig.cols, 32)
-        XCTAssertEqual(reloaded.gridConfig.rows, 7)
+        XCTAssertEqual(config.cols, 32)
+        XCTAssertEqual(config.rows, 7)
     }
 
     func testSaveRotatesOversizedFileToBackup() throws {
@@ -401,14 +395,14 @@ final class ConfigLoaderTests: XCTestCase {
         let bomb = String(repeating: "#", count: ConfigLoader.maxConfigBytes + 1)
         try bomb.write(toFile: path, atomically: true, encoding: .utf8)
 
-        var values = ConfigValues()
-        values.cols = 9
-        XCTAssertTrue(ConfigLoader.saveReportingResult(values, to: path))
+        var written = SpacemapConfig.default
+        written.cols = 9
+        XCTAssertTrue(ConfigLoader.saveReportingResult(written, to: path))
 
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), bomb)
-        let (reloaded, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         XCTAssertFalse(needsRepair)
-        XCTAssertEqual(reloaded.gridConfig.cols, 9)
+        XCTAssertEqual(config.cols, 9)
     }
 
     func testU2028SpaceNameIsSanitizedAndRoundTrips() throws {
@@ -420,7 +414,7 @@ final class ConfigLoaderTests: XCTestCase {
 
         let rawName = "Work\u{2028}Space"
         let valid = ConfigLoader.tomlConfigString(
-            from: ConfigValues(from: .default),
+            from: SpacemapConfig.default,
             includeHeaderComments: true
         )
         let raw = valid.replacingOccurrences(
@@ -434,17 +428,17 @@ final class ConfigLoaderTests: XCTestCase {
         let (second, secondRepair) = ConfigLoader.load(from: path, silentMode: true)
 
         XCTAssertTrue(firstRepair)
-        XCTAssertEqual(first.gridConfig.spaceNames[1], "Work Space")
+        XCTAssertEqual(first.spaceNames[1], "Work Space")
         XCTAssertFalse(rewritten.unicodeScalars.contains { $0.value == 0x2028 })
         XCTAssertFalse(secondRepair)
-        XCTAssertEqual(second.gridConfig.spaceNames[1], "Work Space")
+        XCTAssertEqual(second.spaceNames[1], "Work Space")
 
         // The writer escapes separators so a label containing one survives a
         // direct write/read cycle too.
         let escaped = ConfigLoader.tomlString(rawName)
         XCTAssertFalse(escaped.unicodeScalars.contains { $0.value == 0x2028 })
         let parsed = try TOMLParser.parse("[spaceNames.names]\n\"1\" = \(escaped)")
-        XCTAssertEqual(parsed.spaceNames?[1], rawName)
+        XCTAssertEqual(parsed.config.spaceNames[1], rawName)
     }
 
     func testOversizedConfigIsLeftUntouched() throws {
@@ -461,8 +455,8 @@ final class ConfigLoaderTests: XCTestCase {
 
         XCTAssertEqual(result.status, .oversized)
         XCTAssertTrue(result.needsRepair)
-        XCTAssertEqual(result.values.gridConfig.cols, GridConfig.default.cols)
-        XCTAssertEqual(result.values.gridConfig.theme, GridConfig.default.theme)
+        XCTAssertEqual(result.config.cols, SpacemapConfig.default.cols)
+        XCTAssertEqual(result.config.theme, SpacemapConfig.default.theme)
         XCTAssertEqual(try String(contentsOfFile: path, encoding: .utf8), bomb)
         XCTAssertFalse(FileManager.default.fileExists(atPath: path + ".bak"))
     }
@@ -474,21 +468,48 @@ final class ConfigLoaderTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        var values = ConfigValues()
-        values.cols = 9
-        XCTAssertTrue(ConfigLoader.saveReportingResult(values, to: path))
+        var config = SpacemapConfig.default
+        config.cols = 9
+        XCTAssertTrue(ConfigLoader.saveReportingResult(config, to: path))
 
         let target = directory.appendingPathComponent("real.toml")
         try "cols = 5".write(toFile: target.path, atomically: true, encoding: .utf8)
         let link = directory.appendingPathComponent("link.toml").path
         try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: target.path)
 
-        XCTAssertFalse(ConfigLoader.saveReportingResult(values, to: link))
+        XCTAssertFalse(ConfigLoader.saveReportingResult(config, to: link))
         XCTAssertEqual(try String(contentsOfFile: target.path, encoding: .utf8), "cols = 5")
         XCTAssertEqual(
             ConfigLoader.loadReportingResult(from: link, silentMode: true).status,
             .unreadable
         )
+    }
+
+    func testRepairSaveWritesSilentlyClampedValuesImmediately() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-loader-heal-on-save-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        // A silent clamp does not flag repair on its own, so a second missing
+        // key supplies the rewrite that carries the clamped value to the file.
+        let valid = ConfigLoader.tomlConfigString(
+            from: SpacemapConfig.default,
+            includeHeaderComments: true
+        )
+        let invalid = valid
+            .replacingOccurrences(of: "spacesCornerRadius = 4.0", with: "spacesCornerRadius = 999.0")
+            .replacingOccurrences(of: "showSpaceLayout = false\n", with: "")
+        try invalid.write(toFile: path, atomically: true, encoding: .utf8)
+
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+
+        XCTAssertTrue(needsRepair)
+        XCTAssertEqual(config.spacesCornerRadius, 60)
+        XCTAssertTrue(try String(contentsOfFile: path, encoding: .utf8)
+            .contains("spacesCornerRadius = 60.0"),
+                      "the repair save writes the repaired value, not the raw one")
     }
 
     func testConcurrentSavesRemainParseable() throws {
@@ -499,13 +520,13 @@ final class ConfigLoaderTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
 
         DispatchQueue.concurrentPerform(iterations: 16) { index in
-            var values = ConfigValues()
-            values.cols = (index % 8) + 1
-            ConfigLoader.save(values, to: path)
+            var config = SpacemapConfig.default
+            config.cols = (index % 8) + 1
+            ConfigLoader.save(config, to: path)
         }
 
-        let (values, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: path, silentMode: true)
         XCTAssertFalse(needsRepair)
-        XCTAssertTrue((1...8).contains(values.gridConfig.cols))
+        XCTAssertTrue((1...8).contains(config.cols))
     }
 }

@@ -250,7 +250,7 @@ final class ThumbnailCacheTests: XCTestCase {
                 hasFocus: false
             )
         ] : [])
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.showExtraWindows = showExtraWindows
         return GridState(
             config: config,

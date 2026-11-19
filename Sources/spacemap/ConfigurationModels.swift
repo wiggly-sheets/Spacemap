@@ -255,7 +255,7 @@ enum GlyphStripPosition: String, CaseIterable, Identifiable, Equatable {
     case leftOfNotch
     case rightOfNotch
     case center
-    /// Free placement: `xOffset` points right of the menu bar row's left edge.
+    /// Free placement: a screen fraction plus a screen identity.
     case custom
 
     var id: String { rawValue }
@@ -300,7 +300,7 @@ enum GlyphStripIconSource: String, CaseIterable, Identifiable, Equatable {
 }
 
 /// Settings for the always-visible menu-bar glyph strip (theme-driven colours).
-/// `[glyphStrip]` table, strip only; HUD cells use `GridConfig.showSpaceNumbers`.
+/// `[glyphStrip]` table, strip only; HUD cells use `SpacemapConfig.showSpaceNumbers`.
 struct GlyphStripConfig: Equatable {
     var enabled: Bool = false
     /// Hide the strip while another app is in native fullscreen, so the strip
@@ -355,10 +355,16 @@ struct GlyphStripConfig: Equatable {
     var position: GlyphStripPosition = .leftOfNotch
     var orientation: GlyphStripOrientation = .horizontal
     var verticalLayout: GlyphStripVerticalLayout = .inline
-    /// Free-placement X, from the screen's left edge; only for `.custom`.
-    var xOffset: Int = 0
-    /// Anchored nudge down from the row; custom inset from the screen top.
-    var yOffset: Double = 0
+    /// Free-placement X as a fraction of the screen's spare width; only for
+    /// `.custom`. 0 is the left edge, 1 the right edge.
+    var customX: Double = 0.5
+    /// Free-placement Y as a fraction of the screen's spare height; only for
+    /// `.custom`. 0 is the bottom edge, 1 the top edge (AppKit grows upward).
+    var customY: Double = 0.5
+    /// Display the free-placed strip belongs to, so the position survives
+    /// monitor changes. Empty means no identity: the strip uses its usual
+    /// target screen.
+    var customScreen: String = ""
     var lockPosition: Bool = false
     var theme: String = ""
     var borderEnabled: Bool = true
@@ -394,10 +400,8 @@ struct GlyphStripConfig: Equatable {
         copy.verticalPadding = min(max(verticalPadding, 0), 40)
         copy.iconSpacing = min(max(iconSpacing, 0), 20)
         copy.indexPadding = min(max(indexPadding, 0), 20)
-        copy.xOffset = min(max(xOffset, -4000), 4000)
-        copy.yOffset = position == .custom
-            ? min(max(yOffset, 0), 4000)
-            : min(max(yOffset, -10), 10)
+        copy.customX = min(max(customX, 0), 1)
+        copy.customY = min(max(customY, 0), 1)
         return copy
     }
 
@@ -424,7 +428,7 @@ struct GlyphStripConfig: Equatable {
     }
 
     /// Effect opacity after `matchHUDAppearance`, which copies the HUD's.
-    func resolvedBackgroundOpacity(hud: GridConfig) -> Double {
+    func resolvedBackgroundOpacity(hud: SpacemapConfig) -> Double {
         if matchHUDAppearance {
             return hud.effectiveBackgroundOpacity(for: hud.backgroundStyle)
         }
@@ -432,23 +436,23 @@ struct GlyphStripConfig: Equatable {
     }
 
     /// Material actually drawn. Matching the HUD copies its style.
-    func resolvedBackgroundMaterial(hud: GridConfig) -> GlyphStripBackgroundMaterial {
+    func resolvedBackgroundMaterial(hud: SpacemapConfig) -> GlyphStripBackgroundMaterial {
         guard matchHUDAppearance else { return backgroundMaterial }
         return hud.backgroundStyle == .glass ? .liquidGlass : .solid
     }
 
     /// Glass sub-type actually drawn. Matching the HUD also copies its type.
-    func resolvedGlassStyle(hud: GridConfig) -> HUDGlassStyle {
+    func resolvedGlassStyle(hud: SpacemapConfig) -> HUDGlassStyle {
         matchHUDAppearance ? hud.glassStyle : glassStyle
     }
 
     /// Material under the accent for tinted glass.
-    func resolvedGlassTintedMaterial(hud: GridConfig) -> HUDGlassMaterial {
+    func resolvedGlassTintedMaterial(hud: SpacemapConfig) -> HUDGlassMaterial {
         matchHUDAppearance ? hud.glassTintedMaterial : glassTintedMaterial
     }
 
     /// Private finish for the resolved glass style.
-    func resolvedGlassVariant(hud: GridConfig) -> Int {
+    func resolvedGlassVariant(hud: SpacemapConfig) -> Int {
         let style = resolvedGlassStyle(hud: hud)
         if matchHUDAppearance {
             switch style {
@@ -463,17 +467,13 @@ struct GlyphStripConfig: Equatable {
         case .tinted: return glassTintedVariant
         }
     }
-
-    /// Theme actually painted. Empty means follow the HUD.
-    func resolvedThemeName(hud: GridConfig) -> String {
-        if matchHUDAppearance { return hud.theme }
-        return theme.isEmpty ? hud.theme : theme
-    }
 }
 
 enum HUDPosition: Equatable, Hashable {
     case center, top, bottom
-    case custom(x: Double, y: Double)
+    /// Fraction of the screen's spare width/height plus the display it was
+    /// dragged on. `screen` is nil when the position has no display pairing.
+    case custom(x: Double, y: Double, screen: String?)
 
     static let allPresets: [HUDPosition] = [.center, .top, .bottom]
 
@@ -501,11 +501,18 @@ enum HUDPosition: Equatable, Hashable {
         case .bottom:
             x = screen.midX - panelSize.width / 2
             y = screen.minY + 40
-        case .custom(let px, let py):
+        case .custom(let px, let py, _):
             x = screen.minX + (screen.width - panelSize.width) * px
             y = screen.minY + (screen.height - panelSize.height) * py
         }
         return CGPoint(x: x, y: y)
+    }
+
+    /// Display identity of a custom position, nil for presets and for custom
+    /// positions saved before the screen pairing existed.
+    var screenIdentifier: String? {
+        guard case .custom(_, _, let screen) = self else { return nil }
+        return screen
     }
 }
 enum HUDPositionKind: String, CaseIterable {
@@ -560,50 +567,110 @@ enum MediaKey: String, Codable, CaseIterable, Equatable {
     case brightnessDown = "brightness-down"
 }
 
-/// Actions a HUD key can trigger. The raw value is the `[hudKeys]` TOML key.
-enum HUDKeyAction: String, CaseIterable, Equatable {
+/// One configurable HUD key action. The raw value is the `[hudKeys]` TOML key.
+enum HUDCommand: String, CaseIterable, Equatable {
     case left, right, up, down
-    case goFirst = "first"
-    case goLast = "last"
-    case recent, close
-    case createSpace = "newSpace"
-    case createAndFocusSpace = "newSpaceAndFocus"
-    case destroySpace = "deleteSpace"
-    case layoutBSP = "layoutBSP"
-    case layoutStack = "layoutStack"
-    case layoutFloat = "layoutFloat"
+    case first, last, recent, close
+    case newSpace, newSpaceAndFocus, deleteSpace
+    case layoutBSP, layoutStack, layoutFloat
+    case cycleLayout, moveSpaceBack, moveSpaceForward
 
+    /// Display name. Settings is the only place these are shown.
     var label: String {
         switch self {
         case .left: return "Left"
         case .right: return "Right"
         case .up: return "Up"
         case .down: return "Down"
-        case .goFirst: return "First Space"
-        case .goLast: return "Last Space"
+        case .first: return "First Space"
+        case .last: return "Last Space"
         case .recent: return "Recent Space"
         case .close: return "Close HUD"
-        case .createSpace: return "New Space"
-        case .createAndFocusSpace: return "New Space and Focus"
-        case .destroySpace: return "Delete Space"
+        case .newSpace: return "New Space"
+        case .newSpaceAndFocus: return "New Space and Focus"
+        case .deleteSpace: return "Delete Space"
         case .layoutBSP: return "BSP Layout"
         case .layoutStack: return "Stack Layout"
         case .layoutFloat: return "Float Layout"
+        case .cycleLayout: return "Cycle Layout"
+        case .moveSpaceBack: return "Move Space Left"
+        case .moveSpaceForward: return "Move Space Right"
         }
     }
 }
 
-/// Every HUD action maps to a list of key bindings. Missing actions are unbound.
+/// One map for every HUD key action: `[hudKeys]` plus the legacy `[behavior]`
+/// scalar keys, which are matched before the table like they always were.
 struct HUDKeyBindings: Equatable {
-    private var keys: [HUDKeyAction: [HotkeyConfig]]
+    private var keys: [HUDCommand: [HotkeyConfig]]
+    /// Dissolved `[behavior]` scalar keys. Matched before `keys`.
+    private var legacy: [HUDCommand: HotkeyConfig]
 
-    init(_ keys: [HUDKeyAction: [HotkeyConfig]] = [:]) {
-        self.keys = keys
+    init(
+        _ keys: [HUDCommand: [HotkeyConfig]] = [:],
+        legacy: [HUDCommand: HotkeyConfig] = [:]
+    ) {
+        // Empty lists are the same as unbound, so they are never stored: a
+        // decoded `[]` must equal a map that never had the entry.
+        self.keys = keys.filter { !$0.value.isEmpty }
+        self.legacy = legacy.filter { !$0.value.isDisabled }
     }
 
-    subscript(action: HUDKeyAction) -> [HotkeyConfig] {
-        get { keys[action] ?? [] }
-        set { keys[action] = newValue }
+    subscript(command: HUDCommand) -> [HotkeyConfig] {
+        get { keys[command] ?? [] }
+        set {
+            if newValue.isEmpty {
+                keys.removeValue(forKey: command)
+            } else {
+                keys[command] = newValue
+            }
+        }
+    }
+
+    /// Original `[behavior]` check order, kept so a scalar key still wins.
+    static let legacyOrder: [HUDCommand] = [
+        .moveSpaceBack, .moveSpaceForward, .newSpace, .deleteSpace, .cycleLayout
+    ]
+
+    /// Legacy scalar keys as the first-match layer over this table.
+    func withLegacy(_ legacy: [HUDCommand: HotkeyConfig]) -> HUDKeyBindings {
+        HUDKeyBindings(keys, legacy: legacy)
+    }
+
+    /// The same map with the legacy scalars folded into their commands, so a
+    /// settings save keeps them once the scalar keys are written unbound.
+    func foldingLegacy() -> HUDKeyBindings {
+        var folded = self
+        for command in Self.legacyOrder {
+            guard let hotkey = legacy[command] else { continue }
+            let existing = folded.keys[command] ?? []
+            // The folded map is written back on save, so a scalar that already
+            // matches a table binding must not add a second identical row.
+            let identity = Hotkey.bindingIdentity(hotkey)
+            if existing.contains(where: { Hotkey.bindingIdentity($0) == identity }) { continue }
+            folded.keys[command] = [hotkey] + existing
+        }
+        folded.legacy = [:]
+        return folded
+    }
+
+    /// First matching command overall: legacy scalars, then the table.
+    func command(for keyCode: CGKeyCode, flags: CGEventFlags) -> HUDCommand? {
+        legacyCommand(for: keyCode, flags: flags) ?? tableCommand(for: keyCode, flags: flags)
+    }
+
+    /// First matching legacy scalar key, in its original check order.
+    func legacyCommand(for keyCode: CGKeyCode, flags: CGEventFlags) -> HUDCommand? {
+        Self.legacyOrder.first {
+            legacy[$0]?.matches(keyCode: keyCode, flags: flags) == true
+        }
+    }
+
+    /// First matching `[hudKeys]` binding.
+    func tableCommand(for keyCode: CGKeyCode, flags: CGEventFlags) -> HUDCommand? {
+        HUDCommand.allCases.first { command in
+            self[command].contains { $0.matches(keyCode: keyCode, flags: flags) }
+        }
     }
 
     private static func key(_ name: String) -> HotkeyConfig {
@@ -616,17 +683,47 @@ struct HUDKeyBindings: Equatable {
         .right: [key("l"), key("right")],
         .up: [key("k"), key("up")],
         .down: [key("j"), key("down")],
-        .goFirst: [key("f")],
-        .goLast: [key("e")],
+        .first: [key("f")],
+        .last: [key("e")],
         .recent: [key("r")],
         .close: [key("escape"), key("c")],
-        .createSpace: [key("a")],
-        .createAndFocusSpace: [key("t")],
-        .destroySpace: [key("w")],
+        .newSpace: [key("a")],
+        .newSpaceAndFocus: [key("t")],
+        .deleteSpace: [key("w")],
         .layoutBSP: [key("b")],
         .layoutStack: [key("s")],
         .layoutFloat: [key("u")]
     ])
+}
+
+extension HotkeyConfig {
+    /// Key-code and modifier match, following `Hotkey.modifierMatches`.
+    func matches(keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
+        guard case .keyCode(let target) = key, !isDisabled else { return false }
+        return keyCode == target && Hotkey.modifierMatches(
+            keyCode: keyCode,
+            eventFlags: flags,
+            bindingModifiers: modifiers
+        )
+    }
+}
+
+extension SpacemapConfig {
+    /// The legacy `[behavior]` HUD hotkeys, still decoded for older configs.
+    var legacyHUDHotkeys: [HUDCommand: HotkeyConfig] {
+        [
+            .moveSpaceBack: hudMoveSpaceBackHotkey,
+            .moveSpaceForward: hudMoveSpaceForwardHotkey,
+            .newSpace: hudNewSpaceHotkey,
+            .deleteSpace: hudDeleteSpaceHotkey,
+            .cycleLayout: hudCycleLayoutHotkey
+        ]
+    }
+
+    /// The one map HUD input matches: legacy scalars first, then `[hudKeys]`.
+    var hudKeyBindings: HUDKeyBindings {
+        hudKeys.withLegacy(legacyHUDHotkeys)
+    }
 }
 
 /// `[appFont]` table: how the glyph font gets updated, plus install state so
@@ -652,7 +749,7 @@ struct SpaceNameProfile: Equatable, Identifiable {
     static let `default` = SpaceNameProfile(name: "Default", spaceNames: [:])
 }
 
-struct GridConfig: Equatable {
+struct SpacemapConfig: Equatable {
     var cols: Int
     var rows: Int
     var cellStyle: CellStyle
@@ -742,8 +839,6 @@ struct GridConfig: Equatable {
     var spaceNames: [Int: String]
     var jumpToSpaceEnabled: Bool = false
     var hudPosition: HUDPosition
-    var customHUDX: Double = 0.5
-    var customHUDY: Double = 0.5
     var showExtraWindows: Bool
     var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
     var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
@@ -803,7 +898,7 @@ struct GridConfig: Equatable {
     /// Index of the currently active space name profile.
     var activeSpaceNameProfileIndex: Int = 0
 
-    static let `default` = GridConfig(
+    static let `default` = SpacemapConfig(
         cols: 8, rows: 2, cellStyle: .rects, hotkey: .default,
         pinnedHotkey: HotkeyConfig(key: .none, modifiers: []),
         socketHealthInterval: 60, uiScale: 0.5, autoHideTimeout: 5,
@@ -817,8 +912,8 @@ struct GridConfig: Equatable {
         hudIconSource: .nativeIcons, hudIconStripSeparate: false,
         hudIconStripSource: .nativeIcons,
         presence: .menuBar, glyphStrip: .default, menuBarDisplayMode: .icon,
-        menuBarNearbyCount: 3, spaceNames: [:], jumpToSpaceEnabled: false, hudPosition: .center, customHUDX: 0.5,
-        customHUDY: 0.5, showExtraWindows: false,
+        menuBarNearbyCount: 3, spaceNames: [:], jumpToSpaceEnabled: false, hudPosition: .center,
+        showExtraWindows: false,
         focusSpaceOnWindowDrop: .never, focusSpaceOnWindowDropModifier: .command,
         showHUDOnSpaceChange: false,
         showBSPLayoutBadge: true,
@@ -836,7 +931,7 @@ struct GridConfig: Equatable {
     )
 }
 
-extension GridConfig {
+extension SpacemapConfig {
     /// The icon strip can use its own source while cell styles keep
     /// `hudIconSource`; separate mode is off by default.
     var resolvedHUDIconStripSource: GlyphStripIconSource {

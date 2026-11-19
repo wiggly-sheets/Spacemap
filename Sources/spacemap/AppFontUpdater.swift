@@ -233,7 +233,7 @@ struct AppFontUpdater {
     /// CoreText keeps an already-registered face under its PostScript name, so
     /// a replacement file can parse new codepoints while still drawing the old
     /// glyphs. Only a new process reliably drops that face.
-    static func relaunchIfGlyphStripUsesFont(_ config: GridConfig) {
+    static func relaunchIfGlyphStripUsesFont(_ config: SpacemapConfig) {
         guard config.glyphStrip.enabled, config.glyphStrip.iconSource == .sbarFont else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             SystemPermissions.relaunch()
@@ -243,7 +243,7 @@ struct AppFontUpdater {
     /// Persists check state into `[appFont]`; pass the tag only after a
     /// successful install. Failures record nothing so the next launch retries.
     static func recordCheck(installedTag: String?) {
-        AppConfig.updateConfig { config in
+        ConfigStore.updateConfig { config in
             if let installedTag {
                 config.appFont.installedVersion = installedTag
             }

@@ -15,7 +15,7 @@ final class MockYabaiService: YabaiService {
     var queryFocusedWindowError: Error?
     var queryFocusedSpaceIndexResult: Int? = nil
     var buildGridStateResult: GridState?
-    var buildGridStateClosure: ((GridConfig, Int?) -> GridState)?
+    var buildGridStateClosure: ((SpacemapConfig, Int?) -> GridState)?
     var focusSpaceResult: Bool = true
     var isYabaiRunningResult: Bool = false
 
@@ -40,6 +40,9 @@ final class MockYabaiService: YabaiService {
     private(set) var balanceWindowsCallCount = 0
     private(set) var setSpaceLayoutCallCount = 0
     private(set) var lastSpaceLayout: SpaceLayout?
+    private(set) var swapSpacesCallCount = 0
+    private(set) var lastSwapSourceIndex: Int?
+    private(set) var lastSwapTargetIndex: Int?
     private(set) var showSpacemapCallCount = 0
     private(set) var moveWindowCreatingSpacesCallCount = 0
     private(set) var registerSignalsCallCount = 0
@@ -61,7 +64,7 @@ final class MockYabaiService: YabaiService {
     private(set) var lastRegisterSignalsShowHUDOnSpaceChange: Bool?
     private(set) var lastRegisterSignalsRefreshWorkspacePreviews: Bool?
     private(set) var lastRegisterSignalsRefreshWindowGeometry: Bool?
-    private(set) var lastBuildGridStateConfig: GridConfig?
+    private(set) var lastBuildGridStateConfig: SpacemapConfig?
     private(set) var lastBuildGridStateFocusedIndex: Int?
 
 
@@ -205,6 +208,12 @@ final class MockYabaiService: YabaiService {
         lastSpaceLayout = layout
     }
 
+    func swapSpaces(_ first: Int, _ second: Int, mode: SpaceDropMode, focusMode: DragFocusMode) {
+        swapSpacesCallCount += 1
+        lastSwapSourceIndex = first
+        lastSwapTargetIndex = second
+    }
+
     func showSpacemap() {
         showSpacemapCallCount += 1
     }
@@ -221,7 +230,7 @@ final class MockYabaiService: YabaiService {
         lastMoveWindowFocusDestination = focusDestination
     }
 
-    func buildGridState(config: GridConfig, focusedIndex: Int?) -> GridState {
+    func buildGridState(config: SpacemapConfig, focusedIndex: Int?) -> GridState {
         buildGridStateCallCount += 1
         lastBuildGridStateConfig = config
         lastBuildGridStateFocusedIndex = focusedIndex

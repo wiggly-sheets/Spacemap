@@ -8,7 +8,7 @@ final class GridStateCoordinator {
         case ready
     }
 
-    var config: GridConfig?
+    var config: SpacemapConfig?
 
     private(set) var latestState: GridState?
 
@@ -38,13 +38,13 @@ final class GridStateCoordinator {
 
     private let yabaiService: YabaiService
 
-    /// Production loader (services.appConfig); nil falls back to shared.
-    private let configLoader: (() -> GridConfig)?
+    /// Production loader (services.configStore); nil falls back to shared.
+    private let configLoader: (() -> SpacemapConfig)?
 
     init(
-        config: GridConfig? = nil,
+        config: SpacemapConfig? = nil,
         yabaiService: YabaiService,
-        configLoader: (() -> GridConfig)? = nil
+        configLoader: (() -> SpacemapConfig)? = nil
     ) {
         self.config = config
         self.yabaiService = yabaiService
@@ -123,7 +123,7 @@ final class GridStateCoordinator {
     }
 
 
-    public func updateConfig(_ fresh: GridConfig) {
+    public func updateConfig(_ fresh: SpacemapConfig) {
         // Drop any in-flight fetch built from the old config: its completion
         // must never overwrite the re-stamped state below.
         inFlightWorkItem?.cancel()
@@ -149,7 +149,7 @@ final class GridStateCoordinator {
     }
 
     public func reloadConfig() {
-        updateConfig(configLoader?() ?? AppConfig.load())
+        updateConfig(configLoader?() ?? ConfigStore.load())
     }
 
 
@@ -191,10 +191,10 @@ final class GridStateCoordinator {
     }
 
 
-    private func ensureConfig() -> GridConfig? {
-        // Prefer injected config/loader (services.appConfig in production);
+    private func ensureConfig() -> SpacemapConfig? {
+        // Prefer injected config/loader (services.configStore in production);
         // shared fallback only for standalone use (tests, previews).
-        if config == nil { config = configLoader?() ?? AppConfig.shared.load() }
+        if config == nil { config = configLoader?() ?? ConfigStore.shared.load() }
         return config
     }
 

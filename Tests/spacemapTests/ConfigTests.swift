@@ -34,8 +34,6 @@ final class ConfigTests: XCTestCase {
         [behavior]
         autoHideTimeout = 10
         displayNavigationWrap = "between"
-        customHUDX = 0.25
-        customHUDY = 0.75
         focusSpaceOnWindowDrop = "modifier"
         focusSpaceOnWindowDropModifier = "option"
         showHUDOnSpaceChange = true
@@ -62,12 +60,13 @@ final class ConfigTests: XCTestCase {
         kind = "custom"
         x = 0.25
         y = 0.75
+        screen = "display-A"
 
         [advanced]
         socketHealthInterval = 30
         showExtraWindows = true
         """
-        let c = AppConfig.parseConfig(config)
+        let c = ConfigStore.parseConfig(config)
 
         XCTAssertEqual(c.cols, 6)
         XCTAssertEqual(c.rows, 3)
@@ -105,25 +104,23 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(c.hotkey.modifiers.contains(.maskShift))
         XCTAssertEqual(c.pinnedHotkey.mediaKey, .playPause)
         XCTAssertTrue(c.pinnedHotkey.modifiers.contains(.maskControl))
-        XCTAssertEqual(c.hudPosition, .custom(x: 0.25, y: 0.75))
-        XCTAssertEqual(c.customHUDX, 0.25, accuracy: 0.001)
-        XCTAssertEqual(c.customHUDY, 0.75, accuracy: 0.001)
+        XCTAssertEqual(c.hudPosition, .custom(x: 0.25, y: 0.75, screen: "display-A"))
         XCTAssertEqual(c.socketHealthInterval, 30)
         XCTAssertTrue(c.showExtraWindows)
     }
 
     func testParseConfigFallsBackToDefaultsForInvalidText() {
         for invalid in ["[grid\ncols = 5", ""] {
-            let config = AppConfig.parseConfig(invalid)
+            let config = ConfigStore.parseConfig(invalid)
 
-            XCTAssertEqual(config.cols, GridConfig.default.cols)
-            XCTAssertEqual(config.rows, GridConfig.default.rows)
-            XCTAssertEqual(config.theme, GridConfig.default.theme)
+            XCTAssertEqual(config.cols, SpacemapConfig.default.cols)
+            XCTAssertEqual(config.rows, SpacemapConfig.default.rows)
+            XCTAssertEqual(config.theme, SpacemapConfig.default.theme)
         }
     }
 
     func testCommentsAndQuotedCommentCharactersParse() {
-        let c = AppConfig.parseConfig("""
+        let c = ConfigStore.parseConfig("""
         # Comment
         [grid]
         cols = 4 # Inline comment
@@ -144,14 +141,14 @@ final class ConfigTests: XCTestCase {
             ("top", HUDPosition.top),
             ("bottom", HUDPosition.bottom)
         ] {
-            let c = AppConfig.parseConfig("""
+            let c = ConfigStore.parseConfig("""
             [behavior.hudPosition]
             kind = "\(kind)"
             """)
             XCTAssertEqual(c.hudPosition, expected)
         }
 
-        let invalid = AppConfig.parseConfig("""
+        let invalid = ConfigStore.parseConfig("""
         [behavior.hudPosition]
         kind = "custom"
         x = 2.0
@@ -166,20 +163,20 @@ final class ConfigTests: XCTestCase {
         let path = directory.appendingPathComponent("nested/config.toml").path
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
 
-        let loaded = AppConfig.load(from: path)
+        let loaded = ConfigStore.load(from: path)
         let generated = try String(contentsOfFile: path, encoding: .utf8)
 
-        XCTAssertEqual(loaded.cols, GridConfig.default.cols)
-        XCTAssertEqual(loaded.theme, GridConfig.default.theme)
+        XCTAssertEqual(loaded.cols, SpacemapConfig.default.cols)
+        XCTAssertEqual(loaded.theme, SpacemapConfig.default.theme)
         XCTAssertTrue(generated.contains("[grid]"))
         XCTAssertTrue(generated.contains("[spaceNames.names]"))
         XCTAssertTrue(generated.contains("[appearance]"))
         XCTAssertTrue(generated.contains("[behavior.hotkey]"))
         XCTAssertTrue(generated.contains("[advanced]"))
-        XCTAssertEqual(AppConfig.load(from: path).cols, GridConfig.default.cols)
+        XCTAssertEqual(ConfigStore.load(from: path).cols, SpacemapConfig.default.cols)
     }
 
     func testPlainConfigIsRejectedAndReplacedWithDefaults() throws {
@@ -189,14 +186,14 @@ final class ConfigTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
 
         let plain = "GRID_COLS=5"
         try plain.write(toFile: path, atomically: true, encoding: .utf8)
-        let loaded = AppConfig.load(from: path)
+        let loaded = ConfigStore.load(from: path)
 
-        XCTAssertEqual(loaded.cols, GridConfig.default.cols)
+        XCTAssertEqual(loaded.cols, SpacemapConfig.default.cols)
         XCTAssertEqual(try String(contentsOfFile: path + ".bak", encoding: .utf8), plain)
     }
 }

@@ -4,7 +4,7 @@ import XCTest
 final class GridLayoutTests: XCTestCase {
 
     func testBasicFunctionality() throws {
-        let config = GridConfig.default
+        let config = SpacemapConfig.default
 
         let spacesIndices = GridLayout.visibleSpaceIndices(
             maxSpaces: config.maxSpaces,
@@ -19,7 +19,7 @@ final class GridLayoutTests: XCTestCase {
     }
 
     func testActiveModeShowsOnlyActive() throws {
-        let config = GridConfig.default
+        let config = SpacemapConfig.default
 
         let spacesIndices = GridLayout.visibleSpaceIndices(
             maxSpaces: config.maxSpaces,
@@ -43,7 +43,7 @@ final class GridLayoutTests: XCTestCase {
     }
 
     func testGridCellFrames() throws {
-        let config = GridConfig.default
+        let config = SpacemapConfig.default
 
         let cells = GridLayout.visibleSpaceIndices(
             maxSpaces: 4,

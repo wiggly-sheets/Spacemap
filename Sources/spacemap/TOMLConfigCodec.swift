@@ -13,7 +13,9 @@ enum TOMLParserError: LocalizedError {
 }
 
 enum TOMLConfigCodec {
-    static func parse(_ data: String) throws -> ConfigValues {
+    /// Decodes and repairs in one walk: the result is a complete config seeded
+    /// from the defaults, plus whether the file needs a rewritten copy.
+    static func parse(_ data: String) throws -> (config: SpacemapConfig, needsRepair: Bool) {
         guard let object = TOMLDocumentParser.parse(data) else {
             throw TOMLParserError.parseFailure(reason: "malformed TOML")
         }
@@ -390,31 +392,14 @@ enum TOMLConfigDecoder {
             }
         }
 
-        flatten("grid", keys: [
-            "cols", "rows", "cellStyle", "showMode", "multiMonitorHUDMode",
-            "unifiedHUDVisibility", "separateHUDVisibility", "maxSpaces",
-            "showSpaceNumbers", "showSpaceLayout", "showIconStrip", "showMultiAppIcons", "hudIconSource", "hudIconStripSeparate", "hudIconStripSource",
-            "showThumbnailWallpaper"
-        ])
-        flatten("appearance", keys: [
-            "theme", "mode", "backgroundAlpha", "hudShadow", "hudCornerRadius", "hudFontName", "hudFontSize", "hudTextColor", "iconScale", "uiScale",
-            "backgroundStyle", "glassStyle",
-            "glassClearVariant", "glassRegularVariant", "glassTintedVariant", "glassTintedMaterial",
-            "glassClearOpacity", "glassRegularOpacity", "glassTintedOpacity",
-            "solidOpacity", "matchBackgroundOpacity",
-            "spacesMatchBackground", "spacesBackgroundStyle", "spacesGlassStyle",
-            "spacesGlassClearVariant", "spacesGlassRegularVariant", "spacesGlassTintedVariant",
-            "spacesGlassTintedMaterial", "spacesOpacity", "spacesCornerRadius"
-        ])
-        flatten("behavior", keys: [
-            "autoHideTimeout", "displayNavigationWrap", "customHUDX", "customHUDY", "focusSpaceOnWindowDrop", "showHUDOnSpaceChange", "hudAnimationsEnabled", "hudAnimationStyle", "hudEntranceStyle", "showBSPLayoutBadge", "showStackLayoutBadge", "showFloatLayoutBadge", "showHUDInteractionFeedback", "spaceDropMode", "spaceDragFocus", "windowDragFocus",
-            "focusSpaceOnWindowDropModifier", "presence", "showThumbnailWallpaper",
-            "menuBarDisplayMode", "menuBarNearbyCount", "jumpToSpaceEnabled", "updateMode",
-            // Inline `hotkey = { ... }` / `hudPosition = { ... }` under
-            // [behavior] must survive flatten just like the dotted form.
-            "hotkey", "pinnedHotkey", "glyphStripHotkey", "hudMoveSpaceBackHotkey", "hudMoveSpaceForwardHotkey", "hudNewSpaceHotkey", "hudDeleteSpaceHotkey", "hudCycleLayoutHotkey", "hudPosition"
-        ])
-        flatten("advanced", keys: ["socketHealthInterval", "showExtraWindows", "refuseUntrustedYabai"])
+        // `showThumbnailWallpaper` is also flattened from [behavior] below: the
+        // key is written there, older files may carry it under either section.
+        flatten("grid", keys: ConfigSchema.flattenedKeys(in: "grid"))
+        flatten("appearance", keys: ConfigSchema.flattenedKeys(in: "appearance"))
+        // The explicit key covers the grid field the writer emits under
+        // [behavior], which `flattenedKeys` files under [grid].
+        flatten("behavior", keys: ConfigSchema.flattenedKeys(in: "behavior") + ["showThumbnailWallpaper"])
+        flatten("advanced", keys: ConfigSchema.flattenedKeys(in: "advanced"))
 
         // `[spaceNames]` holds the showSpaceNames toggle; the names live in the
         // nested `names` table (written as `[spaceNames.names]`).
@@ -464,239 +449,56 @@ enum TOMLConfigDecoder {
     }
 
 
-    static func decode(_ object: [String: Any]) -> ConfigValues {
-        var values = ConfigValues()
+    static func decode(_ object: [String: Any]) -> (config: SpacemapConfig, needsRepair: Bool) {
+        var config = SpacemapConfig.default
+        var needsRepair = false
 
-        func value<T>(_ key: String) -> T? {
-            object[key] as? T
+        for field in ConfigSchema.gridFields {
+            field.apply(from: object, into: &config, needsRepair: &needsRepair)
         }
-
-        func positiveInt(_ key: String) -> Int? {
-            if let intValue = object[key] as? Int, intValue > 0 { return intValue }
-            return nil
+        for field in ConfigSchema.appearanceFields {
+            field.apply(from: object, into: &config, needsRepair: &needsRepair)
         }
-
-        func nonNegativeInt(_ key: String) -> Int? {
-            if let intValue = object[key] as? Int, intValue >= 0 { return intValue }
-            return nil
+        for field in ConfigSchema.behaviorFields {
+            field.apply(from: object, into: &config, needsRepair: &needsRepair)
         }
-
-        func rangedDouble(_ key: String) -> Double? {
-            if let doubleValue = object[key] as? Double, (0...1).contains(doubleValue) { return doubleValue }
-            if let intValue = object[key] as? Int, (0...1).contains(Double(intValue)) { return Double(intValue) }
-            return nil
+        for field in ConfigSchema.tableFields {
+            field.apply(from: object, into: &config, needsRepair: &needsRepair)
         }
-
-        func variant(_ key: String) -> Int? {
-            guard let value = object[key] as? Int, (0...21).contains(value) else { return nil }
-            return value
+        for field in ConfigSchema.advancedFields {
+            field.apply(from: object, into: &config, needsRepair: &needsRepair)
         }
-
-        func double(_ key: String) -> Double? {
-            if let result = object[key] as? Double { return result }
-            if let result = object[key] as? Int { return Double(result) }
-            return nil
-        }
-
-        values.cols = positiveInt("cols")
-        values.rows = positiveInt("rows")
-        if let name: String = value("cellStyle") {
-            values.cellStyle = cellStyle(from: name)
-        }
-        if let name: String = value("showMode") {
-            values.showMode = showMode(from: name)
-        }
-        if let name: String = value("multiMonitorHUDMode") {
-            values.multiMonitorHUDMode = multiMonitorHUDMode(from: name)
-        }
-        if let name: String = value("unifiedHUDVisibility") {
-            values.unifiedHUDVisibility = hudVisibility(from: name)
-        }
-        if let name: String = value("separateHUDVisibility") {
-            values.separateHUDVisibility = hudVisibility(from: name)
-        }
-        values.maxSpaces = positiveInt("maxSpaces")
-        values.showSpaceNumbers = value("showSpaceNumbers")
-        values.showSpaceLayout = value("showSpaceLayout")
-        values.showIconStrip = value("showIconStrip")
-        values.showMultiAppIcons = value("showMultiAppIcons")
-        values.hudIconStripSeparate = value("hudIconStripSeparate")
-        if let name: String = value("hudIconStripSource") {
-            values.hudIconStripSource = GlyphStripIconSource.iconSource(from: name)
-        }
-        if let name: String = value("hudIconSource") {
-            values.hudIconSource = GlyphStripIconSource.iconSource(from: name)
-        }
-        if let name: String = value("backgroundStyle") {
-            values.backgroundStyle = parsedEnum(from: name)
-        }
-        if let name: String = value("glassStyle") {
-            values.glassStyle = parsedEnum(from: name)
-        }
-        values.glassClearVariant = variant("glassClearVariant")
-        values.glassRegularVariant = variant("glassRegularVariant")
-        values.glassTintedVariant = variant("glassTintedVariant")
-        if let name: String = value("glassTintedMaterial") {
-            values.glassTintedMaterial = parsedEnum(from: name)
-        }
-        values.glassClearOpacity = rangedDouble("glassClearOpacity")
-        values.glassRegularOpacity = rangedDouble("glassRegularOpacity")
-        values.glassTintedOpacity = rangedDouble("glassTintedOpacity")
-        values.solidOpacity = rangedDouble("solidOpacity")
-        values.matchBackgroundOpacity = value("matchBackgroundOpacity")
-        values.spacesMatchBackground = value("spacesMatchBackground")
-        if let name: String = value("spacesBackgroundStyle") {
-            values.spacesBackgroundStyle = parsedEnum(from: name)
-        }
-        if let name: String = value("spacesGlassStyle") {
-            values.spacesGlassStyle = parsedEnum(from: name)
-        }
-        values.spacesGlassClearVariant = variant("spacesGlassClearVariant")
-        values.spacesGlassRegularVariant = variant("spacesGlassRegularVariant")
-        values.spacesGlassTintedVariant = variant("spacesGlassTintedVariant")
-        if let name: String = value("spacesGlassTintedMaterial") {
-            values.spacesGlassTintedMaterial = parsedEnum(from: name)
-        }
-        values.spacesOpacity = rangedDouble("spacesOpacity")
-        values.spacesCornerRadius = double("spacesCornerRadius")
 
         if let rawSpaceNames = object["spaceNames"] as? [String: Any] {
             var spaceNames: [Int: String] = [:]
             for (key, rawName) in rawSpaceNames {
                 guard let index = Int(key), index > 0, let name = rawName as? String else {
-                    values.hasInvalidSpaceNames = true
+                    needsRepair = true
                     continue
                 }
                 spaceNames[index] = name
             }
-            values.spaceNames = spaceNames
+            config.spaceNames = spaceNames
         }
-        if let showSpaceNames: Bool = value("showSpaceNames") {
-            values.showSpaceNames = showSpaceNames
-        }
-
-        // A theme that is not installed yet must not be repaired away: the HUD
-        // already falls back to the default look at use time, and rewriting the
-        // file would destroy the user's choice (catalog download pending, theme
-        // file removed, or a build without bundled themes).
-        if let name: String = value("theme") {
-            values.theme = String(name.prefix(128))
-        }
-        if let name: String = value("mode") {
-            values.mode = themeMode(from: name)
-        }
-        values.backgroundAlpha = rangedDouble("backgroundAlpha")
-        values.hudShadow = value("hudShadow")
-        values.hudCornerRadius = double("hudCornerRadius")
-        values.hudFontName = value("hudFontName")
-        values.hudFontSize = double("hudFontSize")
-        values.hudTextColor = value("hudTextColor")
-        values.iconScale = rangedDouble("iconScale")
-        values.uiScale = rangedDouble("uiScale")
-
-        values.autoHideTimeout = nonNegativeInt("autoHideTimeout")
-        if let name: String = value("displayNavigationWrap") {
-            values.displayNavigationWrap = displayNavigationWrap(from: name)
-        }
-        values.jumpToSpaceEnabled = value("jumpToSpaceEnabled")
-        values.customHUDX = rangedDouble("customHUDX")
-        values.customHUDY = rangedDouble("customHUDY")
-        if let name: String = value("focusSpaceOnWindowDrop") {
-            values.focusSpaceOnWindowDrop = parsedEnum(from: name)
-        }
-        if let name: String = value("focusSpaceOnWindowDropModifier") {
-            values.focusSpaceOnWindowDropModifier = parsedEnum(from: name)
-        }
-        values.showHUDOnSpaceChange = value("showHUDOnSpaceChange")
-        values.showBSPLayoutBadge = value("showBSPLayoutBadge")
-        values.showStackLayoutBadge = value("showStackLayoutBadge")
-        values.showFloatLayoutBadge = value("showFloatLayoutBadge")
-        values.showHUDInteractionFeedback = value("showHUDInteractionFeedback")
-        if let name: String = value("spaceDropMode") {
-            values.spaceDropMode = parsedEnum(from: name)
-        }
-        if let name: String = value("spaceDragFocus") {
-            values.spaceDragFocus = parsedEnum(from: name)
-        }
-        if let name: String = value("windowDragFocus") {
-            values.windowDragFocus = parsedEnum(from: name)
-        }
-        values.showThumbnailWallpaper = value("showThumbnailWallpaper")
-        values.hudAnimationsEnabled = value("hudAnimationsEnabled")
-        if let name: String = value("hudAnimationStyle") {
-            values.hudAnimationStyle = parsedEnum(from: name)
-        }
-        if let name: String = value("hudEntranceStyle") {
-            values.hudEntranceStyle = parsedEnum(from: name)
-        }
-        if let name: String = value("presence") {
-            values.presence = parsedEnum(from: name)
-        }
-        values.glyphStrip = glyphStripConfig(from: object)
-        if let name: String = value("menuBarDisplayMode") {
-            values.menuBarDisplayMode = parsedEnum(from: name)
-        }
-        values.menuBarNearbyCount = positiveInt("menuBarNearbyCount")
-        if let name: String = value("updateMode") {
-            values.updateMode = updateMode(from: name)
-        }
-        values.appFont = appFontConfig(from: object)
-
-        if let table = object["hotkey"] as? [String: Any] {
-            values.hotkey = parseHotkeyTable(table)
-        }
-        if let table = object["pinnedHotkey"] as? [String: Any] {
-            values.pinnedHotkey = parseHotkeyTable(table)
-        }
-        if let table = object["glyphStripHotkey"] as? [String: Any] {
-            values.glyphStripHotkey = parseHotkeyTable(table)
-        }
-        if let table = object["hudMoveSpaceBackHotkey"] as? [String: Any] {
-            values.hudMoveSpaceBackHotkey = parseHotkeyTable(table)
-        }
-        if let table = object["hudMoveSpaceForwardHotkey"] as? [String: Any] {
-            values.hudMoveSpaceForwardHotkey = parseHotkeyTable(table)
-        }
-        if let table = object["hudNewSpaceHotkey"] as? [String: Any] {
-            values.hudNewSpaceHotkey = parseHotkeyTable(table)
-        }
-        if let table = object["hudDeleteSpaceHotkey"] as? [String: Any] {
-            values.hudDeleteSpaceHotkey = parseHotkeyTable(table)
-        }
-        if let table = object["hudCycleLayoutHotkey"] as? [String: Any] {
-            values.hudCycleLayoutHotkey = parseHotkeyTable(table)
-        }
-        if let table = object["hudKeys"] as? [String: Any] {
-            var bindings = HUDKeyBindings.default
-            for (name, raw) in table {
-                guard let action = HUDKeyAction(rawValue: name),
-                      let names = raw as? [String] else { continue }
-                bindings[action] = names.compactMap { Hotkey.parseHotkey($0) }
-            }
-            values.hudKeys = bindings
+        if let showSpaceNames = object["showSpaceNames"] as? Bool {
+            config.showSpaceNames = showSpaceNames
+        } else {
+            needsRepair = true
         }
 
-        if let table = object["hudPosition"] as? [String: Any],
-           let kind = table["kind"] as? String {
-            switch kind.lowercased() {
-            case "center": values.hudPosition = .center
-            case "top": values.hudPosition = .top
-            case "bottom": values.hudPosition = .bottom
-            case "custom":
-                // Both coordinates required, numeric, in range. No invented
-                // 0.5 fallback: anything else stays nil so repair heals it.
-                if let x = number(table["x"]), let y = number(table["y"]),
-                   (0...1).contains(x), (0...1).contains(y) {
-                    values.hudPosition = .custom(x: x, y: y)
-                }
-            default:
-                break
-            }
+        // Out-of-range strip numbers clamp in memory and flag a rewrite.
+        if let strip = glyphStripConfig(from: object) {
+            let clamped = strip.clamped()
+            if clamped != strip { needsRepair = true }
+            config.glyphStrip = clamped
+        } else {
+            needsRepair = true
         }
-
-        values.socketHealthInterval = positiveInt("socketHealthInterval")
-        values.showExtraWindows = value("showExtraWindows")
-        values.refuseUntrustedYabai = value("refuseUntrustedYabai")
+        if let font = appFontConfig(from: object) {
+            config.appFont = font
+        } else {
+            needsRepair = true
+        }
 
         // Indexed-dotted schema written by ConfigLoader (`[spaceNameProfiles]`
         // + `[spaceNameProfiles.N]` + `[spaceNameProfiles.N.names]`).
@@ -723,49 +525,20 @@ enum TOMLConfigDecoder {
             index += 1
         }
         if !indexedProfiles.isEmpty {
-            values.spaceNameProfiles = indexedProfiles
+            config.spaceNameProfiles = indexedProfiles
         }
         if let meta = object["spaceNameProfiles"] as? [String: Any],
            let activeIndex = meta["activeIndex"] as? Int {
-            values.activeSpaceNameProfileIndex = activeIndex
+            config.activeSpaceNameProfileIndex = activeIndex
+        }
+        if !(0..<config.spaceNameProfiles.count).contains(config.activeSpaceNameProfileIndex) {
+            config.activeSpaceNameProfileIndex = 0
+            needsRepair = true
         }
 
-        return values
+        return (config, needsRepair)
     }
 
-
-    private static func parseHotkeyTable(_ table: [String: Any]) -> HotkeyConfig? {
-        guard let kind = table["keyKind"] as? String,
-              let modifierNames = table["modifiers"] as? [String] else {
-            return nil
-        }
-
-        let supportedModifiers = Set(["ctrl", "cmd", "alt", "shift", "fn", "hyper"])
-        guard modifierNames.allSatisfy({ supportedModifiers.contains($0.lowercased()) }) else {
-            return nil
-        }
-
-        let flags = Hotkey.modifiers(from: modifierNames)
-
-        switch kind.lowercased() {
-        case "none":
-            return HotkeyConfig(key: .none, modifiers: flags)
-        case "keycode":
-            guard let rawCode = table["keyCode"] as? Int,
-                  let keyCode = CGKeyCode(exactly: rawCode) else {
-                return nil
-            }
-            return HotkeyConfig(key: .keyCode(keyCode), modifiers: flags)
-        case "mediakey":
-            guard let name = table["mediaKey"] as? String,
-                  let mediaKey = Hotkey.mediaKeyFor(name) else {
-                return nil
-            }
-            return HotkeyConfig(key: .mediaKey(mediaKey), modifiers: flags)
-        default:
-            return nil
-        }
-    }
     /// `[glyphStrip]` table. Unknown enum names fall back to that key's default
     /// instead of failing the whole load, matching how the other enum keys behave.
     private static func glyphStripConfig(from object: [String: Any]) -> GlyphStripConfig? {
@@ -822,7 +595,6 @@ enum TOMLConfigDecoder {
         }
         if let value = number(table["iconSpacing"]) { config.iconSpacing = value }
         if let value = number(table["indexPadding"]) { config.indexPadding = value }
-        if let value = number(table["yOffset"]) { config.yOffset = value }
         if let value = number(table["hoverPadding"]) { config.hoverPadding = value }
         if let value = number(table["hoverCornerRadius"]) { config.hoverCornerRadius = value }
         if let value = table["showDisplaySeparators"] as? Bool { config.showDisplaySeparators = value }
@@ -847,12 +619,11 @@ enum TOMLConfigDecoder {
         if let name = table["verticalLayout"] as? String {
             config.verticalLayout = parsedEnum(from: name) ?? GlyphStripConfig.default.verticalLayout
         }
-        // Int storage (see GlyphStrip.customOffsets): round, don't truncate,
-        // so 12.7 lands on 13 rather than 12. Full-Double storage needs
-        // Glyph* call-site changes, out of scope for this pass.
-        if let value = number(table["xOffset"]) {
-            config.xOffset = clampedInt(value, rounding: .toNearestOrAwayFromZero)
-        }
+        // Free placement mirrors the HUD: a fraction of the screen's spare
+        // width/height plus the display identity. `clamped()` bounds both.
+        if let value = number(table["customX"]) { config.customX = value }
+        if let value = number(table["customY"]) { config.customY = value }
+        if let name = table["customScreen"] as? String { config.customScreen = name }
         if let value = table["borderEnabled"] as? Bool { config.borderEnabled = value }
         if let value = table["theme"] as? String { config.theme = value }
         return config
@@ -861,7 +632,7 @@ enum TOMLConfigDecoder {
     /// Case-insensitive enum lookup: exact match, then lowercased, else nil.
     /// Callers holding struct defaults apply `?? default`; callers holding
     /// optionals assign directly so unknown names stay nil and flag repair.
-    private static func parsedEnum<E: RawRepresentable>(_ type: E.Type = E.self, from name: String) -> E?
+    static func parsedEnum<E: RawRepresentable>(_ type: E.Type = E.self, from name: String) -> E?
     where E.RawValue == String {
         E(rawValue: name) ?? E(rawValue: name.lowercased())
     }
@@ -879,7 +650,7 @@ enum TOMLConfigDecoder {
     }
 
     /// `Int(Double)` traps outside `Int`'s range (e.g. `1e300`). Saturate
-    /// instead; `toGridConfig` still clamps to the documented range and flags
+    /// instead; `TOMLConfigDecoder.decode` still clamps to the documented range and flags
     /// repair, so a wild file heals on the next save rather than killing the app.
     private static func clampedInt(_ value: Double, rounding rule: FloatingPointRoundingRule) -> Int {
         guard value.isFinite else { return 0 }
@@ -903,66 +674,5 @@ enum TOMLConfigDecoder {
             config.lastCheck = value
         }
         return config
-    }
-
-    private static func cellStyle(from name: String) -> CellStyle? {
-        switch name.lowercased() {
-        case "rects": return .rects
-        case "hybrid": return .hybrid
-        case "icons": return .icons
-        case "thumbnails": return .thumbnails
-        case "simple": return .simple
-        default: return nil
-        }
-    }
-
-    private static func showMode(from name: String) -> ShowMode? {
-        switch name.lowercased() {
-        case "active": return .active
-        case "all": return .all
-        default: return nil
-        }
-    }
-
-    private static func multiMonitorHUDMode(from name: String) -> MultiMonitorHUDMode? {
-        switch name.lowercased() {
-        case "separate": return .separate
-        case "unified": return .unified
-        default: return nil
-        }
-    }
-
-    private static func hudVisibility(from name: String) -> SeparateHUDVisibility? {
-        switch name.lowercased() {
-        case "active": return .active
-        case "all": return .all
-        default: return nil
-        }
-    }
-
-    private static func displayNavigationWrap(from name: String) -> DisplayNavigationWrap? {
-        switch name.lowercased() {
-        case "within": return .within
-        case "between": return .between
-        default: return nil
-        }
-    }
-
-    private static func themeMode(from name: String) -> ThemeMode? {
-        switch name.lowercased() {
-        case "light": return .light
-        case "dark": return .dark
-        case "auto": return .auto
-        default: return nil
-        }
-    }
-
-    private static func updateMode(from name: String) -> UpdateMode? {
-        switch name.lowercased() {
-        case "auto": return .auto
-        case "notify": return .notify
-        case "off": return .off
-        default: return nil
-        }
     }
 }

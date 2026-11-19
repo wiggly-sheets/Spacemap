@@ -6,8 +6,8 @@ final class GridStateCoordinatorTests: XCTestCase {
 
 
     private func makeCoordinator(
-        config: GridConfig = .default,
-        buildGridState: @escaping (GridConfig, Int?) -> GridState
+        config: SpacemapConfig = .default,
+        buildGridState: @escaping (SpacemapConfig, Int?) -> GridState
     ) -> GridStateCoordinator {
         let mock = MockYabaiService()
         mock.buildGridStateClosure = buildGridState

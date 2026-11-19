@@ -20,7 +20,7 @@ class MenubarHandler: NSObject {
     private let onInstallCLI: () -> Void
     private let onCheckForUpdates: () -> Void
     private let onRestartApp: () -> Void
-    private let onGetConfig: () -> GridConfig
+    private let onGetConfig: () -> SpacemapConfig
     private let onSetLoginAtLogin: (Bool) -> Void
     private let onChangeSpaceNameProfile: (Int) -> Void
 
@@ -32,7 +32,7 @@ class MenubarHandler: NSObject {
         onInstallCLI: @escaping () -> Void,
         onCheckForUpdates: @escaping () -> Void,
         onRestartApp: @escaping () -> Void,
-        onGetConfig: @escaping () -> GridConfig,
+        onGetConfig: @escaping () -> SpacemapConfig,
         onSetLoginAtLogin: @escaping (Bool) -> Void,
         onChangeSpaceNameProfile: @escaping (Int) -> Void
     ) {
@@ -59,7 +59,7 @@ class MenubarHandler: NSObject {
         refreshMenubarPreview(config: config)
     }
 
-    func makeMenu(config: GridConfig) -> NSMenu {
+    func makeMenu(config: SpacemapConfig) -> NSMenu {
         let menu = NSMenu()
         let toggleHUDItem = menuItem(
             title: toggleHUDMenuTitle(config: config),
@@ -170,7 +170,7 @@ class MenubarHandler: NSObject {
         }
     }
 
-    func applyMenubarVisibility(config: GridConfig) {
+    func applyMenubarVisibility(config: SpacemapConfig) {
         if !config.presence.showsMenuBar {
             removeStatusItem()
         } else if statusItem == nil {
@@ -180,7 +180,7 @@ class MenubarHandler: NSObject {
         }
     }
 
-    func refreshMenubarPreview(config: GridConfig? = nil) {
+    func refreshMenubarPreview(config: SpacemapConfig? = nil) {
         let config = config ?? onGetConfig()
         updateHotkeyMenuItem(config: config)
         refreshProfileMenuIfNeeded(config: config)
@@ -230,7 +230,7 @@ class MenubarHandler: NSObject {
     }
 
     static func dotPreviewState(
-        config: GridConfig,
+        config: SpacemapConfig,
         spaces: [YabaiSpace],
         displayBounds: CGRect
     ) -> GridState {
@@ -244,7 +244,7 @@ class MenubarHandler: NSObject {
     }
 
     /// Main-thread convenience for callers that already have AppKit context.
-    static func dotPreviewState(config: GridConfig, spaces: [YabaiSpace]) -> GridState {
+    static func dotPreviewState(config: SpacemapConfig, spaces: [YabaiSpace]) -> GridState {
         dotPreviewState(
             config: config,
             spaces: spaces,
@@ -255,7 +255,7 @@ class MenubarHandler: NSObject {
     /// Rebuilds the whole menu when profile names or the active index changed.
     /// The submenu is otherwise built once in `makeMenu` and would go stale
     /// after Settings adds, renames, or deletes a profile.
-    private func refreshProfileMenuIfNeeded(config: GridConfig) {
+    private func refreshProfileMenuIfNeeded(config: SpacemapConfig) {
         let signature = Self.profileSignature(for: config)
         guard signature != profileMenuSignature else { return }
         profileMenuSignature = signature
@@ -263,7 +263,7 @@ class MenubarHandler: NSObject {
         item.menu = makeMenu(config: config)
     }
 
-    static func profileSignature(for config: GridConfig) -> String {
+    static func profileSignature(for config: SpacemapConfig) -> String {
         "\(config.activeSpaceNameProfileIndex)|" +
             config.spaceNameProfiles.map(\.name).joined(separator: "\u{1F}")
     }
@@ -314,14 +314,14 @@ class MenubarHandler: NSObject {
         }
     }
 
-    func toggleHUDMenuTitle(config: GridConfig) -> String {
+    func toggleHUDMenuTitle(config: SpacemapConfig) -> String {
         String(
             format: NSLocalizedString("Show/Hide Map (%@)", comment: ""),
             hotkeyMenuString(config.hotkey)
         )
     }
 
-    private func updateHotkeyMenuItem(config: GridConfig) {
+    private func updateHotkeyMenuItem(config: SpacemapConfig) {
         statusItem?.menu?.item(withTag: Self.toggleHUDMenuItemTag)?.title = toggleHUDMenuTitle(config: config)
     }
 

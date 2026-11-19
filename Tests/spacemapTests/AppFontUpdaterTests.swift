@@ -83,46 +83,45 @@ final class AppFontUpdaterTests: XCTestCase {
     // MARK: - Config keys
 
     func testAppFontConfigRoundTripsThroughConfigString() throws {
-        var values = ConfigValues()
+        var values = SpacemapConfig.default
         values.appFont = AppFontConfig(updateMode: .auto, installedVersion: "v3.0.5", lastCheck: 1760000000)
 
         let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
         let reread = try TOMLParser.parse(toml)
 
-        XCTAssertEqual(reread.appFont, values.appFont)
+        XCTAssertEqual(reread.config.appFont, values.appFont)
     }
 
     func testAppFontDefaultsApplyWhenSectionMissing() throws {
-        let values = try TOMLParser.parse("[grid]\ncols = 6\n")
+        let parsed = try TOMLParser.parse("[grid]\ncols = 6\n")
 
-        XCTAssertNil(values.appFont, "missing section keeps the repair flag path intact")
-        let config = values.gridConfig
-        XCTAssertEqual(config.appFont, AppFontConfig.default)
-        XCTAssertEqual(config.appFont.updateMode, .auto)
-        XCTAssertEqual(config.appFont.installedVersion, "")
-        XCTAssertEqual(config.appFont.lastCheck, 0)
+        XCTAssertEqual(parsed.config.appFont, AppFontConfig.default)
+        XCTAssertEqual(parsed.config.appFont.updateMode, .auto)
+        XCTAssertEqual(parsed.config.appFont.installedVersion, "")
+        XCTAssertEqual(parsed.config.appFont.lastCheck, 0)
+        XCTAssertTrue(parsed.needsRepair, "a missing [appFont] table flags a rewrite")
     }
 
     func testAppFontPartialTableKeepsDefaultsForMissingKeys() throws {
-        let values = try TOMLParser.parse("""
+        let parsed = try TOMLParser.parse("""
         [appFont]
         updateMode = "auto"
         """)
 
-        XCTAssertEqual(values.appFont?.updateMode, .auto)
-        XCTAssertEqual(values.appFont?.installedVersion, "")
-        XCTAssertEqual(values.appFont?.lastCheck, 0)
+        XCTAssertEqual(parsed.config.appFont.updateMode, .auto)
+        XCTAssertEqual(parsed.config.appFont.installedVersion, "")
+        XCTAssertEqual(parsed.config.appFont.lastCheck, 0)
     }
 
     func testAppFontRejectsUnknownUpdateMode() throws {
-        let values = try TOMLParser.parse("""
+        let parsed = try TOMLParser.parse("""
         [appFont]
         updateMode = "sometimes"
         installedVersion = "v3.0.5"
         """)
 
-        XCTAssertEqual(values.appFont?.updateMode, .auto, "unknown mode falls back to the default")
-        XCTAssertEqual(values.appFont?.installedVersion, "v3.0.5")
+        XCTAssertEqual(parsed.config.appFont.updateMode, .auto, "unknown mode falls back to the default")
+        XCTAssertEqual(parsed.config.appFont.installedVersion, "v3.0.5")
     }
 
     // MARK: - Font candidate order

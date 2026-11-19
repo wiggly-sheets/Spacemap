@@ -171,7 +171,7 @@ final class MenuBarPreviewRendererTests: XCTestCase {
         let spaces = [
             YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
         ]
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.menuBarDisplayMode = .icon
         let state = GridState(
             config: config,
@@ -189,7 +189,7 @@ final class MenuBarPreviewRendererTests: XCTestCase {
             YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil),
             YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: true, label: nil),
         ]
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.menuBarDisplayMode = .dots
         let state = GridState(
             config: config,

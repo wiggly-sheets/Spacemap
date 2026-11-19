@@ -122,7 +122,7 @@ struct YabaiWindow: Decodable, Equatable {
 
 struct GridState: Equatable {
 
-    let config: GridConfig
+    let config: SpacemapConfig
     let spaces: [YabaiSpace]
     let displays: [YabaiDisplay]
     let windows: [YabaiWindow]
@@ -131,7 +131,7 @@ struct GridState: Equatable {
     private let windowsBySpace: [Int: [YabaiWindow]]
 
     init(
-        config: GridConfig,
+        config: SpacemapConfig,
         spaces: [YabaiSpace],
         windows: [YabaiWindow],
         displayBounds: CGRect,

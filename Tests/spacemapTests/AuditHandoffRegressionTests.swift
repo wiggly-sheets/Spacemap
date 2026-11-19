@@ -12,6 +12,7 @@ final class CreateAndFocusTimeoutTests: XCTestCase {
     private func makeController(yabai: MockYabaiService) -> HUDWindowController {
         HUDWindowController(services: SpacemapServices(
             yabaiService: yabai,
+            themeStore: makeTemporaryThemeStore(),
             alertsService: Alerts()
         ))
     }
@@ -86,25 +87,25 @@ final class BuildGridStateCacheTests: XCTestCase {
 
 final class ParseFrameNonceTests: XCTestCase {
     func testNonceMismatchDropsFrame() {
-        let frame = Data([SpacemapCommand.toggle.rawValue]) + Data(":deadbeef".utf8)
+        let frame = Data([SpacemapCommand.toggle.socketByte!]) + Data(":deadbeef".utf8)
         XCTAssertNil(SocketListener.parseFrame(frame, nonce: String(repeating: "0", count: 64)))
     }
 
     func testMatchingNonceAccepted() {
         let nonce = String(repeating: "a", count: 64)
-        let frame = Data([SpacemapCommand.toggle.rawValue]) + Data((":" + nonce).utf8)
+        let frame = Data([SpacemapCommand.toggle.socketByte!]) + Data((":" + nonce).utf8)
         XCTAssertEqual(SocketListener.parseFrame(frame, nonce: nonce), .toggle)
     }
 
     func testTrailingNewlineAccepted() {
         XCTAssertEqual(
-            SocketListener.parseFrame(Data([SpacemapCommand.show.rawValue, 0x0A]), nonce: nil),
+            SocketListener.parseFrame(Data([SpacemapCommand.show.socketByte!, 0x0A]), nonce: nil),
             .show
         )
     }
 
     func testMissingColonSeparatorDropsFrame() {
-        let frame = Data([SpacemapCommand.show.rawValue]) + Data("xy".utf8)
+        let frame = Data([SpacemapCommand.show.socketByte!]) + Data("xy".utf8)
         XCTAssertNil(SocketListener.parseFrame(frame, nonce: nil))
     }
 
@@ -128,11 +129,14 @@ final class ConfigLoaderBackupAndSymlinkTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
         let path = dir.appendingPathComponent("config.toml").path
 
-        var first = ConfigValues(); first.cols = 11
+        var first = SpacemapConfig.default
+        first.cols = 11
         ConfigLoader.save(first, to: path)
-        var second = ConfigValues(); second.cols = 22
+        var second = SpacemapConfig.default
+        second.cols = 22
         ConfigLoader.save(second, to: path)
-        var third = ConfigValues(); third.cols = 33
+        var third = SpacemapConfig.default
+        third.cols = 33
         ConfigLoader.save(third, to: path)
 
         XCTAssertTrue(try String(contentsOfFile: path + ".bak", encoding: .utf8).contains("cols = 22"))
@@ -147,10 +151,10 @@ final class ConfigLoaderBackupAndSymlinkTests: XCTestCase {
         let link = dir.appendingPathComponent("config.toml").path
         try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: target.path)
 
-        let (values, needsRepair) = ConfigLoader.load(from: link, silentMode: true)
+        let (config, needsRepair) = ConfigLoader.load(from: link, silentMode: true)
 
         XCTAssertTrue(needsRepair)
-        XCTAssertEqual(values.cols, ConfigValues().cols)
+        XCTAssertEqual(config.cols, SpacemapConfig.default.cols)
         XCTAssertEqual(try String(contentsOf: target, encoding: .utf8), "cols = 5")
     }
 
@@ -162,7 +166,8 @@ final class ConfigLoaderBackupAndSymlinkTests: XCTestCase {
         let link = dir.appendingPathComponent("config.toml").path
         try FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: target.path)
 
-        var values = ConfigValues(); values.cols = 99
+        var values = SpacemapConfig.default
+        values.cols = 99
         ConfigLoader.save(values, to: link)
 
         XCTAssertEqual(try String(contentsOf: target, encoding: .utf8), "cols = 5")

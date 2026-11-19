@@ -3,22 +3,22 @@ import XCTest
 
 final class TOMLParserTests: XCTestCase {
 
-    func testParseMissingFieldsAreNil() {
-        let values = try? TOMLParser.parse("""
+    func testParseMissingFieldsFallBackToDefaults() {
+        let parsed = try? TOMLParser.parse("""
         [grid]
         cols = 5
         """)
 
-        XCTAssertEqual(values?.cols, 5)
-        XCTAssertNil(values?.rows)
-        XCTAssertNil(values?.cellStyle)
-        XCTAssertNil(values?.theme)
-        XCTAssertNil(values?.hotkey)
-        XCTAssertNil(values?.pinnedHotkey)
+        XCTAssertEqual(parsed?.config.cols, 5)
+        XCTAssertEqual(parsed?.config.rows, SpacemapConfig.default.rows)
+        XCTAssertEqual(parsed?.config.cellStyle, SpacemapConfig.default.cellStyle)
+        XCTAssertEqual(parsed?.config.theme, SpacemapConfig.default.theme)
+        XCTAssertEqual(parsed?.config.hotkey, SpacemapConfig.default.hotkey)
+        XCTAssertEqual(parsed?.config.pinnedHotkey, SpacemapConfig.default.pinnedHotkey)
     }
 
-    func testParseInvalidValuesAreNil() {
-        let values = try? TOMLParser.parse("""
+    func testParseInvalidValuesFallBackToDefaults() {
+        let parsed = try? TOMLParser.parse("""
         [grid]
         cols = "not a number"
         rows = -1
@@ -44,31 +44,33 @@ final class TOMLParserTests: XCTestCase {
         keyKind = "invalid"
         """)
 
-        XCTAssertNil(values?.cols)
-        XCTAssertNil(values?.rows)
-        XCTAssertNil(values?.cellStyle)
-        XCTAssertNil(values?.theme)
-        XCTAssertNil(values?.hotkey)
-        XCTAssertNil(values?.pinnedHotkey)
-        XCTAssertNil(values?.showSpaceNumbers)
-        XCTAssertNil(values?.showIconStrip)
-        XCTAssertNil(values?.showMultiAppIcons)
-        XCTAssertNil(values?.presence)
-        XCTAssertNil(values?.menuBarDisplayMode)
-        XCTAssertNil(values?.menuBarNearbyCount)
-        XCTAssertNil(values?.updateMode)
-        XCTAssertNil(values?.hotkey?.keyCode)
-        XCTAssertNil(values?.pinnedHotkey?.mediaKey)
+        XCTAssertEqual(parsed?.config.cols, SpacemapConfig.default.cols)
+        XCTAssertEqual(parsed?.config.rows, SpacemapConfig.default.rows)
+        XCTAssertEqual(parsed?.config.cellStyle, SpacemapConfig.default.cellStyle)
+        XCTAssertEqual(parsed?.config.showMode, SpacemapConfig.default.showMode)
+        XCTAssertEqual(parsed?.config.multiMonitorHUDMode, SpacemapConfig.default.multiMonitorHUDMode)
+        XCTAssertEqual(parsed?.config.unifiedHUDVisibility, SpacemapConfig.default.unifiedHUDVisibility)
+        XCTAssertEqual(parsed?.config.separateHUDVisibility, SpacemapConfig.default.separateHUDVisibility)
+        XCTAssertEqual(parsed?.config.maxSpaces, SpacemapConfig.default.maxSpaces)
+        XCTAssertEqual(parsed?.config.showSpaceNumbers, SpacemapConfig.default.showSpaceNumbers)
+        XCTAssertEqual(parsed?.config.showIconStrip, SpacemapConfig.default.showIconStrip)
+        XCTAssertEqual(parsed?.config.showMultiAppIcons, SpacemapConfig.default.showMultiAppIcons)
+        XCTAssertEqual(parsed?.config.presence, SpacemapConfig.default.presence)
+        XCTAssertEqual(parsed?.config.menuBarDisplayMode, SpacemapConfig.default.menuBarDisplayMode)
+        XCTAssertEqual(parsed?.config.menuBarNearbyCount, SpacemapConfig.default.menuBarNearbyCount)
+        XCTAssertEqual(parsed?.config.updateMode, SpacemapConfig.default.updateMode)
+        XCTAssertEqual(parsed?.config.hotkey, SpacemapConfig.default.hotkey)
+        XCTAssertEqual(parsed?.config.pinnedHotkey, SpacemapConfig.default.pinnedHotkey)
+        XCTAssertEqual(parsed?.needsRepair, true, "unparsable values must ask for a rewritten file")
     }
 
     func testParseUnknownKeysAreIgnored() {
-        let values = try? TOMLParser.parse("""
-        [grid]
-        cols = 8
-        unknownKey = "ignored"
-        """)
+        let full = ConfigLoader.tomlConfigString(from: SpacemapConfig.default, includeHeaderComments: false)
+        let parsed = try? TOMLParser.parse("[grid]\ncols = 8\nunknownKey = \"ignored\"\n" +
+            full.replacingOccurrences(of: "cols = 8\n", with: ""))
 
-        XCTAssertEqual(values?.cols, 8)
+        XCTAssertEqual(parsed?.config.cols, 8)
+        XCTAssertEqual(parsed?.needsRepair, false, "an unknown key is not a repair")
     }
 
     func testParseInvalidTOMLThrowsError() {
@@ -84,18 +86,18 @@ final class TOMLParserTests: XCTestCase {
     }
 
     func testParseAdvancedSection() {
-        let values = try? TOMLParser.parse("""
+        let parsed = try? TOMLParser.parse("""
         [advanced]
         socketHealthInterval = 30
         showExtraWindows = true
         """)
 
-        XCTAssertEqual(values?.socketHealthInterval, 30)
-        XCTAssertEqual(values?.showExtraWindows, true)
+        XCTAssertEqual(parsed?.config.socketHealthInterval, 30)
+        XCTAssertEqual(parsed?.config.showExtraWindows, true)
     }
 
     func testParseTrailingCommaAndMultilineArray() {
-        let values = try? TOMLParser.parse("""
+        let parsed = try? TOMLParser.parse("""
         [behavior.hotkey]
         keyKind = "keyCode"
         keyCode = 49
@@ -105,78 +107,75 @@ final class TOMLParserTests: XCTestCase {
         ]
         """)
 
-        XCTAssertNotNil(values?.hotkey)
-        XCTAssertTrue(values?.hotkey?.modifiers.contains(.maskCommand) ?? false)
-        XCTAssertTrue(values?.hotkey?.modifiers.contains(.maskShift) ?? false)
+        XCTAssertEqual(parsed?.config.hotkey.keyCode, 49)
+        XCTAssertTrue(parsed?.config.hotkey.modifiers.contains(.maskCommand) ?? false)
+        XCTAssertTrue(parsed?.config.hotkey.modifiers.contains(.maskShift) ?? false)
     }
 
     func testParseDottedKeys() {
-        let values = try? TOMLParser.parse("""
+        let parsed = try? TOMLParser.parse("""
         grid.cols = 8
         grid.rows = 3
         appearance.theme = "default"
         spaceNames.names."1" = "Term"
         """)
 
-        XCTAssertEqual(values?.cols, 8)
-        XCTAssertEqual(values?.rows, 3)
-        XCTAssertEqual(values?.theme, "default")
-        XCTAssertEqual(values?.spaceNames, [1: "Term"])
+        XCTAssertEqual(parsed?.config.cols, 8)
+        XCTAssertEqual(parsed?.config.rows, 3)
+        XCTAssertEqual(parsed?.config.theme, "default")
+        XCTAssertEqual(parsed?.config.spaceNames, [1: "Term"])
     }
 
     func testParseHexAndUnderscoredIntegers() {
-        let values = try? TOMLParser.parse("""
+        let parsed = try? TOMLParser.parse("""
         [grid]
         cols = 0x8
         rows = 1_0
 
         [glyphStrip]
         maxIconsPerSpace = 0x10
-        xOffset = 1_000
+        customX = 0.25
         """)
 
-        XCTAssertEqual(values?.cols, 8)
-        XCTAssertEqual(values?.rows, 10)
-        XCTAssertEqual(values?.glyphStrip?.maxIconsPerSpace, 16)
-        XCTAssertEqual(values?.glyphStrip?.xOffset, 1000)
+        XCTAssertEqual(parsed?.config.cols, 8)
+        XCTAssertEqual(parsed?.config.rows, 10)
+        XCTAssertEqual(parsed?.config.glyphStrip.maxIconsPerSpace, 16)
+        XCTAssertEqual(parsed?.config.glyphStrip.customX, 0.25)
     }
 
     func testParseInlineTable() {
-        let values = try? TOMLParser.parse("""
+        let parsed = try? TOMLParser.parse("""
         grid = { cols = 8, rows = 3 }
         """)
 
-        XCTAssertEqual(values?.cols, 8)
-        XCTAssertEqual(values?.rows, 3)
+        XCTAssertEqual(parsed?.config.cols, 8)
+        XCTAssertEqual(parsed?.config.rows, 3)
     }
 
     func testNestedSpaceNameEntriesFlagRepairWhenAnEntryIsInvalid() {
-        let values = try? TOMLParser.parse("""
+        let parsed = try? TOMLParser.parse("""
         [spaceNames.names]
         "2" = "Code"
         "not-a-space" = "Broken"
         """)
 
-        XCTAssertEqual(values?.spaceNames, [2: "Code"])
-        XCTAssertEqual(values?.hasInvalidSpaceNames, true)
-    }
-
-    func testGlyphStripTableParsesEnabledAndIconSize() {
+        XCTAssertEqual(parsed?.config.spaceNames, [2: "Code"])
+        XCTAssertEqual(parsed?.needsRepair, true)
     }
 
     func testParseInlineHotkeyAndHUDPositionUnderBehavior() {
-        let values = try? TOMLParser.parse("""
+        let parsed = try? TOMLParser.parse("""
         [behavior]
         hotkey = { keyKind = "keyCode", keyCode = 49, modifiers = ["cmd"] }
-        hudPosition = { kind = "custom", x = 0.25, y = 0.75 }
+        hudPosition = { kind = "custom", x = 0.25, y = 0.75, screen = "display-A" }
         """)
 
-        XCTAssertEqual(values?.hotkey?.keyCode, 49)
-        XCTAssertEqual(values?.hudPosition, .custom(x: 0.25, y: 0.75))
+        XCTAssertEqual(parsed?.config.hotkey.keyCode, 49)
+        XCTAssertEqual(parsed?.config.hudPosition, .custom(x: 0.25, y: 0.75, screen: "display-A"))
     }
 
     func testParseInlineNamesUnderSpaceNameProfile() {
-        let values = try? TOMLParser.parse("""
+        let parsed = try? TOMLParser.parse("""
         [spaceNameProfiles]
         activeIndex = 0
 
@@ -185,38 +184,36 @@ final class TOMLParserTests: XCTestCase {
         names = { "1" = "Term", "2" = "Code" }
         """)
 
-        XCTAssertEqual(values?.spaceNameProfiles?.first?.spaceNames, [1: "Term", 2: "Code"])
+        XCTAssertEqual(parsed?.config.spaceNameProfiles.first?.spaceNames, [1: "Term", 2: "Code"])
     }
 
     func testParseLoneCarriageReturnAndCRLFLineEndings() {
         let loneCR = try? TOMLParser.parse("grid.cols = 8\rgrid.rows = 3\r")
-        XCTAssertEqual(loneCR?.cols, 8)
-        XCTAssertEqual(loneCR?.rows, 3)
+        XCTAssertEqual(loneCR?.config.cols, 8)
+        XCTAssertEqual(loneCR?.config.rows, 3)
 
         let crlf = try? TOMLParser.parse("grid.cols = 6\r\ngrid.rows = 2\r\n")
-        XCTAssertEqual(crlf?.cols, 6)
-        XCTAssertEqual(crlf?.rows, 2)
+        XCTAssertEqual(crlf?.config.cols, 6)
+        XCTAssertEqual(crlf?.config.rows, 2)
     }
 
     func testHugeGlyphStripNumbersSaturateInsteadOfTrapping() throws {
         let huge = try TOMLParser.parse("""
         [glyphStrip]
         maxIconsPerSpace = 1e300
-        xOffset = 1e300
+        customX = 1e300
         """)
-        let (config, needsRepair) = huge.toGridConfig()
-        XCTAssertTrue(needsRepair)
-        XCTAssertEqual(config.glyphStrip.maxIconsPerSpace, 16)
-        XCTAssertEqual(config.glyphStrip.xOffset, 4000)
+        XCTAssertTrue(huge.needsRepair)
+        XCTAssertEqual(huge.config.glyphStrip.maxIconsPerSpace, 16)
+        XCTAssertEqual(huge.config.glyphStrip.customX, 1)
 
         let negative = try TOMLParser.parse("""
         [glyphStrip]
         maxIconsPerSpace = -1e300
-        xOffset = -1e300
+        customY = -1e300
         """)
-        let (negativeConfig, _) = negative.toGridConfig()
-        XCTAssertEqual(negativeConfig.glyphStrip.maxIconsPerSpace, 0)
-        XCTAssertEqual(negativeConfig.glyphStrip.xOffset, -4000)
+        XCTAssertEqual(negative.config.glyphStrip.maxIconsPerSpace, 0)
+        XCTAssertEqual(negative.config.glyphStrip.customY, 0)
     }
 
 }

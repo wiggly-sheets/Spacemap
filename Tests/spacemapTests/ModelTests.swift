@@ -254,7 +254,7 @@ final class ModelTests: XCTestCase {
             displayBounds: .zero,
             focusedIndex: 1
         )
-        var changedConfig = GridConfig.default
+        var changedConfig = SpacemapConfig.default
         changedConfig.uiScale = 0.75
         let changedConfiguration = GridState(
             config: changedConfig,
@@ -308,8 +308,8 @@ final class ModelTests: XCTestCase {
     }
 
 
-    func testGridConfigDefault() {
-        let c = GridConfig.default
+    func testSpacemapConfigDefault() {
+        let c = SpacemapConfig.default
         XCTAssertEqual(c.cols, 8)
         XCTAssertEqual(c.rows, 2)
         XCTAssertEqual(c.cellStyle, .rects)
@@ -338,7 +338,7 @@ final class ModelTests: XCTestCase {
     }
 
     func testHUDPositionCustomLabel() {
-        XCTAssertEqual(HUDPosition.custom(x: 0.3, y: 0.7).label, "Custom")
+        XCTAssertEqual(HUDPosition.custom(x: 0.3, y: 0.7, screen: nil).label, "Custom")
     }
 
     func testHUDPositionCenterPoint() {
@@ -368,7 +368,7 @@ final class ModelTests: XCTestCase {
     func testHUDPositionCustomPoint() {
         let screen = CGRect(x: 0, y: 0, width: 1920, height: 1080)
         let panelSize = CGSize(width: 400, height: 200)
-        let point = HUDPosition.custom(x: 0.0, y: 1.0).point(for: panelSize, screen: screen)
+        let point = HUDPosition.custom(x: 0.0, y: 1.0, screen: "display-A").point(for: panelSize, screen: screen)
         XCTAssertEqual(point.x, 0)
         XCTAssertEqual(point.y, 880)
     }

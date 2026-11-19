@@ -329,7 +329,7 @@ var body: some View {
 
     private var textColor: Color {
         let t = resolvedTheme
-        if let value = ThemeManager.parseHexValue(hudTextColor) { return Color(hex: value) }
+        if let value = ThemeCodec.parseHexValue(hudTextColor) { return Color(hex: value) }
         if isFocused { return Color(hex: t.focused) }
         if isDarkMode { return Color(hex: t.text).opacity(CellOpacity.textDarkDim) }
         return Color(hex: 0x333333).opacity(CellOpacity.textDim)

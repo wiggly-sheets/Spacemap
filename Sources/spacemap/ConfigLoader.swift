@@ -13,8 +13,6 @@ enum ConfigLoadStatus: Equatable {
 
 enum ConfigLoader {
 
-    static let configPath = NSString(string: "~/.config/spacemap/config.toml").expandingTildeInPath
-
     /// Fail-closed ceilings. Decode logic below is untouched; oversized input
     /// never reaches it.
     static let maxConfigBytes = 256 * 1024
@@ -31,9 +29,9 @@ enum ConfigLoader {
         (try? FileManager.default.attributesOfItem(atPath: path))?[.type] as? FileAttributeType == .typeSymbolicLink
     }
 
-    static func load(from path: String, silentMode: Bool) -> (values: ConfigValues, needsRepair: Bool) {
+    static func load(from path: String, silentMode: Bool) -> (config: SpacemapConfig, needsRepair: Bool) {
         let result = loadReportingResult(from: path, silentMode: silentMode)
-        return (result.values, result.needsRepair)
+        return (result.config, result.needsRepair)
     }
 
     /// Additive counterpart to `load`: same behavior plus a status explaining
@@ -41,7 +39,7 @@ enum ConfigLoader {
     static func loadReportingResult(
         from path: String,
         silentMode: Bool
-    ) -> (values: ConfigValues, needsRepair: Bool, status: ConfigLoadStatus) {
+    ) -> (config: SpacemapConfig, needsRepair: Bool, status: ConfigLoadStatus) {
         ioLock.lock()
         defer { ioLock.unlock() }
         return loadUnlocked(from: path, silentMode: silentMode)
@@ -51,10 +49,10 @@ enum ConfigLoader {
         from path: String,
         silentMode: Bool,
         repair: Bool = true
-    ) -> (values: ConfigValues, needsRepair: Bool, status: ConfigLoadStatus) {
+    ) -> (config: SpacemapConfig, needsRepair: Bool, status: ConfigLoadStatus) {
         if isSymlink(at: path) {
             NSLog("spacemap/ConfigLoader: refusing to read symlinked config at \(path)")
-            return (ConfigValues(), true, .unreadable)
+            return (.default, true, .unreadable)
         }
         // O_NOFOLLOW open: a link swapped in after the check above still
         // fails here instead of being followed (TOCTOU). Nil also covers
@@ -62,17 +60,17 @@ enum ConfigLoader {
         guard let read = nofollowData(at: path, limit: maxConfigBytes) else {
             if !silentMode { NSLog("spacemap/ConfigLoader: failed to read config at \(path)") }
             let wroteDefault = createDefaultConfigFileUnlocked(at: path)
-            return (ConfigValues(), true, wroteDefault ? .createdDefault : .unreadable)
+            return (.default, true, wroteDefault ? .createdDefault : .unreadable)
         }
         // Stop at the ceiling instead of slurping a huge file into memory.
         guard !read.exceeded else {
             NSLog("spacemap/ConfigLoader: config at \(path) exceeds size ceilings — using defaults")
-            return (ConfigValues(), true, .oversized)
+            return (.default, true, .oversized)
         }
         guard var raw = String(data: read.data, encoding: .utf8) else {
             if !silentMode { NSLog("spacemap/ConfigLoader: config at \(path) is not UTF-8") }
             _ = createDefaultConfigFileUnlocked(at: path)
-            return (ConfigValues(), true, .unreadable)
+            return (.default, true, .unreadable)
         }
         if raw.hasPrefix("\u{FEFF}") { raw = String(raw.dropFirst()) }
         let contents = raw
@@ -82,10 +80,10 @@ enum ConfigLoader {
         guard contents.split(separator: "\n", omittingEmptySubsequences: false)
             .allSatisfy({ $0.utf8.count <= maxLineBytes }) else {
             NSLog("spacemap/ConfigLoader: config at \(path) has an oversized line — using defaults")
-            return (ConfigValues(), true, .oversized)
+            return (.default, true, .oversized)
         }
 
-        let parsed: ConfigValues
+        let parsed: (config: SpacemapConfig, needsRepair: Bool)
         do {
             parsed = try TOMLParser.parse(contents)
         } catch {
@@ -93,24 +91,23 @@ enum ConfigLoader {
             // a broken file, but cannot recover defaults written over it. Fall
             // back for this session and leave the bytes untouched.
             logParseFailureOnce(at: path, error.localizedDescription)
-            return (ConfigValues(), true, .parseFailed)
+            return (.default, true, .parseFailed)
         }
         // A later relapse should log again.
         loggedParseFailures.remove(path)
-        let values = sanitizeLabels(parsed)
-        let (resolved, needsRepair) = values.toGridConfig()
+        let (config, invalidLabels) = sanitizeLabels(parsed.config)
+        let needsRepair = parsed.needsRepair || invalidLabels
         guard needsRepair else {
-            return (values, false, .loaded)
+            return (config, false, .loaded)
         }
-        // Persist the resolved model, not the raw values: writing raw input
-        // (e.g. `cols = 9223372036854775807`) makes every load rediscover the
-        // same repair and rewrite the file forever. `update` passes
+        // Persist the resolved model, not the raw input (e.g. `cols =
+        // 9223372036854775807`): writing raw input makes every load rediscover
+        // the same repair and rewrite the file forever. `update` passes
         // `repair: false` so it writes once, after applying its mutation.
         if repair {
-            _ = saveUnlocked(ConfigValues(from: resolved), to: path)
+            _ = saveUnlocked(config, to: path)
         }
-        let resolvedValues = ConfigValues(from: resolved)
-        return (resolvedValues, true, .repaired)
+        return (config, true, .repaired)
     }
 
     /// O_NOFOLLOW read of a regular file, capped at `limit + 1` bytes so the
@@ -140,19 +137,19 @@ enum ConfigLoader {
         return (data, data.count > limit)
     }
 
-    static func save(_ values: ConfigValues, to path: String) {
-        _ = saveReportingResult(values, to: path)
+    static func save(_ config: SpacemapConfig, to path: String) {
+        _ = saveReportingResult(config, to: path)
     }
 
     /// Additive counterpart to `save`: returns whether the file was written.
     @discardableResult
-    static func saveReportingResult(_ values: ConfigValues, to path: String) -> Bool {
+    static func saveReportingResult(_ config: SpacemapConfig, to path: String) -> Bool {
         ioLock.lock()
         defer { ioLock.unlock() }
-        return saveUnlocked(values, to: path)
+        return saveUnlocked(config, to: path)
     }
 
-    private static func saveUnlocked(_ values: ConfigValues, to path: String) -> Bool {
+    private static func saveUnlocked(_ config: SpacemapConfig, to path: String) -> Bool {
         // EEXIST + O_NOFOLLOW: never write through a planted link or dir.
         guard !isSymlink(at: path) else {
             NSLog("spacemap/ConfigLoader: refusing to write through symlink at \(path)")
@@ -161,18 +158,8 @@ enum ConfigLoader {
         let dir = (path as NSString).deletingLastPathComponent
         secureDirectory(at: dir)
         backupConfig(at: path)
-        let content = tomlConfigString(from: values, includeHeaderComments: true)
+        let content = tomlConfigString(from: config, includeHeaderComments: true)
         return secureWrite(content, to: path)
-    }
-
-    static func save(_ config: GridConfig, to path: String) {
-        _ = saveReportingResult(config, to: path)
-    }
-
-    /// Additive counterpart to `save(_:to:)` for GridConfig callers.
-    @discardableResult
-    static func saveReportingResult(_ config: GridConfig, to path: String) -> Bool {
-        saveReportingResult(ConfigValues(from: config), to: path)
     }
 
     /// Read-only text access with the same guards as `load`, but it never
@@ -193,7 +180,7 @@ enum ConfigLoader {
     static func update(
         at path: String,
         silentMode: Bool,
-        _ mutate: (inout GridConfig) -> Void
+        _ mutate: (inout SpacemapConfig) -> Void
     ) -> Bool {
         ioLock.lock()
         defer { ioLock.unlock() }
@@ -201,9 +188,9 @@ enum ConfigLoader {
         // the post-mutation save, rotating the backup twice.
         let result = loadUnlocked(from: path, silentMode: silentMode, repair: false)
         guard result.status != .parseFailed else { return false }
-        var config = result.values.gridConfig
+        var config = result.config
         mutate(&config)
-        return saveUnlocked(ConfigValues(from: config), to: path)
+        return saveUnlocked(config, to: path)
     }
 
     static func createDefaultConfigFile(at path: String) {
@@ -226,7 +213,7 @@ enum ConfigLoader {
         }
         secureDirectory(at: (path as NSString).deletingLastPathComponent)
         backupConfig(at: path)
-        let content = tomlConfigString(from: ConfigValues(), includeHeaderComments: true)
+        let content = tomlConfigString(from: .default, includeHeaderComments: true)
         let written = secureWrite(content, to: path)
         if written {
             NSLog("spacemap: default config created at \(path)")
@@ -282,27 +269,26 @@ enum ConfigLoader {
 
     /// Label charset allowlist: Unicode letters/numbers/marks/punctuation/
     /// symbols/space separators (emoji survive); control/format/private-use
-    /// rejected. Runs post-decode — decode logic itself is untouched.
-    static func sanitizeLabels(_ values: ConfigValues) -> ConfigValues {
-        var out = values
-        if let names = out.spaceNames {
-            let sanitized = Dictionary(uniqueKeysWithValues: names.map { ($0.key, sanitizeLabel($0.value)) })
-            if sanitized != names { out.hasInvalidSpaceNames = true }
-            out.spaceNames = sanitized
+    /// rejected. Runs post-decode — decode logic itself is untouched. Reports
+    /// whether anything changed, so the caller can flag a rewrite.
+    static func sanitizeLabels(_ config: SpacemapConfig) -> (config: SpacemapConfig, changed: Bool) {
+        var out = config
+        var changed = false
+        let sanitized = Dictionary(uniqueKeysWithValues: out.spaceNames.map { ($0.key, sanitizeLabel($0.value)) })
+        if sanitized != out.spaceNames { changed = true }
+        out.spaceNames = sanitized
+
+        out.spaceNameProfiles = out.spaceNameProfiles.map { profile in
+            var copy = profile
+            let name = sanitizeLabel(profile.name)
+            if name != profile.name { changed = true }
+            copy.name = name
+            let spaceNames = Dictionary(uniqueKeysWithValues: profile.spaceNames.map { ($0.key, sanitizeLabel($0.value)) })
+            if spaceNames != profile.spaceNames { changed = true }
+            copy.spaceNames = spaceNames
+            return copy
         }
-        if let profiles = out.spaceNameProfiles {
-            out.spaceNameProfiles = profiles.map { profile in
-                var copy = profile
-                let name = sanitizeLabel(profile.name)
-                if name != profile.name { out.hasInvalidSpaceNames = true }
-                copy.name = name
-                let spaceNames = Dictionary(uniqueKeysWithValues: profile.spaceNames.map { ($0.key, sanitizeLabel($0.value)) })
-                if spaceNames != profile.spaceNames { out.hasInvalidSpaceNames = true }
-                copy.spaceNames = spaceNames
-                return copy
-            }
-        }
-        return out
+        return (out, changed)
     }
 
     static let maxLabelChars = 64
@@ -332,8 +318,7 @@ enum ConfigLoader {
     }
 
 
-    static func tomlConfigString(from values: ConfigValues, includeHeaderComments: Bool) -> String {
-        let defaults = GridConfig.default
+    static func tomlConfigString(from config: SpacemapConfig, includeHeaderComments: Bool) -> String {
         var lines: [String] = []
         if includeHeaderComments {
             lines += [
@@ -342,148 +327,42 @@ enum ConfigLoader {
             ]
         }
 
+        lines.append("[grid]")
+        // `showThumbnailWallpaper` is a grid field but its line lives under
+        // [behavior] below, where the writer has always put it.
+        for field in ConfigSchema.gridFields where field.key != "showThumbnailWallpaper" {
+            lines.append(field.encodeLine(from: config))
+        }
         lines += [
-            "[grid]",
-            "cols = \(values.cols ?? defaults.cols)",
-            "rows = \(values.rows ?? defaults.rows)",
-            "cellStyle = \(tomlString(ConfigLoader.cellStyleName(values.cellStyle ?? defaults.cellStyle)))",
-            "showMode = \(tomlString((values.showMode ?? defaults.showMode).rawValue))",
-            "multiMonitorHUDMode = \(tomlString((values.multiMonitorHUDMode ?? defaults.multiMonitorHUDMode).rawValue))",
-            "unifiedHUDVisibility = \(tomlString((values.unifiedHUDVisibility ?? defaults.unifiedHUDVisibility).rawValue))",
-            "separateHUDVisibility = \(tomlString((values.separateHUDVisibility ?? defaults.separateHUDVisibility).rawValue))",
-            "maxSpaces = \(values.maxSpaces ?? defaults.maxSpaces)",
-            "showSpaceNumbers = \(values.showSpaceNumbers ?? defaults.showSpaceNumbers)",
-            "showSpaceLayout = \(values.showSpaceLayout ?? defaults.showSpaceLayout)",
-            "showIconStrip = \(values.showIconStrip ?? defaults.showIconStrip)",
-            "showMultiAppIcons = \(values.showMultiAppIcons ?? defaults.showMultiAppIcons)",
-            "hudIconSource = \"\(values.hudIconSource?.rawValue ?? defaults.hudIconSource.rawValue)\"",
-            "hudIconStripSeparate = \(values.hudIconStripSeparate ?? defaults.hudIconStripSeparate)",
-            "hudIconStripSource = \"\(values.hudIconStripSource?.rawValue ?? defaults.hudIconStripSource.rawValue)\"",
             "",
             "[spaceNames]",
-            "showSpaceNames = \(values.showSpaceNames ?? defaults.showSpaceNames)",
+            "showSpaceNames = \(config.showSpaceNames)",
             "",
             "[spaceNames.names]"
         ]
-        let spaceNames = values.spaceNames ?? defaults.spaceNames
-        for key in spaceNames.keys.sorted() {
-            if let name = spaceNames[key] {
+        for key in config.spaceNames.keys.sorted() {
+            if let name = config.spaceNames[key] {
                 lines.append("\(tomlString(String(key))) = \(tomlString(name))")
             }
         }
 
-        lines += [
-            "",
-            "[appearance]",
-            "theme = \(tomlString(values.theme ?? defaults.theme))",
-            "mode = \(tomlString((values.mode ?? defaults.mode).rawValue))",
-            "backgroundAlpha = \(values.backgroundAlpha ?? defaults.backgroundAlpha)",
-            "backgroundStyle = \(tomlString((values.backgroundStyle ?? defaults.backgroundStyle).rawValue))",
-            "glassStyle = \(tomlString((values.glassStyle ?? defaults.glassStyle).rawValue))",
-            "glassClearVariant = \(values.glassClearVariant ?? defaults.glassClearVariant)",
-            "glassRegularVariant = \(values.glassRegularVariant ?? defaults.glassRegularVariant)",
-            "glassTintedVariant = \(values.glassTintedVariant ?? defaults.glassTintedVariant)",
-            "glassTintedMaterial = \(tomlString((values.glassTintedMaterial ?? defaults.glassTintedMaterial).rawValue))",
-            "glassClearOpacity = \(values.glassClearOpacity ?? defaults.glassClearOpacity)",
-            "glassRegularOpacity = \(values.glassRegularOpacity ?? defaults.glassRegularOpacity)",
-            "glassTintedOpacity = \(values.glassTintedOpacity ?? defaults.glassTintedOpacity)",
-            "solidOpacity = \(values.solidOpacity ?? defaults.solidOpacity)",
-            "matchBackgroundOpacity = \(values.matchBackgroundOpacity ?? defaults.matchBackgroundOpacity)",
-            "hudShadow = \(values.hudShadow ?? defaults.hudShadow)",
-            "hudCornerRadius = \(values.hudCornerRadius ?? defaults.hudCornerRadius)",
-            "hudFontName = \(tomlString(values.hudFontName ?? defaults.hudFontName))",
-            "hudFontSize = \(values.hudFontSize ?? defaults.hudFontSize)",
-            "hudTextColor = \(Self.tomlString(values.hudTextColor ?? defaults.hudTextColor))",
-            "spacesMatchBackground = \(values.spacesMatchBackground ?? defaults.spacesMatchBackground)",
-            "spacesBackgroundStyle = \(tomlString((values.spacesBackgroundStyle ?? defaults.spacesBackgroundStyle).rawValue))",
-            "spacesGlassStyle = \(tomlString((values.spacesGlassStyle ?? defaults.spacesGlassStyle).rawValue))",
-            "spacesGlassClearVariant = \(values.spacesGlassClearVariant ?? defaults.spacesGlassClearVariant)",
-            "spacesGlassRegularVariant = \(values.spacesGlassRegularVariant ?? defaults.spacesGlassRegularVariant)",
-            "spacesGlassTintedVariant = \(values.spacesGlassTintedVariant ?? defaults.spacesGlassTintedVariant)",
-            "spacesGlassTintedMaterial = \(tomlString((values.spacesGlassTintedMaterial ?? defaults.spacesGlassTintedMaterial).rawValue))",
-            "spacesOpacity = \(values.spacesOpacity ?? defaults.spacesOpacity)",
-            "spacesCornerRadius = \(values.spacesCornerRadius ?? defaults.spacesCornerRadius)",
-            "iconScale = \(values.iconScale ?? defaults.iconScale)",
-            "uiScale = \(values.uiScale ?? defaults.uiScale)",
-            "",
-            "[behavior]",
-            "autoHideTimeout = \(values.autoHideTimeout ?? defaults.autoHideTimeout)",
-            "displayNavigationWrap = \(tomlString((values.displayNavigationWrap ?? defaults.displayNavigationWrap).rawValue))",
-            "jumpToSpaceEnabled = \(values.jumpToSpaceEnabled ?? defaults.jumpToSpaceEnabled)",
-            "customHUDX = \(values.customHUDX ?? defaults.customHUDX)",
-            "customHUDY = \(values.customHUDY ?? defaults.customHUDY)",
-            "focusSpaceOnWindowDrop = \(tomlString((values.focusSpaceOnWindowDrop ?? defaults.focusSpaceOnWindowDrop).rawValue))",
-            "focusSpaceOnWindowDropModifier = \(tomlString((values.focusSpaceOnWindowDropModifier ?? defaults.focusSpaceOnWindowDropModifier).rawValue))",
-            "showHUDOnSpaceChange = \(values.showHUDOnSpaceChange ?? defaults.showHUDOnSpaceChange)",
-            "showBSPLayoutBadge = \(values.showBSPLayoutBadge ?? defaults.showBSPLayoutBadge)",
-            "showStackLayoutBadge = \(values.showStackLayoutBadge ?? defaults.showStackLayoutBadge)",
-            "showFloatLayoutBadge = \(values.showFloatLayoutBadge ?? defaults.showFloatLayoutBadge)",
-            "showHUDInteractionFeedback = \(values.showHUDInteractionFeedback ?? defaults.showHUDInteractionFeedback)",
-            "spaceDropMode = \(tomlString((values.spaceDropMode ?? defaults.spaceDropMode).rawValue))",
-            "spaceDragFocus = \(tomlString((values.spaceDragFocus ?? defaults.spaceDragFocus).rawValue))",
-            "windowDragFocus = \(tomlString((values.windowDragFocus ?? defaults.windowDragFocus).rawValue))",
-            "showThumbnailWallpaper = \(values.showThumbnailWallpaper ?? defaults.showThumbnailWallpaper)",
-            "hudAnimationsEnabled = \(values.hudAnimationsEnabled ?? defaults.hudAnimationsEnabled)",
-            "hudAnimationStyle = \(tomlString((values.hudAnimationStyle ?? defaults.hudAnimationStyle).rawValue))",
-            "hudEntranceStyle = \(tomlString((values.hudEntranceStyle ?? defaults.hudEntranceStyle).rawValue))",
-            "presence = \(tomlString((values.presence ?? defaults.presence).rawValue))",
-            "menuBarDisplayMode = \(tomlString((values.menuBarDisplayMode ?? defaults.menuBarDisplayMode).rawValue))",
-            "menuBarNearbyCount = \(values.menuBarNearbyCount ?? defaults.menuBarNearbyCount)",
-            "updateMode = \(tomlString((values.updateMode ?? defaults.updateMode).rawValue))"
-        ]
-        appendHotkey(values.hotkey ?? defaults.hotkey, section: "behavior.hotkey", to: &lines)
-        appendHotkey(values.pinnedHotkey ?? defaults.pinnedHotkey, section: "behavior.pinnedHotkey", to: &lines)
-        appendHotkey(
-            values.glyphStripHotkey ?? defaults.glyphStripHotkey,
-            section: "behavior.glyphStripHotkey",
-            to: &lines
-        )
-        appendHotkey(
-            values.hudMoveSpaceBackHotkey ?? defaults.hudMoveSpaceBackHotkey,
-            section: "behavior.hudMoveSpaceBackHotkey",
-            to: &lines
-        )
-        appendHotkey(
-            values.hudMoveSpaceForwardHotkey ?? defaults.hudMoveSpaceForwardHotkey,
-            section: "behavior.hudMoveSpaceForwardHotkey",
-            to: &lines
-        )
-        appendHotkey(
-            values.hudNewSpaceHotkey ?? defaults.hudNewSpaceHotkey,
-            section: "behavior.hudNewSpaceHotkey",
-            to: &lines
-        )
-        appendHotkey(
-            values.hudDeleteSpaceHotkey ?? defaults.hudDeleteSpaceHotkey,
-            section: "behavior.hudDeleteSpaceHotkey",
-            to: &lines
-        )
-        appendHotkey(
-            values.hudCycleLayoutHotkey ?? defaults.hudCycleLayoutHotkey,
-            section: "behavior.hudCycleLayoutHotkey",
-            to: &lines
-        )
-
-        lines += ["", "[hudKeys]"]
-        let hudKeys = values.hudKeys ?? defaults.hudKeys
-        for action in HUDKeyAction.allCases {
-            let names = hudKeys[action]
-                .filter { !$0.isDisabled }
-                .map(Hotkey.hotkeyToString)
-            lines.append("\(action.rawValue) = \(tomlStringArray(names))")
+        lines += ["", "[appearance]"]
+        for field in ConfigSchema.appearanceFields {
+            lines.append(field.encodeLine(from: config))
         }
-
-        lines += ["", "[behavior.hudPosition]"]
-        switch values.hudPosition ?? defaults.hudPosition {
-        case .center: lines.append("kind = \"center\"")
-        case .top: lines.append("kind = \"top\"")
-        case .bottom: lines.append("kind = \"bottom\"")
-        case .custom(let x, let y):
-            lines += ["kind = \"custom\"", "x = \(x)", "y = \(y)"]
+        lines += ["", "[behavior]"]
+        for field in ConfigSchema.behaviorFields {
+            lines.append(field.encodeLine(from: config))
+        }
+        // Table-shaped keys: the header is `[section.key]`, or `[key]` for a
+        // root table such as `[hudKeys]`.
+        for field in ConfigSchema.tableFields {
+            let header = field.section == field.key ? field.key : "\(field.section).\(field.key)"
+            lines += ["", "[\(header)]", field.encodeBody(from: config)]
         }
 
         lines += ["", "[glyphStrip]"]
-        let glyphStrip = values.glyphStrip ?? defaults.glyphStrip
+        let glyphStrip = config.glyphStrip
         lines += [
             "enabled = \(glyphStrip.enabled)",
             "hideInFullscreen = \(glyphStrip.hideInFullscreen)",
@@ -524,7 +403,6 @@ enum ConfigLoader {
             "displayMode = \(tomlString(glyphStrip.displayMode.rawValue))",
             "iconSpacing = \(glyphStrip.iconSpacing)",
             "indexPadding = \(glyphStrip.indexPadding)",
-            "yOffset = \(glyphStrip.yOffset)",
             "hoverPadding = \(glyphStrip.hoverPadding)",
             "hoverCornerRadius = \(glyphStrip.hoverCornerRadius)",
             "showDisplaySeparators = \(glyphStrip.showDisplaySeparators)",
@@ -537,11 +415,13 @@ enum ConfigLoader {
             "orientation = \(tomlString(glyphStrip.orientation.rawValue))",
             "verticalLayout = \(tomlString(glyphStrip.verticalLayout.rawValue))",
             "lockPosition = \(glyphStrip.lockPosition)",
-            "xOffset = \(glyphStrip.xOffset)",
+            "customX = \(glyphStrip.customX)",
+            "customY = \(glyphStrip.customY)",
+            "customScreen = \(tomlString(glyphStrip.customScreen))",
             "borderEnabled = \(glyphStrip.borderEnabled)"
         ]
 
-        let appFont = values.appFont ?? defaults.appFont
+        let appFont = config.appFont
         lines += [
             "",
             "[appFont]",
@@ -550,8 +430,8 @@ enum ConfigLoader {
             "lastCheck = \(appFont.lastCheck)"
         ]
 
-        let profiles = values.spaceNameProfiles ?? defaults.spaceNameProfiles
-        let activeProfileIndex = values.activeSpaceNameProfileIndex ?? defaults.activeSpaceNameProfileIndex
+        let profiles = config.spaceNameProfiles
+        let activeProfileIndex = config.activeSpaceNameProfileIndex
         let defaultProfile = SpaceNameProfile.default
         let hasNonDefaultProfiles = profiles.count != 1 ||
             profiles.first?.name != defaultProfile.name ||
@@ -577,13 +457,10 @@ enum ConfigLoader {
             }
         }
 
-        lines += [
-            "",
-            "[advanced]",
-            "socketHealthInterval = \(values.socketHealthInterval ?? defaults.socketHealthInterval)",
-            "showExtraWindows = \(values.showExtraWindows ?? defaults.showExtraWindows)",
-            "refuseUntrustedYabai = \(values.refuseUntrustedYabai ?? defaults.refuseUntrustedYabai)"
-        ]
+        lines += ["", "[advanced]"]
+        for field in ConfigSchema.advancedFields {
+            lines.append(field.encodeLine(from: config))
+        }
         return lines.joined(separator: "\n") + "\n"
     }
 
@@ -651,19 +528,6 @@ enum ConfigLoader {
     }
 
 
-    private static func appendHotkey(_ hotkey: HotkeyConfig, section: String, to lines: inout [String]) {
-        lines += ["", "[\(section)]"]
-        switch hotkey.key {
-        case .none:
-            lines.append("keyKind = \"none\"")
-        case .keyCode(let keyCode):
-            lines += ["keyKind = \"keyCode\"", "keyCode = \(keyCode)"]
-        case .mediaKey(let mediaKey):
-            lines += ["keyKind = \"mediaKey\"", "mediaKey = \(tomlString(mediaKey.rawValue))"]
-        }
-        lines.append("modifiers = \(tomlStringArray(Hotkey.modifierNames(for: hotkey.modifiers)))")
-    }
-
     static func tomlString(_ value: String) -> String {
         var escaped = ""
         for scalar in value.unicodeScalars {
@@ -688,7 +552,7 @@ enum ConfigLoader {
         return "\"\(escaped)\""
     }
 
-    private static func tomlStringArray(_ values: [String]) -> String {
+    static func tomlStringArray(_ values: [String]) -> String {
         "[" + values.map(tomlString).joined(separator: ", ") + "]"
     }
 

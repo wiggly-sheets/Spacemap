@@ -224,7 +224,7 @@ struct GridView: View {
     }
     
     private var hudTextOverride: Color? {
-        ThemeManager.parseHexValue(state.config.hudTextColor).map { Color(hex: $0) }
+        ThemeCodec.parseHexValue(state.config.hudTextColor).map { Color(hex: $0) }
     }
 
     private var spaceBackground: CellSpaceBackground {

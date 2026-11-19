@@ -61,7 +61,7 @@ final class CellViewGridViewTests: XCTestCase {
     }
 
     func testMenuBarDotsModeExpandsForLegibility() throws {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.menuBarDisplayMode = .dots
         config.cols = 8
         config.rows = 2
@@ -383,7 +383,7 @@ final class CellViewGridViewTests: XCTestCase {
     }
 
     func testGridViewUsesSuppliedSpaceIndicesForItsLayout() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.cols = 8
         config.maxSpaces = 8
         config.showMode = .all
@@ -411,7 +411,7 @@ final class CellViewGridViewTests: XCTestCase {
     }
 
     func testHoverStateMutationDrivesTheDropTargetCell() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.cols = 4
         config.maxSpaces = 4
         config.showMode = .all
@@ -630,15 +630,15 @@ final class CellViewGridViewTests: XCTestCase {
     }
 
     func testShowSpaceLayoutDefaultsOff() {
-        XCTAssertFalse(GridConfig.default.showSpaceLayout)
+        XCTAssertFalse(SpacemapConfig.default.showSpaceLayout)
     }
 
-    func testShowSpaceLayoutPlumbsThroughConfigValues() {
-        XCTAssertFalse(ConfigValues().toGridConfig().config.showSpaceLayout)
-        var values = ConfigValues()
-        values.showSpaceLayout = true
-        XCTAssertTrue(values.toGridConfig().config.showSpaceLayout)
-        XCTAssertTrue(ConfigValues(from: values.toGridConfig().config).showSpaceLayout ?? false)
+    func testShowSpaceLayoutPlumbsThroughTheConfig() throws {
+        XCTAssertFalse(SpacemapConfig.default.showSpaceLayout)
+        var config = SpacemapConfig.default
+        config.showSpaceLayout = true
+        let toml = ConfigLoader.tomlConfigString(from: config, includeHeaderComments: false)
+        XCTAssertEqual(try TOMLParser.parse(toml).config.showSpaceLayout, true)
     }
 }
 

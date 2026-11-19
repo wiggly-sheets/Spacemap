@@ -26,7 +26,7 @@ struct ConfigPresetStore {
 
     static let shared = ConfigPresetStore(
         directory: defaultDirectory,
-        configPath: AppConfig.configPath
+        configPath: ConfigStore.configPath
     )
 
     let directory: String
@@ -80,8 +80,10 @@ struct ConfigPresetStore {
         guard let name = Self.sanitizedName(rawName) else { return false }
         flushActive()
         guard let text = ConfigLoader.readText(at: presetPath(name)),
-              let values = try? TOMLParser.parse(text) else { return false }
-        guard ConfigLoader.saveReportingResult(values, to: configPath) else { return false }
+              let parsed = try? TOMLParser.parse(text) else { return false }
+        // Preset text may be partial or hand-edited: save the resolved config,
+        // never the raw text, so repairs apply before it reaches config.toml.
+        guard ConfigLoader.saveReportingResult(Self.exportable(parsed.config), to: configPath) else { return false }
         setActive(name)
         return true
     }
@@ -90,8 +92,8 @@ struct ConfigPresetStore {
     /// active preset file is allowed to lag behind current edits until then.
     func flushActive() {
         guard let active = activeName else { return }
-        let (values, _, _) = ConfigLoader.loadReportingResult(from: configPath, silentMode: true)
-        _ = ConfigLoader.saveReportingResult(Self.exportable(values), to: presetPath(active))
+        let config = ConfigLoader.loadReportingResult(from: configPath, silentMode: true).config
+        _ = ConfigLoader.saveReportingResult(Self.exportable(config), to: presetPath(active))
     }
 
     @discardableResult
@@ -100,19 +102,19 @@ struct ConfigPresetStore {
         let path = presetPath(name)
         guard !FileManager.default.fileExists(atPath: path) else { return false }
 
-        let values: ConfigValues
+        let config: SpacemapConfig
         switch source {
         case .defaults:
-            values = ConfigValues()
+            config = .default
         case .current:
-            values = ConfigLoader.loadReportingResult(from: configPath, silentMode: true).values
+            config = ConfigLoader.loadReportingResult(from: configPath, silentMode: true).config
         case .preset(let rawSource):
             guard let sourceName = Self.sanitizedName(rawSource),
                   let text = ConfigLoader.readText(at: presetPath(sourceName)),
                   let parsed = try? TOMLParser.parse(text) else { return false }
-            values = parsed
+            config = parsed.config
         }
-        return ConfigLoader.saveReportingResult(Self.exportable(values), to: path)
+        return ConfigLoader.saveReportingResult(Self.exportable(config), to: path)
     }
 
     /// Remove a preset file. config.toml keeps whatever is loaded now.
@@ -131,9 +133,9 @@ struct ConfigPresetStore {
     }
 
     func exportConfig(to url: URL) -> Bool {
-        let (values, _, _) = ConfigLoader.loadReportingResult(from: configPath, silentMode: true)
+        let config = ConfigLoader.loadReportingResult(from: configPath, silentMode: true).config
         let text = ConfigLoader.tomlConfigString(
-            from: Self.exportable(values),
+            from: Self.exportable(config),
             includeHeaderComments: true
         )
         return ConfigLoader.secureWrite(text, to: url.path)
@@ -144,19 +146,16 @@ struct ConfigPresetStore {
     @discardableResult
     func importConfig(from url: URL) -> Bool {
         guard let text = ConfigLoader.readText(at: url.path),
-              let values = try? TOMLParser.parse(text) else { return false }
-        return ConfigLoader.saveReportingResult(Self.exportable(values), to: configPath)
+              let parsed = try? TOMLParser.parse(text) else { return false }
+        return ConfigLoader.saveReportingResult(Self.exportable(parsed.config), to: configPath)
     }
 
     /// Font install state is machine state, not taste: a shared preset must not
     /// claim another machine's font version.
-    static func exportable(_ values: ConfigValues) -> ConfigValues {
-        var copy = values
-        if var font = copy.appFont {
-            font.installedVersion = ""
-            font.lastCheck = 0
-            copy.appFont = font
-        }
+    static func exportable(_ config: SpacemapConfig) -> SpacemapConfig {
+        var copy = config
+        copy.appFont.installedVersion = ""
+        copy.appFont.lastCheck = 0
         return copy
     }
 

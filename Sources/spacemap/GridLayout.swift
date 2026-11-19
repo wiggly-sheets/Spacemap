@@ -45,7 +45,7 @@ public enum GridLayout {
         let gap = baseGap * scale(for: uiScale)
         let pad = basePadding * scale(for: uiScale)
         // Clamp locally as defense in depth: callers normally hand in a
-        // validated GridConfig, but direct construction must not overflow.
+        // validated SpacemapConfig, but direct construction must not overflow.
         let cols = min(max(cols, 1), 32)
         let visible = max(0, visibleIndices)
         let cellW = baseCellWidth * scale(for: uiScale)
