@@ -3,29 +3,35 @@ import SwiftUI
 
 class HUDWindowController {
     private var dragHandler: WindowDragHandler
-    private var hoveredCell: Int? = nil
-    private var state: GridState? = nil
     private(set) var focusedWindowIDAtOpen: Int? = nil
-    private var presentationGeneration = 0
-    private var dragAutoHidePoll: DispatchWorkItem?
-    var isVisible = false
-    var isPinned: Bool {
-        get { hudInput.isPinned }
-        set { hudInput.isPinned = newValue }
-    }
     var isToggling = false
+    var isVisible: Bool { presenter.isVisible }
+    var isPinned: Bool {
+        get { presenter.isPinned }
+        set { presenter.isPinned = newValue }
+    }
     // App-lifetime intent: AppDelegate owns SpacemapServices for process
     // lifetime and services owns hud. Both die together at termination,
     // so this strong back-ref never leaks in practice.
     private let services: SpacemapServices
-    private var _config: GridConfig? = nil
+    private var _config: SpacemapConfig? = nil
     private var lastConfigMtime: Date?
     private var didCheckConfigMtime = false
-    private var config: GridConfig { get { _config ?? services.appConfig.load() } set { _config = newValue } }
+    private var config: SpacemapConfig { get { _config ?? services.configStore.load() } set { _config = newValue } }
     var onShowSettings: (() -> Void)?
     private let hudInput: HUDInput
     private let hudDisplay: HUDDisplay
     private let coordinator: GridStateCoordinator
+    private let presenter: HUDPresenter
+    /// Settle polls stop once the presentation that started a command ends.
+    /// Lazy because the predicate needs `self` and no command runs during init.
+    private lazy var spaceCommands = HUDSpaceCommands(yabaiService: services.yabaiService) { [weak self] in
+        let presentation = self?.presenter.currentPresentation()
+        return { [weak self] in
+            guard let self, let presentation else { return false }
+            return self.presenter.isCurrent(presentation)
+        }
+    }
     /// Reduce Transparency changes which backing the HUD can use; SwiftUI
     /// reads that only when its body re-evaluates.
     private var accessibilityObserver: NSObjectProtocol?
@@ -36,14 +42,20 @@ class HUDWindowController {
 
     init(services: SpacemapServices, coordinator: GridStateCoordinator? = nil) {
         self.services = services
-        let appConfig = services.appConfig
-        self.coordinator = coordinator ?? GridStateCoordinator(yabaiService: services.yabaiService, configLoader: { appConfig.load() })
+        let configStore = services.configStore
+        self.coordinator = coordinator ?? GridStateCoordinator(yabaiService: services.yabaiService, configLoader: { configStore.load() })
         self.hudDisplay = HUDDisplay(
             yabaiService: services.yabaiService,
-            themeService: services.themeService
+            themeStore: services.themeStore
         )
         self.hudInput = HUDInput(panel: nil)
         self.dragHandler = WindowDragHandler()
+        self.presenter = HUDPresenter(
+            display: hudDisplay,
+            input: hudInput,
+            coordinator: self.coordinator,
+            yabaiService: services.yabaiService
+        )
         setupDelegates()
         accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
@@ -86,32 +98,43 @@ class HUDWindowController {
             hudDisplay?.quartzPoint(fromAppKit: point) ?? point
         }
         hudInput.updateConfig(
-            hudKeys: config.hudKeys,
-            jumpToSpaceEnabled: config.jumpToSpaceEnabled,
-            hudMoveBackHotkey: config.hudMoveSpaceBackHotkey,
-            hudMoveForwardHotkey: config.hudMoveSpaceForwardHotkey,
-            hudNewSpaceHotkey: config.hudNewSpaceHotkey,
-            hudDeleteSpaceHotkey: config.hudDeleteSpaceHotkey,
-            hudCycleLayoutHotkey: config.hudCycleLayoutHotkey
+            hudKeys: config.hudKeyBindings,
+            jumpToSpaceEnabled: config.jumpToSpaceEnabled
         )
         hudInput.yabaiService = services.yabaiService
         hudInput.config = config
         hudInput.hudStateSync = coordinator
         hudInput.hudDisplay = hudDisplay
         hudInput.onRefresh = { [weak self] in self?.refresh() }
-        hudInput.onAutoHide = { [weak self] in self?.hide() }
+        hudInput.onShowSettings = { [weak self] in self?.showSettings() }
         hudInput.onNumberEntry = { [weak self] feedback in self?.hudDisplay.updateDisplayNumber(feedback) }
         hudInput.onPanelDragEnded = { [weak self] in self?.hudDisplay.savePanelPosition() }
         hudInput.onAccessibilityRevoked = { [weak self] in self?.hide() }
+        // Drag targeting is controller glue: the presenter decides when a
+        // presentation is live, the drag handler owns hover and drop events.
+        presenter.isDragging = { [weak self] in self?.dragHandler.isDragging ?? false }
+        // Every hide path — toggle, pin, close, settings, Accessibility
+        // revocation, auto-hide — must run the same drag teardown.
+        presenter.onHide = { [weak self] in self?.teardownDragGlue() }
+        presenter.onRendered = { [weak self] _ in self?.dragHandler.start() }
+        presenter.onFocusedWindowResolved = { [weak self] focusedWindowID, state in
+            guard let self else { return }
+            self.focusedWindowIDAtOpen = focusedWindowID
+            let cellFrames = self.hudDisplay.computeCellFrames(state: state)
+            self.dragHandler.updateInput(WindowDragInput(
+                cellFrames: cellFrames,
+                cachedWindows: state.windows,
+                focusedWindowIDAtOpen: focusedWindowID
+            ))
+        }
         dragHandler.onHoverCell = { [weak self] cell in
-            guard let self, self.isVisible, self.state != nil else { return }
+            guard let self, self.isVisible, self.presenter.state != nil else { return }
             self.handleHoverCell(cell)
         }
         dragHandler.onDropInCell = { [weak self] windowID, spaceIndex, modifiers in
             guard let self, self.isVisible else { return }
-            self.hoveredCell = nil
-            self.hudDisplay.updateHoveredCell(nil)
-            hudInput.setAutoHideSuppressed(false)
+            self.presenter.clearHover()
+            self.presenter.setAutoHideSuppressed(false)
             let focusDestination = self.config.focusSpaceOnWindowDrop.shouldFocus(
                 eventFlags: modifiers,
                 requiredModifier: self.config.focusSpaceOnWindowDropModifier
@@ -123,13 +146,15 @@ class HUDWindowController {
             ) { [weak self] result in
                 guard let self else { return }
                 if case .failure(let error) = result { NSLog("spacemap/HUD: window drop failed: \(error.localizedDescription)") }
-                self.refresh()
-                self.resetAutoHideTimer()
+                // No presentation token here: refresh() self-guards isVisible,
+                // unlike complete(), which needs the token.
+                self.presenter.refresh()
+                self.presenter.resetAutoHideTimer()
             }
         }
         dragHandler.onRequestDragSnapshot = { [weak self] requestGeneration in
             guard let self else { return }
-            let presentationGeneration = self.presentationGeneration
+            let presentation = self.presenter.currentPresentation()
             self.services.yabaiService.runOnYabaiQueue { [weak self] in
                 guard let self else { return }
                 let focusedWindowID = try? self.services.yabaiService.queryFocusedWindow()
@@ -137,7 +162,7 @@ class HUDWindowController {
                 DispatchQueue.main.async { [weak self] in
                     guard let self,
                           self.isVisible,
-                          self.presentationGeneration == presentationGeneration else { return }
+                          self.presenter.isCurrent(presentation) else { return }
                     self.dragHandler.applyDragSnapshot(
                         focusedWindowID: focusedWindowID,
                         windows: windows,
@@ -148,55 +173,17 @@ class HUDWindowController {
         }
     }
 
-    /// Cell-crossing hover: only mutate the observable hover channel and
-    /// auto-hide state. No icons, thumbnails, rendering or panel resizing.
+    /// Cell-crossing hover: only the presenter's hover and auto-hide channels
+    /// change. No icons, thumbnails, rendering or panel resizing.
     func handleHoverCell(_ cell: Int?) {
-        guard hoveredCell != cell else { return }
-        hoveredCell = cell
-        hudDisplay.updateHoveredCell(cell)
-        hudInput.setAutoHideSuppressed(cell != nil || dragHandler.isDragging)
-        guard cell == nil else { return }
-        guard dragHandler.isDragging else {
-            hudInput.setAutoHideSuppressed(false)
-            resetAutoHideTimer()
-            return
-        }
-        // handleMouseUp clears the hover before WindowDragHandler.reset() runs
-        // its deferred isDragging reset, and a drag that ends over panel
-        // padding produces no final hover callback at all. Poll briefly until
-        // the drag is genuinely over, then re-arm auto-hide.
-        releaseAutoHideAfterDrag()
-
-    }
-
-    private func releaseAutoHideAfterDrag(attempt: Int = 0) {
-        dragAutoHidePoll?.cancel()
-        // Bounded: a drag under 20s is re-checked every 200ms; after that
-        // give up and re-arm auto-hide rather than polling forever.
-        guard attempt < 100 else {
-            dragAutoHidePoll = nil
-            hudInput.setAutoHideSuppressed(false)
-            resetAutoHideTimer()
-            return
-        }
-        let work = DispatchWorkItem { [weak self] in
-            guard let self, self.isVisible else { return }
-            guard !self.dragHandler.isDragging else {
-                self.releaseAutoHideAfterDrag(attempt: attempt + 1)
-                return
-            }
-            self.dragAutoHidePoll = nil
-            self.hudInput.setAutoHideSuppressed(false)
-            self.resetAutoHideTimer()
-        }
-        dragAutoHidePoll = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        presenter.handleHoverCell(cell)
     }
 
     /// Test seam: the input's drag target must be the live HUD panel.
     var inputPanel: NSPanel? { hudInput.currentPanel }
     var hudDisplayForTesting: HUDDisplay { hudDisplay }
     var seededFocusedSpaceIndex: Int? { hudInput.lastFocusedSpaceIndex }
+    var isAutoHideScheduled: Bool { presenter.isAutoHideScheduled }
 
     func toggle() {
         debouncedToggle { [weak self] in
@@ -210,7 +197,7 @@ class HUDWindowController {
         debouncedToggle { [weak self] in
             guard let self else { return }
             if self.isVisible, self.isPinned { self.hide() }
-            else { self.isPinned = true; self.isVisible ? self.hudInput.resetAutoHideTimer() : self.show() }
+            else { self.isPinned = true; self.isVisible ? self.presenter.resetAutoHideTimer() : self.show() }
         }
     }
     func pin() {
@@ -218,7 +205,7 @@ class HUDWindowController {
         debouncedToggle { [weak self] in
             guard let self else { return }
             self.isPinned = true
-            self.isVisible ? self.hudInput.resetAutoHideTimer() : self.show()
+            self.isVisible ? self.presenter.resetAutoHideTimer() : self.show()
         }
     }
     private func debouncedToggle(_ action: @escaping () -> Void) {
@@ -229,73 +216,25 @@ class HUDWindowController {
     }
     func show() {
         guard !isVisible else { return }
-        hudDisplay.hide(); reloadConfigIfChanged()
-        presentationGeneration += 1
-        isVisible = true
-        hudInput.updateVisibility(true)
-        if let state = coordinator.state {
-            hudDisplay.updateState(state)
-            hudInput.currentState = state
-            hudInput.lastFocusedSpaceIndex = state.focusedIndex
-        } else {
-            // Fail-usable placeholder: empty grid still paints cells and
-            // seeds input state, so navigation works once fetch lands.
-            // Placeholder forces .all: active mode with no spaces paints
-            // nothing (GridLayout filters on active indices).
-            var placeholderConfig = config
-            placeholderConfig.showMode = .all
-            let placeholder = GridState(config: placeholderConfig, spaces: [], windows: [], displayBounds: NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 2560, height: 1440), focusedIndex: nil)
-            hudDisplay.updateState(placeholder)
-            hudInput.currentState = placeholder
-            hudInput.lastFocusedSpaceIndex = placeholder.focusedIndex
-        }
-        hudInput.autoHideTimeout = TimeInterval(config.autoHideTimeout)
-        hudInput.resetAutoHideTimer()
-        hudInput.startPollTimer()
-        hudInput.start()
+        reloadConfigIfChanged()
+        presenter.show(config: config)
         reconcilePanelDragMonitor()
-        coordinator.fetch { [weak self] in self?.renderRefreshedState(force: false, refreshFocusedWindow: true) }
     }
     func prewarmState() {
-        coordinator.fetch { [weak self] in
-            guard let self, let state = self.coordinator.state else { return }
-            self.hudDisplay.prewarm(state: state)
-            if self.isVisible, self.state == nil { self.hudDisplay.updateState(state) }
-        }
+        presenter.prewarmState()
     }
     func startPollTimer() {
         hudInput.startPollTimer()
     }
-    private func renderRefreshedState(force: Bool, refreshFocusedWindow: Bool = false) {
-        guard isVisible, let state = coordinator.state else { return }
-        self.state = state
-        hudInput.currentState = state
-        hudDisplay.refreshAndRender(state: state, force: force)
-        hudInput.lastFocusedSpaceIndex = state.focusedIndex
-        dragHandler.start()
-        if refreshFocusedWindow {
-            let generation = presentationGeneration
-            services.yabaiService.runOnYabaiQueue { [weak self] in
-                guard let self = self else { return }
-                let focusedWindowID = try? services.yabaiService.queryFocusedWindow()
-                DispatchQueue.main.async {
-                    guard self.isVisible, self.presentationGeneration == generation else { return }
-                    self.focusedWindowIDAtOpen = focusedWindowID
-                    let cellFrames = self.hudDisplay.computeCellFrames(state: state)
-                    self.dragHandler.updateInput(WindowDragInput(cellFrames: cellFrames, cachedWindows: state.windows, focusedWindowIDAtOpen: focusedWindowID))
-                }
-            }
-        }
-    }
     /// Space under an AppKit screen point while the HUD is up. Uses the same
     /// Quartz cell frames as window drag, so hit testing follows the real grid.
-    private(set) var externalDropTarget: Int?
+    var externalDropTarget: Int?
     private var externalDragMonitor: Any?
     /// The strip's space drag does not target its own source space.
     private var externalDragSourceSpace: Int?
 
     func spaceIndex(atAppKitScreenPoint point: NSPoint) -> Int? {
-        guard isVisible, let state else { return nil }
+        guard isVisible, let state = presenter.state else { return nil }
         let quartz = hudDisplay.quartzPoint(fromAppKit: point)
         let frames = hudDisplay.computeCellFrames(state: state)
         // Only the cell directly under the pointer highlights, so the visual
@@ -311,7 +250,7 @@ class HUDWindowController {
     }
 
     func setExternalDragActive(_ active: Bool) {
-        hudInput.setAutoHideSuppressed(active)
+        presenter.setAutoHideSuppressed(active)
         externalDragPoll?.invalidate()
         externalDragPoll = nil
         if let monitor = externalDragMonitor {
@@ -348,82 +287,52 @@ class HUDWindowController {
         hudDisplay.setExternalDropTarget(target)
     }
 
-    private func handleSpaceDrop(source: Int) {
+    func handleSpaceDrop(source: Int) {
         // Same value the cell highlight is showing, so the swap always lands
         // on the highlighted space.
         guard let target = externalDropTarget, source != target else { return }
         services.yabaiService.swapSpaces(source, target, mode: config.spaceDropMode, focusMode: config.spaceDragFocus)
     }
 
-    private func handleWindowDrop(ids: [Int], source: Int) {
+    func handleWindowDrop(ids: [Int], source: Int) {
         guard !ids.isEmpty, let target = externalDropTarget, source != target else { return }
         services.yabaiService.moveWindows(ids, toSpace: target, focusMode: config.windowDragFocus, sourceSpace: source)
     }
 
     func hide() {
-        guard isVisible else { return }
-        presentationGeneration += 1
-        isVisible = false
-        hudInput.updateVisibility(false)
-        isPinned = false; dragHandler.stop()
-        // Hide the display first: hudInput.stop() clears number entry, whose
-        // callback triggers updateDisplayNumber → a full render if the display
-        // still considers itself rendered. Ordering avoids a transient re-show.
-        dragAutoHidePoll?.cancel()
-        dragAutoHidePoll = nil
+        presenter.hide()
+    }
+
+    /// Drag glue for every hide path. The presenter's `onHide` hook runs it
+    /// once the presentation is gone, which matches HEAD's ordering.
+    private func teardownDragGlue() {
+        dragHandler.stop()
         externalDropTarget = nil
         externalDragSourceSpace = nil
-        hudDisplay.hide()
-        hudInput.stop()
-        hoveredCell = nil; self.state = nil; hudInput.currentState = nil
         focusedWindowIDAtOpen = nil
-        hudInput.isPollingFocusedSpace = false
-        hudInput.lastFocusedSpaceIndex = nil
-        coordinator.clearPendingFocus(); coordinator.cancelPendingFetch()
         dragHandler.updateInput(WindowDragInput(cellFrames: [], cachedWindows: [], focusedWindowIDAtOpen: nil))
     }
     func refresh() {
-        guard isVisible else {
-            guard coordinator.state != nil else { prewarmState(); return }
-            services.yabaiService.runOnYabaiQueue { [weak self] in
-                guard let self = self else { return }
-                let focusedIndex = services.yabaiService.queryFocusedSpaceIndex()
-                DispatchQueue.main.async { [weak self] in
-                    guard let self = self, !self.isVisible, let focusedIndex = focusedIndex else { return }
-                    self.coordinator.fetch { _ = self.coordinator.updateFocusedIndex(focusedIndex) }
-                }
-            }
-            return
-        }
-        hudInput.resetAutoHideTimer()
-        coordinator.refresh { [weak self] in self?.renderRefreshedState(force: false) }
+        presenter.refresh()
     }
     func reloadConfig() {
         _config = nil
-        services.themeService.reloadIfChanged()
+        services.themeStore.reloadIfChanged()
         hudInput.config = config
         hudInput.updateConfig(
-            hudKeys: config.hudKeys,
-            jumpToSpaceEnabled: config.jumpToSpaceEnabled,
-            hudMoveBackHotkey: config.hudMoveSpaceBackHotkey,
-            hudMoveForwardHotkey: config.hudMoveSpaceForwardHotkey,
-            hudNewSpaceHotkey: config.hudNewSpaceHotkey,
-            hudDeleteSpaceHotkey: config.hudDeleteSpaceHotkey,
-            hudCycleLayoutHotkey: config.hudCycleLayoutHotkey
+            hudKeys: config.hudKeyBindings,
+            jumpToSpaceEnabled: config.jumpToSpaceEnabled
         )
         hudDisplay.updateConfig(config)
         coordinator.reloadConfig()
         reconcilePanelDragMonitor()
     }
     private func reloadConfigIfChanged() {
-        let mtime: Date? = (try? FileManager.default.attributesOfItem(atPath: services.appConfig.configPath))?[.modificationDate] as? Date
+        let mtime: Date? = (try? FileManager.default.attributesOfItem(atPath: services.configStore.configPath))?[.modificationDate] as? Date
         guard !didCheckConfigMtime || mtime != lastConfigMtime else { return }
         didCheckConfigMtime = true
         lastConfigMtime = mtime
         reloadConfig()
-    }
-    private func resetAutoHideTimer() {
-        hudInput.resetAutoHideTimer()
     }
     /// Panel-drag positioning only applies to the single unified active
     /// panel; reconcile on show and on config reload so toggling the custom
@@ -439,15 +348,33 @@ class HUDWindowController {
             hudInput.stopPanelDragMonitor()
         }
     }
-    private func navigateSpace(_ direction: SpaceNavigationDirection) {
-        hudInput.navigate(direction: direction)
-    }
 }
 extension HUDWindowController: HUDInputDelegate {
-    func navigate(direction: SpaceNavigationDirection) { navigateSpace(direction) }
-    func navigateToFirst() { hudInput.navigateToFirst() }
-    func navigateToLast() { hudInput.navigateToLast() }
-    func closeHUD() { hide() }
+    /// Every matched HUD key arrives here. Legacy scalar keys and `[hudKeys]`
+    /// bindings share this one path.
+    func perform(_ command: HUDCommand) {
+        switch command {
+        case .left: navigate(direction: .left)
+        case .right: navigate(direction: .right)
+        case .up: navigate(direction: .up)
+        case .down: navigate(direction: .down)
+        case .first: hudInput.navigateToFirst()
+        case .last: hudInput.navigateToLast()
+        case .recent: focusRecent()
+        case .close: hide()
+        case .newSpace: createSpace()
+        case .newSpaceAndFocus: createAndFocusNewestSpace()
+        case .deleteSpace: destroyCurrentSpace()
+        case .layoutBSP: setSpaceLayout(.bsp)
+        case .layoutStack: setSpaceLayout(.stack)
+        case .layoutFloat: setSpaceLayout(.float)
+        case .cycleLayout: cycleSpaceLayout()
+        case .moveSpaceBack: moveSpace(direction: .left)
+        case .moveSpaceForward: moveSpace(direction: .right)
+        }
+    }
+
+    func navigate(direction: SpaceNavigationDirection) { hudInput.navigate(direction: direction) }
     func focusRecent() {
         // "recent" is a named selector; SpaceFocusTarget never fails for it.
         guard let target = SpaceFocusTarget(argument: "recent") else { return }
@@ -461,116 +388,48 @@ extension HUDWindowController: HUDInputDelegate {
             // next arrow key operate on the actual current space.
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.isVisible else { return }
-                self.refresh()
+                self.presenter.refresh()
             }
         }
     }
     func createSpace() {
-        // Chain the refresh after the create lands: poll for the new max
-        // index instead of refreshing against the pre-create snapshot.
-        // Plain create never steals focus — only createAndFocus does.
-        // beforeMax is read on yabaiQueue before the create is enqueued:
-        // createSpace() runs async on focusQueue, so the snapshot is still
-        // pre-create without blocking the main thread on a yabai query.
-        let generation = presentationGeneration
-        services.yabaiService.runOnYabaiQueue { [weak self] in
-            guard let self else { return }
-            let beforeMax = (try? self.services.yabaiService.querySpaces())?.map(\.index).max()
-            self.services.yabaiService.createSpace()
-            self.pollForNewestSpace(beforeMax: beforeMax, generation: generation, attempts: 0, shouldFocus: false)
+        // The presenter drops the result if the HUD closed while the space was
+        // being created.
+        let presentation = presenter.currentPresentation()
+        spaceCommands.createSpace { [weak self] newest in
+            guard let self, let newest else { return }
+            self.presenter.complete(presentation, notice: "Space \(newest) Created")
         }
     }
     func createAndFocusNewestSpace() {
-        refresh()
-        let generation = presentationGeneration
-        services.yabaiService.runOnYabaiQueue { [weak self] in
-            guard let self else { return }
-            let beforeMax = (try? self.services.yabaiService.querySpaces())?.map(\.index).max()
-            self.services.yabaiService.createSpace()
-            self.pollForNewestSpace(beforeMax: beforeMax, generation: generation, attempts: 0)
-        }
-    }
-    private func pollForNewestSpace(beforeMax: Int?, generation: Int, attempts: Int, shouldFocus: Bool = true) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self, self.presentationGeneration == generation else { return }
-            self.services.yabaiService.runOnYabaiQueue { [weak self] in
-                guard let self else { return }
-                if let maxNow = (try? self.services.yabaiService.querySpaces())?.map(\.index).max(),
-                   beforeMax.map({ maxNow > $0 }) ?? true {
-                    // Async: sync focus blocks yabai queue up to 10s.
-                    // Same focusQueue as createSpace keeps focus ordered after create.
-                    if shouldFocus { self.services.yabaiService.focusSpaceAsync(maxNow) }
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self, self.presentationGeneration == generation else { return }
-                        self.hudDisplay.showNotice("Space \(maxNow) Created")
-                        self.refresh()
-                    }
-                    return
-                }
-                guard attempts + 1 < 20 else {
-                    NSLog("spacemap/HUD: createAndFocus timed out waiting for new space")
-                    return
-                }
-                self.pollForNewestSpace(beforeMax: beforeMax, generation: generation, attempts: attempts + 1, shouldFocus: shouldFocus)
-            }
+        presenter.refresh()
+        let presentation = presenter.currentPresentation()
+        spaceCommands.createAndFocusNewestSpace { [weak self] newest in
+            guard let self, let newest else { return }
+            self.presenter.complete(presentation, notice: "Space \(newest) Created")
         }
     }
     func destroyCurrentSpace() {
-        guard let focused = state?.focusedIndex else { return }
+        guard let focused = presenter.state?.focusedIndex else { return }
         // yabai itself falls back to the first space after a destroy. Keep the
         // user's place instead: focus the space just before it once the destroy
         // has landed, so the quick auto-jump is corrected.
-        let previous = state?.spaces.map(\.index).filter { $0 < focused }.max()
-        let generation = presentationGeneration
-        services.yabaiService.destroySpace(focused)
-        hudDisplay.showNotice("Space \(focused) Deleted")
-        waitForDestroy(focused, previous: previous, generation: generation, attempts: 0)
-    }
-
-    /// Polls until the destroyed space is gone, then focuses the previous space.
-    /// Retries because yabai applies the destroy asynchronously.
-    private func waitForDestroy(_ destroyed: Int, previous: Int?, generation: Int, attempts: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self, self.presentationGeneration == generation else { return }
-            self.services.yabaiService.runOnYabaiQueue { [weak self] in
-                guard let self else { return }
-                let indices = (try? self.services.yabaiService.querySpaces())?.map(\.index) ?? []
-                if !indices.contains(destroyed) {
-                    if let previous, indices.contains(previous) {
-                        self.services.yabaiService.focusSpaceAsync(previous)
-                    }
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self, self.presentationGeneration == generation else { return }
-                        self.refresh()
-                    }
-                    return
-                }
-                guard attempts + 1 < 20 else {
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self, self.presentationGeneration == generation else { return }
-                        self.refresh()
-                    }
-                    return
-                }
-                self.waitForDestroy(destroyed, previous: previous, generation: generation, attempts: attempts + 1)
-            }
+        let previous = presenter.state?.spaces.map(\.index).filter { $0 < focused }.max()
+        let presentation = presenter.currentPresentation()
+        presenter.showNotice("Space \(focused) Deleted")
+        spaceCommands.destroySpace(focused, previous: previous) { [weak self] in
+            self?.presenter.complete(presentation)
         }
     }
     func setSpaceLayout(_ layout: SpaceLayout) {
-        services.yabaiService.setSpaceLayout(layout)
-        hudDisplay.showNotice(Self.layoutNotice(layout))
-        refresh()
+        spaceCommands.setLayout(layout)
+        presenter.showNotice(Self.layoutNotice(layout))
+        presenter.refresh()
     }
     func cycleSpaceLayout() {
-        guard let focused = state?.focusedIndex,
-              let current = state?.spaces.first(where: { $0.index == focused })?.type else { return }
-        let next: SpaceLayout
-        switch current {
-        case "stack": next = .float
-        case "float": next = .bsp
-        default: next = .stack
-        }
-        setSpaceLayout(next)
+        guard let focused = presenter.state?.focusedIndex,
+              let current = presenter.state?.spaces.first(where: { $0.index == focused })?.type else { return }
+        setSpaceLayout(spaceCommands.cycleLayout(from: current))
     }
 
     private static func layoutNotice(_ layout: SpaceLayout) -> String {
@@ -581,22 +440,14 @@ extension HUDWindowController: HUDInputDelegate {
         }
     }
     func moveSpace(direction: SpaceNavigationDirection) {
-        guard let focused = state?.focusedIndex,
-              let indices = state?.spaces.map(\.index).sorted(),
-              let position = indices.firstIndex(of: focused) else { return }
-        let offset = direction == .left ? -1 : 1
-        guard indices.indices.contains(position + offset) else { return }
-        let target = indices[position + offset]
-        services.yabaiService.swapSpaces(
-            focused,
-            target,
-            mode: config.spaceDropMode,
-            focusMode: .stay
-        )
-        hudDisplay.showNotice("Space \(focused) Moved")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-            self?.refresh()
-        }
+        let presentation = presenter.currentPresentation()
+        guard let moved = spaceCommands.moveSpace(
+            focusedIndex: presenter.state?.focusedIndex,
+            indices: presenter.state?.spaces.map(\.index) ?? [],
+            direction: direction,
+            mode: config.spaceDropMode
+        ) else { return }
+        presenter.complete(presentation, notice: "Space \(moved) Moved", after: 0.25)
     }
 
     func showSettings() { hide(); onShowSettings?() }

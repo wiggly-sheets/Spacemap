@@ -25,6 +25,7 @@ final class HUDWindowControllerTests: XCTestCase {
     private func makeHUDWindowController() -> HUDWindowController {
         HUDWindowController(services: SpacemapServices(
             yabaiService: MockYabaiService(),
+            themeStore: makeTemporaryThemeStore(),
             alertsService: Alerts()
         ))
     }
@@ -34,6 +35,7 @@ final class HUDWindowControllerTests: XCTestCase {
         let yabaiService = MockYabaiService()
         let controller = HUDWindowController(services: SpacemapServices(
             yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
             alertsService: Alerts()
         ))
         XCTAssertFalse(controller.isVisible, "HUD should start hidden")
@@ -115,20 +117,22 @@ final class HUDWindowControllerTests: XCTestCase {
                 atPath: (configPath as NSString).deletingLastPathComponent,
                 withIntermediateDirectories: true
             )
-            var initial = GridConfig.default
+            var initial = SpacemapConfig.default
             initial.hudKeys = .default
             initial.jumpToSpaceEnabled = false
             initial.hudShadow = true
             initial.hudPosition = .center
             initial.multiMonitorHUDMode = .unified
             initial.unifiedHUDVisibility = .active
-            AppConfig.silentMode = true
-            defer { AppConfig.silentMode = false }
-            AppConfig.saveConfig(initial, to: configPath)
+            ConfigStore.silentMode = true
+            defer { ConfigStore.silentMode = false }
+            ConfigStore.saveConfig(initial, to: configPath)
 
-            let appConfig = AppConfig()
-            XCTAssertEqual(appConfig.configPath, configPath)
-            let themeService = ThemeManager()
+            let configStore = ConfigStore()
+            XCTAssertEqual(configStore.configPath, configPath)
+            let themeStore = ThemeStore(
+                directory: home.appendingPathComponent(".config/spacemap/themes")
+            )
             var coordinatorConfig = initial
             let yabaiService = MockYabaiService()
             yabaiService.buildGridStateResult = cannedState(focusedIndex: 1)
@@ -140,8 +144,8 @@ final class HUDWindowControllerTests: XCTestCase {
             let controller = HUDWindowController(
                 services: SpacemapServices(
                     yabaiService: yabaiService,
-                    appConfig: appConfig,
-                    themeService: themeService,
+                    configStore: configStore,
+                    themeStore: themeStore,
                     alertsService: Alerts()
                 ),
                 coordinator: coordinator
@@ -182,23 +186,20 @@ final class HUDWindowControllerTests: XCTestCase {
             updated.hudKeys = hudKeys
             updated.jumpToSpaceEnabled = true
             updated.hudShadow = false
-            updated.hudPosition = .custom(x: 0.2, y: 0.2)
+            updated.hudPosition = .custom(x: 0.2, y: 0.2, screen: nil)
             updated.theme = "my theme"
             coordinatorConfig = updated
-            AppConfig.saveConfig(updated, to: configPath)
+            ConfigStore.saveConfig(updated, to: configPath)
 
             controller.reloadConfig()
 
             XCTAssertEqual(input.config?.hudKeys, updated.hudKeys)
-            XCTAssertNil(HUDInput.hudKeyAction(
-                keyCode: 4,
-                flags: [],
-                bindings: input.config?.hudKeys ?? .default
-            ), "the reloaded config must replace the old navigation keys")
+            XCTAssertNil(input.config?.hudKeys.command(for: 4, flags: []),
+                "the reloaded config must replace the old navigation keys")
             XCTAssertEqual(input.config?.jumpToSpaceEnabled, true)
             XCTAssertFalse(panel.hasShadow, "display must receive the reloaded appearance")
             XCTAssertEqual(coordinator.config, updated, "coordinator must receive the reloaded config")
-            XCTAssertTrue(themeService.allNames().contains("my theme"),
+            XCTAssertTrue(themeStore.allNames().contains("my theme"),
                           "theme reload must see the newly written theme file")
         }
     }
@@ -208,7 +209,7 @@ final class HUDWindowControllerTests: XCTestCase {
         yabaiService.buildGridStateResult = cannedState(focusedIndex: 1)
         let coordinator = GridStateCoordinator(config: .default, yabaiService: yabaiService)
         let controller = HUDWindowController(
-            services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts()),
+            services: SpacemapServices(yabaiService: yabaiService, themeStore: makeTemporaryThemeStore(), alertsService: Alerts()),
             coordinator: coordinator
         )
         controller.show()
@@ -216,8 +217,7 @@ final class HUDWindowControllerTests: XCTestCase {
             coordinator.latestState != nil
         }
         let input = try XCTUnwrap(hudInput(of: controller))
-        input.autoHideTimeout = 30
-        input.resetAutoHideTimer()
+        input.startPollTimer()
         var timersCleared: Bool?
         input.onStopForTesting = { timersCleared = $0 }
         _ = coordinator.updateFocusedIndex(2)
@@ -236,6 +236,7 @@ final class HUDWindowControllerTests: XCTestCase {
         yabaiService.buildGridStateResult = state
         let services = SpacemapServices(
             yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
             alertsService: Alerts()
         )
         let coordinator = GridStateCoordinator(config: .default, yabaiService: yabaiService)
@@ -252,10 +253,55 @@ final class HUDWindowControllerTests: XCTestCase {
         XCTAssertNil(controller.focusedWindowIDAtOpen)
     }
 
+    func testAutoHideRunsTheSameDragTeardownAsAnExplicitHide() throws {
+        try withTemporaryHome { home in
+            let configPath = home.appendingPathComponent(".config/spacemap/config.toml").path
+            try FileManager.default.createDirectory(
+                atPath: (configPath as NSString).deletingLastPathComponent,
+                withIntermediateDirectories: true
+            )
+            var config = SpacemapConfig.default
+            config.autoHideTimeout = 1
+            ConfigStore.silentMode = true
+            defer { ConfigStore.silentMode = false }
+            ConfigStore.saveConfig(config, to: configPath)
+
+            let yabaiService = MockYabaiService()
+            yabaiService.queryFocusedWindowResult = 77
+            // A stable polled focus keeps onRefresh from re-arming auto-hide
+            // every half second.
+            yabaiService.queryFocusedSpaceIndexResult = 1
+            yabaiService.buildGridStateResult = cannedState(focusedIndex: 1)
+            let controller = HUDWindowController(services: SpacemapServices(
+                yabaiService: yabaiService,
+                configStore: ConfigStore(),
+                themeStore: makeTemporaryThemeStore(),
+                alertsService: Alerts()
+            ))
+            defer { controller.hide() }
+            controller.show()
+            waitUntil("focused window recorded at open") {
+                controller.focusedWindowIDAtOpen == 77
+            }
+            let dragHandler = try XCTUnwrap(dragHandler(of: controller))
+            XCTAssertTrue(dragHandler.isEventTapRequested, "drag targeting arms once the HUD renders")
+
+            waitUntil("auto-hide fires", timeout: 3) {
+                !controller.isVisible
+            }
+
+            XCTAssertNil(controller.focusedWindowIDAtOpen,
+                "auto-hide must clear the presentation's focused window")
+            XCTAssertFalse(dragHandler.isEventTapRequested,
+                "auto-hide must stop the drag tap like an explicit hide does")
+        }
+    }
+
     func testRefreshWhenVisibleFetchesAgain() {
         let yabaiService = MockYabaiService()
         let controller = HUDWindowController(services: SpacemapServices(
             yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
             alertsService: Alerts()
         ))
         controller.show()
@@ -271,6 +317,7 @@ final class HUDWindowControllerTests: XCTestCase {
         let yabaiService = MockYabaiService()
         let controller = HUDWindowController(services: SpacemapServices(
             yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
             alertsService: Alerts()
         ))
 
@@ -286,6 +333,7 @@ final class HUDWindowControllerTests: XCTestCase {
         yabaiService.buildGridStateResult = cannedState(focusedIndex: 1)
         let controller = HUDWindowController(services: SpacemapServices(
             yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
             alertsService: Alerts()
         ))
         controller.show()
@@ -301,8 +349,65 @@ final class HUDWindowControllerTests: XCTestCase {
         XCTAssertFalse(controller.isVisible)
     }
 
-    func testNavigateFocusesTheAdjacentSpace() {
+    func testPerformRoutesCommandsToTheirExecutionPaths() {
         let yabaiService = MockYabaiService()
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: nil, label: nil, type: "bsp"),
+            YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: nil, label: nil)
+        ]
+        yabaiService.buildGridStateResult = cannedState(focusedIndex: 1, spaces: spaces)
+        let controller = HUDWindowController(services: SpacemapServices(
+            yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
+            alertsService: Alerts()
+        ))
+        controller.show()
+        waitUntil("focus seeded for perform") {
+            controller.seededFocusedSpaceIndex == 1
+        }
+
+        controller.perform(.layoutBSP)
+        XCTAssertEqual(yabaiService.lastSpaceLayout, .bsp)
+
+        controller.perform(.cycleLayout)
+        XCTAssertEqual(yabaiService.lastSpaceLayout, .stack,
+                       "cycleLayout advances from the focused space's layout")
+
+        controller.perform(.moveSpaceForward)
+        XCTAssertEqual(yabaiService.swapSpacesCallCount, 1,
+                       "moveSpaceForward runs the same swap the scalar HUD key used")
+        XCTAssertEqual(yabaiService.lastSwapSourceIndex, 1)
+        XCTAssertEqual(yabaiService.lastSwapTargetIndex, 2)
+
+        controller.perform(.close)
+        XCTAssertFalse(controller.isVisible, "close hides the HUD")
+    }
+
+    func testPerformMovesTheFocusedSpaceBack() {
+        let yabaiService = MockYabaiService()
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 1, hasFocus: true, isVisible: nil, label: nil)
+        ]
+        yabaiService.buildGridStateResult = cannedState(focusedIndex: 2, spaces: spaces)
+        let controller = HUDWindowController(services: SpacemapServices(
+            yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
+            alertsService: Alerts()
+        ))
+        controller.show()
+        waitUntil("focus seeded for moveSpaceBack") {
+            controller.seededFocusedSpaceIndex == 2
+        }
+
+        controller.perform(.moveSpaceBack)
+
+        XCTAssertEqual(yabaiService.swapSpacesCallCount, 1)
+        XCTAssertEqual(yabaiService.lastSwapSourceIndex, 2)
+        XCTAssertEqual(yabaiService.lastSwapTargetIndex, 1)
+    }
+
+    func testNavigateFocusesTheAdjacentSpace() {        let yabaiService = MockYabaiService()
         let spaces = [
             YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: nil, label: nil),
             YabaiSpace(id: 2, index: 2, display: 1, hasFocus: false, isVisible: nil, label: nil)
@@ -310,6 +415,7 @@ final class HUDWindowControllerTests: XCTestCase {
         yabaiService.buildGridStateResult = cannedState(focusedIndex: 1, spaces: spaces)
         let controller = HUDWindowController(services: SpacemapServices(
             yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
             alertsService: Alerts()
         ))
         controller.show()
@@ -331,7 +437,7 @@ final class HUDWindowControllerTests: XCTestCase {
         yabaiService.buildGridStateResult = cannedState(focusedIndex: 3, spaces: spaces)
         let coordinator = GridStateCoordinator(config: .default, yabaiService: yabaiService)
         let controller = HUDWindowController(
-            services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts()),
+            services: SpacemapServices(yabaiService: yabaiService, themeStore: makeTemporaryThemeStore(), alertsService: Alerts()),
             coordinator: coordinator
         )
 
@@ -348,7 +454,7 @@ final class HUDWindowControllerTests: XCTestCase {
         let yabaiService = MockYabaiService()
         yabaiService.runsYabaiQueueImmediately = false
         let controller = HUDWindowController(
-            services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts())
+            services: SpacemapServices(yabaiService: yabaiService, themeStore: makeTemporaryThemeStore(), alertsService: Alerts())
         )
 
         controller.focusRecent()
@@ -368,7 +474,7 @@ final class HUDWindowControllerTests: XCTestCase {
         ]
         yabaiService.buildGridStateResult = cannedState(focusedIndex: 3, spaces: spaces)
         let controller = HUDWindowController(
-            services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts())
+            services: SpacemapServices(yabaiService: yabaiService, themeStore: makeTemporaryThemeStore(), alertsService: Alerts())
         )
         controller.show()
         waitUntil("initial show settled") {
@@ -392,7 +498,7 @@ final class HUDWindowControllerTests: XCTestCase {
         yabaiService.buildGridStateResult = cannedState(focusedIndex: 3, spaces: spaces)
         let coordinator = GridStateCoordinator(config: .default, yabaiService: yabaiService)
         let controller = HUDWindowController(
-            services: SpacemapServices(yabaiService: yabaiService, alertsService: Alerts()),
+            services: SpacemapServices(yabaiService: yabaiService, themeStore: makeTemporaryThemeStore(), alertsService: Alerts()),
             coordinator: coordinator
         )
         let fetched = expectation(description: "state fetched")
@@ -409,6 +515,12 @@ final class HUDWindowControllerTests: XCTestCase {
         Mirror(reflecting: controller).children
             .first { $0.label == "hudInput" }?
             .value as? HUDInput
+    }
+
+    private func dragHandler(of controller: HUDWindowController) -> WindowDragHandler? {
+        Mirror(reflecting: controller).children
+            .first { $0.label == "dragHandler" }?
+            .value as? WindowDragHandler
     }
 
     private func withTemporaryHome(_ body: (URL) throws -> Void) throws {
@@ -467,5 +579,96 @@ final class HUDWindowControllerTests: XCTestCase {
 
         controller.handleHoverCell(nil)
         XCTAssertNil(display.hoveredCell)
+    }
+
+    func testDeleteSpaceDestroysTheFocusedSpace() {
+        let yabaiService = MockYabaiService()
+        let spaces = [
+            YabaiSpace(id: 1, index: 1, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 2, index: 2, display: 1, hasFocus: true, isVisible: nil, label: nil)
+        ]
+        yabaiService.buildGridStateResult = cannedState(focusedIndex: 2, spaces: spaces)
+        let controller = HUDWindowController(services: SpacemapServices(
+            yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
+            alertsService: Alerts()
+        ))
+        controller.show()
+        waitUntil("focus seeded for delete") {
+            controller.seededFocusedSpaceIndex == 2
+        }
+        let buildsBefore = yabaiService.buildGridStateCallCount
+
+        controller.perform(.deleteSpace)
+
+        XCTAssertEqual(yabaiService.destroySpaceCallCount, 1)
+        XCTAssertEqual(yabaiService.lastDestroySpaceIndex, 2)
+        waitUntil("refresh after the destroy settles") {
+            yabaiService.buildGridStateCallCount > buildsBefore
+        }
+    }
+
+    func testSpaceDropSwapsOnlyWhenTheTargetDiffers() {
+        let yabaiService = MockYabaiService()
+        let controller = HUDWindowController(services: SpacemapServices(
+            yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
+            alertsService: Alerts()
+        ))
+        controller.externalDropTarget = 3
+
+        controller.handleSpaceDrop(source: 2)
+
+        XCTAssertEqual(yabaiService.swapSpacesCallCount, 1)
+        XCTAssertEqual(yabaiService.lastSwapSourceIndex, 2)
+        XCTAssertEqual(yabaiService.lastSwapTargetIndex, 3)
+
+        controller.handleSpaceDrop(source: 3)
+        XCTAssertEqual(yabaiService.swapSpacesCallCount, 1,
+            "a drop onto its own space must not swap")
+    }
+
+    func testWindowDropMovesWindowsToTheHighlightedTarget() {
+        let yabaiService = MockYabaiService()
+        let controller = HUDWindowController(services: SpacemapServices(
+            yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
+            alertsService: Alerts()
+        ))
+        controller.externalDropTarget = 3
+
+        controller.handleWindowDrop(ids: [7, 8], source: 1)
+
+        XCTAssertEqual(yabaiService.moveWindowCallCount, 1)
+        XCTAssertEqual(yabaiService.lastMovedWindowIDs, [7, 8])
+        XCTAssertEqual(yabaiService.lastMoveWindowIndex, 3)
+
+        controller.handleWindowDrop(ids: [], source: 1)
+        XCTAssertEqual(yabaiService.moveWindowCallCount, 1, "an empty drag must not move windows")
+    }
+
+    func testShowSettingsHidesTheHUDAndForwards() {
+        var forwarded = 0
+        let controller = makeHUDWindowController()
+        controller.onShowSettings = { forwarded += 1 }
+        controller.show()
+
+        controller.showSettings()
+
+        XCTAssertFalse(controller.isVisible)
+        XCTAssertEqual(forwarded, 1)
+    }
+
+    func testExternalDragHoldsAutoHideUntilItEnds() {
+        let controller = makeHUDWindowController()
+        controller.show()
+        XCTAssertTrue(controller.isAutoHideScheduled, "an unpinned HUD arms auto-hide")
+
+        controller.setExternalDragActive(true)
+        XCTAssertNil(controller.externalDropTarget)
+        XCTAssertFalse(controller.isAutoHideScheduled, "a strip drag must hold auto-hide")
+
+        controller.setExternalDragActive(false)
+        XCTAssertTrue(controller.isAutoHideScheduled, "auto-hide re-arms once the drag ends")
     }
 }
