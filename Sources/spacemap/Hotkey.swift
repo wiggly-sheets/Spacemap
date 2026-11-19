@@ -49,6 +49,24 @@ public enum Hotkey {
         functionKeyCodes.contains(keyCode)
     }
 
+    /// Whether an event's modifiers match a binding's. Both sides intersect
+    /// `relevantModifierFlags`, so a binding carrying a flag the app does not
+    /// treat as a modifier still matches. Hardware reports the fn flag for
+    /// top-row function keys even when the user thinks of the binding as a bare
+    /// F-key, so that flag is ignored unless the binding asked for it.
+    static func modifierMatches(
+        keyCode: CGKeyCode,
+        eventFlags: CGEventFlags,
+        bindingModifiers: CGEventFlags
+    ) -> Bool {
+        var eventFlags = eventFlags.intersection(relevantModifierFlags)
+        let bindingFlags = bindingModifiers.intersection(relevantModifierFlags)
+        if isFunctionKey(keyCode), !bindingFlags.contains(.maskSecondaryFn) {
+            eventFlags.remove(.maskSecondaryFn)
+        }
+        return eventFlags == bindingFlags
+    }
+
     /// Canonical identity for duplicate detection. Hardware reports the fn flag
     /// for top-row function keys, so a binding without fn is treated as the
     /// same physical binding as its explicit `fn+…` spelling.

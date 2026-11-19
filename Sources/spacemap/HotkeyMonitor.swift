@@ -31,16 +31,6 @@ let defaultEventTapFactory: EventTapFactory = { tap, place, options, mask, callb
     )
 }
 
-/// Keeps the event tap's reference to its owner weak. The tap retains this
-/// box, not the owner, so the owner's deinit can still run and stop the tap.
-final class WeakTapContext<Owner: AnyObject> {
-    weak var owner: Owner?
-
-    init(_ owner: Owner) {
-        self.owner = owner
-    }
-}
-
 final class HotkeyMonitor {
     struct KeyEventDecision: Equatable {
         let shouldConsume: Bool
@@ -49,16 +39,8 @@ final class HotkeyMonitor {
         static let passThrough = KeyEventDecision(shouldConsume: false, shouldTrigger: false)
     }
 
-    enum EventTapRecoveryAction: Equatable {
-        case waitForPermission
-        case remove
-        case install
-        case reinstall
-        case reenable
-        case none
-    }
+    typealias EventTapRecoveryAction = EventTapHost.RecoveryAction
 
-    static let healthCheckInterval: TimeInterval = HotkeyTapRouter.healthCheckInterval
     static let systemDefinedEventRawValue: UInt32 = 14
     static let eventTapMask: CGEventMask = {
         (CGEventMask(1) << CGEventMask(CGEventType.keyDown.rawValue))
@@ -116,13 +98,12 @@ final class HotkeyMonitor {
         tapIsValid: Bool,
         tapIsEnabled: Bool
     ) -> EventTapRecoveryAction {
-        guard isTrusted else {
-            return hasTap ? .remove : .waitForPermission
-        }
-        guard hasTap else { return .install }
-        guard tapIsValid else { return .reinstall }
-        guard tapIsEnabled else { return .reenable }
-        return .none
+        EventTapHost.recoveryAction(
+            isTrusted: isTrusted,
+            hasTap: hasTap,
+            tapIsValid: tapIsValid,
+            tapIsEnabled: tapIsEnabled
+        )
     }
 
     static func keyEventDecision(
@@ -138,15 +119,11 @@ final class HotkeyMonitor {
         guard case .keyCode(let targetKeyCode) = targetKey, keyCode == targetKeyCode else {
             return .passThrough
         }
-
-        var relevantFlags = flags.intersection(Hotkey.relevantModifierFlags)
-        // Hardware reports the fn flag for top-row function keys even when the
-        // user thinks of the binding as a bare F-key. Ignore that hardware fn
-        // only when the binding did not explicitly ask for it.
-        if Hotkey.isFunctionKey(keyCode), !targetModifiers.contains(.maskSecondaryFn) {
-            relevantFlags.remove(.maskSecondaryFn)
-        }
-        guard relevantFlags == targetModifiers.intersection(Hotkey.relevantModifierFlags) else {
+        guard Hotkey.modifierMatches(
+            keyCode: keyCode,
+            eventFlags: flags,
+            bindingModifiers: targetModifiers
+        ) else {
             return .passThrough
         }
         return KeyEventDecision(
@@ -187,7 +164,6 @@ final class HotkeyTapRouter {
     }
 
     static let shared = HotkeyTapRouter()
-    static let healthCheckInterval: TimeInterval = 1.0
     private static var didRequestAccessibilityPrompt = false
     private static let recordingLock = NSLock()
     private static var recordingFlag = false
@@ -207,24 +183,14 @@ final class HotkeyTapRouter {
         }
     }
 
-    private let tapFactory: EventTapFactory
     private let trustProvider: () -> Bool
     private let promptProvider: (Bool) -> Bool
     private let stateLock = NSLock()
+    private let eventTapHost: EventTapHost
 
     private var bindings: [UUID: Binding] = [:]
     private var cachedTrust = false
-
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-    private var tapContext: UnsafeMutableRawPointer?
-    private var tapThread: Thread?
-    private var tapRunLoop: CFRunLoop?
-    private var tapRunLoopToken = 0
-    private var healthTimer: Timer?
     private var lastTrustState: Bool?
-    private(set) var tapCreationFailureCount = 0
-    private(set) var tapCreationAttempts = 0
 
     init(
         tapFactory: @escaping EventTapFactory = defaultEventTapFactory,
@@ -236,17 +202,22 @@ final class HotkeyTapRouter {
             return AXIsProcessTrustedWithOptions(options)
         }
     ) {
-        self.tapFactory = tapFactory
         self.trustProvider = trustProvider
         self.promptProvider = promptProvider
+        self.eventTapHost = EventTapHost(
+            logName: "Spacemap/Hotkey",
+            tapFactory: tapFactory
+        )
     }
 
     deinit {
         stop()
     }
 
-    var hasTapContext: Bool { tapContext != nil }
-    var isEventTapInstalled: Bool { eventTap != nil }
+    var hasTapContext: Bool { eventTapHost.hasTapContext }
+    var isEventTapInstalled: Bool { eventTapHost.isEventTapInstalled }
+    var tapCreationFailureCount: Int { eventTapHost.tapCreationFailureCount }
+    var tapCreationAttempts: Int { eventTapHost.tapCreationAttempts }
 
     var registeredBindingCount: Int {
         stateLock.lock()
@@ -295,7 +266,7 @@ final class HotkeyTapRouter {
                 self.lastTrustState = isTrusted
             }
             guard isTrusted else {
-                self.tearDownEventTap()
+                self.eventTapHost.tearDown()
                 return
             }
             self.reconcileEventTap()
@@ -305,14 +276,14 @@ final class HotkeyTapRouter {
     func reconcile(promptIfNeeded: Bool) {
         dispatchPrecondition(condition: .onQueue(.main))
         guard hasBindings else {
-            tearDownEventTap()
+            eventTapHost.tearDown()
             return
         }
 
         var isTrusted = trustProvider()
         if !isTrusted, promptIfNeeded, !Self.didRequestAccessibilityPrompt {
             Self.didRequestAccessibilityPrompt = true
-            let isRestarting = CommandLine.arguments.contains("--restarting")
+            let isRestarting = CLIFlagTable.contains(.restarting, in: CommandLine.arguments)
             isTrusted = promptProvider(isRestarting)
         }
         setTrustState(isTrusted)
@@ -325,18 +296,17 @@ final class HotkeyTapRouter {
         }
 
         guard isTrusted else {
-            tearDownEventTap()
+            eventTapHost.tearDown()
             return
         }
         reconcileEventTap()
     }
 
     func stop() {
-        healthTimer?.invalidate()
-        healthTimer = nil
-        tearDownEventTap()
+        eventTapHost.stopHealthTimer()
+        eventTapHost.tearDown()
         lastTrustState = nil
-        tapCreationFailureCount = 0
+        eventTapHost.resetFailureCount()
     }
 
     private var hasBindings: Bool {
@@ -364,179 +334,17 @@ final class HotkeyTapRouter {
     }
 
     private func startHealthTimer() {
-        guard healthTimer == nil else { return }
-        let timer = Timer(timeInterval: Self.healthCheckInterval, repeats: true) { [weak self] _ in
+        eventTapHost.startHealthTimer { [weak self] in
             self?.probeTrustAndReconcile()
         }
-        RunLoop.main.add(timer, forMode: .common)
-        healthTimer = timer
     }
 
     private func reconcileEventTap() {
-        let hasTap = eventTap != nil
-        let tapIsValid = eventTap.map(CFMachPortIsValid) ?? false
-        let tapIsEnabled = tapIsValid && (eventTap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false)
-
-        switch HotkeyMonitor.recoveryAction(
-            isTrusted: true,
-            hasTap: hasTap,
-            tapIsValid: tapIsValid,
-            tapIsEnabled: tapIsEnabled
-        ) {
-        case .waitForPermission, .none:
-            break
-        case .remove:
-            tearDownEventTap()
-        case .install, .reinstall:
-            tearDownEventTap()
-            installEventTap()
-        case .reenable:
-            guard let tap = eventTap else { return }
-            CGEvent.tapEnable(tap: tap, enable: true)
-            if !CGEvent.tapIsEnabled(tap: tap) {
-                tearDownEventTap()
-                installEventTap()
-            }
-        }
-    }
-
-    /// Main-thread only; see `reconcile`.
-    private func installEventTap() {
-        dispatchPrecondition(condition: .onQueue(.main))
-        guard wantsTap else { return }
-
-        tapCreationAttempts += 1
-        if tapContext == nil {
-            let box = WeakTapContext(self)
-            tapContext = Unmanaged.passRetained(box).toOpaque()
-        }
-
-        guard let tap = tapFactory(
-            .cgSessionEventTap,
-            .headInsertEventTap,
-            .defaultTap,
-            HotkeyMonitor.eventTapMask,
-            Self.tapCallback,
-            tapContext
-        ) else {
-            releaseTapContext()
-            tapCreationFailureCount += 1
-            if tapCreationFailureCount == 1 || tapCreationFailureCount.isMultiple(of: 30) {
-                NSLog("Spacemap/Hotkey: event tap creation failed; will retry")
-            }
+        guard hasBindings else {
+            eventTapHost.tearDown()
             return
         }
-
-        guard let runLoop = ensureTapRunLoop() else {
-            CFMachPortInvalidate(tap)
-            releaseTapContext()
-            tapCreationFailureCount += 1
-            return
-        }
-
-        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
-            CFMachPortInvalidate(tap)
-            releaseTapContext()
-            tapCreationFailureCount += 1
-            return
-        }
-
-        eventTap = tap
-        runLoopSource = source
-        CFRunLoopAddSource(runLoop, source, .commonModes)
-        CFRunLoopWakeUp(runLoop)
-        CGEvent.tapEnable(tap: tap, enable: true)
-        tapCreationFailureCount = 0
-        NSLog("Spacemap/Hotkey: hotkey active")
-    }
-
-    private var wantsTap: Bool {
-        !bindingSnapshot().isEmpty
-    }
-
-    private func ensureTapRunLoop() -> CFRunLoop? {
-        if let runLoop = tapRunLoop { return runLoop }
-        // A previous start is still pending; the health timer will retry.
-        guard tapThread == nil else { return nil }
-
-        tapRunLoopToken += 1
-        let token = tapRunLoopToken
-        let ready = DispatchSemaphore(value: 0)
-        let thread = Thread { [weak self] in
-            guard let self, self.tapRunLoopToken == token else {
-                ready.signal()
-                return
-            }
-            let runLoop = CFRunLoopGetCurrent()
-            self.tapRunLoop = runLoop
-            // A source is required for CFRunLoopRun to stay alive.
-            let keepAlive = Timer(timeInterval: 3600, repeats: true) { _ in }
-            RunLoop.current.add(keepAlive, forMode: .common)
-            ready.signal()
-            CFRunLoopRun()
-        }
-        thread.name = "spacemap.hotkey-tap"
-        tapThread = thread
-        thread.start()
-
-        guard ready.wait(timeout: .now() + 1) == .success, tapRunLoop != nil else {
-            NSLog("Spacemap/Hotkey: tap thread did not start in time; will retry")
-            tapRunLoopToken += 1
-            tapThread = nil
-            return nil
-        }
-        return tapRunLoop
-    }
-
-    /// Main-thread only; see `reconcile`.
-    private func tearDownEventTap() {
-        if let runLoop = tapRunLoop, let source = runLoopSource {
-            CFRunLoopRemoveSource(runLoop, source, .commonModes)
-        }
-
-        let tap = eventTap
-        let context = tapContext
-        eventTap = nil
-        runLoopSource = nil
-        tapContext = nil
-
-        guard let runLoop = tapRunLoop else {
-            // No tap thread exists, so no callback can reference the context.
-            if let tap {
-                if CFMachPortIsValid(tap) {
-                    CGEvent.tapEnable(tap: tap, enable: false)
-                }
-                CFMachPortInvalidate(tap)
-            }
-            if let context {
-                Unmanaged<WeakTapContext<HotkeyTapRouter>>.fromOpaque(context).release()
-            }
-            tapThread = nil
-            return
-        }
-
-        tapRunLoop = nil
-        tapThread = nil
-        tapRunLoopToken += 1
-        // Invalidate and release on the tap thread after any in-flight
-        // callback returns. Releasing from main here can race the callback.
-        CFRunLoopPerformBlock(runLoop, CFRunLoopMode.commonModes.rawValue) {
-            if let tap, CFMachPortIsValid(tap) {
-                CGEvent.tapEnable(tap: tap, enable: false)
-                CFMachPortInvalidate(tap)
-            }
-            if let context {
-                Unmanaged<WeakTapContext<HotkeyTapRouter>>.fromOpaque(context).release()
-            }
-            CFRunLoopStop(runLoop)
-        }
-        CFRunLoopWakeUp(runLoop)
-    }
-
-    private func releaseTapContext() {
-        guard let context = tapContext else { return }
-        tapContext = nil
-        Unmanaged<WeakTapContext<HotkeyTapRouter>>.fromOpaque(context).release()
+        eventTapHost.reconcile(consumer: self)
     }
 
     /// Internal so routing decisions can be tested without a real tap.
@@ -630,12 +438,13 @@ final class HotkeyTapRouter {
         guard case .keyCode = binding.key else { return false }
         return flags.intersection(Hotkey.relevantModifierFlags) == binding.modifiers
     }
+}
 
-    private static let tapCallback: CGEventTapCallBack = { _, type, event, refcon in
-        guard let refcon else { return Unmanaged.passUnretained(event) }
-        let box = Unmanaged<WeakTapContext<HotkeyTapRouter>>.fromOpaque(refcon)
-            .takeUnretainedValue()
-        guard let router = box.owner else { return Unmanaged.passUnretained(event) }
-        return router.handle(type: type, event: event)
+extension HotkeyTapRouter: EventTapConsumer {
+    var eventTapMask: CGEventMask { HotkeyMonitor.eventTapMask }
+    var eventTapPlacement: EventTapPlacement { .tapThread }
+
+    func handleTapEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        handle(type: type, event: event)
     }
 }

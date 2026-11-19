@@ -189,7 +189,7 @@ final class HotkeyTests: XCTestCase {
     }
 
     func testEventTapRecoveryPolicy() {
-        let cases: [(Bool, Bool, Bool, Bool, HotkeyMonitor.EventTapRecoveryAction)] = [
+        let cases: [(Bool, Bool, Bool, Bool, EventTapHost.RecoveryAction)] = [
             (false, false, false, false, .waitForPermission),
             (false, true, true, true, .remove),
             (true, false, false, false, .install),
@@ -200,7 +200,7 @@ final class HotkeyTests: XCTestCase {
 
         for (trusted, hasTap, valid, enabled, expected) in cases {
             XCTAssertEqual(
-                HotkeyMonitor.recoveryAction(
+                EventTapHost.recoveryAction(
                     isTrusted: trusted,
                     hasTap: hasTap,
                     tapIsValid: valid,
@@ -257,7 +257,7 @@ final class HotkeyTests: XCTestCase {
             onToggle: {},
             onTogglePinned: {}
         )
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.pinnedHotkey = HotkeyConfig(key: .keyCode(122), modifiers: .maskControl)
 
         handler.restartHotkeys(config: config)
@@ -280,7 +280,7 @@ final class HotkeyTests: XCTestCase {
             onToggle: {},
             onTogglePinned: {}
         )
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.pinnedHotkey = HotkeyConfig(key: .keyCode(122), modifiers: .maskControl)
         config.glyphStripHotkey = HotkeyConfig(key: .keyCode(114), modifiers: .maskControl)
 
@@ -498,6 +498,27 @@ final class HotkeyTests: XCTestCase {
         router.stop()
     }
 
+    func testRouterCreatesTapOnTapThreadWithKeyboardMask() throws {
+        var creation: (CGEventTapLocation, CGEventTapPlacement, CGEventTapOptions, CGEventMask)?
+        let router = HotkeyTapRouter(
+            tapFactory: { location, place, options, mask, _, _ in
+                creation = (location, place, options, mask)
+                return nil
+            },
+            trustProvider: { true },
+            promptProvider: { _ in true }
+        )
+
+        router.addBinding(id: UUID(), key: .keyCode(40), modifiers: [.maskCommand]) {}
+
+        let tap = try XCTUnwrap(creation)
+        XCTAssertEqual(tap.0, .cgSessionEventTap)
+        XCTAssertEqual(tap.1, .headInsertEventTap, "the router tap sees keys first")
+        XCTAssertEqual(tap.2, .defaultTap, "the router consumes matched keys")
+        XCTAssertEqual(tap.3, HotkeyMonitor.eventTapMask)
+        router.stop()
+    }
+
     func testRouterRemovesBindingsAndDeallocates() {
         var router: HotkeyTapRouter? = HotkeyTapRouter(
             tapFactory: { _, _, _, _, _, _ in nil },
@@ -557,7 +578,7 @@ final class HotkeyTests: XCTestCase {
             onToggle: {},
             onTogglePinned: {}
         )
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.hotkey = HotkeyConfig(key: .keyCode(122), modifiers: [])
         config.pinnedHotkey = HotkeyConfig(key: .keyCode(122), modifiers: [.maskSecondaryFn])
 
@@ -732,8 +753,8 @@ final class HotkeyTests: XCTestCase {
 
         // Same key as the main hotkey: the strip binding is ignored, so a
         // second restart adds one monitor, not two.
-        var conflicting = GridConfig.default
-        conflicting.glyphStripHotkey = GridConfig.default.hotkey
+        var conflicting = SpacemapConfig.default
+        conflicting.glyphStripHotkey = SpacemapConfig.default.hotkey
         handler.restartHotkeys(config: conflicting)
         XCTAssertEqual(factory.monitors.count, 2)
     }

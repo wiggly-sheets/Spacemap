@@ -15,7 +15,11 @@ struct CGWindowSample: Equatable {
 class WindowDragHandler: WindowDragService {
     static let dragThreshold: CGFloat = 5
     static let titleBarHeight: CGFloat = 30
-    static let healthCheckInterval: TimeInterval = 1.0
+    static let dragEventTapMask = CGEventMask(
+        (1 << CGEventType.leftMouseDragged.rawValue) |
+        (1 << CGEventType.leftMouseUp.rawValue) |
+        (1 << CGEventType.leftMouseDown.rawValue)
+    )
 
     var onHoverCell: ((Int?) -> Void)?
     var onDropInCell: ((Int, Int, CGEventFlags) -> Void)?
@@ -25,26 +29,20 @@ class WindowDragHandler: WindowDragService {
     private let frontmostApplicationPID: () -> Int32?
     private let permissionCheck: () -> Bool
     private let permissionCacheInterval: TimeInterval
-    private let eventTapFactory: EventTapFactory
     private let cgWindowListProvider: () -> [CGWindowSample]
     private let cgWindowSampleInterval: TimeInterval
+    private let eventTapHost: EventTapHost
 
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-    private var tapContext: UnsafeMutableRawPointer?
     private var wantsEventTap = false
     private(set) var eventTapGeneration = 0
     private var dragSnapshotGeneration = 0
     private(set) var dragSnapshotReady = true
-    private var healthTimer: Timer?
     private var lastPermissionState: Bool?
     private var cachedPermission: Bool?
     private var lastPermissionCheckTime: TimeInterval = 0
     private var mouseDownCGWindow: CGWindowSample?
     private var lastCGWindowSample: [CGWindowSample] = []
     private var lastCGWindowSampleTime: TimeInterval = 0
-    private(set) var tapCreationFailureCount = 0
-    private(set) var tapCreationAttempts = 0
 
     private enum DragDelivery {
         case hover(Int?)
@@ -77,7 +75,9 @@ class WindowDragHandler: WindowDragService {
     }
 
     var isEventTapRequested: Bool { wantsEventTap }
-    var hasTapContext: Bool { tapContext != nil }
+    var hasTapContext: Bool { eventTapHost.hasTapContext }
+    var tapCreationFailureCount: Int { eventTapHost.tapCreationFailureCount }
+    var tapCreationAttempts: Int { eventTapHost.tapCreationAttempts }
 
     init(
         frontmostApplicationName: @escaping () -> String? = {
@@ -98,9 +98,12 @@ class WindowDragHandler: WindowDragService {
         self.frontmostApplicationPID = frontmostApplicationPID
         self.permissionCheck = permissionCheck
         self.permissionCacheInterval = permissionCacheInterval
-        self.eventTapFactory = eventTapFactory
         self.cgWindowListProvider = cgWindowListProvider
         self.cgWindowSampleInterval = cgWindowSampleInterval
+        self.eventTapHost = EventTapHost(
+            logName: "Spacemap/Drag",
+            tapFactory: eventTapFactory
+        )
     }
 
     deinit {
@@ -125,15 +128,14 @@ class WindowDragHandler: WindowDragService {
     func stop() {
         wantsEventTap = false
         eventTapGeneration += 1
-        healthTimer?.invalidate()
-        healthTimer = nil
+        eventTapHost.stopHealthTimer()
         lastPermissionState = nil
         cachedPermission = nil
         // Deliver the clear before invalidating queued delivery, otherwise a
         // visible drop target survives teardown.
         cancelHoverForTeardown()
         invalidateQueuedDelivery()
-        tearDownEventTap()
+        eventTapHost.tearDown()
         reset()
     }
 
@@ -152,13 +154,13 @@ class WindowDragHandler: WindowDragService {
             NSLog("Spacemap/Drag: ignoring stale event tap recovery")
             return false
         }
-        if let tap = eventTap, CFMachPortIsValid(tap) {
-            CGEvent.tapEnable(tap: tap, enable: true)
-            if CGEvent.tapIsEnabled(tap: tap) { return true }
+        if eventTapHost.tapIsValid {
+            eventTapHost.enableTap()
+            if eventTapHost.tapIsEnabled { return true }
         }
         cancelHoverForTeardown()
         invalidateQueuedDelivery()
-        tearDownEventTap()
+        eventTapHost.tearDown()
         reset()
         reconcileEventTap()
         return true
@@ -180,21 +182,14 @@ class WindowDragHandler: WindowDragService {
             // Permission can disappear mid-drag; do not leave a highlight or
             // a half-finished drag behind.
             cancelHoverForTeardown()
-            tearDownEventTap()
+            eventTapHost.tearDown()
             reset()
             return
         }
 
-        if let tap = eventTap {
-            if CFMachPortIsValid(tap) {
-                if !CGEvent.tapIsEnabled(tap: tap) {
-                    CGEvent.tapEnable(tap: tap, enable: true)
-                }
-                if CGEvent.tapIsEnabled(tap: tap) { return }
-            }
-            tearDownEventTap()
-        }
-        installEventTap()
+        let installs = eventTapHost.installCount
+        eventTapHost.reconcile(consumer: self)
+        if eventTapHost.installCount != installs { eventTapGeneration += 1 }
     }
 
     private func permissionIsGranted() -> Bool {
@@ -209,12 +204,9 @@ class WindowDragHandler: WindowDragService {
     }
 
     private func startHealthTimer() {
-        guard healthTimer == nil else { return }
-        let timer = Timer(timeInterval: Self.healthCheckInterval, repeats: true) { [weak self] _ in
+        eventTapHost.startHealthTimer { [weak self] in
             self?.probePermissionAndReconcile()
         }
-        RunLoop.main.add(timer, forMode: .common)
-        healthTimer = timer
     }
 
     /// Timer path: the permission check can block while TCC is being edited,
@@ -227,74 +219,6 @@ class WindowDragHandler: WindowDragService {
             self.cachedPermission = permitted
             self.reconcileEventTap()
         }
-    }
-
-    private func installEventTap() {
-        guard wantsEventTap, eventTap == nil else { return }
-
-        tapCreationAttempts += 1
-        if tapContext == nil {
-            let box = WeakTapContext(self)
-            tapContext = Unmanaged.passRetained(box).toOpaque()
-        }
-
-        let mask = CGEventMask(
-            (1 << CGEventType.leftMouseDragged.rawValue) |
-            (1 << CGEventType.leftMouseUp.rawValue) |
-            (1 << CGEventType.leftMouseDown.rawValue)
-        )
-        guard let tap = eventTapFactory(
-            .cgSessionEventTap,
-            .tailAppendEventTap,
-            .listenOnly,
-            mask,
-            Self.tapCallback,
-            tapContext
-        ) else {
-            releaseTapContext()
-            tapCreationFailureCount += 1
-            if tapCreationFailureCount == 1 || tapCreationFailureCount.isMultiple(of: 30) {
-                NSLog("Spacemap/Drag: event tap creation failed; will retry")
-            }
-            return
-        }
-
-        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
-            CFMachPortInvalidate(tap)
-            releaseTapContext()
-            tapCreationFailureCount += 1
-            return
-        }
-
-        eventTap = tap
-        runLoopSource = source
-        eventTapGeneration += 1
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-        tapCreationFailureCount = 0
-    }
-
-    private func tearDownEventTap() {
-        // Disable before detaching the source; a tap with no callback stalls
-        // the session event stream.
-        if let tap = eventTap {
-            if CFMachPortIsValid(tap) {
-                CGEvent.tapEnable(tap: tap, enable: false)
-            }
-            CFMachPortInvalidate(tap)
-        }
-        if let source = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        }
-        eventTap = nil
-        runLoopSource = nil
-        releaseTapContext()
-    }
-
-    private func releaseTapContext() {
-        guard let context = tapContext else { return }
-        tapContext = nil
-        Unmanaged<WeakTapContext<WindowDragHandler>>.fromOpaque(context).release()
     }
 
     func reset() {
@@ -593,25 +517,27 @@ class WindowDragHandler: WindowDragService {
         isDeliveryScheduled = false
     }
 
-    private static let tapCallback: CGEventTapCallBack = { _, type, event, refcon in
-        guard let refcon else { return Unmanaged.passUnretained(event) }
-        let box = Unmanaged<WeakTapContext<WindowDragHandler>>.fromOpaque(refcon)
-            .takeUnretainedValue()
-        guard let handler = box.owner else { return Unmanaged.passUnretained(event) }
+}
 
-        if shouldRecoverWindowDragEventTap(for: type) {
-            let generation = handler.eventTapGeneration
-            DispatchQueue.main.async { [weak handler] in
-                handler?.recoverEventTap(expectedGeneration: generation)
+extension WindowDragHandler: EventTapConsumer {
+    var eventTapMask: CGEventMask { Self.dragEventTapMask }
+    var eventTapPlacement: EventTapPlacement { .main }
+    var isEventTapListenOnly: Bool { true }
+
+    func handleTapEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if Self.shouldRecoverEventTap(for: type) {
+            let generation = eventTapGeneration
+            DispatchQueue.main.async { [weak self] in
+                self?.recoverEventTap(expectedGeneration: generation)
             }
             return Unmanaged.passUnretained(event)
         }
 
         let cgPoint = event.location
         switch type {
-        case .leftMouseDown:    handler.handleMouseDown(at: cgPoint)
-        case .leftMouseDragged: handler.handleDrag(at: cgPoint)
-        case .leftMouseUp:      handler.handleMouseUp(at: cgPoint, modifiers: event.flags)
+        case .leftMouseDown:    handleMouseDown(at: cgPoint)
+        case .leftMouseDragged: handleDrag(at: cgPoint)
+        case .leftMouseUp:      handleMouseUp(at: cgPoint, modifiers: event.flags)
         default: break
         }
         return Unmanaged.passUnretained(event)
