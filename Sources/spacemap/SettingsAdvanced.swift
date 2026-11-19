@@ -9,7 +9,8 @@ struct SettingsAdvanced: View {
     @Binding var showExtraWindows: Bool
 
     let refreshDiagnostics: () -> Void
-    let saveConfig: () -> Void
+    /// Writes a debounced edit before the config file is read or replaced.
+    let flush: () -> Void
 
     @State private var hasAccessibility = SystemPermissions.hasAccessibility
     @State private var hasScreenRecording = SystemPermissions.hasScreenRecording
@@ -99,10 +100,8 @@ struct SettingsAdvanced: View {
                         Text("\(v)").tag(v as Int)
                     }
                 }
-                .onChange(of: socketHealthInterval) { _ in saveConfig() }
 
                 Toggle("Show Extra Windows", isOn: $showExtraWindows)
-                    .onChange(of: showExtraWindows) { _ in saveConfig() }
 
                 SettingsFootnote(text: "Regular app windows are always shown, whether tiled or floating.")
             }
@@ -177,6 +176,7 @@ struct SettingsAdvanced: View {
     }
 
     private func applyPreset() {
+        flush()
         guard ConfigPresetStore.shared.apply(selectedPreset) else {
             presetMessage = "Could not apply “\(selectedPreset)”."
             reloadPresetState()
@@ -188,6 +188,7 @@ struct SettingsAdvanced: View {
     }
 
     private func createPreset() {
+        flush()
         guard let name = ConfigPresetStore.sanitizedName(newPresetName) else {
             presetMessage = "Use 1–40 letters, digits, spaces, - or _."
             return
@@ -229,6 +230,7 @@ struct SettingsAdvanced: View {
     }
 
     private func exportConfig() {
+        flush()
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "spacemap-config.toml"
         panel.allowedContentTypes = [UTType(filenameExtension: "toml") ?? .plainText]
@@ -241,6 +243,7 @@ struct SettingsAdvanced: View {
     }
 
     private func importConfig() {
+        flush()
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false

@@ -5,9 +5,20 @@ class SettingsWindowController: NSWindowController {
     static let frameAutosaveName = "Spacemap Settings Window"
 
     private let hostingController: NSHostingController<SettingsView>
+    /// Owns the edit session so a closing window can flush it.
+    private let draft: SettingsDraft
 
-    init(yabaiService: YabaiService) {
-        let hostingController = NSHostingController(rootView: SettingsView(yabaiService: yabaiService))
+    init(yabaiService: YabaiService, themeStore: ThemeStore, themeCatalog: ThemeCatalogService) {
+        let draft = SettingsDraft()
+        self.draft = draft
+        let hostingController = NSHostingController(
+            rootView: SettingsView(
+                yabaiService: yabaiService,
+                themeStore: themeStore,
+                themeCatalog: themeCatalog,
+                draft: draft
+            )
+        )
         self.hostingController = hostingController
 
         let windowRect = NSRect(x: 0, y: 0, width: 900, height: 820)
@@ -61,6 +72,17 @@ class SettingsWindowController: NSWindowController {
         super.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Write a debounced edit before the window goes away.
+    func flushSettings() {
+        draft.flush()
+    }
+
+    /// A config replacement is about to rebuild this window: drop the edit in
+    /// flight instead of writing it over the new file.
+    func discardPendingSettingsSave() {
+        draft.cancelPendingSave()
     }
 
     /// Native settings-window backdrop: NSGlassEffectView when

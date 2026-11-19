@@ -34,34 +34,34 @@ struct SettingsAppearanceView: View {
     @Binding var spacesOpacity: Double
     @Binding var spacesCornerRadius: Double
 
-    let onSave: () -> Void
-
-    private let themeManager = ThemeManager.shared
+    /// The typed hex is kept here until it parses, so a half-typed "#12" is
+    /// never written to the config.
+    @State private var hudTextColorText = ""
+    let themeStore: ThemeStore
+    let themeCatalog: ThemeCatalogService
 
     var body: some View {
         Section(header: SettingsSectionHeader(title: "Appearance").settingsAnchor("appearance.hud")) {
             Picker("Theme", selection: $theme) {
-                ForEach(themeManager.allNames(), id: \.self) { name in
+                ForEach(themeStore.allNames(), id: \.self) { name in
                     Text(name.capitalized).tag(name)
                 }
             }
-            .onChange(of: theme) { _ in onSave() }
 
             HStack {
                 Button("Browse Themes") {
-                    ThemeLibraryWindowController.shared.show(currentTheme: theme) { name in
+                    ThemeLibraryWindowController.shared.show(currentTheme: theme, catalog: themeCatalog) { name in
                         theme = name
-                        onSave()
                     }
                 }
                 .liquidGlassButtonStyle()
                 Button("Open Config File") {
-                    let url = URL(fileURLWithPath: AppConfig().configPath)
+                    let url = URL(fileURLWithPath: ConfigStore().configPath)
                     _ = NSWorkspace.shared.open(url)
                 }
                 .liquidGlassButtonStyle()
                 Button("Open Themes Folder") {
-                    _ = NSWorkspace.shared.open(ThemeManager.themesDir())
+                    _ = NSWorkspace.shared.open(themeStore.directory)
                 }
                 .liquidGlassButtonStyle()
             }
@@ -71,13 +71,11 @@ struct SettingsAppearanceView: View {
                 (title: "Dark", value: .dark),
                 (title: "Auto", value: .auto),
             ])
-            .onChange(of: mode) { _ in onSave() }
 
             GlassSegmentedPicker("Background Style", selection: $backgroundStyle, options: [
                 (title: "Glass", value: .glass),
                 (title: "Solid", value: .solid),
             ])
-            .onChange(of: backgroundStyle) { _ in onSave() }
 
             if backgroundStyle == .glass {
                 GlassSegmentedPicker("Glass Style", selection: $glassStyle, options: [
@@ -92,7 +90,6 @@ struct SettingsAppearanceView: View {
                         (title: "Clear", value: .clear),
                         (title: "Regular", value: .regular),
                     ])
-                    .onChange(of: glassTintedMaterial) { _ in onSave() }
                 }
                 SettingsFootnote(text: "Finish is the private macOS glass variant, 0 to 21; results vary by OS and wallpaper. Tinted draws the accent over the chosen material.")
             }
@@ -108,7 +105,6 @@ struct SettingsAppearanceView: View {
                     Text("Background Opacity")
                         .font(.subheadline)
                     CustomStepper(steps: backgroundOpacitySteps, value: activeStyleOpacity)
-                        .onChange(of: activeStyleOpacity.wrappedValue) { _ in onSave() }
                 }
                 SettingsFootnote(
                     text: backgroundStyle == .solid
@@ -117,14 +113,12 @@ struct SettingsAppearanceView: View {
                 )
 
             Toggle("Draw HUD Shadow", isOn: $hudShadow)
-                .onChange(of: hudShadow) { _ in onSave() }
 
             VStack(alignment: .leading) {
                 Text("HUD Corner Radius")
                     .font(.subheadline)
                     .bold()
                 CustomStepper(steps: Self.cornerRadiusSteps(including: hudCornerRadius), value: $hudCornerRadius)
-                    .onChange(of: hudCornerRadius) { _ in onSave() }
             }
             SettingsFootnote(text: "Rounds the outside edge of the whole HUD panel. Space cells keep their own shape.")
 
@@ -140,14 +134,12 @@ struct SettingsAppearanceView: View {
                     HUDFontPanel.shared.present(name: hudFontName, size: hudFontSize) { name, size in
                         hudFontName = name
                         hudFontSize = min(max(size, 8), 48)
-                        onSave()
                     }
                 }
                 if !hudFontName.isEmpty || hudFontSize != 12 {
                     Button("Reset") {
                         hudFontName = ""
                         hudFontSize = 12
-                        onSave()
                     }
                 }
             }
@@ -158,7 +150,7 @@ struct SettingsAppearanceView: View {
             HStack {
                 Text("HUD Text Color")
                 Spacer()
-                TextField("#RRGGBB", text: $hudTextColor)
+                TextField("#RRGGBB", text: hudTextColorTextBinding)
                     .frame(width: 96)
                     .multilineTextAlignment(.trailing)
                 ColorPicker("", selection: hudTextColorBinding, supportsOpacity: false)
@@ -166,12 +158,13 @@ struct SettingsAppearanceView: View {
                 if !hudTextColor.isEmpty {
                     Button("Theme") {
                         hudTextColor = ""
-                        onSave()
                     }
                 }
             }
+            .onAppear { hudTextColorText = hudTextColor }
             .onChange(of: hudTextColor) { value in
-                if value.isEmpty || ThemeManager.parseHexValue(value) != nil { onSave() }
+                // The picker, the Theme button, and a reload all land here.
+                if value != hudTextColorText { hudTextColorText = value }
             }
             SettingsFootnote(text: "Overrides the text colour used in the HUD. Leave empty to follow the theme. Useful when a dark theme makes space numbers hard to read.")
 
@@ -180,7 +173,6 @@ struct SettingsAppearanceView: View {
                     .font(.subheadline)
                     .bold()
                 CustomStepper(steps: iconScaleSteps, value: $iconScale)
-                    .onChange(of: iconScale) { _ in onSave() }
             }
 
             VStack(alignment: .leading) {
@@ -188,13 +180,11 @@ struct SettingsAppearanceView: View {
                     .font(.subheadline)
                     .bold()
                 CustomStepper(steps: uiScaleSteps, value: $uiScale)
-                    .onChange(of: uiScale) { _ in onSave() }
             }
         }
 
         Section(header: SettingsSectionHeader(title: "HUD Spaces").settingsAnchor("appearance.spaces")) {
             Toggle("Match HUD Background", isOn: $spacesMatchBackground)
-                .onChange(of: spacesMatchBackground) { _ in onSave() }
             SettingsFootnote(text: "On, the space cells stay clear so the panel material shows through. Off, give the cells their own fill drawn on top of the panel.")
             if !spacesMatchBackground {
                 GlassSegmentedPicker("Cell Background", selection: $spacesBackgroundStyle, options: [
@@ -202,7 +192,6 @@ struct SettingsAppearanceView: View {
                     (title: "Solid", value: .solid),
                     (title: "Glass", value: .glass),
                 ])
-                .onChange(of: spacesBackgroundStyle) { _ in onSave() }
 
                 if spacesBackgroundStyle == .glass {
                     GlassSegmentedPicker("Cell Glass Style", selection: $spacesGlassStyle, options: [
@@ -210,14 +199,12 @@ struct SettingsAppearanceView: View {
                         (title: "Regular", value: .regular),
                         (title: "Tinted", value: .tinted),
                     ])
-                    .onChange(of: spacesGlassStyle) { _ in onSave() }
                     variantPicker("Cell Finish", selection: spacesVariantBinding)
                     if spacesGlassStyle == .tinted {
                         GlassSegmentedPicker("Cell Tinted Material", selection: $spacesGlassTintedMaterial, options: [
                             (title: "Clear", value: .clear),
                             (title: "Regular", value: .regular),
                         ])
-                        .onChange(of: spacesGlassTintedMaterial) { _ in onSave() }
                     }
                 }
 
@@ -225,18 +212,16 @@ struct SettingsAppearanceView: View {
                     Text("Cell Opacity")
                         .font(.subheadline)
                     CustomStepper(steps: Self.steps([0.0, 0.1, 0.25, 0.5, 0.75, 1.0], including: spacesOpacity), value: $spacesOpacity)
-                        .onChange(of: spacesOpacity) { _ in onSave() }
                 }
                 VStack(alignment: .leading) {
                     Text("Cell Corner Radius")
                         .font(.subheadline)
                     CustomStepper(steps: Self.steps([0, 2, 4, 6, 8, 12, 16, 24], including: spacesCornerRadius), value: $spacesCornerRadius)
-                        .onChange(of: spacesCornerRadius) { _ in onSave() }
                 }
             }
         }
 
-        SettingsThemeEditor(theme: $theme, onSave: onSave)
+        SettingsThemeEditor(theme: $theme, themeStore: themeStore)
     }
 
     private func variantPicker(_ label: String, selection: Binding<Int>) -> some View {
@@ -245,7 +230,6 @@ struct SettingsAppearanceView: View {
                 Text("Variant \(number)").tag(number)
             }
         }
-        .onChange(of: selection.wrappedValue) { _ in onSave() }
     }
 
     private var glassVariantBinding: Binding<Int> {
@@ -290,7 +274,6 @@ struct SettingsAppearanceView: View {
                     backgroundAlpha = activeStyleOpacity.wrappedValue
                 }
                 matchBackgroundOpacity = newValue
-                onSave()
             }
         )
     }
@@ -370,10 +353,22 @@ struct SettingsAppearanceView: View {
         }
     }
 
+    private var hudTextColorTextBinding: Binding<String> {
+        Binding(
+            get: { hudTextColorText },
+            set: { text in
+                hudTextColorText = text
+                if text.isEmpty || ThemeCodec.parseHexValue(text) != nil {
+                    hudTextColor = text
+                }
+            }
+        )
+    }
+
     private var hudTextColorBinding: Binding<Color> {
         Binding(
             get: {
-                guard let value = ThemeManager.parseHexValue(hudTextColor) else { return .white }
+                guard let value = ThemeCodec.parseHexValue(hudTextColor) else { return .white }
                 return Color(.sRGB,
                              red: Double((value >> 16) & 0xff) / 255,
                              green: Double((value >> 8) & 0xff) / 255,
@@ -384,8 +379,7 @@ struct SettingsAppearanceView: View {
                 let red = UInt32((ns.redComponent * 255).rounded())
                 let green = UInt32((ns.greenComponent * 255).rounded())
                 let blue = UInt32((ns.blueComponent * 255).rounded())
-                hudTextColor = ThemeManager.hex((red << 16) | (green << 8) | blue)
-                onSave()
+                hudTextColor = ThemeCodec.hex((red << 16) | (green << 8) | blue)
             }
         )
     }

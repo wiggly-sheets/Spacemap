@@ -1,26 +1,5 @@
 import SwiftUI
 import Foundation
-import Combine
-
-/// Shared handle so the parent Settings view can flush a queued space-name
-/// edit before re-seeding after a menu-bar profile switch.
-final class SpaceNamePendingEdit {
-    private var apply: (() -> Void)?
-
-    func setApply(_ apply: (() -> Void)?) {
-        self.apply = apply
-    }
-
-    /// Runs the pending edit into the profile that was active when it was
-    /// queued. Returns false when nothing was pending.
-    @discardableResult
-    func flushApply() -> Bool {
-        guard let apply else { return false }
-        self.apply = nil
-        apply()
-        return true
-    }
-}
 
 struct SettingsSpaceNames: View {
     @Binding var showSpaceNames: Bool
@@ -28,22 +7,13 @@ struct SettingsSpaceNames: View {
     @Binding var maxSpaces: Int
     @Binding var profiles: [SpaceNameProfile]
     @Binding var activeProfileIndex: Int
-    let pendingEdit: SpaceNamePendingEdit
-    var onSave: () -> Void
 
     @State private var editingProfileIndex: Int?
     @State private var newProfileName: String = ""
-    /// Text fields save on a short delay so a burst of keystrokes does not
-    /// rewrite config and re-run every observer per character.
-    @State private var pendingSave: DispatchWorkItem?
-    /// Snapshot captured when the debounce starts, so a profile switch can
-    /// flush it into the profile that was active at edit time.
-    @State private var pendingSaveSnapshot: (names: [Int: String], index: Int)?
 
     var body: some View {
         Section(header: SettingsSectionHeader(title: "Space Names").settingsAnchor("spaceNames.names")) {
             Toggle("Show Space Names", isOn: $showSpaceNames)
-                .onChange(of: showSpaceNames) { _ in save() }
 
             if showSpaceNames {
                 SettingsFootnote(text: "Each input corresponds to its space number, up to Max Spaces.")
@@ -54,7 +24,6 @@ struct SettingsSpaceNames: View {
                             .frame(width: 80, alignment: .leading)
                         TextField("", text: binding(for: spaceIndex))
                             .textFieldStyle(.roundedBorder)
-                            .onChange(of: spaceNameInputs[spaceIndex, default: ""]) { _ in scheduleSave() }
                     }
                 }
             }
@@ -74,7 +43,6 @@ struct SettingsSpaceNames: View {
                             isActive: index == activeProfileIndex,
                             isEditing: editingProfileIndex == index,
                             onActivate: {
-                                flushPendingSave()
                                 Self.syncActiveProfile(
                                     names: spaceNameInputs,
                                     into: &profiles,
@@ -85,7 +53,6 @@ struct SettingsSpaceNames: View {
                                     profiles: profiles,
                                     index: index
                                 ) ?? spaceNameInputs
-                                save()
                             },
                             onEdit: {
                                 editingProfileIndex = editingProfileIndex == index ? nil : index
@@ -97,7 +64,7 @@ struct SettingsSpaceNames: View {
                         )
 
                         if editingProfileIndex == index {
-                            ProfileEditor(profile: $profiles[index], maxSpaces: maxSpaces, onSave: save)
+                            ProfileEditor(profile: $profiles[index], maxSpaces: maxSpaces)
                                 // Editing the active profile must update the
                                 // names the strip and HUD actually render.
                                 .onChange(of: profiles[index].spaceNames) { names in
@@ -136,7 +103,6 @@ struct SettingsSpaceNames: View {
     private func addProfile() {
         let name = newProfileName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
-        flushPendingSave()
         Self.syncActiveProfile(
             names: spaceNameInputs,
             into: &profiles,
@@ -147,12 +113,10 @@ struct SettingsSpaceNames: View {
         newProfileName = ""
         activeProfileIndex = profiles.count - 1
         spaceNameInputs = newProfile.spaceNames
-        save()
     }
 
     private func deleteProfile(_ index: Int) {
         guard profiles.count > 1, profiles.indices.contains(index) else { return }
-        flushPendingSave()
         let wasActive = index == activeProfileIndex
         Self.syncActiveProfile(
             names: spaceNameInputs,
@@ -179,7 +143,6 @@ struct SettingsSpaceNames: View {
         if wasActive {
             spaceNameInputs = profiles[activeProfileIndex].spaceNames
         }
-        save()
     }
 
     /// Writes the visible Space Names fields back into the active profile
@@ -191,15 +154,6 @@ struct SettingsSpaceNames: View {
     ) {
         guard profiles.indices.contains(activeIndex) else { return }
         profiles[activeIndex].spaceNames = names
-    }
-
-    private func save() {
-        Self.syncActiveProfile(
-            names: spaceNameInputs,
-            into: &profiles,
-            activeIndex: activeProfileIndex
-        )
-        onSave()
     }
 
     /// Names the editable inputs take when `index` is activated. `nil` when the
@@ -220,47 +174,6 @@ struct SettingsSpaceNames: View {
         if index < activeIndex { return min(activeIndex - 1, remainingCount - 1) }
         if index == activeIndex { return min(index, remainingCount - 1) }
         return min(activeIndex, remainingCount - 1)
-    }
-
-    private func scheduleSave() {
-        pendingSave?.cancel()
-        let snapshot = (names: spaceNameInputs, index: activeProfileIndex)
-        pendingSaveSnapshot = snapshot
-        pendingEdit.setApply {
-            pendingSave?.cancel()
-            pendingSave = nil
-            pendingSaveSnapshot = nil
-            Self.syncActiveProfile(
-                names: snapshot.names,
-                into: &profiles,
-                activeIndex: snapshot.index
-            )
-        }
-        let work = DispatchWorkItem { applyPendingSave() }
-        pendingSave = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
-    }
-
-    /// Applies the snapshot captured at schedule time. The index is part of the
-    /// snapshot so a menu-bar profile switch cannot redirect a queued edit into
-    /// the newly active profile.
-    private func applyPendingSave() {
-        guard let snapshot = pendingSaveSnapshot else { return }
-        pendingSaveSnapshot = nil
-        pendingEdit.setApply(nil)
-        Self.syncActiveProfile(
-            names: snapshot.names,
-            into: &profiles,
-            activeIndex: snapshot.index
-        )
-        onSave()
-    }
-
-    private func flushPendingSave() {
-        guard pendingSave != nil else { return }
-        pendingSave?.cancel()
-        pendingSave = nil
-        applyPendingSave()
     }
 }
 
@@ -332,9 +245,6 @@ struct ProfileRow: View {
 struct ProfileEditor: View {
     @Binding var profile: SpaceNameProfile
     let maxSpaces: Int
-    let onSave: () -> Void
-
-    @State private var pendingSave: DispatchWorkItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -344,7 +254,6 @@ struct ProfileEditor: View {
                     .frame(width: 60, alignment: .leading)
                 TextField("", text: $profile.name)
                     .textFieldStyle(.roundedBorder)
-                    .onChange(of: profile.name) { _ in scheduleSave() }
             }
 
             // Space names
@@ -369,14 +278,7 @@ struct ProfileEditor: View {
     private func binding(for spaceIndex: Int) -> Binding<String> {
         Binding(
             get: { profile.spaceNames[spaceIndex, default: ""] },
-            set: { profile.spaceNames[spaceIndex] = $0; scheduleSave() }
+            set: { profile.spaceNames[spaceIndex] = $0 }
         )
-    }
-
-    private func scheduleSave() {
-        pendingSave?.cancel()
-        let work = DispatchWorkItem { onSave() }
-        pendingSave = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
     }
 }

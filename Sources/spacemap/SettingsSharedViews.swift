@@ -362,7 +362,7 @@ struct HUDKeyBindingEditor: View {
             },
             set: { value in
                 guard bindings.indices.contains(index) else { return }
-                bindings[index] = AppConfig.parseHotkey(value)
+                bindings[index] = Hotkey.parseHotkey(value)
                     ?? HotkeyConfig(key: .none, modifiers: [])
             }
         )

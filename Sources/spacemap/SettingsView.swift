@@ -28,116 +28,9 @@ struct SettingsView: View {
         var id: String { rawValue }
     }
 
-    @State private var cols: Int = 8
-    @State private var rows: Int = 2
-    @State private var cellStyle: CellStyle = .rects
-    @State private var hotkeyString: String = "ctrl+pgdn"
-    @State private var pinnedHotkeyString: String = "none"
-    @State private var glyphStripHotkeyString: String = "none"
-    @State private var hudMoveBackHotkeyString: String = "none"
-    @State private var hudMoveForwardHotkeyString: String = "none"
-    @State private var hudNewSpaceHotkeyString: String = "none"
-    @State private var hudDeleteSpaceHotkeyString: String = "none"
-    @State private var hudCycleLayoutHotkeyString: String = "none"
-    @State private var hudKeys: HUDKeyBindings = .default
-    @State private var socketHealthInterval: Int = 60
-    @State private var uiScale: Double = 1.0
-    @State private var autoHideTimeout: Int = 0
-    @State private var theme: String = "default"
-    @State private var showMode: ShowMode = .all
-    @State private var multiMonitorHUDMode: MultiMonitorHUDMode = .unified
-    @State private var unifiedHUDVisibility: SeparateHUDVisibility = .active
-    @State private var separateHUDVisibility: SeparateHUDVisibility = .all
-    @State private var displayNavigationWrap: DisplayNavigationWrap = .within
-    @State private var maxSpaces: Int = 16
-    @State private var gridLayoutIndex: Int = 0
-    @State private var backgroundAlpha: Double = 0.3
-    @State private var backgroundStyle: HUDBackgroundStyle = .glass
-    @State private var glassStyle: HUDGlassStyle = .regular
-    @State private var glassClearVariant: Int = 11
-    @State private var glassRegularVariant: Int = 5
-    @State private var glassTintedVariant: Int = 2
-    @State private var glassTintedMaterial: HUDGlassMaterial = .clear
-    @State private var glassClearOpacity: Double = 0.15
-    @State private var glassRegularOpacity: Double = 0.3
-    @State private var glassTintedOpacity: Double = 0.3
-    @State private var solidOpacity: Double = 1.0
-    @State private var matchBackgroundOpacity: Bool = false
-    @State private var hudShadow: Bool = true
-    @State private var hudCornerRadius: Double = 10
-    @State private var hudFontName: String = ""
-    @State private var hudFontSize: Double = 12
-    @State private var hudTextColor: String = ""
-    @State private var spacesMatchBackground: Bool = true
-    @State private var spacesBackgroundStyle: SpacesBackgroundStyle = .glass
-    @State private var spacesGlassStyle: HUDGlassStyle = .clear
-    @State private var spacesGlassClearVariant: Int = 11
-    @State private var spacesGlassRegularVariant: Int = 5
-    @State private var spacesGlassTintedVariant: Int = 2
-    @State private var spacesGlassTintedMaterial: HUDGlassMaterial = .clear
-    @State private var spacesOpacity: Double = 0.5
-    @State private var spacesCornerRadius: Double = 4
-    @State private var mode: ThemeMode = .auto
-    @State private var iconScale: Double = 1.0
-    @State private var showSpaceNumbers: Bool = true
-    @State private var showSpaceLayout: Bool = false
-    @State private var showSpaceNames: Bool = true
-    @State private var showIconStrip: Bool = true
-    @State private var showMultiAppIcons: Bool = false
-    @State private var hudIconSource: GlyphStripIconSource = .nativeIcons
-    @State private var hudIconStripSeparate: Bool = false
-    @State private var hudIconStripSource: GlyphStripIconSource = .nativeIcons
-    @State private var presence: AppPresence = .menuBar
-    @State private var glyphStrip: GlyphStripConfig = .default
-    @State private var menuBarDisplayMode: MenuBarDisplayMode = .icon
-    @State private var menuBarNearbyCount: Int = 3
-    @State private var jumpToSpaceEnabled: Bool = false
-    @State private var hudPositionKind: HUDPositionKind = .center
-    @State private var spaceNameInputs: [Int: String] = [:]
-    @State private var spaceNameProfiles: [SpaceNameProfile] = [SpaceNameProfile.default]
-    @State private var pendingSpaceNameEdit = SpaceNamePendingEdit()
-    @State private var activeSpaceNameProfileIndex: Int = 0
-    @State private var showExtraWindows: Bool = false
-    @State private var showThumbnailWallpaper: Bool = true
-    @State private var focusSpaceOnWindowDrop: WindowDropFocusMode = .never
-    @State private var focusSpaceOnWindowDropModifier: WindowDropFocusModifier = .command
-    @State private var showHUDOnSpaceChange: Bool = false
-    @State private var showBSPLayoutBadge: Bool = true
-    @State private var showStackLayoutBadge: Bool = true
-    @State private var showFloatLayoutBadge: Bool = true
-    @State private var showHUDInteractionFeedback: Bool = true
-    @State private var spaceDropMode: SpaceDropMode = .content
-    @State private var spaceDragFocus: DragFocusMode = .stay
-    @State private var windowDragFocus: DragFocusMode = .destination
-    @State private var hudAnimationsEnabled: Bool = true
-    @State private var hudAnimationStyle: HUDAnimationStyle = .natural
-    @State private var hudEntranceStyle: HUDEntranceStyle = .fade
-    @State private var lastCustomHUDX: Double = 0.5
-    @State private var lastCustomHUDY: Double = 0.5
+    /// One editing session over the whole config; every control binds a field.
+    @ObservedObject var draft: SettingsDraft
 
-    /// General > Menu Bar owns the glyph strip's menu-bar toggle. Turning it
-    /// on also enables the strip; both menu-bar items may be visible at once.
-    private var glyphStripMenuBarBinding: Binding<Bool> {
-        Binding(
-            get: { glyphStrip.displayMode == .menuBarItem },
-            set: { show in
-                glyphStrip.displayMode = show ? .menuBarItem : .floating
-                if show { glyphStrip.enabled = true }
-            }
-        )
-    }
-
-    private var hudPosition: HUDPosition {
-        switch hudPositionKind {
-        case .center: return .center
-        case .top: return .top
-        case .bottom: return .bottom
-        case .custom: return .custom(x: lastCustomHUDX, y: lastCustomHUDY)
-        }
-    }
-
-    @State private var updateMode: UpdateMode = .notify
-    @State private var appFontUpdateMode: AppFontUpdateMode = .manual
     /// Coordinate space the detail pane's section anchors report into.
     static let detailSpace = "settingsDetail"
     @State private var selectedSection: SidebarSection = .general
@@ -150,104 +43,22 @@ struct SettingsView: View {
     @State private var isYabaiHealthy: Bool?
     @State private var isSocketHealthy: Bool?
     @State private var isRefreshingDiagnostics = false
-    @State private var saveErrorMessage: String?
 
     private let yabaiService: YabaiService
+    private let themeStore: ThemeStore
+    private let themeCatalog: ThemeCatalogService
     private let diagnosticsTimer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
-    init(yabaiService: YabaiService, config: GridConfig = AppConfig.load()) {
+    init(
+        yabaiService: YabaiService,
+        themeStore: ThemeStore,
+        themeCatalog: ThemeCatalogService,
+        draft: SettingsDraft
+    ) {
         self.yabaiService = yabaiService
-        _cols = State(initialValue: config.cols)
-        _rows = State(initialValue: config.rows)
-        _cellStyle = State(initialValue: config.cellStyle)
-        _hotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hotkey))
-        _pinnedHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.pinnedHotkey))
-        _glyphStripHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.glyphStripHotkey))
-        _hudMoveBackHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudMoveSpaceBackHotkey))
-        _hudMoveForwardHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudMoveSpaceForwardHotkey))
-        _hudNewSpaceHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudNewSpaceHotkey))
-        _hudDeleteSpaceHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudDeleteSpaceHotkey))
-        _hudCycleLayoutHotkeyString = State(initialValue: SettingsView.hotkeyStringFrom(config.hudCycleLayoutHotkey))
-        _hudKeys = State(initialValue: config.hudKeys)
-        _socketHealthInterval = State(initialValue: config.socketHealthInterval)
-        _uiScale = State(initialValue: config.uiScale)
-        _autoHideTimeout = State(initialValue: config.autoHideTimeout)
-        _theme = State(initialValue: config.theme)
-        _showMode = State(initialValue: config.showMode)
-        _multiMonitorHUDMode = State(initialValue: config.multiMonitorHUDMode)
-        _unifiedHUDVisibility = State(initialValue: config.unifiedHUDVisibility)
-        _separateHUDVisibility = State(initialValue: config.separateHUDVisibility)
-        _displayNavigationWrap = State(initialValue: config.displayNavigationWrap)
-        _maxSpaces = State(initialValue: config.maxSpaces)
-        _backgroundAlpha = State(initialValue: config.backgroundAlpha)
-        _backgroundStyle = State(initialValue: config.backgroundStyle)
-        _glassStyle = State(initialValue: config.glassStyle)
-        _glassClearVariant = State(initialValue: config.glassClearVariant)
-        _glassRegularVariant = State(initialValue: config.glassRegularVariant)
-        _glassTintedVariant = State(initialValue: config.glassTintedVariant)
-        _glassTintedMaterial = State(initialValue: config.glassTintedMaterial)
-        _glassClearOpacity = State(initialValue: config.glassClearOpacity)
-        _glassRegularOpacity = State(initialValue: config.glassRegularOpacity)
-        _glassTintedOpacity = State(initialValue: config.glassTintedOpacity)
-        _solidOpacity = State(initialValue: config.solidOpacity)
-        _matchBackgroundOpacity = State(initialValue: config.matchBackgroundOpacity)
-        _hudShadow = State(initialValue: config.hudShadow)
-        _hudCornerRadius = State(initialValue: config.hudCornerRadius)
-        _hudFontName = State(initialValue: config.hudFontName)
-        _hudFontSize = State(initialValue: config.hudFontSize)
-        _hudTextColor = State(initialValue: config.hudTextColor)
-        _spacesMatchBackground = State(initialValue: config.spacesMatchBackground)
-        _spacesBackgroundStyle = State(initialValue: config.spacesBackgroundStyle)
-        _spacesGlassStyle = State(initialValue: config.spacesGlassStyle)
-        _spacesGlassClearVariant = State(initialValue: config.spacesGlassClearVariant)
-        _spacesGlassRegularVariant = State(initialValue: config.spacesGlassRegularVariant)
-        _spacesGlassTintedVariant = State(initialValue: config.spacesGlassTintedVariant)
-        _spacesGlassTintedMaterial = State(initialValue: config.spacesGlassTintedMaterial)
-        _spacesOpacity = State(initialValue: config.spacesOpacity)
-        _spacesCornerRadius = State(initialValue: config.spacesCornerRadius)
-        _mode = State(initialValue: config.mode)
-        _iconScale = State(initialValue: config.iconScale)
-        _showSpaceNumbers = State(initialValue: config.showSpaceNumbers)
-        _showSpaceLayout = State(initialValue: config.showSpaceLayout)
-        _showSpaceNames = State(initialValue: config.showSpaceNames)
-        _showIconStrip = State(initialValue: config.showIconStrip)
-        _showMultiAppIcons = State(initialValue: config.showMultiAppIcons)
-        _hudIconSource = State(initialValue: config.hudIconSource)
-        _hudIconStripSeparate = State(initialValue: config.hudIconStripSeparate)
-        _hudIconStripSource = State(initialValue: config.hudIconStripSource)
-        _presence = State(initialValue: config.presence)
-        _glyphStrip = State(initialValue: config.glyphStrip.clamped())
-        _menuBarDisplayMode = State(initialValue: config.menuBarDisplayMode)
-        _menuBarNearbyCount = State(initialValue: config.menuBarNearbyCount)
-        _jumpToSpaceEnabled = State(initialValue: config.jumpToSpaceEnabled)
-        _hudPositionKind = State(initialValue: HUDPositionKind(from: config.hudPosition))
-        _lastCustomHUDX = State(initialValue: config.customHUDX)
-        _lastCustomHUDY = State(initialValue: config.customHUDY)
-        _showExtraWindows = State(initialValue: config.showExtraWindows)
-        _showThumbnailWallpaper = State(initialValue: config.showThumbnailWallpaper)
-        _focusSpaceOnWindowDrop = State(initialValue: config.focusSpaceOnWindowDrop)
-        _focusSpaceOnWindowDropModifier = State(initialValue: config.focusSpaceOnWindowDropModifier)
-        _showHUDOnSpaceChange = State(initialValue: config.showHUDOnSpaceChange)
-        _showBSPLayoutBadge = State(initialValue: config.showBSPLayoutBadge)
-        _showStackLayoutBadge = State(initialValue: config.showStackLayoutBadge)
-        _showFloatLayoutBadge = State(initialValue: config.showFloatLayoutBadge)
-        _showHUDInteractionFeedback = State(initialValue: config.showHUDInteractionFeedback)
-        _spaceDropMode = State(initialValue: config.spaceDropMode)
-        _spaceDragFocus = State(initialValue: config.spaceDragFocus)
-        _windowDragFocus = State(initialValue: config.windowDragFocus)
-        _hudAnimationsEnabled = State(initialValue: config.hudAnimationsEnabled)
-        _hudAnimationStyle = State(initialValue: config.hudAnimationStyle)
-        _hudEntranceStyle = State(initialValue: config.hudEntranceStyle)
-        _spaceNameInputs = State(initialValue: config.spaceNames)
-        _spaceNameProfiles = State(initialValue: config.spaceNameProfiles)
-        _activeSpaceNameProfileIndex = State(initialValue: config.activeSpaceNameProfileIndex)
-        _gridLayoutIndex = State(initialValue: SettingsGrid.layoutIndex(
-            maxSpaces: config.maxSpaces,
-            currentCols: config.cols,
-            currentRows: config.rows
-        ))
-        _updateMode = State(initialValue: config.updateMode)
-        _appFontUpdateMode = State(initialValue: config.appFont.updateMode)
+        self.themeStore = themeStore
+        self.themeCatalog = themeCatalog
+        _draft = ObservedObject(wrappedValue: draft)
     }
 
     static let saveFailureMessage = NSLocalizedString(
@@ -257,120 +68,6 @@ struct SettingsView: View {
 
     static func saveResultMessage(_ success: Bool) -> String? {
         success ? nil : saveFailureMessage
-    }
-
-    /// Applies the UI-owned fields onto the current disk config. The updater
-    /// owns `appFont.installedVersion`/`lastCheck`, and yabai trust refusal has
-    /// no UI control, so both are read from `disk` at write time inside the
-    /// atomic `AppConfig.updateConfig` closure.
-    static func applySave(
-        _ ui: GridConfig,
-        to disk: inout GridConfig,
-        appFontUpdateMode: AppFontUpdateMode
-    ) {
-        var appFont = disk.appFont
-        appFont.updateMode = appFontUpdateMode
-        let refuseUntrustedYabai = disk.refuseUntrustedYabai
-        disk = ui
-        disk.appFont = appFont
-        disk.refuseUntrustedYabai = refuseUntrustedYabai
-    }
-
-    private func saveConfig() {
-        let config = GridConfig(
-            cols: cols,
-            rows: rows,
-            cellStyle: cellStyle,
-            hotkey: AppConfig.parseHotkey(hotkeyString) ?? GridConfig.default.hotkey,
-            pinnedHotkey: AppConfig.parseHotkey(pinnedHotkeyString) ?? GridConfig.default.pinnedHotkey,
-            glyphStripHotkey: AppConfig.parseHotkey(glyphStripHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
-            hudMoveSpaceBackHotkey: AppConfig.parseHotkey(hudMoveBackHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
-            hudMoveSpaceForwardHotkey: AppConfig.parseHotkey(hudMoveForwardHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
-            hudNewSpaceHotkey: AppConfig.parseHotkey(hudNewSpaceHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
-            hudDeleteSpaceHotkey: AppConfig.parseHotkey(hudDeleteSpaceHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
-            hudCycleLayoutHotkey: AppConfig.parseHotkey(hudCycleLayoutHotkeyString) ?? HotkeyConfig(key: .none, modifiers: []),
-            hudKeys: hudKeys,
-            socketHealthInterval: socketHealthInterval,
-            uiScale: uiScale,
-            autoHideTimeout: autoHideTimeout,
-            theme: theme,
-            showMode: showMode,
-            multiMonitorHUDMode: multiMonitorHUDMode,
-            unifiedHUDVisibility: unifiedHUDVisibility,
-            separateHUDVisibility: separateHUDVisibility,
-            displayNavigationWrap: displayNavigationWrap,
-            maxSpaces: maxSpaces,
-            backgroundAlpha: backgroundAlpha,
-            backgroundStyle: backgroundStyle,
-            glassStyle: glassStyle,
-            glassClearVariant: glassClearVariant,
-            glassRegularVariant: glassRegularVariant,
-            glassTintedVariant: glassTintedVariant,
-            glassTintedMaterial: glassTintedMaterial,
-            glassClearOpacity: glassClearOpacity,
-            glassRegularOpacity: glassRegularOpacity,
-            glassTintedOpacity: glassTintedOpacity,
-            solidOpacity: solidOpacity,
-            spacesMatchBackground: spacesMatchBackground,
-            spacesBackgroundStyle: spacesBackgroundStyle,
-            spacesGlassStyle: spacesGlassStyle,
-            spacesGlassClearVariant: spacesGlassClearVariant,
-            spacesGlassRegularVariant: spacesGlassRegularVariant,
-            spacesGlassTintedVariant: spacesGlassTintedVariant,
-            spacesGlassTintedMaterial: spacesGlassTintedMaterial,
-            spacesOpacity: spacesOpacity,
-            spacesCornerRadius: spacesCornerRadius,
-            matchBackgroundOpacity: matchBackgroundOpacity,
-            hudShadow: hudShadow,
-            hudCornerRadius: hudCornerRadius,
-            hudFontName: hudFontName,
-            hudFontSize: hudFontSize,
-            hudTextColor: hudTextColor,
-            mode: mode,
-            iconScale: iconScale,
-            showSpaceNumbers: showSpaceNumbers,
-            showSpaceLayout: showSpaceLayout,
-            showSpaceNames: showSpaceNames,
-            showIconStrip: showIconStrip,
-            showMultiAppIcons: showMultiAppIcons,
-            hudIconSource: hudIconSource,
-            hudIconStripSeparate: hudIconStripSeparate,
-            hudIconStripSource: hudIconStripSource,
-            presence: presence,
-            glyphStrip: glyphStrip.clamped(),
-            menuBarDisplayMode: menuBarDisplayMode,
-            menuBarNearbyCount: menuBarNearbyCount,
-            spaceNames: spaceNameInputs,
-            jumpToSpaceEnabled: jumpToSpaceEnabled,
-            hudPosition: hudPosition,
-            customHUDX: lastCustomHUDX,
-            customHUDY: lastCustomHUDY,
-            showExtraWindows: showExtraWindows,
-            focusSpaceOnWindowDrop: focusSpaceOnWindowDrop,
-            focusSpaceOnWindowDropModifier: focusSpaceOnWindowDropModifier,
-            showHUDOnSpaceChange: showHUDOnSpaceChange,
-            showBSPLayoutBadge: showBSPLayoutBadge,
-            showStackLayoutBadge: showStackLayoutBadge,
-            showFloatLayoutBadge: showFloatLayoutBadge,
-            showHUDInteractionFeedback: showHUDInteractionFeedback,
-            spaceDropMode: spaceDropMode,
-            spaceDragFocus: spaceDragFocus,
-            windowDragFocus: windowDragFocus,
-            showThumbnailWallpaper: showThumbnailWallpaper,
-            hudAnimationsEnabled: hudAnimationsEnabled,
-            hudAnimationStyle: hudAnimationStyle,
-            hudEntranceStyle: hudEntranceStyle,
-            updateMode: updateMode,
-            spaceNameProfiles: spaceNameProfiles,
-            activeSpaceNameProfileIndex: activeSpaceNameProfileIndex
-        )
-        let fontUpdateMode = appFontUpdateMode
-        let saved = AppConfig.updateConfig { disk in
-            Self.applySave(config, to: &disk, appFontUpdateMode: fontUpdateMode)
-        }
-        saveErrorMessage = Self.saveResultMessage(saved)
-        guard saved else { return }
-        NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
 
     /// Ignore offset updates until a programmatic scroll has landed.
@@ -409,36 +106,33 @@ struct SettingsView: View {
 
             case .spaces:
                 SettingsGrid(
-                    maxSpaces: $maxSpaces,
-                    gridLayoutIndex: $gridLayoutIndex,
-                    cols: $cols,
-                    rows: $rows,
-                    showMode: $showMode,
-                    multiMonitorHUDMode: $multiMonitorHUDMode,
-                    unifiedHUDVisibility: $unifiedHUDVisibility,
-                    separateHUDVisibility: $separateHUDVisibility,
-                    cellStyle: $cellStyle,
-                    showSpaceNumbers: $showSpaceNumbers,
-                    showSpaceLayout: $showSpaceLayout,
-                    showBSPLayoutBadge: $showBSPLayoutBadge,
-                    showStackLayoutBadge: $showStackLayoutBadge,
-                    showFloatLayoutBadge: $showFloatLayoutBadge,
-                    showIconStrip: $showIconStrip,
-                    showMultiAppIcons: $showMultiAppIcons,
-                    hudIconSource: $hudIconSource,
-                    hudIconStripSeparate: $hudIconStripSeparate,
-                    hudIconStripSource: $hudIconStripSource,
-                    showThumbnailWallpaper: $showThumbnailWallpaper,
-                    onSave: saveConfig
+                    maxSpaces: draft.binding(\.maxSpaces),
+                    gridLayoutIndex: $draft.gridLayoutIndex,
+                    cols: draft.binding(\.cols),
+                    rows: draft.binding(\.rows),
+                    showMode: draft.binding(\.showMode),
+                    multiMonitorHUDMode: draft.binding(\.multiMonitorHUDMode),
+                    unifiedHUDVisibility: draft.binding(\.unifiedHUDVisibility),
+                    separateHUDVisibility: draft.binding(\.separateHUDVisibility),
+                    cellStyle: draft.binding(\.cellStyle),
+                    showSpaceNumbers: draft.binding(\.showSpaceNumbers),
+                    showSpaceLayout: draft.binding(\.showSpaceLayout),
+                    showBSPLayoutBadge: draft.binding(\.showBSPLayoutBadge),
+                    showStackLayoutBadge: draft.binding(\.showStackLayoutBadge),
+                    showFloatLayoutBadge: draft.binding(\.showFloatLayoutBadge),
+                    showIconStrip: draft.binding(\.showIconStrip),
+                    showMultiAppIcons: draft.binding(\.showMultiAppIcons),
+                    hudIconSource: draft.binding(\.hudIconSource),
+                    hudIconStripSeparate: draft.binding(\.hudIconStripSeparate),
+                    hudIconStripSource: draft.binding(\.hudIconStripSource),
+                    showThumbnailWallpaper: draft.binding(\.showThumbnailWallpaper)
                 )
                 SettingsSpaceNames(
-                    showSpaceNames: $showSpaceNames,
-                    spaceNameInputs: $spaceNameInputs,
-                    maxSpaces: $maxSpaces,
-                    profiles: $spaceNameProfiles,
-                    activeProfileIndex: $activeSpaceNameProfileIndex,
-                    pendingEdit: pendingSpaceNameEdit,
-                    onSave: saveConfig
+                    showSpaceNames: draft.binding(\.showSpaceNames),
+                    spaceNameInputs: draft.binding(\.spaceNames),
+                    maxSpaces: draft.binding(\.maxSpaces),
+                    profiles: draft.binding(\.spaceNameProfiles),
+                    activeProfileIndex: draft.binding(\.activeSpaceNameProfileIndex)
                 )
 
             case .hud:
@@ -447,9 +141,9 @@ struct SettingsView: View {
 
             case .glyphStrip:
                 SettingsGlyphStrip(
-                    glyphStrip: $glyphStrip,
-                    themeName: theme,
-                    onSave: saveConfig
+                    glyphStrip: draft.binding(\.glyphStrip),
+                    themeName: draft.config.theme,
+                    themeStore: themeStore
                 )
 
             case .hotkeys:
@@ -460,10 +154,10 @@ struct SettingsView: View {
                     isYabaiHealthy: $isYabaiHealthy,
                     isSocketHealthy: $isSocketHealthy,
                     isRefreshingDiagnostics: $isRefreshingDiagnostics,
-                    socketHealthInterval: $socketHealthInterval,
-                    showExtraWindows: $showExtraWindows,
+                    socketHealthInterval: draft.binding(\.socketHealthInterval),
+                    showExtraWindows: draft.binding(\.showExtraWindows),
                     refreshDiagnostics: refreshDiagnostics,
-                    saveConfig: saveConfig
+                    flush: draft.flush
                 )
                 }
             }
@@ -501,40 +195,8 @@ struct SettingsView: View {
             }
         }
         .background(Color.clear)
-        .onReceive(NotificationCenter.default.publisher(for: .settingsChanged)) { _ in
-            let config = AppConfig.load()
-            lastCustomHUDX = config.customHUDX
-            lastCustomHUDY = config.customHUDY
-            // External writers (the strip's own drag) change the config under
-            // an open settings window; re-seed so a later save here cannot
-            // revert them. Every control saves on change, so the state being
-            // re-seeded always already matches the file.
-            glyphStrip = config.glyphStrip.clamped()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .glyphStripPositionChanged)) { _ in
-            // A finished drag persists only the strip position. Re-seed just
-            // that value so the next settings save keeps the drag.
-            glyphStrip = AppConfig.load().glyphStrip.clamped()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .spaceNameProfileChanged)) { _ in
-            // Apply any queued keystroke to the profile that was active when it
-            // was typed, then re-seed the newly active profile. Saving after
-            // both keeps the menu switch and the edit on disk together.
-            let flushed = pendingSpaceNameEdit.flushApply()
-            let config = AppConfig.load()
-            if let seed = Self.profileStateToSeed(from: config) {
-                activeSpaceNameProfileIndex = seed.index
-                spaceNameInputs = seed.spaceNames
-            }
-            if flushed { saveConfig() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: HUDDisplay.hudPositionChangedNotification)) { _ in
-            let seed = Self.hudPositionStateToSeed(from: AppConfig.load())
-            hudPositionKind = seed.kind
-            lastCustomHUDX = seed.x
-            lastCustomHUDY = seed.y
-        }
         .onChange(of: selectedSection) { section in
+            draft.flush()
             if section == .advanced { refreshDiagnostics() }
         }
         .onReceive(diagnosticsTimer) { _ in
@@ -543,13 +205,13 @@ struct SettingsView: View {
         .alert(
             "Could not save settings",
             isPresented: Binding(
-                get: { saveErrorMessage != nil },
-                set: { if !$0 { saveErrorMessage = nil } }
+                get: { draft.saveErrorMessage != nil },
+                set: { if !$0 { draft.saveErrorMessage = nil } }
             )
         ) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(saveErrorMessage ?? "")
+            Text(draft.saveErrorMessage ?? "")
         }
         .formStyle(.grouped)
         .frame(minWidth: 500)
@@ -557,36 +219,27 @@ struct SettingsView: View {
 
     private func behaviorPane(_ scope: SettingsBehavior.Scope) -> some View {
         SettingsBehavior(
-            hotkeyString: $hotkeyString,
-            pinnedHotkeyString: $pinnedHotkeyString,
-            glyphStripHotkeyString: $glyphStripHotkeyString,
-            hudMoveBackHotkeyString: $hudMoveBackHotkeyString,
-            hudMoveForwardHotkeyString: $hudMoveForwardHotkeyString,
-            hudNewSpaceHotkeyString: $hudNewSpaceHotkeyString,
-            hudDeleteSpaceHotkeyString: $hudDeleteSpaceHotkeyString,
-            hudCycleLayoutHotkeyString: $hudCycleLayoutHotkeyString,
-            hudKeys: $hudKeys,
-            hudPositionKind: $hudPositionKind,
-            autoHideTimeout: $autoHideTimeout,
-            jumpToSpaceEnabled: $jumpToSpaceEnabled,
-            displayNavigationWrap: $displayNavigationWrap,
-            focusSpaceOnWindowDrop: $focusSpaceOnWindowDrop,
-            focusSpaceOnWindowDropModifier: $focusSpaceOnWindowDropModifier,
-            showHUDOnSpaceChange: $showHUDOnSpaceChange,
-            showHUDInteractionFeedback: $showHUDInteractionFeedback,
-            spaceDropMode: $spaceDropMode,
-            spaceDragFocus: $spaceDragFocus,
-            windowDragFocus: $windowDragFocus,
-            hudAnimationsEnabled: $hudAnimationsEnabled,
-            hudAnimationStyle: $hudAnimationStyle,
-            hudEntranceStyle: $hudEntranceStyle,
-            presence: $presence,
-            menuBarDisplayMode: $menuBarDisplayMode,
-            menuBarNearbyCount: $menuBarNearbyCount,
-            glyphStripMenuBarItem: glyphStripMenuBarBinding,
-            updateMode: $updateMode,
-            appFontUpdateMode: $appFontUpdateMode,
-            onSave: saveConfig,
+            hotkeyString: draft.hotkeyStringBinding,
+            pinnedHotkeyString: draft.pinnedHotkeyStringBinding,
+            glyphStripHotkeyString: draft.glyphStripHotkeyStringBinding,
+            hudKeys: draft.binding(\.hudKeys),
+            hudPositionKind: draft.hudPositionKindBinding,
+            autoHideTimeout: draft.binding(\.autoHideTimeout),
+            jumpToSpaceEnabled: draft.binding(\.jumpToSpaceEnabled),
+            displayNavigationWrap: draft.binding(\.displayNavigationWrap),
+            focusSpaceOnWindowDrop: draft.binding(\.focusSpaceOnWindowDrop),
+            focusSpaceOnWindowDropModifier: draft.binding(\.focusSpaceOnWindowDropModifier),
+            showHUDOnSpaceChange: draft.binding(\.showHUDOnSpaceChange),
+            showHUDInteractionFeedback: draft.binding(\.showHUDInteractionFeedback),
+            hudAnimationsEnabled: draft.binding(\.hudAnimationsEnabled),
+            hudAnimationStyle: draft.binding(\.hudAnimationStyle),
+            hudEntranceStyle: draft.binding(\.hudEntranceStyle),
+            presence: draft.binding(\.presence),
+            menuBarDisplayMode: draft.binding(\.menuBarDisplayMode),
+            menuBarNearbyCount: draft.binding(\.menuBarNearbyCount),
+            glyphStripMenuBarItem: draft.glyphStripMenuBarItemBinding,
+            updateMode: draft.binding(\.updateMode),
+            appFontUpdateMode: draft.appFontUpdateModeBinding,
             checkForUpdates: { (NSApp.delegate as? AppDelegate)?.checkForUpdates() },
             scope: scope
         )
@@ -594,58 +247,39 @@ struct SettingsView: View {
 
     private var appearancePane: some View {
         SettingsAppearanceView(
-                    theme: $theme,
-                    mode: $mode,
-                    backgroundAlpha: $backgroundAlpha,
-                    backgroundStyle: $backgroundStyle,
-                    glassStyle: $glassStyle,
-                    glassClearVariant: $glassClearVariant,
-                    glassRegularVariant: $glassRegularVariant,
-                    glassTintedVariant: $glassTintedVariant,
-                    glassTintedMaterial: $glassTintedMaterial,
-                    glassClearOpacity: $glassClearOpacity,
-                    glassRegularOpacity: $glassRegularOpacity,
-                    glassTintedOpacity: $glassTintedOpacity,
-                    solidOpacity: $solidOpacity,
-                    matchBackgroundOpacity: $matchBackgroundOpacity,
-                    hudShadow: $hudShadow,
-                    hudCornerRadius: $hudCornerRadius,
-                    hudFontName: $hudFontName,
-                    hudFontSize: $hudFontSize,
-                    hudTextColor: $hudTextColor,
-                    iconScale: $iconScale,
-                    uiScale: $uiScale,
-                    spacesMatchBackground: $spacesMatchBackground,
-                    spacesBackgroundStyle: $spacesBackgroundStyle,
-                    spacesGlassStyle: $spacesGlassStyle,
-                    spacesGlassClearVariant: $spacesGlassClearVariant,
-                    spacesGlassRegularVariant: $spacesGlassRegularVariant,
-                    spacesGlassTintedVariant: $spacesGlassTintedVariant,
-                    spacesGlassTintedMaterial: $spacesGlassTintedMaterial,
-                    spacesOpacity: $spacesOpacity,
-                    spacesCornerRadius: $spacesCornerRadius,
-                    onSave: saveConfig
+                    theme: draft.binding(\.theme),
+                    mode: draft.binding(\.mode),
+                    backgroundAlpha: draft.binding(\.backgroundAlpha),
+                    backgroundStyle: draft.binding(\.backgroundStyle),
+                    glassStyle: draft.binding(\.glassStyle),
+                    glassClearVariant: draft.binding(\.glassClearVariant),
+                    glassRegularVariant: draft.binding(\.glassRegularVariant),
+                    glassTintedVariant: draft.binding(\.glassTintedVariant),
+                    glassTintedMaterial: draft.binding(\.glassTintedMaterial),
+                    glassClearOpacity: draft.binding(\.glassClearOpacity),
+                    glassRegularOpacity: draft.binding(\.glassRegularOpacity),
+                    glassTintedOpacity: draft.binding(\.glassTintedOpacity),
+                    solidOpacity: draft.binding(\.solidOpacity),
+                    matchBackgroundOpacity: draft.binding(\.matchBackgroundOpacity),
+                    hudShadow: draft.binding(\.hudShadow),
+                    hudCornerRadius: draft.binding(\.hudCornerRadius),
+                    hudFontName: draft.binding(\.hudFontName),
+                    hudFontSize: draft.binding(\.hudFontSize),
+                    hudTextColor: draft.binding(\.hudTextColor),
+                    iconScale: draft.binding(\.iconScale),
+                    uiScale: draft.binding(\.uiScale),
+                    spacesMatchBackground: draft.binding(\.spacesMatchBackground),
+                    spacesBackgroundStyle: draft.binding(\.spacesBackgroundStyle),
+                    spacesGlassStyle: draft.binding(\.spacesGlassStyle),
+                    spacesGlassClearVariant: draft.binding(\.spacesGlassClearVariant),
+                    spacesGlassRegularVariant: draft.binding(\.spacesGlassRegularVariant),
+                    spacesGlassTintedVariant: draft.binding(\.spacesGlassTintedVariant),
+                    spacesGlassTintedMaterial: draft.binding(\.spacesGlassTintedMaterial),
+                    spacesOpacity: draft.binding(\.spacesOpacity),
+                    spacesCornerRadius: draft.binding(\.spacesCornerRadius),
+                    themeStore: themeStore,
+                    themeCatalog: themeCatalog
                 )
-    }
-
-    /// Profile state to re-seed from a menu-bar profile switch. Pure so the
-    /// menu → Settings flow is testable without SwiftUI state.
-    static func profileStateToSeed(
-        from config: GridConfig
-    ) -> (index: Int, spaceNames: [Int: String])? {
-        let index = config.activeSpaceNameProfileIndex
-        guard config.spaceNameProfiles.indices.contains(index) else { return nil }
-        return (index, config.spaceNameProfiles[index].spaceNames)
-    }
-
-    static func hudPositionStateToSeed(
-        from config: GridConfig
-    ) -> (kind: HUDPositionKind, x: Double, y: Double) {
-        (
-            HUDPositionKind(from: config.hudPosition),
-            config.customHUDX,
-            config.customHUDY
-        )
     }
 
     private func refreshDiagnostics() {
@@ -661,9 +295,5 @@ struct SettingsView: View {
                 isRefreshingDiagnostics = false
             }
         }
-    }
-
-    static func hotkeyStringFrom(_ hotkey: HotkeyConfig) -> String {
-        return Hotkey.hotkeyToString(hotkey)
     }
 }

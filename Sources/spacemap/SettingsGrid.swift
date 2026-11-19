@@ -22,8 +22,6 @@ struct SettingsGrid: View {
     @Binding var hudIconStripSource: GlyphStripIconSource
     @Binding var showThumbnailWallpaper: Bool
 
-    let onSave: () -> Void
-
     private var maxSpacesOptions: [Int] {
         Array(1...16)
     }
@@ -44,7 +42,6 @@ struct SettingsGrid: View {
                 let layout = gridLayouts[gridLayoutIndex]
                 cols = layout.cols
                 rows = layout.rows
-                onSave()
             }
 
             Picker("Grid Layout", selection: $gridLayoutIndex) {
@@ -56,20 +53,17 @@ struct SettingsGrid: View {
                 let layout = gridLayouts[gridLayoutIndex]
                 cols = layout.cols
                 rows = layout.rows
-                onSave()
             }
 
             GlassSegmentedPicker("Show Mode", selection: $showMode, options: [
                 (title: "All Spaces", value: .all),
                 (title: "Active Spaces", value: .active),
             ])
-            .onChange(of: showMode) { _ in onSave() }
 
             GlassSegmentedPicker("Multi-Monitor HUD", selection: $multiMonitorHUDMode, options: [
                 (title: "Unified Grid", value: .unified),
                 (title: "Separate HUDs", value: .separate),
             ])
-            .onChange(of: multiMonitorHUDMode) { _ in onSave() }
 
             SettingsFootnote(text: multiMonitorHUDMode == .separate
                 ? "Shows one grid on each display and keeps keyboard navigation on the focused display."
@@ -80,7 +74,6 @@ struct SettingsGrid: View {
                     (title: "Active Display Only", value: .active),
                     (title: "All Displays", value: .all),
                 ])
-                .onChange(of: unifiedHUDVisibility) { _ in onSave() }
                 SettingsFootnote(text: unifiedHUDVisibility == .active
                     ? "Shows the unified grid on the display containing yabai's focused space."
                     : "Shows the same unified grid on every display at once.")
@@ -91,7 +84,6 @@ struct SettingsGrid: View {
                     (title: "All Displays", value: .all),
                     (title: "Active Display Only", value: .active),
                 ])
-                .onChange(of: separateHUDVisibility) { _ in onSave() }
                 SettingsFootnote(text: separateHUDVisibility == .active
                     ? "Shows the HUD only on the display containing yabai's focused space."
                     : "Shows a HUD on every display at once.")
@@ -106,49 +98,37 @@ struct SettingsGrid: View {
             ])
             .onChange(of: cellStyle) { style in
                 if style == .thumbnails { SystemPermissions.requestScreenRecordingOrOpenSettings() }
-                onSave()
             }
             if cellStyle == .thumbnails {
                 Toggle("Show Wallpaper in Thumbnails", isOn: $showThumbnailWallpaper)
-                    .onChange(of: showThumbnailWallpaper) { _ in onSave() }
                 SettingsFootnote(text: "Draws the desktop wallpaper behind the windows. Turn it off for thumbnails that are easier to read on busy desktops.")
             }
 
             Toggle(showSpaceNumbersTitle, isOn: $showSpaceNumbers)
-                .onChange(of: showSpaceNumbers) { _ in onSave() }
             Toggle("Show Space Layout", isOn: $showSpaceLayout)
                 .disabled(!showSpaceNumbers)
-                .onChange(of: showSpaceLayout) { _ in onSave() }
             if showSpaceLayout {
                 Toggle("Show BSP Layout (b)", isOn: $showBSPLayoutBadge)
-                    .onChange(of: showBSPLayoutBadge) { _ in onSave() }
                 Toggle("Show Stack Layout (s)", isOn: $showStackLayoutBadge)
-                    .onChange(of: showStackLayoutBadge) { _ in onSave() }
                 Toggle("Show Float Layout (f)", isOn: $showFloatLayoutBadge)
-                    .onChange(of: showFloatLayoutBadge) { _ in onSave() }
                 SettingsFootnote(text: "Pick the layout letters the HUD badge draws. A hidden letter still applies to the space; it just leaves the badge blank.")
             }
             Toggle("Show Icon Strip", isOn: $showIconStrip)
-                .onChange(of: showIconStrip) { _ in onSave() }
 
             if showIconStrip {
                 Toggle("Show Icon Per Window", isOn: $showMultiAppIcons)
-                    .onChange(of: showMultiAppIcons) { _ in onSave() }
                 Picker("Cell Icon Style", selection: $hudIconSource) {
                     Text("Native App Icons").tag(GlyphStripIconSource.nativeIcons)
                     Text("App Font Glyphs").tag(GlyphStripIconSource.sbarFont)
                 }
-                .onChange(of: hudIconSource) { _ in onSave() }
                 SettingsFootnote(text: "Used by hybrid and icon cells. App Font Glyphs need the sketchybar-app-font installed.")
 
                 Toggle("Separate Icon Strip Style", isOn: $hudIconStripSeparate)
-                    .onChange(of: hudIconStripSeparate) { _ in onSave() }
                 if hudIconStripSeparate {
                     Picker("Icon Strip Style", selection: $hudIconStripSource) {
                         Text("Native App Icons").tag(GlyphStripIconSource.nativeIcons)
                         Text("App Font Glyphs").tag(GlyphStripIconSource.sbarFont)
                     }
-                    .onChange(of: hudIconStripSource) { _ in onSave() }
                 } else {
                     SettingsFootnote(text: "The strip follows the cell icon style.")
                 }

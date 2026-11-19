@@ -127,14 +127,34 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(options[index].label, "3×4 (Custom)")
     }
 
-    func testSettingsViewAcceptsInjectedYabaiServiceAndExactConfigValues() {
-        var config = GridConfig.default
+    func testEveryHUDCommandHasADistinctDisplayName() {
+        let labels = HUDCommand.allCases.map(\.label)
+
+        XCTAssertEqual(Set(labels).count, labels.count, "the HUD key picker needs one name per command")
+        XCTAssertFalse(labels.contains(where: \.isEmpty))
+    }
+
+    func testSettingsViewAcceptsInjectedYabaiServiceAndExactConfig() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-settings-view-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        var config = SpacemapConfig.default
         config.socketHealthInterval = 37
         config.backgroundAlpha = 0.37
         config.iconScale = 0.43
         config.uiScale = 0.61
 
-        _ = SettingsView(yabaiService: MockYabaiService(), config: config)
+        _ = SettingsView(
+            yabaiService: MockYabaiService(),
+            themeStore: makeTemporaryThemeStore(),
+            themeCatalog: ThemeCatalogService(themeStore: makeTemporaryThemeStore()),
+            draft: makeDraft(config, at: path)
+        )
     }
 
     func testSettingsWindowUsesStableFrameAutosaveName() {
@@ -148,20 +168,20 @@ final class SettingsTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        AppConfig.silentMode = true
-        defer { AppConfig.silentMode = false }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
 
-        var disk = GridConfig.default
+        var disk = SpacemapConfig.default
         disk.refuseUntrustedYabai = true
         disk.appFont.installedVersion = "v9.9.9"
         disk.appFont.lastCheck = 1_234_567
-        AppConfig.saveConfig(disk, to: savedPath)
+        ConfigStore.saveConfig(disk, to: savedPath)
 
         let ui = Self.fullNonDefaultConfig()
         XCTAssertTrue(ConfigLoader.update(at: savedPath, silentMode: true) { stored in
-            SettingsView.applySave(ui, to: &stored, appFontUpdateMode: .auto)
+            SettingsDraft.applySave(ui, to: &stored)
         })
-        let reloaded = AppConfig.load(from: savedPath)
+        let reloaded = ConfigStore.load(from: savedPath)
 
         var expected = ui
         expected.appFont = AppFontConfig(
@@ -180,6 +200,31 @@ final class SettingsTests: XCTestCase {
             Self.normalizingProfileIDs(expected),
             "a settings save must preserve disk-owned fields without dropping UI fields"
         )
+    }
+
+    /// Settings saves the folded key map and writes the legacy scalars
+    /// unbound, so the command must stay bound through the table alone.
+    func testFoldedLegacyBindingSurvivesASettingsSaveThroughTheTableAlone() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-settings-fold-\(UUID().uuidString)")
+        let savedPath = directory.appendingPathComponent("saved.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        var config = SpacemapConfig.default
+        config.hudNewSpaceHotkey = try XCTUnwrap(Hotkey.parseHotkey("x"))
+        config.hudKeys[.newSpace] = [try XCTUnwrap(Hotkey.parseHotkey("y"))]
+        config.hudKeys = config.hudKeyBindings.foldingLegacy()
+        config.hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
+
+        ConfigStore.saveConfig(config, to: savedPath)
+        let reloaded = ConfigStore.load(from: savedPath)
+
+        XCTAssertTrue(reloaded.hudNewSpaceHotkey.isDisabled, "the scalar key is written unbound")
+        XCTAssertEqual(reloaded.hudKeyBindings.command(for: 7, flags: []), .newSpace)
+        XCTAssertEqual(reloaded.hudKeyBindings.command(for: 16, flags: []), .newSpace)
     }
 
     func testConfigSaveFailureReturnsASurfacedMessage() throws {
@@ -202,19 +247,19 @@ final class SettingsTests: XCTestCase {
     }
 
     func testMenuProfileChangeSeedsSettingsProfileState() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.spaceNameProfiles = [
             SpaceNameProfile(name: "Work", spaceNames: [1: "Code"]),
             SpaceNameProfile(name: "Play", spaceNames: [2: "Games"]),
         ]
         config.activeSpaceNameProfileIndex = 1
 
-        let seed = SettingsView.profileStateToSeed(from: config)
+        let seed = SettingsDraft.profileStateToSeed(from: config)
         XCTAssertEqual(seed?.index, 1)
         XCTAssertEqual(seed?.spaceNames, [2: "Games"])
 
         config.activeSpaceNameProfileIndex = 9
-        XCTAssertNil(SettingsView.profileStateToSeed(from: config))
+        XCTAssertNil(SettingsDraft.profileStateToSeed(from: config))
     }
 
     func testActivatingProfileCopiesItsSpaceNames() {
@@ -251,24 +296,245 @@ final class SettingsTests: XCTestCase {
         )
     }
 
-    func testPendingSpaceNameEditFlushesIntoTheProfileActiveWhenItWasQueued() {
-        var profiles = [
+    /// A menu-bar profile switch flushes a pending keystroke before the draft
+    /// re-seeds, so the edit lands in the profile that was active when typed.
+    func testFlushWritesSpaceNameEditsIntoTheProfileActiveAtTheTime() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-space-names-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        var seeded = SpacemapConfig.default
+        seeded.spaceNameProfiles = [
             SpaceNameProfile(name: "Work", spaceNames: [1: "One"]),
             SpaceNameProfile(name: "Play", spaceNames: [2: "Two"]),
         ]
-        let pending = SpaceNamePendingEdit()
-        pending.setApply {
-            SettingsSpaceNames.syncActiveProfile(
-                names: [1: "Edited"],
-                into: &profiles,
-                activeIndex: 0
-            )
+        seeded.spaceNames = [1: "One"]
+        let draft = makeDraft(seeded, at: path, debounce: 5)
+
+        draft.binding(\.spaceNames).wrappedValue = [1: "Edited"]
+        draft.flush()
+
+        let reloaded = ConfigStore.load(from: path)
+        XCTAssertEqual(reloaded.spaceNameProfiles[0].spaceNames, [1: "Edited"])
+        XCTAssertEqual(reloaded.spaceNameProfiles[1].spaceNames, [2: "Two"], "the inactive profile stays untouched")
+    }
+
+    /// The Glass Style picker once lost its save attachment; a control write
+    /// must reach the draft and the file.
+    func testAControlBindingWritesTheDraftAndTheSavePersistsIt() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-draft-binding-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        let draft = makeDraft(SpacemapConfig.default, at: path, debounce: 5)
+
+        draft.binding(\.glassStyle).wrappedValue = .tinted
+        draft.binding(\.glassRegularOpacity).wrappedValue = 0.62
+        draft.flush()
+
+        let reloaded = ConfigStore.load(from: path)
+        XCTAssertEqual(reloaded.glassStyle, .tinted)
+        XCTAssertEqual(reloaded.glassRegularOpacity, 0.62)
+        XCTAssertNil(draft.saveErrorMessage)
+    }
+
+    func testRapidEditsCoalesceIntoOneDebouncedSave() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-draft-debounce-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        let saved = expectation(description: "one debounced save")
+        let counter = SaveCounter()
+        let draft = makeDraft(SpacemapConfig.default, at: path, debounce: 0.05, into: counter) {
+            saved.fulfill()
         }
 
-        XCTAssertTrue(pending.flushApply())
-        XCTAssertEqual(profiles[0].spaceNames, [1: "Edited"])
-        XCTAssertEqual(profiles[1].spaceNames, [2: "Two"])
-        XCTAssertFalse(pending.flushApply(), "a flushed edit must run only once")
+        draft.binding(\.cols).wrappedValue = 5
+        draft.binding(\.cols).wrappedValue = 6
+        draft.binding(\.rows).wrappedValue = 4
+
+        wait(for: [saved], timeout: 2)
+        XCTAssertEqual(counter.configs.count, 1, "a burst of edits is one write")
+        XCTAssertEqual(counter.configs.last?.cols, 6)
+        XCTAssertEqual(counter.configs.last?.rows, 4)
+    }
+
+    /// A preset apply or import replaces config.toml under an open window. The
+    /// edit in flight belongs to the replaced config and must not land on it.
+    func testReplacedConfigReloadsTheDraftAndDropsThePendingWrite() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-draft-preset-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        var seeded = SpacemapConfig.default
+        seeded.cols = 3
+        let counter = SaveCounter()
+        let draft = makeDraft(seeded, at: path, debounce: 5, into: counter)
+
+        draft.binding(\.cols).wrappedValue = 9
+
+        var replacement = SpacemapConfig.default
+        replacement.cols = 7
+        replacement.theme = "preset-theme"
+        ConfigStore.saveConfig(replacement, to: path)
+        NotificationCenter.default.post(name: .configReplacedExternally, object: nil)
+
+        XCTAssertEqual(draft.config.cols, 7)
+        XCTAssertEqual(draft.config.theme, "preset-theme")
+
+        draft.flush()
+        XCTAssertEqual(counter.configs.count, 0, "the replaced config is never overwritten by an older edit")
+        XCTAssertEqual(ConfigStore.load(from: path).cols, 7)
+    }
+
+    /// Another writer moves the HUD or the strip under an open pane. The draft
+    /// adopts the value, so a later save here cannot revert it.
+    func testAnExternalPositionChangeIsAdoptedAndSurvivesTheNextSave() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-draft-position-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        var seeded = SpacemapConfig.default
+        seeded.hudPosition = .center
+        seeded.glyphStrip.customX = 0.5
+        let draft = makeDraft(seeded, at: path, debounce: 5)
+
+        let moved = HUDPosition.custom(x: 0.2, y: 0.8, screen: "display-B")
+        ConfigLoader.update(at: path, silentMode: true) { config in
+            config.hudPosition = moved
+            config.glyphStrip.customX = 0.7
+        }
+        NotificationCenter.default.post(name: .settingsChanged, object: nil)
+
+        XCTAssertEqual(draft.config.hudPosition, moved)
+        XCTAssertEqual(draft.config.glyphStrip.customX, 0.7)
+
+        draft.binding(\.autoHideTimeout).wrappedValue = 9
+        draft.flush()
+
+        let reloaded = ConfigStore.load(from: path)
+        XCTAssertEqual(reloaded.hudPosition, moved, "the next save keeps the moved HUD")
+        XCTAssertEqual(reloaded.glyphStrip.customX, 0.7, "the next save keeps the moved strip")
+        XCTAssertEqual(reloaded.autoHideTimeout, 9)
+    }
+
+    /// A picker change still inside the debounce window owns the value. The
+    /// external move must not be adopted, or the queued save would write it.
+    func testAPendingPickerChangeIsNotRevertedByAnExternalPositionChange() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-draft-position-pending-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        var seeded = SpacemapConfig.default
+        seeded.hudPosition = .center
+        seeded.glyphStrip.customX = 0.5
+        let draft = makeDraft(seeded, at: path, debounce: 5)
+
+        draft.hudPositionKind = .top
+
+        ConfigLoader.update(at: path, silentMode: true) { config in
+            config.hudPosition = .bottom
+            config.glyphStrip.customX = 0.9
+        }
+        NotificationCenter.default.post(name: .settingsChanged, object: nil)
+
+        XCTAssertEqual(draft.config.hudPosition, .top, "the unsaved picker choice survives the external move")
+        XCTAssertEqual(draft.config.glyphStrip.customX, 0.5)
+
+        draft.flush()
+
+        let reloaded = ConfigStore.load(from: path)
+        XCTAssertEqual(reloaded.hudPosition, .top, "the queued save writes the picker choice")
+        XCTAssertEqual(reloaded.glyphStrip.customX, 0.5, "and keeps the draft's strip placement")
+    }
+
+    /// The legacy `[behavior]` scalars fold into the key map on seed and are
+    /// written back unbound, so the command stays bound through the table.
+    func testDraftSeedsLegacyHUDKeysIntoTheKeyMap() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-draft-legacy-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        var config = SpacemapConfig.default
+        config.hudNewSpaceHotkey = try XCTUnwrap(Hotkey.parseHotkey("x"))
+        let draft = makeDraft(config, at: path, debounce: 5)
+
+        XCTAssertEqual(draft.config.hudKeyBindings.command(for: 7, flags: []), .newSpace)
+
+        draft.binding(\.autoHideTimeout).wrappedValue = 11
+        draft.flush()
+
+        let reloaded = ConfigStore.load(from: path)
+        XCTAssertTrue(reloaded.hudNewSpaceHotkey.isDisabled, "the scalar key is written unbound")
+        XCTAssertEqual(reloaded.hudKeyBindings.command(for: 7, flags: []), .newSpace)
+        XCTAssertEqual(reloaded.autoHideTimeout, 11)
+    }
+
+    /// The menu bar writes the new index, then posts. A pending keystroke must
+    /// land in the profile it was typed in without reverting that index.
+    func testAProfileSwitchKeepsTheMenuBarIndexAndThePendingEdit() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-draft-profile-switch-\(UUID().uuidString)")
+        let path = directory.appendingPathComponent("config.toml").path
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        ConfigStore.silentMode = true
+        defer { ConfigStore.silentMode = false }
+
+        var seeded = SpacemapConfig.default
+        seeded.spaceNameProfiles = [
+            SpaceNameProfile(name: "Work", spaceNames: [1: "One"]),
+            SpaceNameProfile(name: "Play", spaceNames: [2: "Two"]),
+        ]
+        seeded.spaceNames = [1: "One"]
+        let draft = makeDraft(seeded, at: path, debounce: 5)
+
+        draft.binding(\.spaceNames).wrappedValue = [1: "Edited"]
+
+        // What the menu bar does: switch the active profile on disk, then post.
+        ConfigLoader.update(at: path, silentMode: true) { config in
+            config.activeSpaceNameProfileIndex = 1
+            config.spaceNames = config.spaceNameProfiles[1].spaceNames
+        }
+        NotificationCenter.default.post(name: .spaceNameProfileChanged, object: nil)
+
+        XCTAssertEqual(draft.config.activeSpaceNameProfileIndex, 1)
+        XCTAssertEqual(draft.config.spaceNames, [2: "Two"])
+
+        draft.flush()
+
+        let reloaded = ConfigStore.load(from: path)
+        XCTAssertEqual(reloaded.activeSpaceNameProfileIndex, 1, "the menu-bar switch is not reverted")
+        XCTAssertEqual(reloaded.spaceNames, [2: "Two"])
+        XCTAssertEqual(reloaded.spaceNameProfiles[0].spaceNames, [1: "Edited"], "the queued edit stays in its profile")
     }
 
     func testEditingVisibleSpaceNamesWritesThemIntoTheActiveProfile() {
@@ -288,9 +554,37 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(profiles[0].spaceNames, [1: "One"], "inactive profiles stay untouched")
     }
 
-    /// Every `GridConfig` field deliberately off its default so the save
+    /// Draft over a temp config file, so saves land somewhere disposable.
+    private func makeDraft(
+        _ config: SpacemapConfig,
+        at path: String,
+        debounce: TimeInterval = SettingsDraft.saveDebounce,
+        into counter: SaveCounter? = nil,
+        onSave: @escaping () -> Void = {}
+    ) -> SettingsDraft {
+        ConfigStore.saveConfig(config, to: path)
+        let draft = SettingsDraft(
+            config: ConfigStore.load(from: path),
+            debounce: debounce,
+            load: { ConfigStore.load(from: path) },
+            save: { saved in
+                counter?.configs.append(saved)
+                onSave()
+                return ConfigLoader.update(at: path, silentMode: true) { disk in
+                    SettingsDraft.applySave(saved, to: &disk)
+                }
+            }
+        )
+        return draft
+    }
+
+    private final class SaveCounter {
+        var configs: [SpacemapConfig] = []
+    }
+
+    /// Every `SpacemapConfig` field deliberately off its default so the save
     /// round-trip cannot pass by only exercising a subset.
-    private static func fullNonDefaultConfig() -> GridConfig {
+    private static func fullNonDefaultConfig() -> SpacemapConfig {
         var strip = GlyphStripConfig.default
         strip.enabled = true
         strip.theme = "default"
@@ -315,7 +609,6 @@ final class SettingsTests: XCTestCase {
         strip.matchBackgroundOpacity = true
         strip.cornerRadius = 12
         strip.margin = 9
-        strip.yOffset = 3.5
         strip.hoverPadding = 2.5
         strip.hoverCornerRadius = 7.5
         strip.iconSpacing = 3.5
@@ -327,10 +620,12 @@ final class SettingsTests: XCTestCase {
         strip.rightClickAction = .mergeWindows
         strip.middleClickAction = .balanceWindows
         strip.position = .custom
-        strip.xOffset = 300
+        strip.customX = 0.3
+        strip.customY = 0.6
+        strip.customScreen = "display-A"
         strip.borderEnabled = false
 
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.cols = 5
         config.rows = 3
         config.cellStyle = .hybrid
@@ -372,9 +667,7 @@ final class SettingsTests: XCTestCase {
         hudKeys[.left] = [HotkeyConfig(key: .keyCode(7), modifiers: [])]
         config.hudKeys = hudKeys
         config.jumpToSpaceEnabled = true
-        config.hudPosition = .custom(x: 0.25, y: 0.75)
-        config.customHUDX = 0.25
-        config.customHUDY = 0.75
+        config.hudPosition = .custom(x: 0.25, y: 0.75, screen: "display-A")
         config.showExtraWindows = true
         config.focusSpaceOnWindowDrop = .modifier
         config.focusSpaceOnWindowDropModifier = .option
@@ -388,7 +681,7 @@ final class SettingsTests: XCTestCase {
         return config
     }
 
-    private static func normalizingProfileIDs(_ config: GridConfig) -> GridConfig {
+    private static func normalizingProfileIDs(_ config: SpacemapConfig) -> SpacemapConfig {
         var normalized = config
         let id = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
         normalized.spaceNameProfiles = normalized.spaceNameProfiles.map { profile in
@@ -401,7 +694,13 @@ final class SettingsTests: XCTestCase {
 
     func testAboutWindowIsReusedAcrossRepeatedShowRequests() throws {
         _ = NSApplication.shared
-        let service = SettingsService(yabaiService: MockYabaiService(), checkForUpdates: {})
+        let themeStore = makeTemporaryThemeStore()
+        let service = SettingsService(
+            yabaiService: MockYabaiService(),
+            themeStore: themeStore,
+            themeCatalog: ThemeCatalogService(themeStore: themeStore),
+            checkForUpdates: {}
+        )
 
         service.showAboutWindow()
         let first = try XCTUnwrap(service.aboutWindowController)
