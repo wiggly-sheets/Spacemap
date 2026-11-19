@@ -330,36 +330,13 @@ final class IconCache {
               !appName.contains("*"), !appName.contains("?"),
               !appName.contains("["), !appName.contains("]") else { return nil }
         let escaped = appName.replacingOccurrences(of: "\\", with: "\\\\")
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/mdfind")
-        process.arguments = ["kMDItemKind == 'Application' && kMDItemDisplayName == '\(escaped)'"]
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
-        do { try process.run() } catch { return nil }
-        // waitUntilExit blocks forever on a wedged Spotlight; cap the wait
-        // on this bounded background lookup and kill the child on timeout.
-        // Monotonic clock: wall-clock jumps must not cut the wait short.
-        let deadline = ProcessInfo.processInfo.systemUptime + Self.spotlightTimeout
-        while process.isRunning, ProcessInfo.processInfo.systemUptime < deadline {
-            Thread.sleep(forTimeInterval: 0.05)
-        }
-        guard !process.isRunning else {
-            process.terminate()
-            // Bounded grace: a child ignoring SIGTERM must not wedge queue.
-            let killDeadline = ProcessInfo.processInfo.systemUptime + 0.5
-            while process.isRunning, ProcessInfo.processInfo.systemUptime < killDeadline {
-                Thread.sleep(forTimeInterval: 0.05)
-            }
-            // SIGTERM→SIGKILL escalation; child is dead so wait returns fast.
-            if process.isRunning { kill(process.processIdentifier, SIGKILL) }
-            process.waitUntilExit()
-            return nil
-        }
-        process.waitUntilExit()
-        // Bounded read: first paths only, never the full output.
-        let data = pipe.fileHandleForReading.readData(ofLength: 64 * 1024)
-        let output = String(data: data, encoding: .utf8) ?? ""
+        // Bounded: a wedged Spotlight index must not hold this background slot,
+        // so the runner kills mdfind on the timeout and the lookup fails closed.
+        guard let output = try? ProcessRunner.run(
+            executable: "/usr/bin/mdfind",
+            arguments: ["kMDItemKind == 'Application' && kMDItemDisplayName == '\(escaped)'"],
+            timeout: Self.spotlightTimeout
+        ) else { return nil }
         for line in output.split(separator: "\n") {
             let path = String(line).trimmingCharacters(in: .whitespacesAndNewlines)
             if path.hasSuffix(".app"),

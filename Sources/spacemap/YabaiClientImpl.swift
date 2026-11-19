@@ -55,8 +55,6 @@ class YabaiClientImpl: YabaiService {
     }
 
     private static let commandTimeout: TimeInterval = 10
-    /// Bounded grace for draining stdout/stderr after the child exits.
-    private static let pipeDrainTimeout: TimeInterval = 1
 
     /// Total monotonic-time budget for the create-loop, so 16 attempts cannot
     /// occupy the serial yabai queue for minutes.
@@ -93,10 +91,13 @@ class YabaiClientImpl: YabaiService {
         return ProcessInfo.processInfo.systemUptime
     }
 
+    /// Test seam: production runs through `ProcessRunner`; tests inject a fake
+    /// runner so no yabai binary is needed.
+    var commandRunnerOverride: ((_ executable: String, _ arguments: [String], _ timeout: TimeInterval) throws -> String)?
+
 #if DEBUG
     /// Test seam: lets cache/deadline tests advance time deterministically.
     var uptimeOverride: (() -> TimeInterval)?
-    var commandRunnerOverride: ((_ executable: String, _ arguments: [String], _ timeout: TimeInterval) throws -> String)?
     var yabaiExecutableOverride: Bool?
 #endif
 
@@ -125,7 +126,7 @@ class YabaiClientImpl: YabaiService {
     }
 
     /// Refuse to execute the yabai binary when the trust check fails.
-    /// Set from GridConfig.refuseUntrustedYabai at launch; default false
+    /// Set from SpacemapConfig.refuseUntrustedYabai at launch; default false
     /// (warn-only) so legit installs never brick.
     private static let refuseLock = NSLock()
     private static var _refuseUntrustedBinaries = false
@@ -168,7 +169,8 @@ class YabaiClientImpl: YabaiService {
 
     /// Pure trust check: owner is root/self plus a valid codesign. Nil when
     /// trusted, human-readable detail otherwise. warnIfYabaiUntrusted logs it;
-    /// the lifecycle surfaces it in the yabai alert UI.
+    /// the lifecycle surfaces it in the yabai alert UI. Bounded: a wedged
+    /// codesign cannot block the trust path forever.
     static func trustIssue(path: String) -> String? {
         var statBuf = stat()
         if stat(path, &statBuf) == 0 {
@@ -177,17 +179,14 @@ class YabaiClientImpl: YabaiService {
                 return "untrusted owner (uid \(statBuf.st_uid)) on \(path) — expected root or self"
             }
         }
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
-        task.arguments = ["-v", "--strict", path]
-        task.standardOutput = FileHandle.nullDevice
-        task.standardError = Pipe()
         do {
-            try task.run()
-            task.waitUntilExit()
-            if task.terminationStatus != 0 {
-                return "codesign verify failed for \(path) — check your install source"
-            }
+            _ = try ProcessRunner.run(
+                executable: "/usr/bin/codesign",
+                arguments: ["-v", "--strict", path],
+                timeout: Self.commandTimeout
+            )
+        } catch ProcessRunner.Failure.failed {
+            return "codesign verify failed for \(path) — check your install source"
         } catch {
             return "could not verify signature for \(path): \(error)"
         }
@@ -306,6 +305,11 @@ class YabaiClientImpl: YabaiService {
     /// Last-good snapshots older than this must not be served: a permanently
     /// failing yabai should surface its empty/error state, not pin a stale HUD.
     private let snapshotStaleTTL: TimeInterval = 5
+    /// Single-flight waiters must outlast the whole kill ladder (timeout, TERM
+    /// grace, KILL grace, drain, exit wait) or they spawn a duplicate query
+    /// while the first is still tearing down.
+    private static let snapshotWaitBound: TimeInterval =
+        commandTimeout + 2 * ProcessRunner.killGrace + ProcessRunner.drainTimeout + 1
     private var spacesFetchInFlight = false
     private var windowsFetchInFlight = false
     private var snapshotGeneration = 0
@@ -321,7 +325,7 @@ class YabaiClientImpl: YabaiService {
         if spacesFetchInFlight {
             // Single-flight: concurrent callers wait for the one in-flight
             // query instead of spawning duplicates or serving stale data.
-            let waitUntil = Date().addingTimeInterval(Self.commandTimeout + 1)
+            let waitUntil = Date().addingTimeInterval(Self.snapshotWaitBound)
             while spacesFetchInFlight && Date() < waitUntil {
                 cacheLock.wait(until: waitUntil)
             }
@@ -415,7 +419,7 @@ class YabaiClientImpl: YabaiService {
             return cached.windows
         }
         if windowsFetchInFlight {
-            let waitUntil = Date().addingTimeInterval(Self.commandTimeout + 1)
+            let waitUntil = Date().addingTimeInterval(Self.snapshotWaitBound)
             while windowsFetchInFlight && Date() < waitUntil {
                 cacheLock.wait(until: waitUntil)
             }
@@ -580,13 +584,15 @@ class YabaiClientImpl: YabaiService {
     }
 
     func spaceChangedSignalAction(socketPath: String, showHUDOnSpaceChange: Bool) -> String {
-        let command = showHUDOnSpaceChange ? SpacemapCommand.show.rawValue : SpacemapCommand.refresh.rawValue
         guard let quoted = SpacemapCommand.shellQuoted(socketPath) else {
             NSLog("spacemap/yabai: refusing signal with untrusted socket path")
             return "/usr/bin/false"
         }
         guard let nonce = SpacemapCommand.currentNonceHex(for: socketPath) else {
             NSLog("spacemap/yabai: refusing signal without a nonce")
+            return "/usr/bin/false"
+        }
+        guard let command = (showHUDOnSpaceChange ? SpacemapCommand.show : .refresh).socketByte else {
             return "/usr/bin/false"
         }
         return "printf '\(command):\(nonce)' | /usr/bin/nc -U \(quoted)"
@@ -601,7 +607,8 @@ class YabaiClientImpl: YabaiService {
             NSLog("spacemap/yabai: refusing signal without a nonce")
             return "/usr/bin/false"
         }
-        return "printf '\(SpacemapCommand.refresh.rawValue):\(nonce)' | /usr/bin/nc -U \(quoted)"
+        guard let command = SpacemapCommand.refresh.socketByte else { return "/usr/bin/false" }
+        return "printf '\(command):\(nonce)' | /usr/bin/nc -U \(quoted)"
     }
 
     func removeSignals() {
@@ -926,7 +933,7 @@ class YabaiClientImpl: YabaiService {
     }
 
 
-    func buildGridState(config: GridConfig, focusedIndex: Int? = nil) -> GridState {
+    func buildGridState(config: SpacemapConfig, focusedIndex: Int? = nil) -> GridState {
         // NSScreen.main is main-only: capture on main, pass in.
         let displayBounds = Self.mainDisplayBounds()
         // Callers already run off-main (yabai queue / utility queue), so query
@@ -1027,114 +1034,25 @@ class YabaiClientImpl: YabaiService {
             throw YabaiError.commandFailed(arguments: Array(args.dropFirst()), status: -1, message: "refusing untrusted yabai binary: \(issue)")
         }
         let effectiveTimeout = timeout ?? Self.commandTimeout
-#if DEBUG
-        if let runner = commandRunnerOverride {
-            return try runner(executable, Array(args.dropFirst()), effectiveTimeout)
-        }
-#endif
-        return try Self.runProcessImpl(
-            executable: executable,
-            arguments: Array(args.dropFirst()),
-            timeout: effectiveTimeout
-        )
-    }
-
-    private static func runProcessImpl(
-        executable: String,
-        arguments: [String],
-        timeout: TimeInterval
-    ) throws -> String {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: executable)
-        process.arguments = arguments
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-        let termination = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in termination.signal() }
         do {
-            try process.run()
-        } catch {
-            // No readers were dispatched: let the pipes deallocate and close
-            // their fds rather than closing them from this thread.
-            throw error
-        }
-        outputPipe.fileHandleForWriting.closeFile()
-        errorPipe.fileHandleForWriting.closeFile()
-
-        // Drain both pipes on dedicated threads while the process runs so a large
-        // output cannot fill the pipe and deadlock the child. Each reader owns its
-        // read handle and closes it only after the blocking read returns, so the
-        // waiting thread never closes an fd another thread is reading.
-        let readers = DispatchGroup()
-        let outputHandle = outputPipe.fileHandleForReading
-        let errorHandle = errorPipe.fileHandleForReading
-        let outputLock = NSLock()
-        let errorLock = NSLock()
-        var outputData = Data()
-        var errorData = Data()
-        readers.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            let data = outputHandle.readDataToEndOfFile()
-            outputLock.lock()
-            outputData = data
-            outputLock.unlock()
-            outputHandle.closeFile()
-            readers.leave()
-        }
-        readers.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            let data = errorHandle.readDataToEndOfFile()
-            errorLock.lock()
-            errorData = data
-            errorLock.unlock()
-            errorHandle.closeFile()
-            readers.leave()
-        }
-
-        if termination.wait(timeout: .now() + timeout) == .timedOut {
-            process.terminate()
-            if termination.wait(timeout: .now() + 1) == .timedOut {
-                kill(process.processIdentifier, SIGKILL)
-                _ = termination.wait(timeout: .now() + 1)
+            if let runner = commandRunnerOverride {
+                return try runner(executable, Array(args.dropFirst()), effectiveTimeout)
             }
-            // A grandchild can keep the pipe open after the child dies: never
-            // wait unbounded or the serial yabai queue wedges forever. Do not
-            // close here: the blocked reader owns the handle and will close it.
-            if readers.wait(timeout: .now() + Self.pipeDrainTimeout) == .timedOut {
-                NSLog("spacemap/yabai: abandoning blocked output readers after timeout")
-            }
-            throw YabaiError.commandTimedOut(arguments: arguments, timeout: timeout)
-        }
-        // The child is dead, so pipes normally hit EOF; a leftover grandchild
-        // holding the write end must still not block the queue forever.
-        guard readers.wait(timeout: .now() + Self.pipeDrainTimeout) == .success else {
-            NSLog("spacemap/yabai: abandoning blocked output readers held open by a child process")
-            throw YabaiError.outputDrainTimedOut(arguments: arguments, timeout: Self.pipeDrainTimeout)
-        }
-        guard process.terminationStatus == 0 else {
-            errorLock.lock()
-            let data = errorData
-            errorLock.unlock()
-            let message = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            throw YabaiError.commandFailed(
-                arguments: arguments,
-                status: process.terminationStatus,
-                message: message
+            return try ProcessRunner.run(
+                executable: executable,
+                arguments: Array(args.dropFirst()),
+                timeout: effectiveTimeout
             )
+        } catch ProcessRunner.Failure.failed(let status, let message) {
+            throw YabaiError.commandFailed(arguments: Array(args.dropFirst()), status: status, message: message)
+        } catch ProcessRunner.Failure.timedOut(let timedOut) {
+            throw YabaiError.commandTimedOut(arguments: Array(args.dropFirst()), timeout: timedOut)
+        } catch ProcessRunner.Failure.drainTimedOut(let timedOut) {
+            throw YabaiError.outputDrainTimedOut(arguments: Array(args.dropFirst()), timeout: timedOut)
+        } catch {
+            // A spawn-time error (EACCES, quarantine, binary gone) must reach the
+            // user as a yabai failure, not raw Cocoa/POSIX text.
+            throw YabaiError.commandFailed(arguments: Array(args.dropFirst()), status: -1, message: error.localizedDescription)
         }
-        outputLock.lock()
-        let data = outputData
-        outputLock.unlock()
-        return String(data: data, encoding: .utf8) ?? ""
     }
-
-#if DEBUG
-    // Test seam: production path is runProcessImpl (private).
-    static func runProcess(executable: String, arguments: [String], timeout: TimeInterval) throws -> String {
-        try runProcessImpl(executable: executable, arguments: arguments, timeout: timeout)
-    }
-#endif
 }

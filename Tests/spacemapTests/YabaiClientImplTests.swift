@@ -23,7 +23,7 @@ final class YabaiClientImplTests: XCTestCase {
         let executable = ["/opt/homebrew/bin/yabai", "/usr/local/bin/yabai"]
             .first(where: FileManager.default.isExecutableFile(atPath:))
         guard let executable else { return false }
-        return (try? YabaiClientImpl.runProcess(
+        return (try? ProcessRunner.run(
             executable: executable,
             arguments: ["-m", "query", "--spaces"],
             timeout: 1
@@ -189,7 +189,7 @@ final class YabaiClientImplTests: XCTestCase {
             throw XCTSkip("yabai not available")
         }
         client.yabaiProcessCheck = { true }
-        let config = GridConfig.default
+        let config = SpacemapConfig.default
         let state = client.buildGridState(config: config)
         XCTAssertEqual(state.config.cols, config.cols)
         XCTAssertEqual(state.config.rows, config.rows)
@@ -198,7 +198,7 @@ final class YabaiClientImplTests: XCTestCase {
     func testBuildGridStateReturnsEmptyStateWhenYabaiNotRunning() throws {
         client.yabaiProcessCheck = { false }
         client.resetYabaiRunningCache()
-        let config = GridConfig.default
+        let config = SpacemapConfig.default
         let state = client.buildGridState(config: config)
         XCTAssertEqual(state.spaces.count, 0)
         XCTAssertEqual(state.windows.count, 0)
@@ -327,64 +327,6 @@ final class YabaiClientImplTests: XCTestCase {
         )
     }
 
-    func testRunProcessDrainsLargeOutputBeforeWaitingForExit() throws {
-        let output = try YabaiClientImpl.runProcess(
-            executable: "/bin/sh",
-            arguments: ["-c", "/usr/bin/yes x | /usr/bin/head -c 1048576"],
-            timeout: 5
-        )
-
-        XCTAssertEqual(output.utf8.count, 1_048_576)
-    }
-
-    func testRunProcessTerminatesCommandsThatExceedTimeout() {
-        let started = Date()
-
-        XCTAssertThrowsError(try YabaiClientImpl.runProcess(
-            executable: "/bin/sleep",
-            arguments: ["5"],
-            timeout: 0.05
-        )) { error in
-            XCTAssertTrue(error.localizedDescription.contains("timed out"))
-        }
-        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
-    }
-
-    func testRunProcessCapturesOutputProducedAfterDelay() throws {
-        let output = try YabaiClientImpl.runProcess(
-            executable: "/bin/sh",
-            arguments: ["-c", "sleep 0.3; printf 'late output'"],
-            timeout: 5
-        )
-
-        XCTAssertEqual(output, "late output")
-    }
-
-    func testRunProcessCapturesStderrInFailureMessage() {
-        XCTAssertThrowsError(try YabaiClientImpl.runProcess(
-            executable: "/bin/sh",
-            arguments: ["-c", "printf 'boom' >&2; exit 1"],
-            timeout: 5
-        )) { error in
-            XCTAssertTrue(error.localizedDescription.contains("boom"))
-        }
-    }
-
-    func testRunProcessAbandonsGrandchildHoldingPipeWithoutHangingOrCrashing() {
-        let started = Date()
-
-        XCTAssertThrowsError(try YabaiClientImpl.runProcess(
-            executable: "/bin/sh",
-            arguments: ["-c", "sleep 5 & printf 'started'"],
-            timeout: 5
-        )) { error in
-            XCTAssertTrue(error.localizedDescription.contains("output drain timed out"),
-                          "unexpected error: \(error.localizedDescription)")
-        }
-        XCTAssertLessThan(Date().timeIntervalSince(started), 3,
-                          "a grandchild holding the pipe must not block the caller")
-    }
-
 
     func testRemoveSignalsRemovesSignals() throws {
         guard isYabaiAvailable else {
@@ -492,6 +434,24 @@ final class YabaiClientImplTests: XCTestCase {
         XCTAssertEqual(second.windows.map(\.id), [10, 20],
                        "transient windows failure must keep the last good grid")
         XCTAssertEqual(second.focusedIndex, 1)
+    }
+
+    /// A spawn-time error (EACCES, quarantine, binary gone) is not a
+    /// `ProcessRunner.Failure`, so it must still surface as a yabai command
+    /// failure instead of raw Cocoa/POSIX text.
+    func testSpawnErrorSurfacesAsYabaiCommandFailure() {
+        client.yabaiExecutableOverride = true
+        client.yabaiProcessCheck = { true }
+        client.commandRunnerOverride = { _, _, _ in
+            throw NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Permission denied"])
+        }
+
+        XCTAssertThrowsError(try client.querySpaces()) { error in
+            let message = error.localizedDescription
+            XCTAssertTrue(message.contains("yabai -m query --spaces failed with status -1"),
+                          "spawn errors must surface as a yabai command failure: \(message)")
+            XCTAssertTrue(message.contains("Permission denied"), message)
+        }
     }
 
     func testMissingBinaryServesLastGoodThenExpiresAfterStaleTTL() throws {
