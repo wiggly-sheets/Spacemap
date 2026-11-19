@@ -42,12 +42,18 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `spacemap --space <selector>` | Focus a yabai space and show the HUD; accepts 1–16, `prev`, `next`, `first`, `last`, `recent`, `mouse`, or a label |
 | `spacemap --show-menu` | Show menu bar dropdown (app continues running) |
 | `spacemap --settings` | Open settings window directly (app continues running) |
+| `spacemap --status` | Print app path, config path, running state, and yabai availability; exit |
+| `spacemap --print-config` | Print the resolved TOML without launching the app |
+| `spacemap --update` | Forward an update check to the running app |
+| `spacemap --update-font` | Forward a glyph-font update to the running app |
+| `spacemap --config-preset NAME` | Apply a preset from `~/.config/spacemap/presets/` (switch saves edits into the outgoing preset first) |
 
 ## Key File Locations
 
 | File | Purpose |
 |------|---------|
 | `~/.config/spacemap/config.toml` | User configuration (reloads on HUD open; Settings applies hotkeys immediately) |
+| `~/.config/spacemap/presets/` | One complete config.toml per preset, applied from Settings > Advanced or `--config-preset` |
 | `/Applications/Spacemap.app` | Local `make run` install |
 | `/usr/local/bin/spacemap` | CLI symlink (if installed) |
 | `$TMPDIR/spacemap_<username>.socket` (`NSTemporaryDirectory()`) | Unix domain socket for yabai signals |
@@ -94,11 +100,12 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[appearance]` | `uiScale` / `iconScale` | 0.5 / 0.5 | HUD scale / icon size, 0–1 |
 | `[behavior]` | `hotkey` / `pinnedHotkey` | ctrl+space / none | Toggle hotkeys (applied immediately from Settings) |
 | `[behavior]` | `glyphStripHotkey` | none | Show/hide hotkey for the glyph strip; session-only, never persisted |
-| `[behavior]` | `hudMoveSpaceBackHotkey` / `hudMoveSpaceForwardHotkey` | none | HUD-only hotkeys that move the focused space one slot left or right; follow `spaceDropMode` |
-| `[behavior]` | `hudNewSpaceHotkey` / `hudDeleteSpaceHotkey` / `hudCycleLayoutHotkey` | none | HUD-only hotkeys to create a space, delete the focused space, or cycle BSP, stack and float |
-| `[behavior]` | `hudPosition` | `center` | `center`, `top`, `bottom`, `custom` (+ `customHUDX`/`customHUDY` 0–1) |
+| `[behavior]` | `hudMoveSpaceBackHotkey` / `hudMoveSpaceForwardHotkey` | none | Legacy HUD-only hotkeys that move the focused space one slot left or right. They still decode and are matched before `[hudKeys]`; edit the `moveSpaceBack`/`moveSpaceForward` actions instead |
+| `[behavior]` | `hudNewSpaceHotkey` / `hudDeleteSpaceHotkey` / `hudCycleLayoutHotkey` | none | Legacy HUD-only hotkeys to create a space, delete the focused space, or cycle BSP, stack and float. They still decode and are matched before `[hudKeys]`; edit the `newSpace`/`deleteSpace`/`cycleLayout` actions instead |
+| `[behavior]` | `hudPosition` | `center` | `center`, `top`, `bottom`, `custom` (table: `kind`, `x`/`y` fractions 0–1, optional `screen` display identity) |
 | `[behavior]` | `autoHideTimeout` | 5 | Seconds before HUD hides (0 = never/pinned) |
-| `[behavior]` | `useArrowKeys` / `useVimKeys` / `useExtendedKeys` | false / false / true | Keyboard navigation; fn key preserved as a modifier |
+| `[behavior]` | `useArrowKeys` / `useVimKeys` / `useExtendedKeys` | — | **Removed** — replaced by per-action `[hudKeys]` bindings |
+| `[hudKeys]` | `<command> = ["<hotkey>", ...]`, e.g. `newSpace = ["a"]` | vim keys + arrows for movement, action keys for first/last/recent/close/new/delete/layouts; move-space and cycle-layout unbound | One command map for every HUD key action. Each command is a TOML string array, and each string is a hotkey in the same form the Hotkey parser accepts elsewhere (`"a"`, `"escape"`, `"ctrl+left"`, `"cmd+shift+a"`). An empty list (`newSpace = []`) leaves the command unbound. Commands: `left`/`right`/`up`/`down`, `first`, `last`, `recent`, `close`, `newSpace`, `newSpaceAndFocus`, `deleteSpace`, `layoutBSP`, `layoutStack`, `layoutFloat`, `cycleLayout`, `moveSpaceBack`, `moveSpaceForward` |
 | `[behavior]` | `jumpToSpaceEnabled` | false | Number-key space jumps (multi-digit supported) |
 | `[behavior]` | `focusSpaceOnWindowDrop` (+ `...Modifier`) | `never` (`command`) | `never`, `always`, or `modifier` (`command‖fn‖option‖control‖shift`) |
 | `[behavior]` | `showHUDOnSpaceChange` | false | Auto-show HUD on yabai space change |
@@ -122,7 +129,7 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[glyphStrip]` | `glassStyle` / `matchHUDAppearance` / `matchBackgroundOpacity` | regular / false / false | Appearance inheritance and per-style opacity |
 | `[glyphStrip]` | `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` / `glassTintedMaterial` | 11 / 5 / 2 / clear | Private glass finish per style, 0–21 |
 | `[glyphStrip]` | `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` / `solidOpacity` / `backgroundOpacity` | 0.05 / 0.35 / 0.35 / 0.35 / 0.35 | Per-material opacity; glass keeps its floor |
-| `[glyphStrip]` | `position` / `orientation` / `verticalLayout` / `xOffset` / `yOffset` / `lockPosition` | leftOfNotch / horizontal / inline / 0 / 0 / false | Placement; free placement only for `position = "custom"` |
+| `[glyphStrip]` | `position` / `orientation` / `verticalLayout` / `customX` / `customY` / `customScreen` / `lockPosition` | leftOfNotch / horizontal / inline / 0.5 / 0.5 / "" / false | Placement; free placement only for `position = "custom"`, stored as the same screen fraction plus display identity the HUD uses |
 | `[glyphStrip]` | `hoverPadding` / `hoverCornerRadius` / `verticalPadding` / `margin` | 1 / 4 / 4 / 6 | Spacing and hover highlight |
 | `[glyphStrip]` | `leftClickAction` / `rightClickAction` / `middleClickAction` | focusSpace / destroySpace / none | Segment click bindings |
 | `[advanced]` | `socketHealthInterval` | 60 | Socket health check seconds (> 0); `showExtraWindows` lives here too. The Advanced pane also shows live Accessibility and Screen Recording status with request buttons and System Settings deep links |
@@ -138,8 +145,8 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 
 ## Core Data Structures (`ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift`)
 
-### `GridConfig`
-Stores parsed configuration values.
+### `SpacemapConfig`
+Stores the resolved configuration: decode, defaults, repair, and encode all walk the key table in `ConfigSchema.swift`.
 
 | Property | Type | Source Config Key |
 |----------|------|-------------------|

@@ -20,15 +20,23 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Config File Self-Heal**: Auto-generates on first launch and repairs missing or invalid fields
 - **Config Validation**: Validates TOML keys and values on load
 - **Config Backup**: Backs up to `.bak` before any config overwrite (self-heal or first-load normalize)
+- **Config Presets**: One complete config.toml per preset under `~/.config/spacemap/presets/`; create from current config, defaults, or another preset; switching saves edits into the outgoing preset first
+- **Config Import/Export**: Full config file import and export from Settings > Advanced (exports leave out machine-local font state)
+- **HUD Key Bindings**: Every HUD action configurable through Settings > Hotkeys and the `[hudKeys]` table; each action takes several shortcuts, empty leaves it unbound (replaces the arrow/vim/extended-key toggles)
+- **CLI Extensions**: `--status`, `--print-config`, `--update`, `--update-font`; `--version` reads the app bundle through the CLI symlink
+- **Parser Cleanup**: Pre-2.0 key aliases removed (`hideMenuBarIcon`, `useThemeTint`, `glassAmount`, bare `glyphStrip`, `transparent` background, direct numeric `[spaceNames]` keys, inherited per-style opacities)
+- **Install Standardization**: Local installs, CLI symlink target, and move-to-Applications prompt all use `/Applications`
 
 ### HUD & Display
 
 - **HUD Active Space Highlighting**: Live refresh timer calls `refreshState` for active space highlighting
-- **HUD Pinning**: Implemented via `AUTO_HIDE_TIMEOUT=0` (never auto-hide)
+- **HUD Pinning**: `pinnedHotkey` toggles a pinned HUD; `AUTO_HIDE_TIMEOUT=0` keeps any HUD on screen
 - **HUD Dual-Layering Fix**: `show()` tears down orphaned panel; `refreshState()` guards on `isVisible`
 - **Cell Opacity / Inactive Dimming**: Inactive spaces dimmed in the grid
 - **Simple Cell Style**: Plain empty cells with no window rendering
 - **Multi-Monitor HUD Modes**: Unified or separate HUDs, each configurable for all displays or only the focused-space display, with a startup check for macOS separate Spaces
+- **HUD Font**: Native font panel picks family and size (`hudFontName`/`hudFontSize`); reset returns to the system font
+- **HUD Entrance Styles**: `fade`, slide from each screen edge, or `scale`, timed by `hudAnimationStyle` (`natural`/`springy`/`fast`)
 
 ### Space Display Options
 
@@ -48,6 +56,9 @@ A living list of planned features, known bugs, and future improvements for the p
 - **Menu-Bar Glyph Strip**: Theme-driven per-space index + sketchybar-app-font glyphs with notch-aware placement (`leftOfNotch`/`rightOfNotch`/`center`/`custom` drag-to-move), liquid-glass/solid/none materials, gated Settings controls, and session-only show/hide hotkey
 - **Space-Name Profiles**: Named name sets with active index, Settings editor section, and menu-bar switching
 - **Strip Hardening**: Full-slot hit tests with glyph-sized hover, real-index click targets, global-index order across displays, measured frame = drawn frame
+- **Strip Menu-Bar Mode**: `displayMode = menuBarItem` places the strip in the menu bar, keeping contents, clicks, hover and drags
+- **Strip Auto-Resize**: `autoResizeMaxLength` grows or shrinks contents toward a target width or height with an 8pt legibility floor
+- **Strip Split Padding**: `lockPadding` off splits into `horizontalPadding`/`verticalPadding`; vertical padding insets horizontal strips too
 
 ### Hotkeys & Navigation
 
@@ -72,7 +83,9 @@ A living list of planned features, known bugs, and future improvements for the p
 ### Theming & Customization
 
 - **Space Naming System**: Config-based `SPACE_NAMES=1:Name,2:Name` with settings UI editor
-- **File-based Theme System**: `.smthemes` and `.toml` files in `~/.config/spacemap/themes/`, editable text files, auto-seeded on first launch
+- **File-based Theme System**: `.toml` files in `~/.config/spacemap/themes/`; 20 bundled iTerm2 themes plus Theme Library installs, editable text files
+- **Theme Library**: Floating library with color previews, search, one-click install/remove/apply; catalog fetched from the `spacemap-themes` index, cached, refreshed daily
+- **Theme Editor**: Clone and edit any theme by picker or typed hex; saves a separate `(Edited)` copy so originals stay untouched; external file edits reload the list
 - **Theme Bug Fix**: `dropTarget` case-insensitive matching in `.smthemes` parsing
 
 ### Window Features
@@ -109,7 +122,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Testing & CI/CD
 
-- **Unit Test Suite**: ~588 tests across 35 files (+ `MockYabaiService.swift`)
+- **Unit Test Suite**: 816 tests across 38 files (+ `MockYabaiService.swift`)
 - **GitHub Actions CI/CD**: CI (swift test + build), Release (3 DMGs + checksums), Dependabot
 - **Rendering Math Tests**: 8 unit tests for scale mapping (min/max/midpoint/monotonicity)
 
@@ -147,7 +160,7 @@ A living list of planned features, known bugs, and future improvements for the p
 | Task                                     | Description                                                                                              | Status     |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------- |
 | **Theme Files (.smthemes)**        | Expose themes as editable files in`~/.config/spacemap/themes/`. Default greyscale theme, import/export | ✅ Done    |
-| **Drag-to-Swap**                   | Swap windows between spaces via drag-and-drop within the HUD                                             | 🔄 Planned |
+| **Drag-to-Swap**                   | Swap window contents or move spaces by dragging a space number; drag app icons to move windows (strip and HUD) | ✅ Done    |
 | **Custom Cell Colors**             | Allow per-space/app custom colors in config                                                              | 🔄 Planned |
 | **Grid Gap/Padding Customization** | Add config options for spacing between cells                                                             | 🔄 Planned |
 | **Multi-Monitor Awareness**        | Unified cross-display grid or one HUD per display                                                        | ✅ Done    |
@@ -183,7 +196,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 | Task                               | Description                                                                                                             | Status  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- |
-| **Unit Tests**               | ~588 tests across 35 files (+ mock) | ✅ Done |
+| **Unit Tests**               | 816 tests across 38 files (+ mock) | ✅ Done |
 | **GitHub Actions / CI**      | `ci.yml` (swift test + build on push/PR), `release.yml` (3 DMGs + checksums on tag), Dependabot                     | ✅ Done |
 | **Xcode Project**            | Generated from SPM, 4 targets (default, arm64, x86_64, universal) via`scripts/generate-xcodeproj.py`                  | ✅ Done |
 | **Architecture Builds**      | ARM64, x86_64, universal DMGs via`create-dmg`                                                                         | ✅ Done |

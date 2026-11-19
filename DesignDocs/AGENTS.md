@@ -19,13 +19,13 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
 - **Sparkle updater**: `App.swift` initializes `SPUStandardUpdaterController` with `startingUpdater: false`; `start()` called after config load. Keys generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`.
 - **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
-- **Data**: `YabaiClientImpl.swift` (+ `YabaiService.swift` protocol) – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows, 10s command timeout with async pipe drain; `AppConfig.swift` (+ `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues`) – reads `~/.config/spacemap/config.toml`.
-- **Themes**: `ThemeManager.swift` – loads `.smthemes` and `.toml` files from `~/.config/spacemap/themes/`, seeds built-in themes on first launch, saves edited themes as TOML.
-- **Hotkey**: `HotkeyMonitor.swift` (+ `HotkeyService`/`HotkeyHandler`) – global CGEventTap for normal, pinned, and glyph-strip bindings; fails open on revocation; fn preserved.
+- **Data**: `YabaiClientImpl.swift` (+ `YabaiService.swift` protocol) – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows, 10s command timeout with async pipe drain; `ConfigStore.swift` (+ `ConfigLoader`/`TOMLConfigCodec` + `ConfigSchema`) – reads `~/.config/spacemap/config.toml`.
+- **Themes**: `ThemeStore.swift` – loads `.smthemes`/`.toml` files from `~/.config/spacemap/themes/`; 20 iTerm2 themes are bundled read-only, the Theme Library installs more from the `spacemap-themes` index, and edited themes save as separate `(Edited)` TOML copies. `ThemeCodec.swift` holds the pure parse/render/hex rules; the store takes its directory by injection and `SpacemapServices` owns the one instance.
+- **Hotkey**: `HotkeyMonitor.swift` (+ `HotkeyService`/`HotkeyHandler`) – global CGEventTap for normal, pinned, and glyph-strip bindings; every HUD-only action binds through the single `[hudKeys]` map; fails open on revocation; fn preserved.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
 - **Signals**: `SocketListener.swift` – Unix domain socket (mode 0600) for yabai `space_changed` events.
-- **Models**: `ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift` – data structs (GridConfig, YabaiSpace, AppTheme with rect1/rect2/rect3, etc.).
-- **Settings**: `SettingsView.swift` (+ per-category `SettingsGrid`/`SettingsSpaceNames`/`SettingsAppearance`/`SettingsBehavior`/`SettingsGlyphStrip`/`SettingsAdvanced`) + `SettingsWindowController.swift` – permanent category sidebar with separate live-save detail forms.
+- **Models**: `ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift` – data structs (SpacemapConfig, YabaiSpace, AppTheme with rect1/rect2/rect3, etc.).
+- **Settings**: `SettingsView.swift` (+ per-category `SettingsGrid`/`SettingsSpaceNames`/`SettingsAppearance`/`SettingsBehavior`/`SettingsGlyphStrip`/`SettingsAdvanced`) + `SettingsDraft.swift` + `SettingsWindowController.swift` – permanent category sidebar with live-save detail forms. Every control binds one field of `SettingsDraft`, which owns the whole `SpacemapConfig` and writes it through a 0.5 s debounce (flushed on pane switch, window close, quit, and before a preset apply or import).
 - **Glyph strip**: `GlyphStrip.swift` (pure model) + `GlyphStripPanel.swift` (panel/view) – menu-bar index+glyph strip, theme-driven, notch anchors or free placement, horizontal or vertical layouts, optional fullscreen hiding, session-only hotkey toggle.
 - **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
@@ -51,19 +51,21 @@ Sources/spacemap/
 ├── CellView.swift         # Individual cell rendering (rects/icons/thumbnails)
 ├── YabaiClientImpl.swift   # Shells out to yabai binary for data/manipulation
 ├── YabaiService.swift       # Protocol seam for yabai access (mockable)
-├── AppConfig.swift     # Config entry point over ConfigLoader/TOMLConfigCodec/ConfigValues
+├── ConfigStore.swift   # Config entry point over ConfigLoader/TOMLConfigCodec/ConfigSchema
 ├── HotkeyMonitor.swift   # Global CGEventTap for normal/pinned/glyph-strip hotkeys
 ├── WindowDragHandler.swift # Detects window drag-and-drop over HUD
 ├── SocketListener.swift   # Unix domain socket server for yabai signals
-├── ConfigurationModels.swift # GridConfig, GlyphStripConfig, hotkeys, profiles
+├── ConfigurationModels.swift # SpacemapConfig, GlyphStripConfig, hotkeys, profiles
 ├── ThemeModels.swift        # AppTheme (9 roles incl rect1/rect2/rect3)
 ├── YabaiModels.swift        # YabaiSpace, YabaiWindow, GridState
 ├── GlyphStrip.swift         # Menu-bar strip model (pure, testable)
 ├── GlyphStripPanel.swift    # Strip panel/view (AppKit, notch-aware)
 ├── ThumbnailCache.swift   # ScreenCaptureKit capture, per-space caching (macOS 14+)
 ├── IconCache.swift         # App icon cache to avoid repeated NSWorkspace lookups
-├── ThemeManager.swift      # Loads .smthemes/.toml themes, seeds built-ins, saves TOML
+├── ThemeStore.swift        # Loads .smthemes/.toml themes, seeds built-ins, saves TOML
+├── ThemeCodec.swift        # Pure theme parse, hex format, TOML render
 ├── SettingsView.swift     # Fixed settings sidebar + category-specific live-save forms
+├── SettingsDraft.swift    # Debounced edit session over the whole config
 ├── SettingsGrid.swift / SettingsSpaceNames.swift / SettingsAppearance.swift
 │   ├── SettingsBehavior.swift / SettingsGlyphStrip.swift / SettingsThemeEditor.swift
 │   ├── SettingsAdvanced.swift / SettingsSubsection.swift
@@ -83,7 +85,7 @@ Sources/spacemap/
 
 ### External Dependencies
 - **yabai** (installed at `/opt/homebrew/bin/yabai`) - tiling window manager
-- **skhd** (installed at `/opt/homebrew/bin/skhd`) - hotkey daemon, configured for 2D grid navigation
+- **skhd** (optional) - hotkey daemon; the HUD handles its own key bindings, skhd is only needed for yabai-level bindings outside the HUD
 
 ### Configuration
 Reads from `~/.config/spacemap/config.toml` on every HUD open (no restart needed):
@@ -183,16 +185,16 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 1. **yabai path auto-detected:** Checks `/opt/homebrew/bin/yabai` (ARM) then `/usr/local/bin/yabai` (Intel) via `FileManager`
 2. **Homebrew-specific:** Brew formula only, no other package managers
 3. **SwiftUI performance:** Each HUD open creates a new NSHostingView. The state is cached during a drag, but the view is recreated.
-4. **Icon strip flicker:** On space change, `CellView` rerenders and re-fetches icons via `NSWorkspace.shared.icon(forFile:)` which is potentially expensive
+4. **Icon strip flicker:** Fixed via `IconCache` (64 icons, LRU); `CellView` no longer re-fetches through `NSWorkspace` per render
 5. **Drag resolution:** Window drag detection uses frontmost app name matching, which can be ambiguous for multi-window apps. Falls back to click proximity.
-6. **Test suite:** ~588 tests across 35 files (`Tests/spacemapTests/` + `MockYabaiService.swift`). Run with `make test` or `swift test`.
+6. **Test suite:** 880 tests across 41 files (`Tests/spacemapTests/` + `MockYabaiService.swift`). Run with `make test` or `swift test`.
 7. **Socket health check:** Periodic `fcntl(fd, F_GETFD)` check + file existence check. Restarts on failure.
 
 ## Potential Extension Points
 
 ### Appearance
-- ~~Custom cell colors, backgrounds, or opacity~~ ✅ Theme files with rect1/rect2/rect3
-- Custom fonts/sizes for space numbers
+- ~~Custom cell colors, backgrounds, or opacity~~ ✅ Theme files with rect1/rect2/rect3, per-style glass and opacity
+- ~~Custom fonts/sizes for space numbers~~ ✅ HUD font panel, `hudFontName`/`hudFontSize`
 - Rounded corners, borders, shadow customization
 - Animations for cell focus/hover
 
@@ -204,13 +206,13 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 ### Features
 - Show window titles on hover
 - ~~Keyboard navigation within HUD (arrows + enter)~~ ✅ Arrow keys + vim keys with grid-aware wrapping
-- Pin HUD to always show (like a dashboard)
-- Window thumbnail previews instead of rectangles
+- ~~Pin HUD to always show (like a dashboard)~~ ✅ Pinned hotkey + `AUTO_HIDE_TIMEOUT=0`
+- ~~Window thumbnail previews instead of rectangles~~ ✅ Thumbnail cell style (ScreenCaptureKit)
 - Filter/hide specific apps from the grid
 
 ### Integration
 - Support for other window managers besides yabai ( Parallel to yabai? Or macOS native Spaces? )
-- Scripting / CLI interface to trigger HUD from scripts
+- ~~Scripting / CLI interface to trigger HUD from scripts~~ ✅ CLI flags, deep links, yabai signal socket
 - Notifications / system alerts
 - Better multi-monitor support
 
@@ -238,7 +240,7 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - Grid-aware keyboard navigation (arrow keys + vim keys with wrapping)
 - Dynamic yabai path detection (ARM + Intel)
 - Xcode project generation (`scripts/generate-xcodeproj.py`, 4 targets)
-- Unit test suite: ~588 tests across 35 files (`Tests/spacemapTests/`)
+- Unit test suite: ~588 tests across 35 files when this entry was written (since grown to 880 tests across 41 files, below)
 - Glyph strip: theme-driven menu-bar index+glyph strip (material/shape/glass style, per-style variant and opacity, optional match-HUD appearance, notch anchors or free placement, horizontal/vertical/stacked layouts, position lock, fullscreen hiding)
 - Space-name profiles with menu-bar switching; fn modifier preserved across hotkeys/drop-focus
 - Hardening: yabai 10s timeout + async pipe drain, socket mode 0600, release tag/appcast checks
@@ -246,6 +248,19 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - GitHub Actions Release: 3 DMG variants + checksums on tag push
 - Dependabot for GitHub Actions
 - Architecture-specific builds (ARM64, x86_64, universal)
+- Theme Library: 20 bundled iTerm2 themes (read-only), one-click install/remove/apply, catalog fetched from the `spacemap-themes` index and refreshed daily
+- Theme Editor: clone, edit, and save themes; originals stay untouched as `(Edited)` copies are written; external file edits reload the theme list
+- Custom HUD font and size via the native font panel (`hudFontName`/`hudFontSize`); the glyph strip can match the HUD appearance
+- HUD entrance styles (`fade`, slide from each edge, `scale`) and motion styles (`natural`, `springy`, `fast`)
+- Per-style glass variants and opacities (clear/regular/tinted) for the HUD, space cells, and strip
+- Space reordering: drag a space number in the strip or HUD to swap contents or move spaces; drag an app icon to move its windows
+- Glyph strip menu-bar mode (`displayMode = menuBarItem`), auto-resize (`autoResizeMaxLength`), split padding, layout letters
+- Config presets under `~/.config/spacemap/presets/` with import/export from Settings > Advanced and `spacemap --config-preset NAME`
+- Every HUD key action configurable via the `[hudKeys]` table; the old arrow/vim/extended-key toggles are gone
+- CLI: `--status`, `--print-config`, `--update`, `--update-font` (beyond the earlier `--version/--help/--config/--trigger/--space/--show-menu/--settings`)
+- Pre-2.0 config key aliases removed from the parser (no migration code — see DesignDocs/adr/0001)
+- Local installs and the CLI symlink target standardized on `/Applications`
+- Test suite: 880 tests across 41 files, aligned to testing standards
 - Theme bug fix: `dropTarget` case sensitivity in `.smthemes` parsing
 
 See [TASKS.md](./TASKS.md) for planned features, bug fixes, and known issues.

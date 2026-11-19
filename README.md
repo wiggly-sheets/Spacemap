@@ -265,9 +265,26 @@ hudShadow = true
 
 [behavior]
 autoHideTimeout = 5
-useArrowKeys = false
-useVimKeys = false
 jumpToSpaceEnabled = false
+
+[hudKeys]
+left = ["h", "left"]          # every HUD action takes a list of hotkeys
+right = ["l", "right"]
+up = ["k", "up"]
+down = ["j", "down"]
+first = ["f"]                 # go to first space
+last = ["e"]                  # go to last space
+recent = ["r"]                # back to the previous space
+close = ["escape", "c"]       # empty list = unbound
+newSpace = ["a"]
+newSpaceAndFocus = ["t"]
+deleteSpace = ["w"]
+layoutBSP = ["b"]
+layoutStack = ["s"]
+layoutFloat = ["u"]
+cycleLayout = []              # cycle BSP -> stack -> float; empty list = unbound
+moveSpaceBack = []            # move the focused space one slot left
+moveSpaceForward = []         # move the focused space one slot right
 
 [behavior.hotkey]
 keyKind = "keyCode"
@@ -287,7 +304,7 @@ Glyph strip reference — every key with its default:
 
 ```toml
 [glyphStrip]
-enabled = false                   # master toggle; legacy bare `glyphStrip = true` still reads
+enabled = false                   # master toggle
 showSpaceNumbers = true           # draw the space index digit
 showLayoutSuffix = true           # layout letter: bsp="", float="f", stack="s"
 showAppIcons = true               # draw sketchybar-app-font glyphs
@@ -312,8 +329,6 @@ glassTintedOpacity = 0.35
 solidOpacity = 0.35               # solid backing opacity, no blur
 cornerRadius = 20.0               # roundedRect only, 0...40
 margin = 6.0                      # gap to the notch edge, clamped 0...40
-yOffset = 0.0                     # vertical nudge; positive moves the strip DOWN,
-                                  # clamped -10...10, 0 centered, NOT clamped back into the row
 iconSpacing = 3.0                  # extra gap between two app icons and before +N, clamped 0...20
 indexPadding = 6.0                 # gap from the space number to its first icon or placeholder, clamped 0...20
 hoverPadding = 1.0                # grow around the hovered segment's glyph box, both
@@ -329,7 +344,9 @@ leftClickAction = "focusSpace"    # none | focusSpace | destroySpace | moveWindo
 rightClickAction = "destroySpace"
 middleClickAction = "none"
 position = "leftOfNotch"          # leftOfNotch | rightOfNotch | center | custom
-xOffset = 0                       # custom only; points from the menu bar row's left edge, -4000...4000
+customX = 0.5                     # custom only; fraction of the screen's spare width, 0...1
+customY = 0.5                     # custom only; fraction of the spare height, 0 bottom, 1 top
+customScreen = ""                 # custom only; display identity, empty = usual target screen
 borderEnabled = true              # hairline outline, independent of the material;
                                   # with none it follows shape, shape none = no outline
 theme = ""                        # follow main HUD theme; or a theme name
@@ -354,8 +371,10 @@ theme = ""                        # follow main HUD theme; or a theme name
 | `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showSpaceLayout`, `showIconStrip`, `showMultiAppIcons`, `hudIconSource`, `hudIconStripSeparate`, `hudIconStripSource` |
 | `[spaceNames]` | `showSpaceNames`; names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]` |
 | `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `backgroundStyle`, `glassStyle`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `matchBackgroundOpacity`, `hudShadow`, `hudCornerRadius`, `hudFontName`, `hudFontSize`, `hudTextColor`, `spacesMatchBackground`, `spacesBackgroundStyle`, `spacesGlassStyle`, `spacesGlassClearVariant`, `spacesGlassRegularVariant`, `spacesGlassTintedVariant`, `spacesGlassTintedMaterial`, `spacesOpacity`, `spacesCornerRadius`, `uiScale`, `iconScale` |
-| `[behavior]` | `autoHideTimeout`, `useArrowKeys`, `useVimKeys`, `jumpToSpaceEnabled`, `hudPosition`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `showHUDInteractionFeedback`, `spaceDropMode`, `spaceDragFocus`, `windowDragFocus`, `hudAnimationsEnabled`, `hudAnimationStyle`, `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, `showThumbnailWallpaper`, `presence`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
-| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `shape`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `padding`, `lockPadding`, `horizontalPadding`, `displayMode`, `yOffset`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `orientation`, `verticalLayout`, `xOffset`, `lockPosition`, `borderEnabled` |
+| `[behavior]` | `autoHideTimeout`, `jumpToSpaceEnabled`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `showHUDInteractionFeedback`, `spaceDropMode`, `spaceDragFocus`, `windowDragFocus`, `hudAnimationsEnabled`, `hudAnimationStyle`, `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, `showThumbnailWallpaper`, `presence`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
+| `[behavior.hudPosition]` | `kind` (`center`, `top`, `bottom`, `custom`); custom adds `x`/`y` (0...1 spare-width/height fractions) and an optional `screen` display identity, written by dragging the HUD |
+| `[hudKeys]` | one key per HUD action (`left`, `right`, `up`, `down`, `first`, `last`, `recent`, `close`, `newSpace`, `newSpaceAndFocus`, `deleteSpace`, `layoutBSP`, `layoutStack`, `layoutFloat`, `cycleLayout`, `moveSpaceBack`, `moveSpaceForward`), each a list of hotkeys; an empty list leaves the action unbound |
+| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `shape`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `padding`, `lockPadding`, `horizontalPadding`, `displayMode`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `orientation`, `verticalLayout`, `customX`, `customY`, `customScreen`, `lockPosition`, `borderEnabled` |
 | `[advanced]` | `socketHealthInterval`, `showExtraWindows` |
 
 Space names example:

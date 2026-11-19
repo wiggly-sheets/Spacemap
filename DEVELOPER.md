@@ -21,11 +21,11 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `CellView.swift` | Per-cell rendering (rects/icons/thumbnails), space names display |
 | `GridLayout.swift` | Pure geometry (cell/gap/padding, slot frames, hit-test); guards: `cols` clamped 1–32, spaces clamped 0–16, zero-size frames return nil/empty |
 | `YabaiClientImpl.swift` + `YabaiService.swift` | yabai CLI wrapper, signal management, space/window queries (10s timeout, async pipe drain) |
-| `AppConfig.swift` + `ConfigLoader`/`TOMLConfigCodec`/`ConfigValues` | Grouped TOML load/save/parse; invalid fields self-heal individually after `config.toml.bak` backup, and repaired/clamped values are written back |
+| `ConfigStore.swift` + `ConfigLoader`/`TOMLConfigCodec` + `ConfigSchema` | Grouped TOML load/save/parse; one key table drives decode, repair, and encode, and repaired values are written back after `config.toml.bak` backup |
 | `HotkeyMonitor.swift` + `HotkeyService`/`HotkeyHandler` | Shared `CGEventTap` owned by `HotkeyTapRouter` and run on a private run-loop thread; routes normal/pinned/glyph-strip hotkeys to the main thread; fails open on Accessibility revocation |
 | `SocketListener.swift` | Unix domain socket server for yabai signals (mode 0600, non-blocking clients) |
 | `WindowDragHandler.swift` + `WindowDragService` | Drag-and-drop detection via CGEventTap |
-| `ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift` | Data structures (GridConfig, YabaiSpace, AppTheme) |
+| `ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift` | Data structures (SpacemapConfig, YabaiSpace, AppTheme) |
 | `GlyphStrip.swift` + `GlyphStripPanel.swift` | Menu-bar strip model (pure, testable) + panel/view (AppKit) |
 | `SettingsView.swift` + per-category `SettingsGrid`/`SettingsSpaceNames`/`SettingsAppearance`/`SettingsBehavior`/`SettingsGlyphStrip`/`SettingsAdvanced` | Permanent settings sidebar and category-specific live-save forms |
 | `ThumbnailCache.swift` + `ThumbnailCompositor`/`ThumbnailRequestBuilder` | ScreenCaptureKit thumbnail capture per space (macOS 14+) |
@@ -36,7 +36,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 ### Config File Location
 `~/.config/spacemap/config.toml` — read on every HUD open. Invalid fields self-heal individually after backing up to `config.toml.bak`; the resolved/clamped values are written back so the same repair does not repeat.
 
-### Config Keys (TOML tables; `ConfigValues` clamps numerics at the model boundary)
+### Config Keys (TOML tables; the `ConfigSchema` repair rule clamps numerics at the model boundary)
 | Key | Type | Default | Range | Description |
 |-----|------|--------|--------|-------------|
 | `cols` / `rows` | Int | 8 / 2 | 1–32 (oversize clamps, undersize resets) | Grid columns / rows |
@@ -46,7 +46,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `glyphStripHotkey` | Hotkey | `none` | modifiers+key or `none` | Glyph-strip show/hide; session-only, never persisted |
 | `uiScale` / `iconScale` | Double | 0.5 / 0.5 | 0.0–1.0 | HUD scale (effective: 0.5×–4.0×) / icon size (effective: 0.2×–1.0×) |
 | `theme` / `mode` | String | `default` / `auto` | theme names / `light‖dark‖auto` | Color theme / appearance |
-| `backgroundAlpha` | Double | 0.3 | 0.0–1.0 | Shared HUD opacity when `matchBackgroundOpacity` is on; legacy fallback otherwise |
+| `backgroundAlpha` | Double | 0.3 | 0.0–1.0 | Shared HUD opacity, used only when `matchBackgroundOpacity` is true; otherwise the per-style opacities apply |
 | `backgroundStyle` | String | `glass` | `glass‖solid` | HUD background style |
 | `glassStyle` | String | `regular` | `clear‖regular‖tinted` | Glass sub-type; only read when `backgroundStyle` is `glass` |
 | `glassClearVariant` / `glassRegularVariant` / `glassTintedVariant` | Int | 11 / 5 / 2 | 0...21 | Private glass finish per style |
@@ -57,7 +57,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `spacesGlassClearVariant` / `spacesGlassRegularVariant` / `spacesGlassTintedVariant` | Int | 11 / 5 / 2 | 0...21 | Cell glass finish per style |
 | `spacesGlassTintedMaterial` | String | `clear` | `clear‖regular` | Cell tinted material |
 | `spacesOpacity` / `spacesCornerRadius` | Double | 0.5 / 4 | 0...1 / 0...60 | Cell fill opacity and radius |
-| `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` / `solidOpacity` | Double | inherits `backgroundAlpha` | clamped 0.01–1, glass floors clear 0.35 / regular 0.40 / tinted 0.45 | Per-style HUD opacity; solid may reach zero |
+| `glassClearOpacity` / `glassRegularOpacity` / `glassTintedOpacity` / `solidOpacity` | Double | 0.05 / 0.3 / 0.3 / 1.0 | clamped 0.01–1, glass floors clear 0.35 / regular 0.40 / tinted 0.45 | Per-style HUD opacity; solid may reach zero |
 | `matchBackgroundOpacity` | Bool | false | — | Link every HUD style to `backgroundAlpha` instead of per-style values |
 | `hudShadow` | Bool | true | — | HUD panel shadow |
 | `hudCornerRadius` | Double | 10 | 0...60 (out of range resets to 10) | Outer HUD panel corner radius; cells keep their own |
@@ -80,9 +80,9 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `hudTextColor` | String | `""` | Valid hex or empty | HUD text override; empty follows the theme |
 | `presence` | String | `menuBar` | `dock‖menuBar‖both‖none` | Where Spacemap appears |
 | `menuBarDisplayMode` / `menuBarNearbyCount` | String / Int | `icon` / 3 | `icon‖dots‖current‖nearby‖all` / 1–16 | Menu-bar preview mode and nearby count |
-| `useVimKeys` / `useArrowKeys` / `useExtendedKeys` | Bool | false / false / true | — | hjkl / arrows / extended navigation keys |
+| `hudKeys` | Table | vim + arrow movement keys | per-action hotkey lists | HUD-only action bindings; each action takes several shortcuts, and an empty list leaves it unbound |
 | `jumpToSpaceEnabled` | Bool | `false` | — | Number-key space jumps (multi-digit supported) |
-| `hudPosition` / `customHUDX` / `customHUDY` | String / Double | `center` / 0.5 / 0.5 | `center‖top‖bottom‖custom` / 0–1 | HUD placement + custom coordinates |
+| `hudPosition` | Table `kind` + fractions | `center` | `center‖top‖bottom‖custom` (plus `x`/`y` 0–1 and optional `screen` display identity) | HUD placement; the screen identity keeps a custom position on its display |
 | `spaceNames` + `spaceNameProfiles` | Map / profiles | — | — | `[spaceNames.names]` quoted-number keys + named profile sets |
 | `socketHealthInterval` | Int | 60 | > 0 | Socket health check interval (seconds) |
 | `showExtraWindows` | Bool | false | — | Display utility/background window records |
@@ -96,7 +96,7 @@ Technical deep-dive, debugging, and configuration details for contributors.
 | `updateMode` | String | `notify` | `auto‖notify‖off` | Sparkle update check behavior. `auto` downloads and installs; `notify` prompts; `off` disables automatic checks and downloads but keeps manual "Check for Updates" working |
 | `focusSpaceOnWindowDrop` | WindowDropFocusMode | `never` | `never‖always‖modifier` | Focus the destination space after a successful window drop |
 | `focusSpaceOnWindowDropModifier` | WindowDropFocusModifier | `command` | `command‖fn‖option‖control‖shift` | Modifier required when drop focus is `modifier` (fn preserved) |
-| `[glyphStrip]` | — | — | — | Strip keys in REFERENCE.md; legacy bare `glyphStrip = true` is accepted; `matchHUDAppearance` copies the HUD appearance or the strip keeps its own. Numerics clamped (`iconSize`/`indexSize` 6–24, `backgroundOpacity`/`glass*Opacity`/`solidOpacity` 0.01–1, `cornerRadius` 0–40, `margin` 0–40, `padding`/`horizontalPadding` 0–40, `iconSpacing`/`indexPadding` 0–20, `yOffset` -10–10 anchored and 0–4000 custom, `xOffset` ±4000, `hoverPadding` 0–12, `hoverCornerRadius` 0–20, `maxIconsPerSpace` 0–16) |
+| `[glyphStrip]` | — | — | — | Strip keys in REFERENCE.md; legacy bare `glyphStrip = true` is accepted; `matchHUDAppearance` copies the HUD appearance or the strip keeps its own. Numerics clamped (`iconSize`/`indexSize` 6–24, `backgroundOpacity`/`glass*Opacity`/`solidOpacity` 0.01–1, `cornerRadius` 0–40, `margin` 0–40, `padding`/`horizontalPadding` 0–40, `iconSpacing`/`indexPadding` 0–20, `customX`/`customY` 0–1, `hoverPadding` 0–12, `hoverCornerRadius` 0–20, `maxIconsPerSpace` 0–16) |
 | `[appFont]` | `updateMode` | `manual` | `manual‖auto` | Glyph-font update policy |
 
 ### Space Naming Support
