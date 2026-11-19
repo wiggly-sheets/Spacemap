@@ -368,6 +368,7 @@ enum ConfigLoader {
             "hideInFullscreen = \(glyphStrip.hideInFullscreen)",
             "theme = \(tomlString(glyphStrip.theme))",
             "showSpaceNumbers = \(glyphStrip.showSpaceNumbers)",
+            "spaceLabelStyle = \(tomlString(glyphStrip.spaceLabelStyle.rawValue))",
             "showLayoutSuffix = \(glyphStrip.showLayoutSuffix)",
             "showBSPLayoutBadge = \(glyphStrip.showBSPLayoutBadge)",
             "showStackLayoutBadge = \(glyphStrip.showStackLayoutBadge)",

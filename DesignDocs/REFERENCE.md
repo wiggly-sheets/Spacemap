@@ -123,7 +123,8 @@ Only one instance runs per user. Launching the binary or CLI symlink again exits
 | `[glyphStrip]` | `enabled` / `theme` | false / inherits app | Enable the strip; empty theme follows the app theme |
 | `[glyphStrip]` | `displayMode` | `floating` | `floating` panel or `menuBarItem` status item. Menu-bar mode keeps contents, clicks, hover and drags; drops shape, glass, free placement and vertical layouts |
 | `[glyphStrip]` | `padding` / `lockPadding` | 4 / true | One padding for every side; unlock to use `horizontalPadding` and `verticalPadding` (0–40) |
-| `[glyphStrip]` | `showSpaceNumbers` / `showLayoutSuffix` / `showAppIcons` / `dedupeAppsPerSpace` / `maxIconsPerSpace` | true / true / true / true / 8 | Painted contents; layout letters follow `showBSPLayoutBadge` / `showStackLayoutBadge` / `showFloatLayoutBadge` |
+| `[glyphStrip]` | `showSpaceNumbers` / `spaceLabelStyle` | true / `numbers` | Label run contents: the space number, the name from the active name profile, or both. A nameless space keeps its number; names shorten to 12 characters |
+| `[glyphStrip]` | `showLayoutSuffix` / `showAppIcons` / `dedupeAppsPerSpace` / `maxIconsPerSpace` | true / true / true / 8 | Painted contents; layout letters follow `showBSPLayoutBadge` / `showStackLayoutBadge` / `showFloatLayoutBadge` |
 | `[glyphStrip]` | `iconSize` / `indexSize` / `iconSpacing` / `indexPadding` / `autoResizeMaxLength` | 11 / 11 / 3 / 6 / 0 | Glyph metrics; auto-resize 0 is off, otherwise a width or height target |
 | `[glyphStrip]` | `backgroundMaterial` / `shape` / `cornerRadius` / `borderEnabled` | none / none / 20 / true | Floating-strip backdrop. Menu-bar mode ignores these |
 | `[glyphStrip]` | `glassStyle` / `matchHUDAppearance` / `matchBackgroundOpacity` | regular / false / false | Appearance inheritance and per-style opacity |

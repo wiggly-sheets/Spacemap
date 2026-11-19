@@ -41,7 +41,11 @@ enum GlyphStrip {
 
     /// VoiceOver label for one painted segment. Pure so the wording can be
     /// asserted without AppKit state; the view supplies the same segments.
-    static func accessibilityLabel(for segment: Segment, focused: Bool) -> String {
+    static func accessibilityLabel(
+        for segment: Segment,
+        focused: Bool,
+        spaceName: String? = nil
+    ) -> String {
         if segment.runs == [.add] {
             return NSLocalizedString("Add space", comment: "VoiceOver action for the glyph strip add button")
         }
@@ -51,10 +55,14 @@ enum GlyphStrip {
 
         var parts: [String] = []
         if let index = segment.spaceIndex {
-            parts.append(String(
+            var space = String(
                 format: NSLocalizedString("Space %d", comment: "VoiceOver label for a space number"),
                 index
-            ))
+            )
+            if let spaceName, !spaceName.isEmpty {
+                space += " — \(spaceName)"
+            }
+            parts.append(space)
         }
         let appNames = segment.runs.compactMap { run -> String? in
             switch run {
@@ -567,6 +575,9 @@ enum GlyphStrip {
     /// Snapshotted once per refresh so segment building never reads config.
     struct Options: Equatable {
         var showSpaceNumbers = true
+        var spaceLabelStyle: GlyphStripSpaceLabelStyle = .numbers
+        /// Active name profile's names, keyed by space index.
+        var spaceNames: [Int: String] = [:]
         var showLayoutSuffix = true
         var showBSPLayoutBadge = true
         var showStackLayoutBadge = true
@@ -579,8 +590,10 @@ enum GlyphStrip {
         var showAddSpaceButton = true
         var showPlaceholders = true
 
-        init(_ config: GlyphStripConfig) {
+        init(_ config: GlyphStripConfig, spaceNames: [Int: String] = [:]) {
             showSpaceNumbers = config.showSpaceNumbers
+            spaceLabelStyle = config.spaceLabelStyle
+            self.spaceNames = spaceNames
             showLayoutSuffix = config.showLayoutSuffix
             showBSPLayoutBadge = config.showBSPLayoutBadge
             showStackLayoutBadge = config.showStackLayoutBadge
@@ -949,6 +962,41 @@ enum GlyphStrip {
         }
     }
 
+    /// Longest name a strip label shows. Longer names truncate with `…` so one
+    /// user-typed name cannot stretch the whole strip.
+    private static let spaceNameCharacterLimit = 12
+
+    /// Name to show for one space, or nil when the style hides names, the
+    /// space has no entry, or the entry is blank after trimming. The painted
+    /// label and the VoiceOver label both read names through here so they
+    /// agree on which names exist.
+    static func spaceName(for spaceIndex: Int, options: Options) -> String? {
+        guard options.spaceLabelStyle != .numbers,
+              let name = options.spaceNames[spaceIndex]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !name.isEmpty else {
+            return nil
+        }
+        return name
+    }
+
+    /// Label text for one space's leading run. `.numbers` is exactly today's
+    /// index+suffix. `.names` shows the profile name, or the number when the
+    /// space has no name. `.both` prefixes the name with the number.
+    private static func spaceLabelText(
+        index: Int,
+        suffix: String,
+        options: Options
+    ) -> String {
+        let number = "\(index)\(suffix)"
+        guard let name = spaceName(for: index, options: options) else {
+            return number
+        }
+        let trimmed = name.count > spaceNameCharacterLimit
+            ? String(name.prefix(spaceNameCharacterLimit)) + "…"
+            : name
+        return options.spaceLabelStyle == .both ? "\(number) \(trimmed)" : trimmed
+    }
+
     private static func spaceRuns(
         index: Int,
         layoutType: String?,
@@ -966,7 +1014,7 @@ enum GlyphStrip {
                     showFloat: options.showFloatLayoutBadge
                 )
                 : ""
-            runs.append(.index("\(index)\(suffix)"))
+            runs.append(.index(spaceLabelText(index: index, suffix: suffix, options: options)))
         }
         if !options.showAppIcons { return runs }
 

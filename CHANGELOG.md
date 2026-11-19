@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `[glyphStrip] spaceLabelStyle` (`numbers`, `names`, `both`) shows a space's name from the active space-name profile in the strip's label run, in place of or beside its number. A space with no name keeps its number; names longer than 12 characters are shortened with an ellipsis. The default `numbers` keeps today's strip unchanged.
 - `[hudKeys]` gains the `moveSpaceBack`, `moveSpaceForward`, and `cycleLayout` commands, so the space-move keys and layout cycling are configurable in the same table as every other HUD key. They start unbound, like their old `[behavior]` keys.
 - CLI commands for `--status`, `--print-config`, `--update`, and `--update-font`. Status reports the app path, config path, running state, and yabai availability; config printing emits the resolved TOML without launching the app; the update commands forward to the running app. `--version` also reads the app bundle through the CLI symlink instead of printing "Unknown".
 - Every HUD action now has user-configurable shortcuts in Settings > Hotkeys and the `[hudKeys]` table. Defaults remain vim keys and arrow keys for movement, with the existing action keys for first/last/recent space, close, create, delete, and layouts.

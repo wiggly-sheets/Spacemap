@@ -75,6 +75,14 @@ struct SettingsGlyphStrip: View {
 
             Section(header: SettingsSectionHeader(title: "Contents").settingsAnchor("glyphStrip.contents")) {
                 Toggle(showSpaceNumbersTitle, isOn: $glyphStrip.showSpaceNumbers)
+                if glyphStrip.showSpaceNumbers {
+                    Picker("Space Labels", selection: $glyphStrip.spaceLabelStyle) {
+                        Text("Numbers").tag(GlyphStripSpaceLabelStyle.numbers)
+                        Text("Names").tag(GlyphStripSpaceLabelStyle.names)
+                        Text("Number and Name").tag(GlyphStripSpaceLabelStyle.both)
+                    }
+                    SettingsFootnote(text: "Names come from the active space-name profile. A space without a name keeps its number, and names longer than 12 characters are shortened. Names mode drops the layout suffix (b / s / f); Number and Name keeps it.")
+                }
                 Toggle("Show Layout Suffix (f / s / b)", isOn: $glyphStrip.showLayoutSuffix)
                 if glyphStrip.showLayoutSuffix {
                     Toggle("Show BSP Layout (b)", isOn: $glyphStrip.showBSPLayoutBadge)

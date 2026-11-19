@@ -102,7 +102,7 @@ final class GlyphStripPanelController: NSObject {
     private var lastPaintedSegments: [GlyphStrip.Segment]?
     /// Segment options the current `segments` were built with, so a config edit
     /// between renders cannot remap drag payloads onto runs it did not build.
-    private var renderOptions = GlyphStrip.Options(.default)
+    fileprivate var renderOptions = GlyphStrip.Options(.default)
     /// Cached panel render: rebuilt only when the content or the bounds change,
     /// so hover and drag repaints share one layout pass.
     private var cachedLayout: GlyphStrip.SegmentLayout?
@@ -610,7 +610,7 @@ final class GlyphStripPanelController: NSObject {
     /// The one place app config becomes segment options, so a new strip key is
     /// wired once for every render path.
     fileprivate static func segmentOptions(for config: SpacemapConfig) -> GlyphStrip.Options {
-        GlyphStrip.Options(config.glyphStrip)
+        GlyphStrip.Options(config.glyphStrip, spaceNames: config.spaceNames)
     }
 
     private func presentMenuBarItem() {
@@ -2272,9 +2272,17 @@ private final class GlyphStripView: NSView {
         guard let controller else { return nil }
         accessibilitySegments = controller.segments.indices.compactMap { index in
             let segment = controller.segments[index]
+            let options = controller.renderOptions
+            // A name reaches VoiceOver only when the strip paints it, and only
+            // when it survives the same trim/blank rule, so numbers mode keeps
+            // today's labels exactly.
+            let spaceName = segment.spaceIndex.flatMap {
+                GlyphStrip.spaceName(for: $0, options: options)
+            }
             let label = GlyphStrip.accessibilityLabel(
                 for: segment,
-                focused: segment.spaceIndex != nil && segment.spaceIndex == controller.focusedSpaceIndex
+                focused: segment.spaceIndex != nil && segment.spaceIndex == controller.focusedSpaceIndex,
+                spaceName: spaceName
             )
             guard !label.isEmpty else { return nil }
             let element = GlyphStripAccessibilityElement()

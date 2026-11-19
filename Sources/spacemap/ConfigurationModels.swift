@@ -299,6 +299,16 @@ enum GlyphStripIconSource: String, CaseIterable, Identifiable, Equatable {
     }
 }
 
+/// What a strip's leading label run shows: the space number (today's look), the
+/// space's name from the active name profile, or both.
+enum GlyphStripSpaceLabelStyle: String, CaseIterable, Identifiable, Equatable {
+    case numbers
+    case names
+    case both
+
+    var id: String { rawValue }
+}
+
 /// Settings for the always-visible menu-bar glyph strip (theme-driven colours).
 /// `[glyphStrip]` table, strip only; HUD cells use `SpacemapConfig.showSpaceNumbers`.
 struct GlyphStripConfig: Equatable {
@@ -307,6 +317,7 @@ struct GlyphStripConfig: Equatable {
     /// never floats over a fullscreen window or its menu bar reveal.
     var hideInFullscreen: Bool = false
     var showSpaceNumbers: Bool = true
+    var spaceLabelStyle: GlyphStripSpaceLabelStyle = .numbers
     var showLayoutSuffix: Bool = true
     var showBSPLayoutBadge: Bool = true
     var showStackLayoutBadge: Bool = true

@@ -654,6 +654,75 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(singleSegment(options, windows: []).runs, [.index("1b")])
     }
 
+    // MARK: - Space label style
+
+    func testSpaceLabelStyleShowsNumberNameOrBoth() {
+        var numbers = GlyphStrip.Options(.default)
+        numbers.spaceNames = [1: "Web"]
+        XCTAssertEqual(singleSegment(numbers, windows: []).runs.first, .index("1b"),
+                       "the default style keeps the bare number")
+
+        var names = numbers
+        names.spaceLabelStyle = .names
+        XCTAssertEqual(singleSegment(names, windows: []).runs.first, .index("Web"),
+                       "names style replaces the number with the profile name")
+
+        var both = numbers
+        both.spaceLabelStyle = .both
+        XCTAssertEqual(singleSegment(both, windows: []).runs.first, .index("1b Web"),
+                       "both style keeps the number, layout suffix included")
+
+        var config = GlyphStripConfig.default
+        config.spaceLabelStyle = .names
+        let fromInit = GlyphStrip.Options(config, spaceNames: [1: "Web"])
+        XCTAssertEqual(singleSegment(fromInit, windows: []).runs.first, .index("Web"),
+                       "the real Options init must carry spaceNames through")
+    }
+
+    func testSpaceLabelFallsBackToTheNumberWhenTheNameIsMissingOrBlank() {
+        for style in [GlyphStripSpaceLabelStyle.names, .both] {
+            var options = GlyphStrip.Options(.default)
+            options.spaceLabelStyle = style
+            XCTAssertEqual(singleSegment(options, windows: []).runs.first, .index("1b"),
+                           "no name entry keeps the number")
+
+            options.spaceNames = [1: "   "]
+            XCTAssertEqual(singleSegment(options, windows: []).runs.first, .index("1b"),
+                           "a whitespace-only name keeps the number")
+        }
+    }
+
+    func testSpaceLabelTruncatesLongNamesToKeepTheStripBounded() {
+        var options = GlyphStrip.Options(.default)
+        options.spaceLabelStyle = .names
+        options.spaceNames = [1: "VeryLongSpaceName"]
+
+        XCTAssertEqual(singleSegment(options, windows: []).runs.first, .index("VeryLongSpac…"))
+
+        options.spaceNames = [1: "ABCDEFGHIJKL"]
+        XCTAssertEqual(singleSegment(options, windows: []).runs.first, .index("ABCDEFGHIJKL"),
+                       "a 12-character name fits unchanged")
+
+        options.spaceNames = [1: "ABCDEFGHIJKLM"]
+        XCTAssertEqual(singleSegment(options, windows: []).runs.first, .index("ABCDEFGHIJKL…"),
+                       "13 characters keep the first 12")
+
+        options.spaceNames = [1: "ABCDEFGHIJK👨‍👩‍👧‍👦X"]
+        XCTAssertEqual(singleSegment(options, windows: []).runs.first, .index("ABCDEFGHIJK👨‍👩‍👧‍👦…"),
+                       "truncation counts characters, never slices a grapheme")
+    }
+
+    func testHidingSpaceNumbersAlsoHidesNames() {
+        var options = GlyphStrip.Options(.default)
+        options.showSpaceNumbers = false
+        options.spaceLabelStyle = .names
+        options.spaceNames = [1: "Web"]
+        options.showPlaceholders = false
+
+        XCTAssertEqual(singleSegment(options, windows: []).runs, [],
+                       "the numbers toggle still controls the leading run")
+    }
+
     // MARK: - Click actions
 
     func testFocusAndDestroyCarryTheSegmentIndex() {
@@ -1868,6 +1937,7 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(config?.leftClickAction, .focusSpace)
         XCTAssertEqual(config?.rightClickAction, .destroySpace)
         XCTAssertEqual(config?.middleClickAction, GlyphStripAction.none)
+        XCTAssertEqual(config?.spaceLabelStyle, .numbers)
         XCTAssertEqual(config?.backgroundMaterial, GlyphStripBackgroundMaterial.none)
         XCTAssertEqual(config?.position, GlyphStripPosition.leftOfNotch)
         XCTAssertEqual(config?.maxIconsPerSpace, 8)
@@ -1896,11 +1966,24 @@ final class GlyphStripTests: XCTestCase {
         backgroundMaterial = "plasma"
         shape = "triangle"
         position = "topLeft"
+        spaceLabelStyle = "emoji"
         """)
 
         XCTAssertEqual(config?.backgroundMaterial, GlyphStripBackgroundMaterial.none)
         XCTAssertEqual(config?.shape, GlyphStripShape.none)
         XCTAssertEqual(config?.position, GlyphStripPosition.leftOfNotch)
+        XCTAssertEqual(config?.spaceLabelStyle, .numbers)
+    }
+
+    func testSpaceLabelStyleDecodes() {
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\nspaceLabelStyle = \"names\"")?.spaceLabelStyle,
+            .names
+        )
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\nspaceLabelStyle = \"both\"")?.spaceLabelStyle,
+            .both
+        )
     }
 
     func testExplicitMaterialAndShapeKeysDecode() {
@@ -2107,6 +2190,7 @@ final class GlyphStripTests: XCTestCase {
         var original = GlyphStripConfig.default
         original.enabled = true
         original.showSpaceNumbers = false
+        original.spaceLabelStyle = .both
         original.showLayoutSuffix = false
         original.showAppIcons = false
         original.dedupeAppsPerSpace = false
@@ -2490,6 +2574,32 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
             GlyphStrip.accessibilityLabel(for: .init(spaceIndex: nil, runs: [.separator]), focused: false),
             "Display separator"
         )
+    }
+
+    func testAccessibilityLabelIncludesTheSpaceNameWhenShown() {
+        XCTAssertEqual(
+            GlyphStrip.accessibilityLabel(
+                for: .init(spaceIndex: 3, runs: [.index("3 Web"), .app("Safari")]),
+                focused: false,
+                spaceName: "Web"
+            ),
+            "Space 3 — Web, Safari"
+        )
+    }
+
+    func testAccessibilityNameUsesTheSameTrimAndBlankRuleAsThePaintedLabel() {
+        var options = GlyphStrip.Options(.default)
+        options.spaceLabelStyle = .names
+        options.spaceNames = [1: "  Web  ", 2: "   "]
+
+        XCTAssertEqual(GlyphStrip.spaceName(for: 1, options: options), "Web",
+                       "VoiceOver must not read the padding the strip trims")
+        XCTAssertNil(GlyphStrip.spaceName(for: 2, options: options),
+                     "a blank name paints the number, so VoiceOver must not read it either")
+
+        options.spaceLabelStyle = .numbers
+        XCTAssertNil(GlyphStrip.spaceName(for: 1, options: options),
+                     "numbers mode never exposes a name")
     }
 }
 

@@ -547,6 +547,9 @@ enum TOMLConfigDecoder {
         if let value = table["enabled"] as? Bool { config.enabled = value }
         if let value = table["hideInFullscreen"] as? Bool { config.hideInFullscreen = value }
         if let value = table["showSpaceNumbers"] as? Bool { config.showSpaceNumbers = value }
+        if let name = table["spaceLabelStyle"] as? String {
+            config.spaceLabelStyle = parsedEnum(from: name) ?? GlyphStripConfig.default.spaceLabelStyle
+        }
         if let value = table["showLayoutSuffix"] as? Bool { config.showLayoutSuffix = value }
         if let value = table["showBSPLayoutBadge"] as? Bool { config.showBSPLayoutBadge = value }
         if let value = table["showStackLayoutBadge"] as? Bool { config.showStackLayoutBadge = value }
