@@ -142,7 +142,7 @@ final class GlyphStripTests: XCTestCase {
         maxSpaces: Int = 16,
         focusedIndex: Int? = nil
     ) -> GridState {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.maxSpaces = maxSpaces
         return GridState(
             config: config,
@@ -704,8 +704,8 @@ final class GlyphStripTests: XCTestCase {
         position: GlyphStripPosition,
         margin: CGFloat = 6,
         notched: Bool = true,
-        yOffset: CGFloat = 0,
-        xOffset: CGFloat = 0
+        xFraction: Double = 0.5,
+        yFraction: Double = 0.5
     ) -> CGRect {
         GlyphStrip.frame(
             contentSize: CGSize(width: width, height: row.height),
@@ -714,8 +714,8 @@ final class GlyphStripTests: XCTestCase {
             rightNotchArea: notched ? rightArea : nil,
             position: position,
             margin: margin,
-            yOffset: yOffset,
-            xOffset: xOffset
+            xFraction: xFraction,
+            yFraction: yFraction
         )
     }
 
@@ -760,27 +760,14 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(placed(width: 200, position: .rightOfNotch, margin: 40).minX, rightArea.minX + 40)
     }
 
-    /// Screen-reading terms, so the sign is the opposite of what the geometry
-    /// reads like: AppKit's y grows upward, so a positive offset lowers the strip
-    /// into the screen interior.
-    func testYOffsetMovesTheStripDownWhenPositiveAndUpWhenNegative() {
-        let level = placed(width: 200, position: .leftOfNotch, yOffset: 0)
-        let down = placed(width: 200, position: .leftOfNotch, yOffset: 8)
-        let up = placed(width: 200, position: .leftOfNotch, yOffset: -8)
-        XCTAssertEqual(down.minY, level.minY - 8, accuracy: 0.001)
-        XCTAssertEqual(up.minY, level.minY + 8, accuracy: 0.001)
-        // The horizontal anchor is untouched.
-        XCTAssertEqual(down, level.offsetBy(dx: 0, dy: -8))
-        XCTAssertEqual(up, level.offsetBy(dx: 0, dy: 8))
-    }
+    /// Anchored positions centre vertically in the menu bar row; the strip
+    /// holds no user nudge of its own.
+    func testAnchoredPlacementCentresVerticallyInTheRow() {
+        let level = placed(width: 200, position: .leftOfNotch)
+        XCTAssertEqual(level.midY, row.midY, accuracy: 0.001)
 
-    /// Deliberately not clamped into the row: the panel sits at `.statusBar`
-    /// level, so an offset the user asked for is honoured even where it leaves
-    /// the menu bar row.
-    func testYOffsetIsNotClampedBackIntoTheMenuBarRow() {
-        let frame = placed(width: 200, position: .leftOfNotch, yOffset: 20)
-        XCTAssertEqual(frame.minY, row.minY - 20, accuracy: 0.001)
-        XCTAssertGreaterThan(row.maxY, frame.maxY)
+        let tall = placed(width: 200, position: .rightOfNotch, notched: false)
+        XCTAssertEqual(tall.midY, row.midY, accuracy: 0.001)
     }
 
     func testPlacementFallsBackToTheRowWhenTheDisplayHasNoNotch() {
@@ -847,72 +834,29 @@ final class GlyphStripTests: XCTestCase {
 
     // MARK: - Custom placement
 
-    func testCustomPositionOffsetsFromTheRowLeftEdge() {
-        let frame = placed(width: 200, position: .custom, xOffset: 300)
-        XCTAssertEqual(frame.minX, row.minX + 300)
+    func testCustomPositionUsesFractionsOfTheSpareArea() {
+        let frame = placed(width: 200, position: .custom, xFraction: 0.5)
+        // (1728 - 200) / 2
+        XCTAssertEqual(frame.minX, 764, accuracy: 0.001)
         // Margin does not apply to free placement.
-        XCTAssertEqual(placed(width: 200, position: .custom, margin: 40, xOffset: 300), frame)
+        XCTAssertEqual(placed(width: 200, position: .custom, margin: 40, xFraction: 0.5), frame)
     }
 
-    func testCustomPositionIsClampedInsideTheRow() {
-        let tooFarRight = placed(width: 200, position: .custom, xOffset: 100_000)
+    func testCustomFractionsAreClampedInsideTheArea() {
+        let tooFarRight = placed(width: 200, position: .custom, xFraction: 2)
         XCTAssertEqual(tooFarRight.maxX, row.maxX)
 
-        let tooFarLeft = placed(width: 200, position: .custom, xOffset: -50)
+        let tooFarLeft = placed(width: 200, position: .custom, xFraction: -1)
         XCTAssertEqual(tooFarLeft.minX, row.minX)
     }
 
     func testCustomPositionIgnoresNotchAreas() {
-        let frame = placed(width: 200, position: .custom, xOffset: 500)
-        XCTAssertEqual(frame.minX, row.minX + 500, "custom must not be pulled toward the notch")
+        let frame = placed(width: 200, position: .custom, xFraction: 0.5)
+        XCTAssertEqual(frame.minX, 764, accuracy: 0.001, "custom must not be pulled toward the notch")
     }
 
     // MARK: - Drag placement
 
-    /// Offsets derived from a dragged frame must replay through `frame(...)`
-    /// to the exact frame they came from — otherwise the strip jumps the
-    /// moment the drag's config lands.
-    func testCustomOffsetsInvertTheFrameMath() {
-        func customFrame(yOffset: CGFloat) -> CGRect {
-            GlyphStrip.frame(
-                contentSize: CGSize(width: 200, height: 20),
-                menuBarRow: row,
-                leftNotchArea: nil,
-                rightNotchArea: nil,
-                position: .custom,
-                margin: 0,
-                yOffset: yOffset,
-                xOffset: 300
-            )
-        }
-        let frame = customFrame(yOffset: 6)
-        let offsets = GlyphStrip.customOffsets(for: frame, area: row)
-
-        XCTAssertEqual(offsets.xOffset, 300)
-        XCTAssertEqual(offsets.yOffset, 6, accuracy: 0.001)
-        XCTAssertEqual(customFrame(yOffset: CGFloat(offsets.yOffset)), frame)
-    }
-
-    /// A drag can start from any anchored position, and the offsets derived
-    /// from that anchored frame must land the strip back on it as `.custom`.
-    func testCustomOffsetsRecoverAnAnchoredFrame() {
-        let frame = placed(width: 200, position: .leftOfNotch, margin: 6)
-        let offsets = GlyphStrip.customOffsets(for: frame, area: row)
-
-        XCTAssertEqual(
-            placed(
-                width: 200,
-                position: .custom,
-                yOffset: CGFloat(offsets.yOffset),
-                xOffset: CGFloat(offsets.xOffset)
-            ),
-            frame
-        )
-    }
-
-    /// A frame flung past the allowed range derives out-of-range offsets;
-    /// `clamped()` — the same bounds the settings steppers use — must bound
-    /// them before they reach config.
     func testDraggedIconCarriesOneWindowOrEveryWindowOfItsApp() {
         let first = YabaiWindow(id: 1, app: "Safari", space: 1, frame: .init(x: 0, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal")
         let second = YabaiWindow(id: 2, app: "Safari", space: 1, frame: .init(x: 20, y: 0, w: 10, h: 10), isHidden: false, isMinimized: false, subLayer: "normal")
@@ -923,17 +867,55 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(GlyphStrip.draggedWindows(for: first, allWindows: all, dedupe: true).map(\.id), [1, 2])
     }
 
-    func testDraggedOffsetsClampThroughTheExistingBounds() {
-        let flung = CGRect(x: row.minX + 9000, y: row.minY - 100, width: 200, height: row.height)
-        let offsets = GlyphStrip.customOffsets(for: flung, area: row)
-        var strip = GlyphStripConfig.default
-        strip.position = .custom
-        strip.xOffset = offsets.xOffset
-        strip.yOffset = offsets.yOffset
+    /// Fractions derived from a dragged frame must replay through `frame(...)`
+    /// to the exact frame they came from — otherwise the strip jumps the
+    /// moment the drag's config lands.
+    func testCustomFractionsInvertTheFrameMath() {
+        let frame = GlyphStrip.frame(
+            contentSize: CGSize(width: 200, height: 16),
+            menuBarRow: row,
+            leftNotchArea: nil,
+            rightNotchArea: nil,
+            position: .custom,
+            margin: 0,
+            xFraction: 0.163,
+            yFraction: 0.25
+        )
+        let fractions = GlyphStrip.customFractions(for: frame, area: row)
 
-        let clamped = strip.clamped()
-        XCTAssertEqual(clamped.xOffset, 4000)
-        XCTAssertEqual(clamped.yOffset, 100)
+        XCTAssertEqual(fractions?.x ?? .nan, 0.163, accuracy: 0.0001)
+        XCTAssertEqual(fractions?.y ?? .nan, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(
+            GlyphStrip.frame(
+                contentSize: frame.size,
+                menuBarRow: row,
+                leftNotchArea: nil,
+                rightNotchArea: nil,
+                position: .custom,
+                margin: 0,
+                xFraction: fractions?.x ?? 0,
+                yFraction: fractions?.y ?? 0
+            ),
+            frame
+        )
+    }
+
+    /// One scheme for both surfaces: the strip's fractions are the HUD's
+    /// `normalizedPosition` for the same frame.
+    func testCustomFractionsMatchTheHUDPanelScheme() {
+        let screen = CGRect(x: 100, y: 50, width: 1600, height: 1000)
+        let frame = CGRect(x: 500, y: 300, width: 200, height: 60)
+
+        let fractions = GlyphStrip.customFractions(for: frame, area: screen)
+        let normalized = HUDDisplay.normalizedPosition(panelFrame: frame, screenFrame: screen)
+
+        XCTAssertEqual(fractions?.x ?? .nan, Double(normalized?.x ?? .nan), accuracy: 0.0001)
+        XCTAssertEqual(fractions?.y ?? .nan, Double(normalized?.y ?? .nan), accuracy: 0.0001)
+    }
+
+    func testCustomFractionsAreNilWhenTheStripFillsTheArea() {
+        let fullWidth = CGRect(x: row.minX, y: row.minY, width: row.width, height: row.height)
+        XCTAssertNil(GlyphStrip.customFractions(for: fullWidth, area: row))
     }
 
     /// Free placement must reach any row of the display, not just the menu bar.
@@ -947,16 +929,16 @@ final class GlyphStripTests: XCTestCase {
             rightNotchArea: nil,
             position: .custom,
             margin: 0,
-            yOffset: 500,
-            xOffset: 100
+            xFraction: 0.25,
+            yFraction: 0.25
         )
-        XCTAssertEqual(frame.minX, 100)
-        XCTAssertEqual(frame.maxY, screen.maxY - 500)
+        XCTAssertEqual(frame.minX, (1728 - 200) * 0.25, accuracy: 0.001)
+        XCTAssertEqual(frame.minY, (1117 - 30) * 0.25, accuracy: 0.001)
         XCTAssertEqual(frame.height, 30, "custom must not clamp to the menu bar row height")
     }
 
     /// The drag inverse must replay through the same screen-relative area.
-    func testCustomOffsetsRoundTripOnTheScreen() {
+    func testCustomFractionsRoundTripOnTheScreen() {
         let screen = CGRect(x: 0, y: 0, width: 1728, height: 1117)
         let frame = GlyphStrip.frame(
             contentSize: CGSize(width: 200, height: 300),
@@ -966,10 +948,10 @@ final class GlyphStripTests: XCTestCase {
             rightNotchArea: nil,
             position: .custom,
             margin: 0,
-            yOffset: 700,
-            xOffset: 40
+            xFraction: 0.1,
+            yFraction: 0.4
         )
-        let offsets = GlyphStrip.customOffsets(for: frame, area: screen)
+        let fractions = GlyphStrip.customFractions(for: frame, area: screen)
         XCTAssertEqual(
             GlyphStrip.frame(
                 contentSize: frame.size,
@@ -979,20 +961,27 @@ final class GlyphStripTests: XCTestCase {
                 rightNotchArea: nil,
                 position: .custom,
                 margin: 0,
-                yOffset: CGFloat(offsets.yOffset),
-                xOffset: CGFloat(offsets.xOffset)
+                xFraction: fractions?.x ?? 0,
+                yFraction: fractions?.y ?? 0
             ),
             frame
         )
     }
 
-    /// Custom placement stores a top-inset, so the menu bar's small nudge
-    /// bound must not throw the value away.
-    func testCustomPositionKeepsItsVerticalOffset() {
+    /// A frame flung past the screen derives out-of-range fractions; `clamped()`
+    /// must bound them before they reach config.
+    func testDraggedFractionsClampToTheUnitRange() {
+        let screen = CGRect(x: 0, y: 0, width: 1728, height: 1117)
+        let flung = CGRect(x: screen.minX + 9000, y: screen.minY - 100, width: 200, height: 20)
+        let fractions = GlyphStrip.customFractions(for: flung, area: screen)
         var strip = GlyphStripConfig.default
         strip.position = .custom
-        strip.yOffset = 640
-        XCTAssertEqual(strip.clamped().yOffset, 640)
+        strip.customX = fractions?.x ?? 0
+        strip.customY = fractions?.y ?? 0
+
+        let clamped = strip.clamped()
+        XCTAssertEqual(clamped.customX, 1)
+        XCTAssertEqual(clamped.customY, 0)
     }
 
     func testLockPositionDefaultsOffAndOnlyLocksCustomPlacement() {
@@ -1013,22 +1002,208 @@ final class GlyphStripTests: XCTestCase {
         let a = GlyphStrip.Segment(spaceIndex: 1, runs: [.index("1"), .app("Safari")])
         let b = GlyphStrip.Segment(spaceIndex: 2, runs: [.index("2")])
         XCTAssertEqual(
-            GlyphStripPanelController.changedSegments(previous: nil, current: [a, b]),
+            GlyphStrip.changedSegments(previous: nil, current: [a, b]),
             []
         )
         XCTAssertEqual(
-            GlyphStripPanelController.changedSegments(previous: [a, b], current: [a, b]),
+            GlyphStrip.changedSegments(previous: [a, b], current: [a, b]),
             []
         )
         let moved = GlyphStrip.Segment(spaceIndex: 2, runs: [.index("1"), .app("Safari")])
         XCTAssertEqual(
-            GlyphStripPanelController.changedSegments(previous: [a, b], current: [moved, b]),
+            GlyphStrip.changedSegments(previous: [a, b], current: [moved, b]),
             [0]
         )
         XCTAssertEqual(
-            GlyphStripPanelController.changedSegments(previous: [a, b], current: [a]),
+            GlyphStrip.changedSegments(previous: [a, b], current: [a]),
             [0]
         )
+        let iconAdded = GlyphStrip.Segment(spaceIndex: 2, runs: [.index("2"), .app("Safari")])
+        XCTAssertEqual(
+            GlyphStrip.changedSegments(previous: [a, b], current: [a, iconAdded]),
+            [1],
+            "a changed second segment must animate even when the first is identical"
+        )
+    }
+
+    // MARK: - Render layout
+
+    private func styles(
+        for segments: [GlyphStrip.Segment],
+        focused: Int?,
+        strip: GlyphStripConfig = .default
+    ) -> [[GlyphStrip.RunStyle]] {
+        segments.map { segment in
+            let isCurrent = segment.spaceIndex != nil && segment.spaceIndex == focused
+            return segment.runs.map { run in
+                GlyphStrip.style(for: run, isCurrent: isCurrent, strip: strip)
+            }
+        }
+    }
+
+    /// One horizontal render: exact slot frames and run frames, plus the
+    /// colour policy the paint path resolves from the same segments.
+    func testHorizontalLayoutPinsSlotRunFramesAndStyles() {
+        let segments: [GlyphStrip.Segment] = [
+            .init(spaceIndex: 1, runs: [.index("1"), .app("A"), .overflow(2)]),
+            .init(spaceIndex: 2, runs: [.index("2"), .placeholder])
+        ]
+        let slots = [
+            CGRect(x: 10, y: 0, width: 50, height: 24),
+            CGRect(x: 60, y: 0, width: 40, height: 24)
+        ]
+        let layout = GlyphStrip.layout(
+            segments: segments,
+            state: nil,
+            options: GlyphStrip.Options(.default),
+            input: GlyphStrip.LayoutInput(
+                slots: slots,
+                advances: [[8, 10, 6], [8, 5]],
+                gaps: [[0, 3, 3], [0, 6]],
+                placement: .inline(inset: 2)
+            )
+        )
+
+        XCTAssertEqual(layout.slots, slots)
+        XCTAssertEqual(layout.runs.map { $0.map(\.frame) }, [
+            [
+                CGRect(x: 12, y: 0, width: 8, height: 24),
+                CGRect(x: 23, y: 0, width: 10, height: 24),
+                CGRect(x: 36, y: 0, width: 6, height: 24)
+            ],
+            [
+                CGRect(x: 62, y: 0, width: 8, height: 24),
+                CGRect(x: 76, y: 0, width: 5, height: 24)
+            ]
+        ])
+        let policy = styles(for: segments, focused: 1)
+        XCTAssertEqual(policy[0].map(\.colorName), ["focused", "focused", "focused"])
+        XCTAssertEqual(policy[1].map(\.colorName), ["text", "text"])
+        XCTAssertEqual(policy[1].map(\.alpha), [1, 1])
+    }
+
+    /// Vertical inline layout centres the segment's single line in its slot.
+    func testVerticalLayoutCentresTheLineInItsSlot() {
+        let segments: [GlyphStrip.Segment] = [
+            .init(spaceIndex: 1, runs: [.index("1"), .app("A")])
+        ]
+        let layout = GlyphStrip.layout(
+            segments: segments,
+            state: nil,
+            options: GlyphStrip.Options(.default),
+            input: GlyphStrip.LayoutInput(
+                slots: [CGRect(x: 0, y: 0, width: 60, height: 30)],
+                advances: [[8, 10]],
+                gaps: [[0, 3]],
+                placement: .centered
+            )
+        )
+
+        XCTAssertEqual(layout.runs[0].map(\.frame), [
+            CGRect(x: 19.5, y: 0, width: 8, height: 30),
+            CGRect(x: 30.5, y: 0, width: 10, height: 30)
+        ])
+    }
+
+    /// Stacked vertical layout puts one run per line and centres each by its
+    /// ink centre, falling back to the advance box for nil centres.
+    func testStackedLayoutCentresEachRunOnItsLine() {
+        let segments: [GlyphStrip.Segment] = [
+            .init(spaceIndex: 1, runs: [.index("1"), .app("A")])
+        ]
+        let layout = GlyphStrip.layout(
+            segments: segments,
+            state: nil,
+            options: GlyphStrip.Options(.default),
+            input: GlyphStrip.LayoutInput(
+                slots: [CGRect(x: 0, y: 0, width: 40, height: 50)],
+                advances: [[10, 12]],
+                gaps: [[0, 0]],
+                placement: .stacked,
+                lines: [[
+                    CGRect(x: 0, y: 40, width: 40, height: 10),
+                    CGRect(x: 0, y: 20, width: 40, height: 10)
+                ]],
+                inkCenters: [[nil, 15]]
+            )
+        )
+
+        XCTAssertEqual(layout.runs[0].map(\.frame), [
+            CGRect(x: 15, y: 40, width: 10, height: 10),
+            CGRect(x: 15, y: 20, width: 12, height: 10)
+        ])
+    }
+
+    func testLayoutHitTestsNameTheSegmentAndRunUnderThePoint() {
+        let segments: [GlyphStrip.Segment] = [
+            .init(spaceIndex: 1, runs: [.index("1"), .app("A"), .overflow(2)]),
+            .init(spaceIndex: 2, runs: [.index("2"), .placeholder])
+        ]
+        let layout = GlyphStrip.layout(
+            segments: segments,
+            state: nil,
+            options: GlyphStrip.Options(.default),
+            input: GlyphStrip.LayoutInput(
+                slots: [
+                    CGRect(x: 10, y: 0, width: 50, height: 24),
+                    CGRect(x: 60, y: 0, width: 40, height: 24)
+                ],
+                advances: [[8, 10, 6], [8, 5]],
+                gaps: [[0, 3, 3], [0, 6]],
+                placement: .inline(inset: 2)
+            )
+        )
+
+        XCTAssertEqual(layout.segment(at: CGPoint(x: 12, y: 10)), 0)
+        XCTAssertEqual(layout.segment(at: CGPoint(x: 59, y: 10)), 0)
+        XCTAssertEqual(layout.segment(at: CGPoint(x: 60, y: 10)), 1)
+        XCTAssertNil(layout.segment(at: CGPoint(x: 5, y: 10)))
+
+        XCTAssertEqual(layout.run(at: CGPoint(x: 12, y: 10))?.segment, 0)
+        XCTAssertEqual(layout.run(at: CGPoint(x: 12, y: 10))?.run, 0)
+        XCTAssertEqual(layout.run(at: CGPoint(x: 23, y: 10), in: 0), 1)
+        XCTAssertEqual(layout.run(at: CGPoint(x: 76, y: 10), in: 1), 1)
+        XCTAssertNil(layout.run(at: CGPoint(x: 21, y: 10), in: 0), "the gap between two runs is not a run")
+        XCTAssertNil(layout.run(at: CGPoint(x: 5, y: 10), in: 0))
+    }
+
+    /// Drag payloads must follow the same dedupe and icon cap as the runs.
+    func testLayoutMapsWindowsFromSegmentOptions() {
+        var deduped = GlyphStrip.Options(.default)
+        deduped.dedupeAppsPerSpace = true
+        deduped.maxIconsPerSpace = 0
+        var capped = GlyphStrip.Options(.default)
+        capped.dedupeAppsPerSpace = false
+        capped.maxIconsPerSpace = 1
+        let gridState = state(spaces: [space(index: 1)], windows: mixedWindows, maxSpaces: 1)
+
+        func layout(for options: GlyphStrip.Options) -> GlyphStrip.SegmentLayout {
+            let segment = singleSegment(options, windows: mixedWindows)
+            return GlyphStrip.layout(
+                segments: [segment],
+                state: gridState,
+                options: options,
+                input: GlyphStrip.LayoutInput(
+                    slots: [CGRect(x: 0, y: 0, width: 40, height: 20)],
+                    advances: [Array(repeating: 5, count: segment.runs.count)],
+                    gaps: [Array(repeating: 0, count: segment.runs.count)],
+                    placement: .inline(inset: 0)
+                )
+            )
+        }
+
+        // Dedupe: one Safari icon carries every Safari window.
+        let dedupedLayout = layout(for: deduped)
+        XCTAssertEqual(dedupedLayout.runs[0].count, 3)
+        XCTAssertTrue(dedupedLayout.runs[0][0].windows.isEmpty, "the number run carries no windows")
+        XCTAssertEqual(dedupedLayout.runs[0][1].windows.map(\.id), [1, 2])
+        XCTAssertEqual(dedupedLayout.runs[0][2].windows.map(\.id), [3])
+
+        // Cap: the kept icon carries its window, the overflow indicator none.
+        let cappedLayout = layout(for: capped)
+        XCTAssertEqual(cappedLayout.runs[0].count, 3)
+        XCTAssertEqual(cappedLayout.runs[0][1].windows.map(\.id), [1])
+        XCTAssertTrue(cappedLayout.runs[0][2].windows.isEmpty)
     }
 
     func testVerticalSlotsStackFromTheTopInSpaceOrder() {
@@ -1405,14 +1580,14 @@ final class GlyphStripTests: XCTestCase {
     /// The three roles the strip resolves against the theme all exist in the
     /// default theme, so every layer has a drawable colour.
     func testRoleNamesResolveInTheDefaultTheme() throws {
-        let theme = try XCTUnwrap(ThemeManager().named("default"), "default theme missing")
+        let theme = try XCTUnwrap(makeTemporaryThemeStore().named("default"), "default theme missing")
         for role in ["focused", "text", "cellBg"] {
             XCTAssertNotNil(GlyphStrip.color(for: role, theme: theme), "\(role) has no value")
         }
     }
 
     func testEveryThemeColorNameResolvesToItsValue() throws {
-        let theme = try XCTUnwrap(ThemeManager().named("default"), "default theme missing")
+        let theme = try XCTUnwrap(makeTemporaryThemeStore().named("default"), "default theme missing")
         for name in AppTheme.colorNames {
             XCTAssertNotNil(theme.value(for: name), "\(name) has no value")
             XCTAssertNotNil(GlyphStrip.color(for: name, theme: theme))
@@ -1420,36 +1595,36 @@ final class GlyphStripTests: XCTestCase {
     }
 
     func testNoColorResolvesToNoDrawableColor() throws {
-        let theme = try XCTUnwrap(ThemeManager().named("default"))
+        let theme = try XCTUnwrap(makeTemporaryThemeStore().named("default"))
         XCTAssertNil(GlyphStrip.color(for: "none", theme: theme))
         XCTAssertNil(GlyphStrip.color(for: "chartreuse", theme: theme))
     }
 
     /// Current space and add button both draw in the theme's `focused` role.
     func testCurrentSpaceAndAddButtonUseTheFocusedRole() throws {
-        let theme = try XCTUnwrap(ThemeManager().named("default"))
+        let theme = try XCTUnwrap(makeTemporaryThemeStore().named("default"))
         var strip = GlyphStripConfig.default
         strip.highlightCurrentSpace = true
 
-        let current = GlyphStripPanelController.style(for: .index("2"), isCurrent: true, strip: strip, theme: theme)
+        let current = GlyphStrip.style(for: .index("2"), isCurrent: true, strip: strip)
         XCTAssertEqual(current.colorName, "focused")
         XCTAssertEqual(
             GlyphStrip.color(for: current.colorName, theme: theme),
             GlyphStrip.color(for: "focused", theme: theme)
         )
 
-        let add = GlyphStripPanelController.style(for: .add, isCurrent: false, strip: strip, theme: theme)
+        let add = GlyphStrip.style(for: .add, isCurrent: false, strip: strip)
         XCTAssertEqual(add.colorName, "focused")
     }
 
     /// Every resting element draws in the theme's `text` role — hover uses
     /// `focused` (the same role as the current space), so a leak would show.
     func testRestingRolesResolveToText() throws {
-        let theme = try XCTUnwrap(ThemeManager().named("default"))
+        let theme = try XCTUnwrap(makeTemporaryThemeStore().named("default"))
         let strip = GlyphStripConfig.default
         let runs: [GlyphStrip.Run] = [.index("1"), .app("A"), .overflow(3), .separator, .placeholder]
         for run in runs {
-            let style = GlyphStripPanelController.style(for: run, isCurrent: false, strip: strip, theme: theme)
+            let style = GlyphStrip.style(for: run, isCurrent: false, strip: strip)
             XCTAssertEqual(style.colorName, "text", "\(run) should rest in text")
             XCTAssertEqual(
                 GlyphStrip.color(for: style.colorName, theme: theme),
@@ -1459,8 +1634,8 @@ final class GlyphStripTests: XCTestCase {
     }
 
     func testGlassStrokeColorIsDerivedFromTheThemeNotHardcoded() throws {
-        for name in ThemeManager().allNames() {
-            let theme = try XCTUnwrap(ThemeManager().named(name))
+        for name in makeTemporaryThemeStore().allNames() {
+            let theme = try XCTUnwrap(makeTemporaryThemeStore().named(name))
             let stroke = GlyphStrip.glassStrokeColor(theme: theme)
             XCTAssertNotNil(stroke.usingColorSpace(.sRGB), "\(name) produced an unusable stroke colour")
             let expected = GlyphStrip.color(for: "text", theme: theme)!
@@ -1562,16 +1737,16 @@ final class GlyphStripTests: XCTestCase {
     }
 
     func testHighlightingOnMakesTheCurrentSpaceDistinct() throws {
-        let theme = try XCTUnwrap(ThemeManager().named("default"))
+        let theme = try XCTUnwrap(makeTemporaryThemeStore().named("default"))
         let strip = styleStrip(highlight: true)
 
-        let current = GlyphStripPanelController.style(for: .index("2"), isCurrent: true, strip: strip, theme: theme)
-        let other = GlyphStripPanelController.style(for: .index("3"), isCurrent: false, strip: strip, theme: theme)
+        let current = GlyphStrip.style(for: .index("2"), isCurrent: true, strip: strip)
+        let other = GlyphStrip.style(for: .index("3"), isCurrent: false, strip: strip)
         XCTAssertEqual(current.colorName, "focused")
         XCTAssertNotEqual(current.colorName, other.colorName)
 
-        let currentIcon = GlyphStripPanelController.style(for: .app("A"), isCurrent: true, strip: strip, theme: theme)
-        let otherIcon = GlyphStripPanelController.style(for: .app("B"), isCurrent: false, strip: strip, theme: theme)
+        let currentIcon = GlyphStrip.style(for: .app("A"), isCurrent: true, strip: strip)
+        let otherIcon = GlyphStrip.style(for: .app("B"), isCurrent: false, strip: strip)
         XCTAssertEqual(currentIcon.alpha, 1.0)
         XCTAssertEqual(otherIcon.alpha, 0.55, "non-current app glyphs stay faded")
     }
@@ -1580,24 +1755,24 @@ final class GlyphStripTests: XCTestCase {
     /// dimmed colour but was still marked out. It must be byte-identical to every
     /// other space instead.
     func testHighlightingOffMakesTheCurrentSpaceIdenticalToEveryOther() throws {
-        let theme = try XCTUnwrap(ThemeManager().named("default"))
+        let theme = try XCTUnwrap(makeTemporaryThemeStore().named("default"))
         let strip = styleStrip(highlight: false)
         let runs: [GlyphStrip.Run] = [
             .index("2"), .app("A"), .app("B"), .overflow(3), .placeholder, .separator, .add
         ]
 
         for run in runs {
-            let current = GlyphStripPanelController.style(for: run, isCurrent: true, strip: strip, theme: theme)
-            let other = GlyphStripPanelController.style(for: run, isCurrent: false, strip: strip, theme: theme)
+            let current = GlyphStrip.style(for: run, isCurrent: true, strip: strip)
+            let other = GlyphStrip.style(for: run, isCurrent: false, strip: strip)
             XCTAssertEqual(current, other, "\(run) still looks different when it is the current space")
         }
     }
 
     func testHighlightingOffAlsoRemovesTheAppGlyphAlphaStep() throws {
-        let theme = try XCTUnwrap(ThemeManager().named("default"))
+        let theme = try XCTUnwrap(makeTemporaryThemeStore().named("default"))
         let strip = styleStrip(highlight: false)
-        let currentIcon = GlyphStripPanelController.style(for: .app("A"), isCurrent: true, strip: strip, theme: theme)
-        let otherIcon = GlyphStripPanelController.style(for: .app("B"), isCurrent: false, strip: strip, theme: theme)
+        let currentIcon = GlyphStrip.style(for: .app("A"), isCurrent: true, strip: strip)
+        let otherIcon = GlyphStrip.style(for: .app("B"), isCurrent: false, strip: strip)
         XCTAssertEqual(currentIcon.alpha, 0.55, "no special alpha for the current space")
         XCTAssertEqual(currentIcon, otherIcon)
     }
@@ -1667,7 +1842,7 @@ final class GlyphStripTests: XCTestCase {
 
     private func decodeGlyphStrip(_ toml: String) -> GlyphStripConfig? {
         // `TOMLParser.parse` already normalizes and decodes.
-        return (try? TOMLParser.parse(toml))?.glyphStrip
+        return (try? TOMLParser.parse(toml))?.config.glyphStrip
     }
 
     func testClickActionKeysDecodeIndependently() {
@@ -1763,7 +1938,7 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(clamped.glassClearVariant, 21)
         XCTAssertEqual(clamped.glassRegularVariant, 0)
 
-        var hud = GridConfig.default
+        var hud = SpacemapConfig.default
         hud.glassStyle = .regular
         hud.glassRegularVariant = 16
         strip.glassStyle = .regular
@@ -1800,7 +1975,7 @@ final class GlyphStripTests: XCTestCase {
     }
 
     func testMatchHUDAppearanceCopiesMaterialStyleOpacityAndTheme() {
-        var hud = GridConfig.default
+        var hud = SpacemapConfig.default
         hud.backgroundStyle = .solid
         hud.solidOpacity = 0.8
         hud.glassStyle = .tinted
@@ -1810,10 +1985,11 @@ final class GlyphStripTests: XCTestCase {
         strip.backgroundMaterial = .none
         strip.theme = "dracula"
         strip.matchHUDAppearance = true
+        let store = makeTemporaryThemeStore()
 
         XCTAssertEqual(strip.resolvedBackgroundMaterial(hud: hud), .solid)
         XCTAssertEqual(strip.resolvedBackgroundOpacity(hud: hud), 0.8)
-        XCTAssertEqual(strip.resolvedThemeName(hud: hud), "nord")
+        XCTAssertEqual(store.resolvedThemeName(strip: strip, hudTheme: hud.theme), "nord")
 
         hud.backgroundStyle = .glass
         XCTAssertEqual(strip.resolvedBackgroundMaterial(hud: hud), .liquidGlass)
@@ -1826,14 +2002,17 @@ final class GlyphStripTests: XCTestCase {
         strip.matchHUDAppearance = false
         XCTAssertEqual(strip.resolvedBackgroundMaterial(hud: hud), .none)
         XCTAssertEqual(strip.resolvedGlassStyle(hud: hud), .regular)
-        XCTAssertEqual(strip.resolvedThemeName(hud: hud), "dracula")
+        XCTAssertEqual(store.resolvedThemeName(strip: strip, hudTheme: hud.theme), "dracula")
     }
 
-    func testAbsentGlyphStripKeyLeavesConfigUntouched() {
-        XCTAssertNil(decodeGlyphStrip("""
+    func testAbsentGlyphStripTableFallsBackToItsDefaultsAndFlagsRepair() {
+        let parsed = try? TOMLParser.parse("""
         [grid]
         cols = 4
-        """))
+        """)
+
+        XCTAssertEqual(parsed?.config.glyphStrip, GlyphStripConfig.default)
+        XCTAssertEqual(parsed?.needsRepair, true, "a missing strip table flags a rewrite")
     }
 
     func testNumericRangesAreClampedAtTheModelBoundary() {
@@ -1868,10 +2047,11 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.margin, 6)
     }
 
-    func testYOffsetDefaultsToZeroAndClampsToMinusTenAndTen() {
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.yOffset, 0)
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nyOffset = 55.0")?.clamped().yOffset, 10)
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nyOffset = -55.0")?.clamped().yOffset, -10)
+    func testCustomPlacementDefaultsToCentredFractions() {
+        let defaults = decodeGlyphStrip("[glyphStrip]\nenabled = true")
+        XCTAssertEqual(defaults?.customX, 0.5)
+        XCTAssertEqual(defaults?.customY, 0.5)
+        XCTAssertEqual(defaults?.customScreen, "", "no display pairing by default")
     }
 
     func testHoverPaddingDefaultsToOneAndClampsToZeroAndTwelve() {
@@ -1889,7 +2069,7 @@ final class GlyphStripTests: XCTestCase {
     func testNewKeysDefaultWhenAbsentFromAnOldConfig() {
         let config = decodeGlyphStrip("[glyphStrip]\nenabled = true")
         XCTAssertEqual(config?.theme, "", "empty theme = follow the main HUD")
-        XCTAssertEqual(config?.xOffset, 0)
+        XCTAssertEqual(config?.customX, 0.5)
         XCTAssertEqual(config?.borderEnabled, true, "border defaults to on")
         XCTAssertEqual(config?.position, .leftOfNotch)
     }
@@ -1899,20 +2079,23 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\ntheme = 42")?.theme, "")
     }
 
-    func testCustomPositionAndXOffsetDecode() {
+    func testCustomPositionAndFractionsDecode() {
         let config = decodeGlyphStrip("""
         [glyphStrip]
         position = "custom"
-        xOffset = 300
+        customX = 0.3
+        customY = 0.7
+        customScreen = "display-A"
         """)
         XCTAssertEqual(config?.position, .custom)
-        XCTAssertEqual(config?.xOffset, 300)
+        XCTAssertEqual(config?.customX, 0.3)
+        XCTAssertEqual(config?.customY, 0.7)
+        XCTAssertEqual(config?.customScreen, "display-A")
     }
 
-    func testXOffsetAcceptsADecimalAndClamps() {
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nxOffset = 300.0")?.xOffset, 300)
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nxOffset = 99999")?.clamped().xOffset, 4000)
-        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nxOffset = -99999")?.clamped().xOffset, -4000)
+    func testCustomFractionsClampToTheUnitRange() {
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\ncustomX = 99.0")?.clamped().customX, 1)
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\ncustomY = -99.0")?.clamped().customY, 0)
     }
 
     func testBorderEnabledDecodesAndRejectsNonBools() {
@@ -1943,7 +2126,6 @@ final class GlyphStripTests: XCTestCase {
         original.matchBackgroundOpacity = true
         original.cornerRadius = 12
         original.margin = 9
-        original.yOffset = 3.5
         original.hoverPadding = 2.5
         original.hoverCornerRadius = 7.5
         original.iconSpacing = 3.5
@@ -1954,11 +2136,13 @@ final class GlyphStripTests: XCTestCase {
         original.rightClickAction = .mergeWindows
         original.middleClickAction = .balanceWindows
         original.position = .custom
-        original.xOffset = 300
+        original.customX = 0.3
+        original.customY = 0.7
+        original.customScreen = "display-A"
         original.theme = "nord"
         original.borderEnabled = false
 
-        var values = ConfigValues()
+        var values = SpacemapConfig.default
         values.glyphStrip = original
         let toml = ConfigLoader.tomlConfigString(from: values, includeHeaderComments: false)
         let reread = decodeGlyphStrip(toml)?.clamped()
@@ -1969,15 +2153,18 @@ final class GlyphStripTests: XCTestCase {
 
 final class GlyphStripPanelPresentationTests: XCTestCase {
 
-    private func enabledConfig() -> GridConfig {
-        var config = GridConfig.default
+    private func enabledConfig() -> SpacemapConfig {
+        var config = SpacemapConfig.default
         config.glyphStrip.enabled = true
         return config
     }
 
     func testContentOnlyRefreshRepaintsEvenWhenTheFrameIsUnchanged() throws {
         _ = NSApplication.shared
-        let controller = GlyphStripPanelController(yabaiService: MockYabaiService())
+        let controller = GlyphStripPanelController(
+            yabaiService: MockYabaiService(),
+            themeStore: makeTemporaryThemeStore()
+        )
         controller.update(config: enabledConfig())
         controller.present()
 
@@ -1998,9 +2185,62 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         )
     }
 
+    /// A config change must drop the cached panel render, or the next repaint
+    /// keeps the old padding.
+    func testConfigUpdateRebuildsTheCachedPanelLayout() throws {
+        guard NSScreen.main != nil else {
+            throw XCTSkip("no display available in this environment")
+        }
+        _ = NSApplication.shared
+        let yabai = MockYabaiService()
+        yabai.buildGridStateResult = GridState(
+            config: .default,
+            spaces: [1, 2].map {
+                YabaiSpace(id: $0, index: $0, display: 1, hasFocus: $0 == 1, isVisible: true, label: nil)
+            },
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
+            focusedIndex: 1
+        )
+        let controller = GlyphStripPanelController(
+            yabaiService: yabai,
+            themeStore: makeTemporaryThemeStore()
+        )
+        var config = enabledConfig()
+        config.glyphStrip.padding = 4
+        controller.update(config: config)
+        controller.present()
+
+        // The first pass waits for the off-main font load.
+        let deadline = Date().addingTimeInterval(2)
+        while controller.layout.slots.isEmpty, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        controller.pendingRefresh?.cancel()
+        let first = try XCTUnwrap(controller.layout.slots.first)
+        XCTAssertEqual(first.minX, 4, accuracy: 0.5)
+
+        // Same config and bounds reuse the cached render.
+        let builds = controller.layoutBuildCount
+        _ = controller.layout
+        XCTAssertEqual(controller.layoutBuildCount, builds)
+
+        var widened = config
+        widened.glyphStrip.padding = 12
+        controller.update(config: widened)
+        controller.pendingRefresh?.cancel()
+
+        let second = try XCTUnwrap(controller.layout.slots.first)
+        XCTAssertEqual(second.minX, 12, accuracy: 0.5, "the cache must rebuild from the new config")
+        XCTAssertEqual(controller.layoutBuildCount, builds + 1)
+    }
+
     func testHidingInvalidatesInFlightRefreshAndStalePresentCannotShow() throws {
         _ = NSApplication.shared
-        let controller = GlyphStripPanelController(yabaiService: MockYabaiService())
+        let controller = GlyphStripPanelController(
+            yabaiService: MockYabaiService(),
+            themeStore: makeTemporaryThemeStore()
+        )
         controller.update(config: enabledConfig())
         controller.present()
 
@@ -2025,9 +2265,32 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         XCTAssertFalse(panel.isVisible)
     }
 
+    /// A free-placed strip first honours the display it was saved on, so its
+    /// position survives a monitor change; a preset has no such claim, and a
+    /// display that is gone must fall through to the usual target.
+    func testStoredScreenHonoursCustomPlacementOnly() throws {
+        guard let main = NSScreen.main else {
+            throw XCTSkip("no display available in this environment")
+        }
+        var strip = SpacemapConfig.default.glyphStrip
+        strip.position = .custom
+        strip.customScreen = ScreenContext.displayIdentifier(for: main)
+        XCTAssertTrue(GlyphStripPanelController.storedScreen(for: strip, screens: [main]) === main)
+
+        strip.position = .leftOfNotch
+        XCTAssertNil(GlyphStripPanelController.storedScreen(for: strip, screens: [main]))
+
+        strip.position = .custom
+        strip.customScreen = "gone-display"
+        XCTAssertNil(GlyphStripPanelController.storedScreen(for: strip, screens: [main]))
+    }
+
     func testSettingsUpdateClearsAWedgeRefreshLatch() {
         _ = NSApplication.shared
-        let controller = GlyphStripPanelController(yabaiService: MockYabaiService())
+        let controller = GlyphStripPanelController(
+            yabaiService: MockYabaiService(),
+            themeStore: makeTemporaryThemeStore()
+        )
         controller.update(config: enabledConfig())
         controller.pendingRefresh?.cancel()
         controller.markRefreshWedgedForTesting()
@@ -2041,6 +2304,117 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         XCTAssertNotNil(controller.pendingRefresh, "a fresh refresh should be queued")
     }
 
+    /// A daemon restart makes yabai report no spaces. That empty state must not
+    /// replace a painted strip with a lone add button until the next signal.
+    func testEmptyStateRefreshKeepsTheLastPaintedStrip() throws {
+        guard NSScreen.main != nil else {
+            throw XCTSkip("no display available in this environment")
+        }
+        _ = NSApplication.shared
+        let yabai = MockYabaiService()
+        yabai.buildGridStateResult = GridState(
+            config: .default,
+            spaces: [1, 2].map {
+                YabaiSpace(id: $0, index: $0, display: 1, hasFocus: $0 == 1, isVisible: true, label: nil)
+            },
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
+            focusedIndex: 1
+        )
+        let controller = GlyphStripPanelController(
+            yabaiService: yabai,
+            themeStore: makeTemporaryThemeStore()
+        )
+        controller.update(config: enabledConfig())
+        controller.present()
+
+        // The first pass waits for the off-main font load.
+        let deadline = Date().addingTimeInterval(2)
+        while controller.layout.slots.isEmpty, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        controller.pendingRefresh?.cancel()
+        let painted = controller.layout.slots
+        XCTAssertFalse(painted.isEmpty, "the strip must paint spaces while yabai is up")
+
+        yabai.buildGridStateResult = GridState(
+            config: .default,
+            spaces: [],
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
+            focusedIndex: nil
+        )
+        let buildsBefore = yabai.buildGridStateCallCount
+        controller.refresh()
+        let emptyDeadline = Date().addingTimeInterval(2)
+        while yabai.buildGridStateCallCount == buildsBefore, Date() < emptyDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        // Let the coordinator's main-queue completion paint.
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+
+        XCTAssertEqual(controller.layout.slots, painted, "an empty state must keep the last painted frame")
+    }
+
+    /// A strip hidden by the hotkey and shown again while yabai is down has kept
+    /// segments but no frame on screen. The empty-state guard must present them.
+    func testStripHiddenDuringDowntimeComesBackWithTheKeptSegments() throws {
+        guard NSScreen.main != nil else {
+            throw XCTSkip("no display available in this environment")
+        }
+        _ = NSApplication.shared
+        let yabai = MockYabaiService()
+        yabai.buildGridStateResult = GridState(
+            config: .default,
+            spaces: [1, 2].map {
+                YabaiSpace(id: $0, index: $0, display: 1, hasFocus: $0 == 1, isVisible: true, label: nil)
+            },
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
+            focusedIndex: 1
+        )
+        let controller = GlyphStripPanelController(
+            yabaiService: yabai,
+            themeStore: makeTemporaryThemeStore()
+        )
+        controller.update(config: enabledConfig())
+        controller.present()
+
+        // The first pass waits for the off-main font load.
+        let deadline = Date().addingTimeInterval(2)
+        while controller.layout.slots.isEmpty, Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        controller.pendingRefresh?.cancel()
+        let painted = controller.layout.slots
+        XCTAssertFalse(painted.isEmpty, "the strip must paint spaces while yabai is up")
+        let panel = try XCTUnwrap(controller.panel)
+
+        controller.toggleVisibilityByHotkey()
+        let hideDeadline = Date().addingTimeInterval(1)
+        while panel.isVisible, Date() < hideDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        XCTAssertFalse(panel.isVisible)
+
+        // Yabai is down: every state from here on reports no spaces.
+        yabai.buildGridStateResult = GridState(
+            config: .default,
+            spaces: [],
+            windows: [],
+            displayBounds: CGRect(x: 0, y: 0, width: 2560, height: 1440),
+            focusedIndex: nil
+        )
+        controller.toggleVisibilityByHotkey()
+
+        let showDeadline = Date().addingTimeInterval(2)
+        while !panel.isVisible, Date() < showDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        XCTAssertTrue(panel.isVisible, "showing the strip during downtime must present it")
+        XCTAssertEqual(controller.layout.slots, painted, "the kept frame is reused, not repainted empty")
+    }
+
     func testVerticallyStackedQuartzDisplaysResolveToAppKitScreens() {
         let quartzMaxY: CGFloat = 1080
         let appKitFrames = [
@@ -2050,11 +2424,11 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         let topQuartz = CGRect(x: 0, y: 0, width: 1920, height: 1080)
         let bottomQuartz = CGRect(x: 0, y: 1080, width: 1920, height: 1080)
 
-        let topAppKit = GlyphStripPanelController.appKitFrame(
+        let topAppKit = ScreenContext.appKitFrame(
             forQuartzFrame: topQuartz,
             quartzMaxY: quartzMaxY
         )
-        let bottomAppKit = GlyphStripPanelController.appKitFrame(
+        let bottomAppKit = ScreenContext.appKitFrame(
             forQuartzFrame: bottomQuartz,
             quartzMaxY: quartzMaxY
         )
@@ -2062,11 +2436,11 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         XCTAssertEqual(topAppKit, appKitFrames[0])
         XCTAssertEqual(bottomAppKit, appKitFrames[1])
         XCTAssertEqual(
-            GlyphStripPanelController.bestScreenIndex(for: topAppKit, screenFrames: appKitFrames),
+            ScreenContext.bestScreenIndex(for: topAppKit, screenFrames: appKitFrames),
             0
         )
         XCTAssertEqual(
-            GlyphStripPanelController.bestScreenIndex(for: bottomAppKit, screenFrames: appKitFrames),
+            ScreenContext.bestScreenIndex(for: bottomAppKit, screenFrames: appKitFrames),
             1
         )
         // The raw Quartz frame does not live in AppKit's coordinate space.
@@ -2077,7 +2451,7 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         let screen = CGRect(x: 0, y: 0, width: 1710, height: 1112)
         let visible = CGRect(x: 0, y: 0, width: 1710, height: 1075)
 
-        let notched = GlyphStripPanelController.menuBarRow(
+        let notched = ScreenContext.menuBarRow(
             screenFrame: screen,
             visibleFrame: visible,
             safeAreaTop: 37.5
@@ -2085,7 +2459,7 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         XCTAssertEqual(notched, CGRect(x: 0, y: 1074.5, width: 1710, height: 37.5))
 
         let plainVisible = CGRect(x: 0, y: 0, width: 1710, height: 1088)
-        let plain = GlyphStripPanelController.menuBarRow(
+        let plain = ScreenContext.menuBarRow(
             screenFrame: screen,
             visibleFrame: plainVisible,
             safeAreaTop: 0
@@ -2115,6 +2489,85 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         XCTAssertEqual(
             GlyphStrip.accessibilityLabel(for: .init(spaceIndex: nil, runs: [.separator]), focused: false),
             "Display separator"
+        )
+    }
+}
+
+final class PanelPresenterTests: XCTestCase {
+
+    private func stripSurface() -> PanelPresenter.Surface {
+        PanelPresenter.Surface(
+            level: .statusBar,
+            hasShadow: true,
+            collectionBehavior: [.canJoinAllSpaces, .stationary],
+            hidesOnDeactivate: false
+        )
+    }
+
+    func testMakePanelAppliesSurfaceAndLeavesUnsetDeactivationToAppKit() {
+        var requestedMask: NSWindow.StyleMask?
+        let presenter = PanelPresenter(factory: { mask in
+            requestedMask = mask
+            return NSPanel(contentRect: .zero, styleMask: mask, backing: .buffered, defer: false)
+        })
+
+        let strip = presenter.makePanel(stripSurface())
+        XCTAssertEqual(requestedMask, [.borderless, .nonactivatingPanel])
+        XCTAssertEqual(strip.level, .statusBar)
+        XCTAssertTrue(strip.hasShadow)
+        XCTAssertEqual(strip.collectionBehavior, [.canJoinAllSpaces, .stationary])
+        XCTAssertFalse(strip.isOpaque)
+        XCTAssertEqual(strip.backgroundColor, .clear)
+        XCTAssertFalse(strip.hidesOnDeactivate)
+
+        let hud = presenter.makePanel(PanelPresenter.Surface(
+            level: .floating,
+            hasShadow: false,
+            collectionBehavior: []
+        ))
+        XCTAssertEqual(hud.level, .floating)
+        XCTAssertFalse(hud.hasShadow)
+        XCTAssertEqual(
+            hud.hidesOnDeactivate,
+            PanelPresenter.defaultPanelFactory([.borderless, .nonactivatingPanel]).hidesOnDeactivate,
+            "an unset surface keeps AppKit's default"
+        )
+    }
+
+    func testPresentAndHideOrderThePanelWhenNotAnimating() {
+        _ = NSApplication.shared
+        let presenter = PanelPresenter()
+        let panel = presenter.makePanel(stripSurface())
+        panel.alphaValue = 0
+
+        presenter.present(panel, duration: 0.2, animated: false)
+        XCTAssertTrue(panel.isVisible)
+        XCTAssertEqual(panel.alphaValue, 1)
+
+        presenter.hide(panel, duration: 0.2, animated: false)
+        XCTAssertFalse(panel.isVisible)
+    }
+
+    func testHideCompletionFinishesOnlyWhenTheFadeReachedZero() {
+        XCTAssertTrue(PanelPresenter.shouldCompleteHide(currentAlpha: 0))
+        XCTAssertTrue(PanelPresenter.shouldCompleteHide(currentAlpha: 0.004))
+        XCTAssertFalse(
+            PanelPresenter.shouldCompleteHide(currentAlpha: 1),
+            "a present raised alpha again: the panel must stay visible"
+        )
+    }
+
+    func testDragFrameFollowsPointerTravelInScreenCoordinates() {
+        let start = CGRect(x: 100, y: 200, width: 300, height: 40)
+        let delta = PanelPresenter.dragDelta(
+            from: CGPoint(x: 50, y: 50),
+            to: CGPoint(x: 80, y: 20)
+        )
+
+        XCTAssertEqual(delta, CGVector(dx: 30, dy: -30))
+        XCTAssertEqual(
+            PanelPresenter.draggedFrame(from: start, by: delta),
+            CGRect(x: 130, y: 170, width: 300, height: 40)
         )
     }
 }

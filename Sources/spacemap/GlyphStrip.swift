@@ -128,16 +128,15 @@ enum GlyphStrip {
     ///   - margin: gap between the strip and the notch edge, in points.
     ///   - screenFrame: the display's whole frame for `.custom`, which may sit
     ///     anywhere on screen. Anchored positions ignore it.
-    ///   - yOffset: vertical nudge in screen-reading terms. **Positive moves the
-    ///     strip DOWN, into the screen interior.** AppKit's origin is bottom-left,
-    ///     so the subtraction is deliberate rather than a naive `+`. For
-    ///     `.custom` it is the inset from the screen's top edge.
-    ///   - xOffset: horizontal offset from the placement area's left edge, only
-    ///     used by `.custom`; the other positions anchor to the notch or row
-    ///     edges.
+    ///   - xFraction: free-placement X as a fraction of the screen's spare
+    ///     width, only used by `.custom`. 0 is the left edge, 1 the right edge;
+    ///     the same fraction `HUDPosition.custom` stores for the HUD.
+    ///   - yFraction: free-placement Y as the same kind of fraction. AppKit
+    ///     grows upward, so 0 is the bottom edge and 1 the top edge.
     ///
-    /// Anchored positions clamp to the menu bar row. `.custom` clamps to the
-    /// whole screen instead, so a dragged strip can reach any row.
+    /// Anchored positions centre vertically in the menu bar row. `.custom`
+    /// clamps to the whole screen instead, so a dragged strip can reach any
+    /// row.
     ///
     /// Overflow: content wider than the row shrinks to the row width,
     /// left-aligned at `menuBarRow.minX`. Clamping x alone would hang the
@@ -150,11 +149,11 @@ enum GlyphStrip {
         rightNotchArea: CGRect?,
         position: GlyphStripPosition,
         margin: CGFloat,
-        yOffset: CGFloat = 0,
-        xOffset: CGFloat = 0
+        xFraction: Double = 0.5,
+        yFraction: Double = 0.5
     ) -> CGRect {
         // `.custom` may sit anywhere on the display, so it uses the whole
-        // screen and measures from the top-left. Anchored positions stay in
+        // screen and measures in fractions of it. Anchored positions stay in
         // the menu bar row.
         let area = position == .custom ? (screenFrame ?? menuBarRow) : menuBarRow
         let height = position == .custom ? min(contentSize.height, area.height) : min(contentSize.height, menuBarRow.height)
@@ -181,20 +180,19 @@ enum GlyphStrip {
             let area = notchArea(left: leftNotchArea, right: rightNotchArea, menuBarRow: menuBarRow)
             x = area.midX - width / 2
         case .custom:
-            x = area.minX + xOffset
+            let spare = max(area.width - width, 0)
+            x = area.minX + spare * CGFloat(xFraction)
         }
         // Never let the strip hang off the side of its area.
         let clampedX = min(max(x, area.minX), max(area.minX, area.maxX - width))
         let y: CGFloat
         if position == .custom {
-            // Top-down inset from the screen's top edge, so any row is reachable.
-            let desired = area.maxY - yOffset - height
+            let spare = max(area.height - height, 0)
+            let desired = area.minY + spare * CGFloat(yFraction)
             y = min(max(desired, area.minY), max(area.minY, area.maxY - height))
         } else {
-            // Vertical centring inside the row, then the user's nudge. AppKit y
-            // grows upward, so subtracting is what moves the strip DOWN.
-            // yOffset 0 is centered: positive moves down, negative moves up.
-            y = menuBarRow.minY + (menuBarRow.height - height) / 2 - yOffset
+            // Vertical centring inside the row.
+            y = menuBarRow.minY + (menuBarRow.height - height) / 2
         }
         return CGRect(x: clampedX, y: y, width: width, height: height)
     }
@@ -266,18 +264,22 @@ enum GlyphStrip {
         }
     }
 
-    /// The `.custom` offsets that reproduce `frame` inside `area` — the inverse
-    /// of `frame(...)` for the geometry it was given. `area` is the menu bar
-    /// row for anchored placements and the whole screen for `.custom`.
+    /// The `.custom` fractions that reproduce `frame` inside `area` — the
+    /// inverse of `frame(...)` for the geometry it was given. `area` is the
+    /// menu bar row for anchored placements and the whole screen for `.custom`.
     /// Used to turn a dragged panel frame back into config keys.
     ///
-    /// `xOffset` is an `Int` in config, so x is rounded; replaying the result
-    /// can land up to half a point from `frame`, which `frame`'s own clamp
-    /// absorbs.
-    static func customOffsets(for frame: CGRect, area: CGRect) -> (xOffset: Int, yOffset: Double) {
-        let x = frame.minX - area.minX
-        let y = area.maxY - frame.maxY
-        return (Int(x.rounded()), y)
+    /// Nil when the strip fills the area on an axis (no spare travel), matching
+    /// `HUDDisplay.normalizedPosition`: the caller keeps its stored fractions
+    /// instead of dividing by zero.
+    static func customFractions(for frame: CGRect, area: CGRect) -> (x: Double, y: Double)? {
+        let rangeX = area.width - frame.width
+        let rangeY = area.height - frame.height
+        guard rangeX > 0, rangeY > 0 else { return nil }
+        return (
+            Double((frame.minX - area.minX) / rangeX),
+            Double((frame.minY - area.minY) / rangeY)
+        )
     }
 
     /// Pointer travel, in screen points, that separates a click from a drag.
@@ -330,6 +332,40 @@ enum GlyphStrip {
             blue: CGFloat(hex & 0xff) / 255,
             alpha: 1
         )
+    }
+
+    /// How one run is painted: a theme colour role plus the alpha it draws at.
+    struct RunStyle: Equatable {
+        let colorName: String
+        let alpha: CGFloat
+    }
+
+    /// Colour policy for one run.
+    ///
+    /// `isCurrent` is ignored entirely when `highlightCurrentSpace` is off, which
+    /// is what makes the current space genuinely indistinguishable rather than
+    /// merely painted in the dimmed colour. With the flag on, the current space
+    /// and the add button draw in `focused`; everything resting draws in `text`.
+    static func style(
+        for run: Run,
+        isCurrent: Bool,
+        strip: GlyphStripConfig
+    ) -> RunStyle {
+        let highlighted = isCurrent && strip.highlightCurrentSpace
+        var isAppGlyph = false
+        if case .app = run { isAppGlyph = true }
+        if isNativeIcon(run) { isAppGlyph = true }
+        // Only the highlighted (current) space keeps full-strength glyphs.
+        let alpha: CGFloat = isAppGlyph && !highlighted ? 0.55 : 1.0
+        let name: String
+        if highlighted {
+            name = "focused"
+        } else if case .add = run {
+            name = "focused"
+        } else {
+            name = "text"
+        }
+        return RunStyle(colorName: name, alpha: alpha)
     }
 
     /// Picks a stroke colour that stays visible over a light or dark wallpaper.
@@ -542,7 +578,6 @@ enum GlyphStrip {
         var showDisplaySeparators = true
         var showAddSpaceButton = true
         var showPlaceholders = true
-        var iconSpacing: Double = 3
 
         init(_ config: GlyphStripConfig) {
             showSpaceNumbers = config.showSpaceNumbers
@@ -557,7 +592,204 @@ enum GlyphStrip {
             showDisplaySeparators = config.showDisplaySeparators
             showAddSpaceButton = config.showAddSpaceButton
             showPlaceholders = config.showPlaceholders
-            iconSpacing = config.iconSpacing
+        }
+    }
+
+    // MARK: - Render layout
+
+    /// Segments whose painted content changed. A first build animates nothing;
+    /// a count change animates the visible set because indices shifted.
+    static func changedSegments(
+        previous: [Segment]?,
+        current: [Segment]
+    ) -> [Int] {
+        guard let previous else { return [] }
+        guard previous.count == current.count else { return Array(current.indices) }
+        return current.indices.filter { previous[$0] != current[$0] }
+    }
+
+    /// One slot per segment across `content`, each `widths[index]` wide and as
+    /// tall as the content box. Used by both surfaces: the panel insets its
+    /// content box, the status item centres the same slots in its button.
+    static func horizontalSlots(widths: [CGFloat], in content: CGRect) -> [CGRect] {
+        var x = content.minX
+        return widths.map { width in
+            let slot = CGRect(x: x, y: content.minY, width: width, height: content.height)
+            x += width
+            return slot
+        }
+    }
+
+    /// Where runs sit inside their slot for one render.
+    enum RunPlacement: Equatable {
+        /// Left to right inside the slot, `inset` points from its leading edge.
+        case inline(inset: CGFloat)
+        /// Every run of a segment on one line, centred on the slot.
+        case centered
+        /// One run per line from `LayoutInput.lines`.
+        case stacked
+    }
+
+    /// What only AppKit can measure for one render; `layout(...)` derives the
+    /// frames and window mapping from it.
+    struct LayoutInput {
+        /// Hit slot per segment, in the drawing layer's coordinates.
+        var slots: [CGRect]
+        /// Measured advance of every run, parallel to the segments and their runs.
+        var advances: [[CGFloat]]
+        /// Gap before each run, parallel to `advances`.
+        var gaps: [[CGFloat]]
+        var placement: RunPlacement = .inline(inset: 0)
+        /// One line per run for `.stacked`, parallel to `advances`.
+        var lines: [[CGRect]] = []
+        /// Ink-centre x per run for `.stacked`; nil centres the advance box.
+        var inkCenters: [[CGFloat?]] = []
+    }
+
+    /// One painted run: its frame and the windows a drag from it carries.
+    /// Every draw and hit test reads these instead of re-deriving them.
+    struct RunLayout: Equatable {
+        let frame: CGRect
+        let windows: [YabaiWindow]
+    }
+
+    /// The complete description of one render: the hit slot of every segment
+    /// and the painted frame and window mapping of every run.
+    struct SegmentLayout: Equatable {
+        let slots: [CGRect]
+        let runs: [[RunLayout]]
+
+        /// Slot of `segment`, or nil when the layout has no such segment.
+        func slot(_ segment: Int) -> CGRect? {
+            slots.indices.contains(segment) ? slots[segment] : nil
+        }
+
+        /// Segment directly under `point`.
+        func segment(at point: CGPoint) -> Int? {
+            slots.firstIndex { $0.contains(point) }
+        }
+
+        /// Run directly under `point`, scanning every segment.
+        func run(at point: CGPoint) -> (segment: Int, run: Int)? {
+            for (segment, frames) in runs.enumerated() {
+                if let run = frames.firstIndex(where: { $0.frame.contains(point) }) {
+                    return (segment, run)
+                }
+            }
+            return nil
+        }
+
+        /// Run directly under `point` within `segment`; nil outside every run.
+        func run(at point: CGPoint, in segment: Int) -> Int? {
+            guard runs.indices.contains(segment) else { return nil }
+            return runs[segment].firstIndex { $0.frame.contains(point) }
+        }
+    }
+
+    /// Assembles one render. `input.advances`, `input.gaps`, and the
+    /// per-segment `input.lines` are all parallel to `segments` and their runs.
+    static func layout(
+        segments: [Segment],
+        state: GridState?,
+        options: Options,
+        input: LayoutInput
+    ) -> SegmentLayout {
+        let runs = segments.enumerated().map { offset, segment -> [RunLayout] in
+            // No slot means no paint and no hit area, matching a view that has
+            // not been laid out yet.
+            guard input.slots.indices.contains(offset) else { return [] }
+            let slot = input.slots[offset]
+            let frames = runFrames(
+                in: slot,
+                advances: input.advances.indices.contains(offset) ? input.advances[offset] : [],
+                gaps: input.gaps.indices.contains(offset) ? input.gaps[offset] : [],
+                placement: input.placement,
+                lines: input.lines.indices.contains(offset) ? input.lines[offset] : [],
+                inkCenters: input.inkCenters.indices.contains(offset) ? input.inkCenters[offset] : []
+            )
+            let windows = runWindows(for: segment, in: state, options: options)
+            return frames.indices.map { index in
+                RunLayout(
+                    frame: frames[index],
+                    windows: windows.indices.contains(index) ? windows[index] : []
+                )
+            }
+        }
+        return SegmentLayout(slots: input.slots, runs: runs)
+    }
+
+    /// Painted frame of every run in `slot`.
+    private static func runFrames(
+        in slot: CGRect,
+        advances: [CGFloat],
+        gaps: [CGFloat],
+        placement: RunPlacement,
+        lines: [CGRect],
+        inkCenters: [CGFloat?]
+    ) -> [CGRect] {
+        if case .stacked = placement {
+            guard lines.count == advances.count else { return [] }
+            return advances.indices.map { index in
+                let line = lines[index]
+                let inkCenter = inkCenters.indices.contains(index) ? inkCenters[index] : nil
+                let x = inkCenter ?? line.midX - advances[index] / 2
+                return CGRect(x: x, y: line.minY, width: advances[index], height: line.height)
+            }
+        }
+        var x: CGFloat
+        switch placement {
+        case .inline(let inset):
+            x = slot.minX + inset
+        case .centered, .stacked:
+            let inner = advances.indices.reduce(CGFloat(0)) { total, index in
+                // Placement skips the gap before run 0, so the centring sum
+                // must skip it too.
+                let gap = index > 0 && gaps.indices.contains(index) ? gaps[index] : 0
+                return total + advances[index] + gap
+            }
+            x = slot.midX - inner / 2
+        }
+        return advances.indices.map { index in
+            if index > 0, gaps.indices.contains(index) { x += gaps[index] }
+            let frame = CGRect(x: x, y: slot.minY, width: advances[index], height: slot.height)
+            x += advances[index]
+            return frame
+        }
+    }
+
+    /// Windows behind each run of `segment`: an icon run carries its windows,
+    /// every other run none. Dedupe and the icon cap come from `options`, so the
+    /// mapping cannot drift from the runs `segments(for:options:font:)` built.
+    static func runWindows(
+        for segment: Segment,
+        in state: GridState?,
+        options: Options
+    ) -> [[YabaiWindow]] {
+        guard let spaceIndex = segment.spaceIndex, let state else {
+            return Array(repeating: [], count: segment.runs.count)
+        }
+        let all = windows(forSpace: spaceIndex, in: state)
+        let shown = windowsToShow(all, dedupe: options.dedupeAppsPerSpace)
+        let limit = options.maxIconsPerSpace == 0 ? shown.count : min(options.maxIconsPerSpace, shown.count)
+        let icons = Array(shown.prefix(limit))
+        var iconOffset = 0
+        return segment.runs.map { run in
+            switch run {
+            case .app, .nativeIcon:
+                guard icons.indices.contains(iconOffset) else {
+                    iconOffset += 1
+                    return []
+                }
+                let icon = icons[iconOffset]
+                iconOffset += 1
+                return draggedWindows(
+                    for: icon,
+                    allWindows: all,
+                    dedupe: options.dedupeAppsPerSpace
+                )
+            default:
+                return []
+            }
         }
     }
 
