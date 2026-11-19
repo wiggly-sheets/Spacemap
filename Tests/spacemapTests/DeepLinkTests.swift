@@ -45,11 +45,15 @@ final class DeepLinkTests: XCTestCase {
     }
 
     func testPendingActionsFlushOnceReady() throws {
-        let services = SpacemapServices(yabaiService: MockYabaiService(), alertsService: Alerts())
+        let services = SpacemapServices(
+            yabaiService: MockYabaiService(),
+            themeStore: makeTemporaryThemeStore(),
+            alertsService: Alerts()
+        )
         var menuCount = 0
         let service = DeepLinkService(
             hud: services.hud,
-            themeService: services.themeService,
+            themeStore: services.themeStore,
             showSettings: {},
             showMenu: { menuCount += 1 }
         )
@@ -63,11 +67,15 @@ final class DeepLinkTests: XCTestCase {
     }
 
     func testPendingQueueOverflowDropsOldestAction() throws {
-        let services = SpacemapServices(yabaiService: MockYabaiService(), alertsService: Alerts())
+        let services = SpacemapServices(
+            yabaiService: MockYabaiService(),
+            themeStore: makeTemporaryThemeStore(),
+            alertsService: Alerts()
+        )
         var menuCount = 0
         let service = DeepLinkService(
             hud: services.hud,
-            themeService: services.themeService,
+            themeStore: services.themeStore,
             showSettings: {},
             showMenu: { menuCount += 1 }
         )

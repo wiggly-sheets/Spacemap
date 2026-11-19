@@ -49,7 +49,7 @@ final class MenubarHandlerTests: XCTestCase {
 
     func testToggleHUDMenuTitleReflectsCurrentHotkey() {
         let handler = makeHandler()
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.hotkey = HotkeyConfig(key: .keyCode(49), modifiers: [.maskCommand, .maskShift])
 
         XCTAssertEqual(handler.toggleHUDMenuTitle(config: config), "Show/Hide Map (⌘+⇧+Space)")
@@ -57,26 +57,26 @@ final class MenubarHandlerTests: XCTestCase {
 
 
     func testWorkspacePreviewsEnabledWhenMenuBarVisibleAndNotIconMode() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.presence = .menuBar
         config.menuBarDisplayMode = .dots
         XCTAssertTrue(config.needsWorkspacePreviews)
     }
 
     func testWorkspacePreviewsDisabledWhenMenuBarHidden() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.presence = AppPresence.none
         XCTAssertFalse(config.needsWorkspacePreviews)
     }
 
     func testWorkspacePreviewsDisabledWhenIconMode() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.menuBarDisplayMode = .icon
         XCTAssertFalse(config.needsWorkspacePreviews)
     }
 
     func testDotPreviewStateSkipsWindowGeometry() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.menuBarDisplayMode = .dots
         let spaces = [YabaiSpace(id: 1, index: 1, display: 1, hasFocus: true, isVisible: true, label: nil)]
 
@@ -90,28 +90,28 @@ final class MenubarHandlerTests: XCTestCase {
 
 
     func testWindowGeometryPreviewsEnabledWhenDotsMode() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.presence = .menuBar
         config.menuBarDisplayMode = .dots
         XCTAssertFalse(config.needsWindowGeometryPreviews)
     }
 
     func testWindowGeometryPreviewsEnabledWhenNearbyMode() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.presence = .menuBar
         config.menuBarDisplayMode = .nearby
         XCTAssertTrue(config.needsWindowGeometryPreviews)
     }
 
     func testWindowGeometryPreviewsDisabledWhenMenuBarHidden() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.presence = AppPresence.none
         XCTAssertFalse(config.needsWindowGeometryPreviews)
     }
 
 
     func testProfileMenuSignatureTracksNamesAndActiveIndex() {
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.spaceNameProfiles = [
             SpaceNameProfile(name: "Work"),
             SpaceNameProfile(name: "Play"),
@@ -129,7 +129,7 @@ final class MenubarHandlerTests: XCTestCase {
 
     func testEveryMenuItemTargetsHandlerThatRespondsToItsAction() {
         let handler = makeHandler()
-        let menu = handler.makeMenu(config: GridConfig.default)
+        let menu = handler.makeMenu(config: SpacemapConfig.default)
 
         for item in menu.items {
             guard let action = item.action else { continue }  // separators carry no action
@@ -147,13 +147,16 @@ final class MenubarHandlerTests: XCTestCase {
             onInstallCLI: {},
             onCheckForUpdates: {},
             onRestartApp: {},
-            onGetConfig: { GridConfig.default },
+            onGetConfig: { SpacemapConfig.default },
             onSetLoginAtLogin: { _ in },
             onChangeSpaceNameProfile: { _ in }
         )
     }
 
     private func makeHotkeyHandler() -> HotkeyHandler {
-        HotkeyHandler(hud: HUDWindowController(services: SpacemapServices(yabaiService: MockYabaiService())))
+        HotkeyHandler(hud: HUDWindowController(services: SpacemapServices(
+            yabaiService: MockYabaiService(),
+            themeStore: makeTemporaryThemeStore()
+        )))
     }
 }
