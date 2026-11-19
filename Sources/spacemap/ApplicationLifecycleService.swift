@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Sparkle
 
 struct RuntimeConfigChanges: Equatable {
@@ -7,7 +8,7 @@ struct RuntimeConfigChanges: Equatable {
     let updater: Bool
     let yabaiSignals: Bool
 
-    init(previous: GridConfig?, current: GridConfig) {
+    init(previous: SpacemapConfig?, current: SpacemapConfig) {
         func sameHotkey(_ previous: HotkeyConfig?, _ current: HotkeyConfig) -> Bool {
             previous?.key == current.key && previous?.modifiers == current.modifiers
         }
@@ -55,11 +56,13 @@ final class ApplicationLifecycleService {
 
     private var socketListener: SocketListener?
     private var settingsObserver: NSObjectProtocol?
-    private var currentConfig: GridConfig?
+    private var currentConfig: SpacemapConfig?
     private let signalRegistrationCoordinator = YabaiSignalRegistrationCoordinator()
     private var windowSpaceTimer: Timer?
     private var windowSpaceSignature: String?
     private var windowSpacePollInFlight = false
+    private var yabaiDaemonTimer: Timer?
+    private var watchedYabaiDaemonPID: pid_t?
 
 
     init(services: SpacemapServices, hud: HUDWindowController) {
@@ -118,7 +121,7 @@ final class ApplicationLifecycleService {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self = self else { return }
-            AppConfig.silentMode = true
+            ConfigStore.silentMode = true
             let config = self.services.currentConfig
             self.currentConfig = config
             self.hud.reloadConfig()
@@ -142,8 +145,9 @@ final class ApplicationLifecycleService {
             }
 
             AccessibilityHealthMonitor.shared.start()
-            ThemeCatalogService.shared.start()
+            services.themeCatalog.start()
             self.startWindowSpaceWatcher()
+            self.startYabaiDaemonWatcher()
             self.services.configureSparkleUpdater(updateMode: config.updateMode)
 
             if config.appFont.updateMode == .auto {
@@ -151,20 +155,20 @@ final class ApplicationLifecycleService {
             }
         }
 
-        #if !DEBUG
-        if args.contains("--show-menu") {
+        // Order matches the historical checks: the menu first, then Settings.
+        let delivered = CLIFlagTable.deliveredCommands(in: args)
+        if delivered.contains(.showMenu) {
             self.services.showMenubarMenu()
         }
-        if args.contains("--settings") {
+        if delivered.contains(.settings) {
             self.services.showSettingsWindow()
         }
-        #endif
     }
 
     /// Auto mode: at most one GitHub fetch per 24h (rate-limit guard across
     /// restarts); downloads only when the release tag differs. Never blocks
     /// launch — failures log and retry on the next launch (lastCheck stays put).
-    private func checkAppFontUpdate(config: GridConfig) {
+    private func checkAppFontUpdate(config: SpacemapConfig) {
         let now = Int(Date().timeIntervalSince1970)
         guard config.appFont.lastCheck == 0
             || now - config.appFont.lastCheck >= Int(AppFontUpdater.checkInterval) else { return }
@@ -192,6 +196,8 @@ final class ApplicationLifecycleService {
     func applicationWillTerminate(_ notification: Notification) {
         signalRegistrationCoordinator.invalidate()
         stopWindowSpaceWatcher()
+        yabaiDaemonTimer?.invalidate()
+        yabaiDaemonTimer = nil
         services.yabaiService.removeSignals()
         socketListener?.stop()
         services.stopHotkeys()
@@ -201,7 +207,7 @@ final class ApplicationLifecycleService {
     }
 
 
-    private func setupSocketListener(config: GridConfig) {
+    private func setupSocketListener(config: SpacemapConfig) {
         socketListener?.stop()
         let socketPath = SpacemapCommand.socketPath
         // Write (or reuse) the nonce before registration. Yabai actions embed
@@ -220,11 +226,7 @@ final class ApplicationLifecycleService {
                 }
             },
             onShow: { [weak self] in
-                DispatchQueue.main.async {
-                    self?.services.yabaiService.invalidateSnapshotCaches()
-                    self?.hud.show()
-                    self?.services.refreshMenubarPreview()
-                }
+                DispatchQueue.main.async { self?.handleSocketShow() }
             },
             onToggle: { [weak self] in DispatchQueue.main.async { self?.hud.toggle() } },
             onSettings: { [weak self] in DispatchQueue.main.async { self?.services.showSettingsWindow() } },
@@ -246,6 +248,16 @@ final class ApplicationLifecycleService {
         } else {
             NSLog("spacemap/lifecycle: nonce unavailable — yabai signals not registered")
         }
+    }
+
+    /// Show signal: the HUD opens, and every always-on surface repaints. The
+    /// strip stays visible while the HUD is closed, so a space switch that
+    /// asks for the HUD also has to refresh it.
+    func handleSocketShow() {
+        services.yabaiService.invalidateSnapshotCaches()
+        hud.show()
+        services.refreshGlyphStrip()
+        services.refreshMenubarPreview()
     }
 
     /// yabai signals cover window creation, focus, and frame changes but not a
@@ -288,6 +300,95 @@ final class ApplicationLifecycleService {
         }
     }
 
+    /// Signals live in the yabai daemon, so a restarted daemon knows none of
+    /// them and stops reporting space changes. Watch the daemon process and
+    /// register again when a new one appears.
+    private func startYabaiDaemonWatcher() {
+        guard yabaiDaemonTimer == nil else { return }
+        // The launch path just registered signals for the daemon running now,
+        // so adopt it: only a later replacement is new. One scan at launch; the
+        // repeating poll stays off main.
+        watchedYabaiDaemonPID = Self.currentYabaiDaemonPID()
+        let timer = Timer(timeInterval: 2, repeats: true) { [weak self] _ in
+            self?.pollYabaiDaemon()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        yabaiDaemonTimer = timer
+    }
+
+    private func pollYabaiDaemon() {
+        // Scanning the process list touches every pid; keep it off main.
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let pid = Self.currentYabaiDaemonPID()
+            DispatchQueue.main.async { self?.handleYabaiDaemonPID(pid) }
+        }
+    }
+
+    /// A daemon that was not seen before starts with an empty signal table, so
+    /// register again and repaint: the strip may still show the focus from
+    /// before the restart. This also heals a launch where yabai was not yet up.
+    func handleYabaiDaemonPID(_ pid: pid_t?) {
+        guard pid != watchedYabaiDaemonPID else { return }
+        watchedYabaiDaemonPID = pid
+        // Downtime itself needs no work; the replacement daemon is the trigger.
+        guard pid != nil else { return }
+        services.yabaiService.resetYabaiRunningCache()
+        services.yabaiService.invalidateSnapshotCaches()
+        scheduleYabaiSignalRegistration(config: currentConfig ?? services.currentConfig)
+        services.refreshGlyphStrip()
+    }
+
+    /// Process id of the yabai daemon: the launchd-owned process running the
+    /// yabai binary. Nil while yabai is not running.
+    static func currentYabaiDaemonPID() -> pid_t? {
+        let capacity = proc_listallpids(nil, 0)
+        guard capacity > 0 else { return nil }
+        var pids = [pid_t](repeating: 0, count: Int(capacity) + 16)
+        let filled = proc_listallpids(&pids, Int32(pids.count * MemoryLayout<pid_t>.size))
+        guard filled > 0 else { return nil }
+        return yabaiDaemonPID(
+            in: pids,
+            filled: filled,
+            executablePath: Self.executablePath(of:),
+            parentPID: Self.parentPID(of:)
+        )
+    }
+
+    /// Picks the daemon out of a process list. `filled` is the pid count that
+    /// `proc_listallpids` returned, not a byte count: dividing by the pid size
+    /// scanned a quarter of the list, and a daemon late in it was missed. The
+    /// lookups are injected so tests drive the match rule without real
+    /// processes. Short-lived `yabai` CLI calls run the same binary, so the
+    /// parent pid (1 for a launchd agent) tells the daemon apart.
+    static func yabaiDaemonPID(
+        in pids: [pid_t],
+        filled: Int32,
+        executablePath: (pid_t) -> String?,
+        parentPID: (pid_t) -> pid_t?
+    ) -> pid_t? {
+        for pid in pids.prefix(Int(max(filled, 0))) where pid > 0 {
+            guard let path = executablePath(pid),
+                  URL(fileURLWithPath: path).lastPathComponent == "yabai",
+                  parentPID(pid) == 1 else { continue }
+            return pid
+        }
+        return nil
+    }
+
+    private static func executablePath(of pid: pid_t) -> String? {
+        var path = [CChar](repeating: 0, count: 4096)
+        guard proc_pidpath(pid, &path, UInt32(path.count)) > 0 else { return nil }
+        return String(cString: path)
+    }
+
+    private static func parentPID(of pid: pid_t) -> pid_t? {
+        var info = proc_bsdinfo()
+        let size = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, size) == size else { return nil }
+        return pid_t(info.pbi_ppid)
+    }
+
+
     /// An external process replaced config.toml (CLI preset switch). Re-apply
     /// the file; an open Settings window rebuilds on the second notification.
     private func applyConfigReplacedExternally() {
@@ -302,7 +403,7 @@ final class ApplicationLifecycleService {
             queue: .main
         ) { [weak self] _ in
             guard let self = self else { return }
-            AppConfig.silentMode = true
+            ConfigStore.silentMode = true
             let config = self.services.currentConfig
             let changes = RuntimeConfigChanges(previous: self.currentConfig, current: config)
             self.currentConfig = config
@@ -325,7 +426,7 @@ final class ApplicationLifecycleService {
         }
     }
 
-    func scheduleYabaiSignalRegistration(config: GridConfig) {
+    func scheduleYabaiSignalRegistration(config: SpacemapConfig) {
         let generation = signalRegistrationCoordinator.nextGeneration()
         // Once a listener exists its frames require a nonce. Never register an
         // action that would send a bare frame the listener must drop.

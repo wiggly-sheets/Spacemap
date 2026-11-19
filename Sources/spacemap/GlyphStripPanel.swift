@@ -1,7 +1,6 @@
 import AppKit
 import ApplicationServices
 import CoreText
-import QuartzCore
 
 /// Always-visible overlay strip parked in the menu bar row, hugging the notch.
 ///
@@ -13,7 +12,6 @@ final class GlyphStripPanelController: NSObject {
     /// Glyph origin drop: y-up coords, so -1 moves ink down 1pt.
     /// Backdrop/glass/hover rects untouched.
     fileprivate static let glyphDrop: CGFloat = 1
-    private static let fallbackMenuBarHeight: CGFloat = 24
     /// Notified when displays are added, removed, or resized.
     private static let screenParametersChanged: Notification.Name =
         NSApplication.didChangeScreenParametersNotification
@@ -23,7 +21,7 @@ final class GlyphStripPanelController: NSObject {
     /// `GridStateCoordinator` already carries the generation guard that stops a
     /// slow older yabai reply from overwriting newer state.
     private let coordinator: GridStateCoordinator
-    private lazy var themeService = ThemeManager.shared
+    private let themeStore: ThemeStore
     /// Background work queue: font load (disk IO + parse) runs here. Only
     /// the attributed-run apply, frame, and draw run on main.
     private static let stripWorkQueue = DispatchQueue(label: "com.spacemap.glyphstrip", qos: .userInitiated)
@@ -69,13 +67,22 @@ final class GlyphStripPanelController: NSObject {
     }
 
     private(set) var panel: NSPanel?
+    /// Panel lifecycle: window construction, alpha fades, drag frame math.
+    private let presenter = PanelPresenter(factory: { mask in
+        GlyphStripPanel(
+            contentRect: .zero,
+            styleMask: mask,
+            backing: .buffered,
+            defer: false
+        )
+    })
     /// Drawing layer, retained so refreshes can invalidate it directly.
     private var glyphs: GlyphStripView?
     /// Test seam: counts repaint requests made by `applyFrame(to:)`. AppKit may
     /// clear `needsDisplay` synchronously during presentation, so the real
     /// flag cannot be asserted reliably from a unit test.
     private(set) var contentRepaintCount = 0
-    private var config: GridConfig = .default
+    private var config: SpacemapConfig = .default
     /// Session-only visibility flag driven by the show/hide hotkey. Never
     /// persisted: every launch starts with the strip visible.
     private var hiddenByHotkey = false
@@ -89,26 +96,24 @@ final class GlyphStripPanelController: NSObject {
     fileprivate var attributedRuns: [[NSAttributedString]] = []
     /// Extra advance before each run, parallel to `attributedRuns`.
     fileprivate var runGaps: [[CGFloat]] = []
+    /// Measured advance of each run, parallel to `attributedRuns`.
+    fileprivate var runAdvances: [[CGFloat]] = []
     fileprivate var segmentWidths: [CGFloat] = []
-    /// Windows behind each painted icon run, parallel to `attributedRuns`.
-    /// Empty for the space number, overflow, and non-icon runs. Dedupe expands
-    /// an icon to every window of its app.
-    fileprivate var runWindows: [[[YabaiWindow]]] = []
     private var lastPaintedSegments: [GlyphStrip.Segment]?
+    /// Segment options the current `segments` were built with, so a config edit
+    /// between renders cannot remap drag payloads onto runs it did not build.
+    private var renderOptions = GlyphStrip.Options(.default)
+    /// Cached panel render: rebuilt only when the content or the bounds change,
+    /// so hover and drag repaints share one layout pass.
+    private var cachedLayout: GlyphStrip.SegmentLayout?
+    private var cachedLayoutBounds = CGRect.zero
+    /// Cached menu-bar render, keyed the same way: the status item draws and
+    /// hit-tests far more often than the strip content changes.
+    private var cachedStatusLayout: GlyphStrip.SegmentLayout?
+    private var cachedStatusLayoutBounds = CGRect.zero
+    /// Test seam: counts panel renders built instead of served from the cache.
+    private(set) var layoutBuildCount = 0
 
-    /// Segments whose painted content changed. A first build animates nothing;
-    /// a count change animates the visible set because indices shifted.
-    static func changedSegments(
-        previous: [GlyphStrip.Segment]?,
-        current: [GlyphStrip.Segment]
-    ) -> [Int] {
-        guard let previous else { return [] }
-        guard previous.count == current.count else { return Array(current.indices) }
-        return current.indices.filter { previous[$0] != current[$0] }
-    }
-    /// Painted frame of each run in view coordinates; zero when not drawn.
-    /// Drag-and-drop hit-tests these, so it follows the same layout as `draw`.
-    private var runFrames: [[CGRect]] = []
     /// Memory-only native icons, parallel to `segments` runs (nil for
     /// non-native runs and cache misses). One array drives measuring and
     /// drawing, so the frame can never disagree with what is painted.
@@ -136,8 +141,9 @@ final class GlyphStripPanelController: NSObject {
     private var accessibilityObserver: NSObjectProtocol?
     private var wakeObserver: NSObjectProtocol?
 
-    init(yabaiService: YabaiService) {
+    init(yabaiService: YabaiService, themeStore: ThemeStore) {
         self.yabaiService = yabaiService
+        self.themeStore = themeStore
         self.coordinator = GridStateCoordinator(yabaiService: yabaiService)
         super.init()
         let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -226,7 +232,7 @@ final class GlyphStripPanelController: NSObject {
 
     // MARK: - State
 
-    func update(config: GridConfig) {
+    func update(config: SpacemapConfig) {
         // The updater drops the cache itself on install, but a version written
         // by another process only shows up here. Unrelated settings saves must
         // not force the next refresh back to disk.
@@ -234,6 +240,8 @@ final class GlyphStripPanelController: NSObject {
             AppGlyphFont.invalidateCache()
         }
         self.config = config
+        cachedLayout = nil
+        cachedStatusLayout = nil
         // The coordinator cancels any in-flight fetch when its config changes.
         // If that cancellation completes without running our completion (or an
         // older coordinator build did), the latch would stay set and every
@@ -246,7 +254,7 @@ final class GlyphStripPanelController: NSObject {
         // directory when an entry actually changed. Theme-name-only changes
         // need no reload (the file is already parsed), and this runs on every
         // save.
-        themeService.reloadIfChanged()
+        themeStore.reloadIfChanged()
         guard config.glyphStrip.enabled, !hiddenByHotkey, !hiddenByFullscreen else {
             hide()
             return
@@ -286,7 +294,7 @@ final class GlyphStripPanelController: NSObject {
         // the main thread; fall back to geometry when the probe is unhealthy.
         PermissionProbe.shared.check(provider: { AXIsProcessTrusted() }) { [weak self] trusted in
             guard let self else { return }
-            self.applyFullscreenVisibility(Self.hasFullscreenAppInFront(trusted: trusted))
+            self.applyFullscreenVisibility(ScreenContext.hasFullscreenAppInFront(trusted: trusted))
         }
     }
 
@@ -309,111 +317,6 @@ final class GlyphStripPanelController: NSObject {
         let windows = state.windows(forSpace: focused)
         guard windows.contains(where: { $0.isNativeFullscreen != nil }) else { return nil }
         return windows.contains { $0.isNativeFullscreen == true }
-    }
-
-    /// True when the app the user sees has a native fullscreen window.
-    ///
-    /// Accessibility reports this directly, so it survives the window resizes
-    /// of the fullscreen animation. Falls back to window geometry when
-    /// Accessibility is not granted. A menu-bar app can report itself as
-    /// frontmost, so that case resolves the app from the front layer-0 window.
-    static func hasFullscreenAppInFront(trusted: Bool? = nil) -> Bool {
-        let isTrusted = trusted ?? (PermissionProbe.shared.isStalled ? false : AXIsProcessTrusted())
-        guard isTrusted else { return frontWindowCoversDisplay() }
-        let ownPID = ProcessInfo.processInfo.processIdentifier
-        var pid = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        if pid == nil || pid == ownPID {
-            pid = frontWindowOwner(excluding: ownPID)
-        }
-        guard let pid, pid != ownPID else { return false }
-        let app = AXUIElementCreateApplication(pid)
-        var window: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            app,
-            kAXFocusedWindowAttribute as CFString,
-            &window
-        ) == .success, let window else {
-            return frontWindowCoversDisplay()
-        }
-        var fullscreen: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            window as! AXUIElement,
-            "AXFullScreen" as CFString,
-            &fullscreen
-        ) == .success else {
-            return frontWindowCoversDisplay()
-        }
-        guard (fullscreen as? Bool) == true else { return false }
-        // `AXFocusedWindow` can still be the fullscreen window while the user
-        // looks at a different space of the same app. Only hide when that app
-        // also has a fullscreen-sized window on screen now.
-        return windowCoversDisplay(owner: pid)
-    }
-
-    /// Does `owner` have an on-screen layer-0 window as large as a display?
-    private static func windowCoversDisplay(owner pid: pid_t) -> Bool {
-        let windows = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] ?? []
-        for window in windows {
-            guard let owner = window[kCGWindowOwnerPID as String] as? Int,
-                  owner == Int(pid),
-                  let layer = window[kCGWindowLayer as String] as? Int, layer == 0,
-                  let rawBounds = window[kCGWindowBounds as String] as? [String: Any],
-                  let bounds = CGRect(dictionaryRepresentation: rawBounds as CFDictionary) else {
-                continue
-            }
-            // Accessibility already said the window is fullscreen, so this is a
-            // space-membership check, not a shape test: accept the small height
-            // differences of the fullscreen animation and a hidden menu bar.
-            if NSScreen.screens.contains(where: {
-                abs($0.frame.width - bounds.width) <= 2 && bounds.height >= $0.frame.height - 60
-            }) {
-                return true
-            }
-        }
-        return false
-    }
-
-    /// Owner of the frontmost layer-0 window that is not Spacemap's own.
-    private static func frontWindowOwner(excluding ownPID: pid_t) -> pid_t? {
-        let windows = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] ?? []
-        for window in windows {
-            guard let owner = window[kCGWindowOwnerPID as String] as? Int,
-                  owner != Int(ownPID),
-                  let layer = window[kCGWindowLayer as String] as? Int, layer == 0 else {
-                continue
-            }
-            return pid_t(owner)
-        }
-        return nil
-    }
-
-    /// Geometry fallback: does the frontmost normal window cover a display?
-    /// Fullscreen windows cover the display; zoomed windows stop below the menu
-    /// bar.
-    private static func frontWindowCoversDisplay() -> Bool {
-        let ownPID = ProcessInfo.processInfo.processIdentifier
-        let windows = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] ?? []
-        for window in windows {
-            guard let owner = window[kCGWindowOwnerPID as String] as? Int, owner != Int(ownPID),
-                  let layer = window[kCGWindowLayer as String] as? Int, layer == 0,
-                  let rawBounds = window[kCGWindowBounds as String] as? [String: Any],
-                  let bounds = CGRect(dictionaryRepresentation: rawBounds as CFDictionary) else {
-                continue
-            }
-            return NSScreen.screens.contains {
-                abs($0.frame.width - bounds.width) <= 2 && abs($0.frame.height - bounds.height) <= 2
-            }
-        }
-        return false
     }
 
     /// Toggles the session-only hotkey visibility. Disabled strip: the flag
@@ -468,7 +371,7 @@ final class GlyphStripPanelController: NSObject {
         inFlightGeneration = generation
         // Single config snapshot for the whole render pass.
         let strip = config.glyphStrip
-        let options = GlyphStrip.Options(strip)
+        let options = Self.segmentOptions(for: config)
         coordinator.refresh { [weak self] in
             guard let self else { return }
             guard generation == self.refreshGeneration,
@@ -527,6 +430,16 @@ final class GlyphStripPanelController: NSObject {
             finishRefresh(generation: generation)
             return
         }
+        // A stopped daemon reports no spaces. Painting that would replace a
+        // live strip with a lone add button and drop the focus highlight until
+        // the next space change, so keep the last painted frame instead. Still
+        // present it: a strip hidden by hotkey or fullscreen and re-shown during
+        // downtime has kept segments but no frame on screen.
+        if state.spaces.isEmpty, !segments.isEmpty {
+            present()
+            finishRefresh(generation: generation)
+            return
+        }
         let resolved = GlyphStrip.segments(
             for: state,
             options: options,
@@ -550,8 +463,8 @@ final class GlyphStripPanelController: NSObject {
             finishRefresh(generation: generation)
             return
         }
-        rebuildRuns(strip: strip)
-        fitToMaximumLength(strip: strip)
+        rebuildRuns(strip: strip, options: options)
+        fitToMaximumLength(strip: strip, options: options)
         present()
         if previousFocused != focused, let glyphs {
             NSAccessibility.post(element: glyphs, notification: .valueChanged)
@@ -602,7 +515,7 @@ final class GlyphStripPanelController: NSObject {
     /// when there is spare room and shrink when over, so the setting behaves
     /// like a target length instead of a shrink-only cap. Spacing scales with
     /// the glyphs so fixed gaps cannot leave the strip stuck over the target.
-    private func fitToMaximumLength(strip: GlyphStripConfig) {
+    private func fitToMaximumLength(strip: GlyphStripConfig, options: GlyphStrip.Options) {
         let maximum = CGFloat(strip.autoResizeMaxLength)
         guard maximum > 0 else { return }
         var scale: CGFloat = 1
@@ -623,7 +536,7 @@ final class GlyphStripPanelController: NSObject {
             fitted.iconSpacing = baseIconSpacing * scale
             fitted.indexPadding = baseIndexPadding * scale
             fitted.hoverPadding = baseHoverPadding * scale
-            rebuildRuns(strip: fitted)
+            rebuildRuns(strip: fitted, options: options)
         }
     }
 
@@ -638,8 +551,11 @@ final class GlyphStripPanelController: NSObject {
         return glyphs + padding
     }
 
-    private func rebuildRuns(strip: GlyphStripConfig) {
-        let theme = themeService.named(effectiveThemeName)
+    private func rebuildRuns(strip: GlyphStripConfig, options: GlyphStrip.Options) {
+        let theme = themeStore.named(effectiveThemeName)
+        renderOptions = options
+        cachedLayout = nil
+        cachedStatusLayout = nil
 
         // Memory-only hits; misses keep nil and paint the fallback glyph
         // until preloadNativeIcons lands them. Never blocks on icon(forFile:).
@@ -656,7 +572,7 @@ final class GlyphStripPanelController: NSObject {
                     for: run,
                     strip: strip,
                     theme: theme,
-                    style: Self.style(for: run, isCurrent: isCurrent, strip: strip, theme: theme),
+                    style: GlyphStrip.style(for: run, isCurrent: isCurrent, strip: strip),
                     face: glyphFont
                 )
             }
@@ -670,55 +586,31 @@ final class GlyphStripPanelController: NSObject {
                 indexPadding: CGFloat(strip.indexPadding)
             )
         }
-        let state = coordinator.state
-        runWindows = segments.map { segment in
-            guard let spaceIndex = segment.spaceIndex, let state else {
-                return Array(repeating: [YabaiWindow](), count: segment.runs.count)
-            }
-            let all = GlyphStrip.windows(forSpace: spaceIndex, in: state)
-            let shown = GlyphStrip.windowsToShow(all, dedupe: strip.dedupeAppsPerSpace)
-            let limit = strip.maxIconsPerSpace == 0 ? shown.count : min(strip.maxIconsPerSpace, shown.count)
-            let icons = Array(shown.prefix(limit))
-            var windows: [[YabaiWindow]] = []
-            var iconOffset = 0
-            for run in segment.runs {
-                switch run {
-                case .app, .nativeIcon:
-                    if icons.indices.contains(iconOffset) {
-                        windows.append(GlyphStrip.draggedWindows(
-                            for: icons[iconOffset],
-                            allWindows: all,
-                            dedupe: strip.dedupeAppsPerSpace
-                        ))
-                    } else {
-                        windows.append([])
-                    }
-                    iconOffset += 1
-                default:
-                    windows.append([])
-                }
-            }
-            return windows
-        }
-        runFrames = attributedRuns.map { Array(repeating: .zero, count: $0.count) }
-        let changed = Self.changedSegments(previous: lastPaintedSegments, current: segments)
+        runAdvances = attributedRuns.map { $0.map { $0.size().width } }
+        let changed = GlyphStrip.changedSegments(previous: lastPaintedSegments, current: segments)
         lastPaintedSegments = segments
         if !changed.isEmpty {
             glyphs?.animateContentChange(segments: changed)
             statusView?.animateContentChange(segments: changed)
         }
-        segmentWidths = segments.indices.map { offset in
-            let runs = attributedRuns[offset]
+        segmentWidths = runAdvances.indices.map { offset in
+            let advances = runAdvances[offset]
             let gaps = runGaps[offset]
             // Resolved native icons fill their fallback's advance: the same
             // cell an `.app` run measures at this iconSize, side bearings
             // included. Hit and miss share one width, so resolving an icon
             // never reflows the strip.
-            let glyphs = runs.indices.reduce(CGFloat(0)) { total, index in
-                total + runs[index].size().width + gaps[index]
+            let glyphs = advances.indices.reduce(CGFloat(0)) { total, index in
+                total + advances[index] + gaps[index]
             }
             return glyphs + Self.segmentPadding * 2
         }
+    }
+
+    /// The one place app config becomes segment options, so a new strip key is
+    /// wired once for every render path.
+    fileprivate static func segmentOptions(for config: SpacemapConfig) -> GlyphStrip.Options {
+        GlyphStrip.Options(config.glyphStrip)
     }
 
     private func presentMenuBarItem() {
@@ -753,7 +645,7 @@ final class GlyphStripPanelController: NSObject {
         let horizontal = CGFloat(config.glyphStrip.resolvedHorizontalPadding) * 2
         let width = min(
             max(segmentWidths.reduce(0, +) + horizontal, 1),
-            Self.screenFrame(on: NSScreen.main).width * 0.8
+            ScreenContext.screenFrame(on: NSScreen.main).width * 0.8
         )
         // Reassigning the length makes the menu bar relayout the whole item.
         if abs(statusItem.length - width) > 0.5 {
@@ -794,17 +686,11 @@ final class GlyphStripPanelController: NSObject {
         guard let panel else { return }
         applyFrame(to: panel)
         if !panel.isVisible {
-            if config.hudAnimationsEnabled, NSApp != nil, NSApp.isRunning {
-                panel.alphaValue = 0
-                panel.orderFrontRegardless()
-                NSAnimationContext.runAnimationGroup { context in
-                    context.duration = config.hudAnimationStyle.fadeDuration
-                    panel.animator().alphaValue = 1
-                }
-            } else {
-                panel.alphaValue = 1
-                panel.orderFrontRegardless()
-            }
+            presenter.present(
+                panel,
+                duration: config.hudAnimationStyle.fadeDuration,
+                animated: PanelPresenter.canAnimate(config.hudAnimationsEnabled)
+            )
         }
         if let glyphs {
             NSAccessibility.post(element: glyphs, notification: .layoutChanged)
@@ -825,52 +711,28 @@ final class GlyphStripPanelController: NSObject {
         needsFollowupRefresh = false
         refreshInFlight = false
         inFlightGeneration = 0
-        guard let panel, panel.isVisible else {
-            panel?.orderOut(nil)
-            return
-        }
-        guard config.hudAnimationsEnabled, NSApp != nil, NSApp.isRunning else {
-            panel.orderOut(nil)
-            return
-        }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = config.hudAnimationStyle.fadeDuration
-            panel.animator().alphaValue = 0
-        } completionHandler: {
-            // A present during the fade animates back to 1; never order out
-            // a strip the user just showed again.
-            guard panel.alphaValue < 0.01 else {
-                panel.alphaValue = 1
-                return
-            }
-            panel.orderOut(nil)
-            panel.alphaValue = 1
-        }
+        guard let panel else { return }
+        presenter.hide(
+            panel,
+            duration: config.hudAnimationStyle.fadeDuration,
+            animated: PanelPresenter.canAnimate(config.hudAnimationsEnabled)
+        )
     }
 
     private func makePanel() -> NSPanel {
-        let panel = GlyphStripPanel(
-            contentRect: .zero,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        // NSPanel hides itself when the app deactivates by default. The strip
-        // must survive focus leaving Spacemap (Settings closed, another app
-        // frontmost), so opt out explicitly.
-        panel.hidesOnDeactivate = false
-        // Glass floats over the menu bar; the shadow separates its edge.
-        panel.hasShadow = true
-        // Above the main menu so the strip is never occluded by menu bar items.
-        panel.level = .statusBar
-        panel.collectionBehavior = [
-            .canJoinAllSpaces,
-            .stationary,
-            .ignoresCycle,
-            .fullScreenAuxiliary
-        ]
+        // Glass floats over the menu bar; the shadow separates its edge. The
+        // `.statusBar` level keeps the strip above menu bar items.
+        let panel = presenter.makePanel(PanelPresenter.Surface(
+            level: .statusBar,
+            hasShadow: true,
+            collectionBehavior: [
+                .canJoinAllSpaces,
+                .stationary,
+                .ignoresCycle,
+                .fullScreenAuxiliary
+            ],
+            hidesOnDeactivate: false
+        ))
         let container = GlyphStripContainerView(controller: self)
         glyphs = container.glyphs
         panel.contentView = container
@@ -885,14 +747,14 @@ final class GlyphStripPanelController: NSObject {
     private func applyFrame(to panel: NSPanel, screen explicitScreen: NSScreen? = nil) {
         let screen = explicitScreen ?? targetScreen()
         let strip = config.glyphStrip
-        let row = Self.menuBarRow(on: screen)
+        let row = ScreenContext.menuBarRow(on: screen)
         // Free placement can leave the menu bar row, so `presentationFrame`
         // there is the whole display. Anchored positions keep the row.
         // Dragging stays free: the pointer can reach any screen edge. The safe
         // area only decides when a tall strip wraps into more columns.
-        let area = strip.position == .custom ? Self.screenFrame(on: screen) : row
+        let area = strip.position == .custom ? ScreenContext.screenFrame(on: screen) : row
         let availableHeight = strip.position == .custom
-            ? safeScreenFrame(on: screen).height
+            ? ScreenContext.safeScreenFrame(on: screen).height
             : row.height
         panel.level = strip.position == .custom ? .floating : .statusBar
         let frame = GlyphStrip.frame(
@@ -906,8 +768,8 @@ final class GlyphStripPanelController: NSObject {
             rightNotchArea: screen?.auxiliaryTopRightArea,
             position: strip.position,
             margin: CGFloat(strip.margin),
-            yOffset: CGFloat(strip.yOffset),
-            xOffset: CGFloat(strip.xOffset)
+            xFraction: strip.customX,
+            yFraction: strip.customY
         )
         // Only move the window when the frame changed, but always repaint:
         // content can change (new glyphs, focus, theme) at an identical frame.
@@ -955,14 +817,13 @@ final class GlyphStripPanelController: NSObject {
             && config.glyphStrip.orientation == .vertical
     }
 
-    /// Top and bottom breathing room for a vertical strip.
     /// Strip content box. Both axes are inset, so split padding works for
     /// horizontal and vertical layouts alike.
-    fileprivate var contentBounds: CGRect {
+    private func contentBounds(in bounds: CGRect) -> CGRect {
         // Keep a drawable pixel when padding exceeds the panel dimension.
-        let dx = min(CGFloat(config.glyphStrip.resolvedHorizontalPadding), max((viewBounds.width - 1) / 2, 0))
-        let dy = min(CGFloat(config.glyphStrip.resolvedVerticalPadding), max((viewBounds.height - 1) / 2, 0))
-        return viewBounds.insetBy(dx: dx, dy: dy)
+        let dx = min(CGFloat(config.glyphStrip.resolvedHorizontalPadding), max((bounds.width - 1) / 2, 0))
+        let dy = min(CGFloat(config.glyphStrip.resolvedVerticalPadding), max((bounds.height - 1) / 2, 0))
+        return bounds.insetBy(dx: dx, dy: dy)
     }
 
     /// Icons under the number, one per line, instead of beside it.
@@ -1004,67 +865,133 @@ final class GlyphStripPanelController: NSObject {
         return attributedRuns.indices.reduce(0) { $0 + verticalSegmentHeight($1) }
     }
 
-    static func screenFrame(on screen: NSScreen?) -> CGRect {
-        screen?.frame ?? NSScreen.main?.frame ?? .zero
+    // MARK: - Render layout
+
+    /// One render for `bounds`: the value every draw and hit test reads.
+    ///
+    /// `statusItem` centres the slots in the whole button, because a menu-bar
+    /// item can be wider than the strip, and shrinks native icons to the row
+    /// height, which is what that surface drew and hit-tested before.
+    fileprivate func layout(in bounds: CGRect, statusItem: Bool) -> GlyphStrip.SegmentLayout {
+        var input = GlyphStrip.LayoutInput(
+            slots: slots(in: bounds, statusItem: statusItem),
+            advances: advances(in: bounds, statusItem: statusItem),
+            gaps: runGaps
+        )
+        if !statusItem {
+            if isStackedVertical {
+                input.placement = .stacked
+                input.lines = stackedLines(in: input.slots)
+                input.inkCenters = inkCenters(for: input.lines)
+            } else if isVerticalLayout {
+                input.placement = .centered
+            } else {
+                input.placement = .inline(inset: Self.segmentPadding)
+            }
+        }
+        return GlyphStrip.layout(
+            segments: segments,
+            state: coordinator.state,
+            options: renderOptions,
+            input: input
+        )
+    }
+
+    /// The panel's own render, inset by the strip padding.
+    var layout: GlyphStrip.SegmentLayout {
+        let bounds = viewBounds
+        if let cachedLayout, cachedLayoutBounds == bounds { return cachedLayout }
+        let resolved = layout(in: bounds, statusItem: false)
+        layoutBuildCount += 1
+        cachedLayout = resolved
+        cachedLayoutBounds = bounds
+        return resolved
+    }
+
+    /// The menu-bar item's render, cached on the button bounds so a draw and
+    /// the mouse-drag hit tests behind it share one pass.
+    fileprivate func statusItemLayout(in bounds: CGRect) -> GlyphStrip.SegmentLayout {
+        if let cachedStatusLayout, cachedStatusLayoutBounds == bounds { return cachedStatusLayout }
+        let resolved = layout(in: bounds, statusItem: true)
+        cachedStatusLayout = resolved
+        cachedStatusLayoutBounds = bounds
+        return resolved
+    }
+
+    /// Hit slot of every segment in `bounds`.
+    private func slots(in bounds: CGRect, statusItem: Bool) -> [CGRect] {
+        guard !bounds.isEmpty, !segmentWidths.isEmpty else { return [] }
+        if statusItem {
+            let total = segmentWidths.reduce(0, +)
+            let content = CGRect(
+                x: max((bounds.width - total) / 2, 0),
+                y: 0,
+                width: total,
+                height: bounds.height
+            )
+            return GlyphStrip.horizontalSlots(widths: segmentWidths, in: content)
+        }
+        let content = contentBounds(in: bounds)
+        if isVerticalLayout {
+            let heights = segmentWidths.indices.map { verticalSegmentHeight($0) }
+            if heights.reduce(0, +) > content.height {
+                return GlyphStrip.verticalColumnSlots(
+                    heights: heights,
+                    in: content,
+                    available: content.height,
+                    columnGap: Self.verticalColumnGap
+                )
+            }
+            return GlyphStrip.verticalSlots(heights: heights, in: content)
+        }
+        return GlyphStrip.horizontalSlots(widths: segmentWidths, in: content)
+    }
+
+    /// Measured advance of every run. The status item shrinks a resolved native
+    /// icon to the row height, the way it always drew it.
+    private func advances(in bounds: CGRect, statusItem: Bool) -> [[CGFloat]] {
+        guard statusItem else { return runAdvances }
+        return runAdvances.enumerated().map { offset, widths in
+            widths.enumerated().map { index, width in
+                nativeIcon(segment: offset, run: index) == nil
+                    ? width
+                    : min(width, bounds.height - 4)
+            }
+        }
+    }
+
+    /// One line per run for the stacked vertical layout.
+    private func stackedLines(in slots: [CGRect]) -> [[CGRect]] {
+        attributedRuns.indices.map { offset in
+            guard slots.indices.contains(offset) else { return [] }
+            return GlyphStrip.stackedLines(
+                count: attributedRuns[offset].count,
+                lineHeight: contentLineHeight,
+                indexGap: stackedGap(before: 1),
+                iconGap: stackedGap(before: 2),
+                in: slots[offset].insetBy(dx: 0, dy: hoverPadding)
+            )
+        }
+    }
+
+    /// Ink-centre x of each stacked run; nil centres the advance box, which is
+    /// what native icons need.
+    private func inkCenters(for lines: [[CGRect]]) -> [[CGFloat?]] {
+        attributedRuns.indices.map { offset in
+            attributedRuns[offset].indices.map { index in
+                guard nativeIcon(segment: offset, run: index) == nil,
+                      lines.indices.contains(offset),
+                      lines[offset].indices.contains(index) else { return nil }
+                return GlyphStripView.inkCenteredX(
+                    for: attributedRuns[offset][index],
+                    in: lines[offset][index]
+                )
+            }
+        }
     }
 
     /// Gap between wrapped vertical columns.
     fileprivate static let verticalColumnGap: CGFloat = 8
-
-    /// Usable area for a free-placed strip. Starts from the visible frame, then
-    /// gives back space taken by edge-anchored accessory windows such as a
-    /// third-party Dock. Menu-bar extras sit above the visible frame, and normal
-    /// app windows are ignored.
-    private func safeScreenFrame(on screen: NSScreen?) -> CGRect {
-        guard let screen else { return .zero }
-        let full = screen.frame
-        var safe = screen.visibleFrame
-        let ownPID = ProcessInfo.processInfo.processIdentifier
-        let windows = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] ?? []
-        for window in windows {
-            guard let owner = window[kCGWindowOwnerPID as String] as? Int, owner != Int(ownPID),
-                  let layer = window[kCGWindowLayer as String] as? Int, layer >= 3,
-                  let raw = window[kCGWindowBounds as String] as? [String: Any],
-                  let rect = CGRect(dictionaryRepresentation: raw as CFDictionary),
-                  rect.intersects(full) else { continue }
-            // Only edge furniture: a floating app window in the middle must not
-            // push the strip around.
-            let touchesBottom = abs(rect.minY - full.minY) <= 2
-            let touchesTop = abs(rect.maxY - full.maxY) <= 2
-            let touchesLeft = abs(rect.minX - full.minX) <= 2
-            let touchesRight = abs(rect.maxX - full.maxX) <= 2
-            // Dock-like only: one edge, thin along that edge, long across it.
-            let edges = [touchesBottom, touchesTop, touchesLeft, touchesRight].filter { $0 }.count
-            guard edges == 1 else { continue }
-            let horizontal = touchesBottom || touchesTop
-            let thin = horizontal ? rect.height <= full.height * 0.4 : rect.width <= full.width * 0.4
-            let long = horizontal ? rect.width >= full.width * 0.25 : rect.height >= full.height * 0.25
-            guard thin, long else { continue }
-            // Only an obstacle that reaches into the usable area matters. The
-            // menu bar itself sits above it, so its extras must not keep
-            // shrinking the area.
-            if touchesBottom, rect.maxY > safe.minY {
-                safe.origin.y = max(safe.minY, rect.maxY + 4)
-                safe.size.height = max(safe.maxY - safe.minY, 1)
-            }
-            if touchesTop, rect.minY < safe.maxY {
-                let top = min(safe.maxY, rect.minY - 4)
-                safe.size.height = max(top - safe.minY, 1)
-            }
-            if touchesLeft, rect.maxX > safe.minX {
-                safe.origin.x = max(safe.minX, rect.maxX + 4)
-                safe.size.width = max(safe.maxX - safe.minX, 1)
-            }
-            if touchesRight, rect.minX < safe.maxX {
-                let right = min(safe.maxX, rect.minX - 4)
-                safe.size.width = max(right - safe.minX, 1)
-            }
-        }
-        return safe
-    }
 
     // MARK: - Drag
 
@@ -1076,26 +1003,23 @@ final class GlyphStripPanelController: NSObject {
     /// Switches the strip to `.custom` and steps the in-memory config along
     /// with the panel, so a refresh landing mid-drag recomputes the frame the
     /// drag already produced instead of snapping back to the old anchor.
-    /// Offsets are derived through the inverse of `GlyphStrip.frame` and the
-    /// frame itself comes from `applyFrame(to:)`, so the row clamp and the
-    /// `clamped()` bounds apply exactly as they do on every other path.
+    /// Fractions come from the inverse of `GlyphStrip.frame` and the frame
+    /// itself comes from `applyFrame(to:)`, so the clamps apply exactly as they
+    /// do on every other path.
     fileprivate func dragPanel(from startFrame: CGRect, by delta: CGVector) {
         guard !config.glyphStrip.isPositionLocked, config.glyphStrip.enabled, !hiddenByHotkey, let panel else { return }
-        let candidate = CGRect(
-            x: startFrame.minX + delta.dx,
-            y: startFrame.minY + delta.dy,
-            width: startFrame.width,
-            height: startFrame.height
-        )
+        let candidate = PanelPresenter.draggedFrame(from: startFrame, by: delta)
         let screen = panelScreen() ?? targetScreen()
-        let offsets = GlyphStrip.customOffsets(
-            for: candidate,
-            area: Self.screenFrame(on: screen)
-        )
         var strip = config.glyphStrip
         strip.position = .custom
-        strip.xOffset = offsets.xOffset
-        strip.yOffset = offsets.yOffset
+        if let fractions = GlyphStrip.customFractions(
+            for: candidate,
+            area: ScreenContext.screenFrame(on: screen)
+        ) {
+            strip.customX = fractions.x
+            strip.customY = fractions.y
+        }
+        strip.customScreen = screen.map(ScreenContext.displayIdentifier(for:)) ?? ""
         config.glyphStrip = strip.clamped()
         applyFrame(to: panel, screen: screen)
     }
@@ -1108,15 +1032,19 @@ final class GlyphStripPanelController: NSObject {
     fileprivate func persistDragPosition() {
         guard config.glyphStrip.enabled, !hiddenByHotkey, let panel else { return }
         let screen = panelScreen() ?? targetScreen()
-        let offsets = GlyphStrip.customOffsets(
+        let fractions = GlyphStrip.customFractions(
             for: panel.frame,
-            area: Self.screenFrame(on: screen)
+            area: ScreenContext.screenFrame(on: screen)
         )
-        AppConfig.updateConfig { saved in
+        let identifier = screen.map(ScreenContext.displayIdentifier(for:)) ?? ""
+        ConfigStore.updateConfig { saved in
             var strip = saved.glyphStrip
             strip.position = .custom
-            strip.xOffset = offsets.xOffset
-            strip.yOffset = offsets.yOffset
+            if let fractions {
+                strip.customX = fractions.x
+                strip.customY = fractions.y
+            }
+            strip.customScreen = identifier
             saved.glyphStrip = strip.clamped()
         }
         applyFrame(to: panel, screen: screen)
@@ -1129,102 +1057,57 @@ final class GlyphStripPanelController: NSObject {
 
     /// The strip follows the display that owns yabai's focused space, falling
     /// back to the display it is currently parked on, and only then to the
-    /// pointer. `NSScreen.main` follows the key window, which is usually not
-    /// Spacemap, so it is never the primary signal.
+    /// pointer. A free-placed strip first honours the display it was dragged
+    /// on, so its saved position survives monitor changes. `NSScreen.main`
+    /// follows the key window, which is usually not Spacemap, so it is never
+    /// the primary signal.
     private func targetScreen() -> NSScreen? {
+        if let stored = Self.storedScreen(for: config.glyphStrip) {
+            return stored
+        }
         if let state = coordinator.state {
             if let focused = state.focusedIndex,
                let displayIndex = state.displayIndex(forSpace: focused),
                let display = state.displays.first(where: { $0.index == displayIndex }),
-               let screen = Self.screen(containingQuartzFrame: display.frame.cgFrame) {
+               let screen = ScreenContext.screen(containingQuartzFrame: display.frame.cgFrame) {
                 return screen
             }
             if let focusedDisplay = state.displays.first(where: \.hasFocus),
-               let screen = Self.screen(containingQuartzFrame: focusedDisplay.frame.cgFrame) {
+               let screen = ScreenContext.screen(containingQuartzFrame: focusedDisplay.frame.cgFrame) {
                 return screen
             }
         }
-        return panelScreen() ?? Self.targetScreen()
+        return panelScreen() ?? ScreenContext.targetScreen()
+    }
+
+    /// The display a free-placed strip was saved on, if that display is still
+    /// attached. Presets and a missing display return nil so the callers below
+    /// pick the target.
+    static func storedScreen(
+        for strip: GlyphStripConfig,
+        screens: [NSScreen] = NSScreen.screens
+    ) -> NSScreen? {
+        guard strip.position == .custom else { return nil }
+        return ScreenContext.screen(matchingIdentifier: strip.customScreen, screens: screens)
     }
 
     /// The display the panel currently sits on, if any. Used by drags so a
     /// strip being moved does not snap back to the focused-space display.
+    /// A strip straddling two displays resolves to the one holding most of it,
+    /// matching how a HUD panel resolves its display.
     private func panelScreen() -> NSScreen? {
         guard let panel else { return nil }
-        return NSScreen.screens.first { $0.frame.intersects(panel.frame) }
-    }
-
-    /// Pointer-based fallback for the first refresh before any state exists.
-    static func targetScreen(mouseLocation: NSPoint = NSEvent.mouseLocation) -> NSScreen? {
-        NSScreen.screens.first { $0.frame.contains(mouseLocation) } ?? NSScreen.main ?? NSScreen.screens.first
-    }
-
-    /// yabai reports Quartz display frames (top-left origin); `NSScreen.frame`
-    /// is AppKit (bottom-left). Flip through the main screen's maxY before
-    /// matching, otherwise vertically stacked displays never resolve.
-    static func appKitFrame(forQuartzFrame frame: CGRect, quartzMaxY: CGFloat) -> CGRect {
-        CGRect(
-            x: frame.minX,
-            y: quartzMaxY - frame.maxY,
-            width: frame.width,
-            height: frame.height
-        )
-    }
-
-    static func bestScreenIndex(for targetFrame: CGRect, screenFrames: [CGRect]) -> Int? {
-        HUDDisplay.bestScreenIndex(for: targetFrame, screenFrames: screenFrames)
-    }
-
-    static func screen(
-        containingQuartzFrame frame: CGRect,
-        screens: [NSScreen] = NSScreen.screens,
-        quartzMaxY: CGFloat? = nil
-    ) -> NSScreen? {
-        guard !screens.isEmpty else { return nil }
-        let maxY = quartzMaxY ?? HUDGeometry.mainScreenFrame(screens: screens).maxY
-        let appKitFrame = appKitFrame(forQuartzFrame: frame, quartzMaxY: maxY)
-        guard let index = bestScreenIndex(for: appKitFrame, screenFrames: screens.map(\.frame)) else {
-            return nil
-        }
+        let screens = NSScreen.screens
+        guard let index = ScreenContext.largestIntersection(
+            screenFrames: screens.map(\.frame),
+            frame: panel.frame
+        ), screens.indices.contains(index) else { return nil }
         return screens[index]
-    }
-
-    /// The top row of the display, derived from the notch-aware safe-area inset
-    /// so it is correct on both notched and plain displays.
-    static func menuBarRow(on screen: NSScreen?) -> CGRect {
-        guard let screen else {
-            return CGRect(x: 0, y: 0, width: 0, height: fallbackMenuBarHeight)
-        }
-        return menuBarRow(
-            screenFrame: screen.frame,
-            visibleFrame: screen.visibleFrame,
-            safeAreaTop: screen.safeAreaInsets.top
-        )
-    }
-
-    /// Pure geometry for `menuBarRow(on:)`: notched displays expose the row as
-    /// the top safe-area inset, plain displays as the gap above `visibleFrame`.
-    static func menuBarRow(
-        screenFrame: CGRect,
-        visibleFrame: CGRect,
-        safeAreaTop: CGFloat
-    ) -> CGRect {
-        let visibleGap = screenFrame.maxY - visibleFrame.maxY
-        let height = safeAreaTop > 0 ? safeAreaTop : visibleGap
-        let resolved = height > 0 ? height : fallbackMenuBarHeight
-        return CGRect(
-            x: screenFrame.minX,
-            y: screenFrame.maxY - resolved,
-            width: screenFrame.width,
-            height: resolved
-        )
     }
 
     // MARK: - Input
 
     fileprivate func handle(_ command: GlyphStrip.Command) {
-        if case .focusSpace(let index) = command {
-        }
         switch command {
         case .focusSpace(let index):
             yabaiService.focusSpaceAsync(index)
@@ -1248,15 +1131,10 @@ final class GlyphStripPanelController: NSObject {
         }
     }
 
-    /// Painted run frame recorded by the draw loop. Nil when the point is not
-    /// on a run (padding, gap, or an empty segment).
+    /// Painted run under `point`. Nil when the point is not on a run (padding,
+    /// gap, or an empty segment).
     fileprivate func runHit(at point: NSPoint) -> (segment: Int, run: Int)? {
-        for (segment, frames) in runFrames.enumerated() {
-            if let run = frames.firstIndex(where: { $0.contains(point) }) {
-                return (segment, run)
-            }
-        }
-        return nil
+        layout.run(at: point)
     }
 
     /// Space number run: the strip's first run in a numbered segment. App
@@ -1266,7 +1144,7 @@ final class GlyphStripPanelController: NSObject {
         let runs = segments[segment].runs
         return run == 0
             && segments[segment].spaceIndex != nil
-            && config.glyphStrip.showSpaceNumbers
+            && renderOptions.showSpaceNumbers
             && !runs.isEmpty
             && { if case .index = runs[0] { return true } else { return false } }()
     }
@@ -1277,23 +1155,20 @@ final class GlyphStripPanelController: NSObject {
     }
 
     fileprivate func draggedWindows(at point: NSPoint) -> (ids: [Int], source: Int)? {
-        guard let hit = runHit(at: point),
-              runWindows.indices.contains(hit.segment),
-              runWindows[hit.segment].indices.contains(hit.run),
+        let layout = self.layout
+        guard let hit = layout.run(at: point),
+              segments.indices.contains(hit.segment),
               let source = segments[hit.segment].spaceIndex else { return nil }
-        let windows = runWindows[hit.segment][hit.run]
+        let windows = layout.runs[hit.segment][hit.run].windows
         return windows.isEmpty ? nil : (windows.map(\.id), source)
     }
 
     /// Segment directly under the pointer. Gaps, display separators, and the
     /// add button are not drop targets, so only real spaces highlight.
     fileprivate func dropSegment(at point: NSPoint) -> Int? {
-        guard viewBounds.contains(point) else { return nil }
-        for index in segments.indices where segments[index].spaceIndex != nil {
-            guard let rect = segmentRect(index), rect.contains(point) else { continue }
-            return index
-        }
-        return nil
+        let layout = self.layout
+        guard let index = layout.segment(at: point), segments.indices.contains(index) else { return nil }
+        return segments[index].spaceIndex != nil ? index : nil
     }
 
     /// The space currently highlighted as the drop destination. Drop uses
@@ -1310,11 +1185,6 @@ final class GlyphStripPanelController: NSObject {
         dragTargetSpaceIndex = space
         glyphs?.needsDisplay = true
         statusView?.needsDisplay = true
-    }
-
-    fileprivate func recordRunFrame(_ frame: CGRect, segment: Int, run: Int) {
-        guard runFrames.indices.contains(segment), runFrames[segment].indices.contains(run) else { return }
-        runFrames[segment][run] = frame
     }
 
     fileprivate func performSpaceSwap(from source: Int, to target: Int) {
@@ -1364,44 +1234,14 @@ final class GlyphStripPanelController: NSObject {
     }
 
     fileprivate func segment(at point: NSPoint) -> Int? {
-        for index in segmentWidths.indices where segmentRect(index)?.contains(point) == true {
-            // Full slot hits; hover highlight stays hover-sized in draw.
-            return index
-        }
-        return nil
+        // Full slot hits; hover highlight stays hover-sized in draw.
+        layout.segment(at: point)
     }
 
     /// Slot of a segment in the view's own coordinates: the menu-bar row, or
     /// one stacked line per space when vertical.
     fileprivate func segmentRect(_ index: Int) -> CGRect? {
-        guard !viewBounds.isEmpty, segmentWidths.indices.contains(index) else { return nil }
-        if isVerticalLayout {
-            let heights = segmentWidths.indices.map { verticalSegmentHeight($0) }
-            let bounds = contentBounds
-            let total = heights.reduce(0, +)
-            if total > bounds.height {
-                let slots = GlyphStrip.verticalColumnSlots(
-                    heights: heights,
-                    in: bounds,
-                    available: bounds.height,
-                    columnGap: Self.verticalColumnGap
-                )
-                return slots.indices.contains(index) ? slots[index] : nil
-            }
-            let slots = GlyphStrip.verticalSlots(heights: heights, in: bounds)
-            return slots.indices.contains(index) ? slots[index] : nil
-        }
-        let content = contentBounds
-        let x = content.minX + segmentWidths.prefix(index).reduce(0, +)
-        // The panel frame can be offset by yOffset, but view bounds stay
-        // constant; padding insets both axes so vertical padding also works
-        // for a horizontal strip.
-        return CGRect(
-            x: x,
-            y: content.minY,
-            width: segmentWidths[index],
-            height: content.height
-        )
+        layout.slot(index)
     }
 
     /// The drawing layer's own bounds; it fills the panel on every material.
@@ -1456,7 +1296,6 @@ final class GlyphStripPanelController: NSObject {
     // MARK: - Drawing inputs
 
     fileprivate var runs: [[NSAttributedString]] { attributedRuns }
-    fileprivate var gaps: [[CGFloat]] { runGaps }
 
     /// Per-run y lift over the shared baseline: `appGlyphLift` for icon-font
     /// and native-icon runs, zero for index/placeholder/overflow/separator/add.
@@ -1540,7 +1379,7 @@ final class GlyphStripPanelController: NSObject {
     /// The theme the strip's colours resolve against: its own `theme` key when
     /// set, otherwise the main HUD's theme.
     private var effectiveThemeName: String {
-        config.glyphStrip.resolvedThemeName(hud: config)
+        themeStore.resolvedThemeName(strip: config.glyphStrip, hudTheme: config.theme)
     }
 
     /// The solid material's fill, at `backgroundOpacity`. Matches the HUD's
@@ -1548,7 +1387,7 @@ final class GlyphStripPanelController: NSObject {
     /// uses that role); otherwise the strip's own `cellBg`.
     fileprivate var solidColor: NSColor {
         let role = config.glyphStrip.matchHUDAppearance ? "background" : "cellBg"
-        return GlyphStrip.color(for: role, theme: themeService.named(effectiveThemeName))
+        return GlyphStrip.color(for: role, theme: themeStore.named(effectiveThemeName))
             ?? .windowBackgroundColor
     }
 
@@ -1585,7 +1424,7 @@ final class GlyphStripPanelController: NSObject {
     }
 
     fileprivate var strokeColor: NSColor {
-        GlyphStrip.glassStrokeColor(theme: themeService.named(effectiveThemeName))
+        GlyphStrip.glassStrokeColor(theme: themeStore.named(effectiveThemeName))
     }
 
     /// Native glass tint for the tinted sub-type, `nil` for clear/opaque.
@@ -1593,7 +1432,7 @@ final class GlyphStripPanelController: NSObject {
     /// reads as a slightly darker opaque glass instead of a tinted one.
     fileprivate var glassTintColor: NSColor? {
         guard glassStyle == .tinted else { return nil }
-        return GlyphStrip.color(for: "focused", theme: themeService.named(effectiveThemeName)) ?? solidColor
+        return GlyphStrip.color(for: "focused", theme: themeStore.named(effectiveThemeName)) ?? solidColor
     }
 
     /// Tinted glass gets the theme-blended hairline; clear/opaque stay neutral.
@@ -1603,60 +1442,14 @@ final class GlyphStripPanelController: NSObject {
 
     /// The hover highlight always uses the theme's `focused` role.
     fileprivate var hoverColor: NSColor {
-        GlyphStrip.color(for: "focused", theme: themeService.named(effectiveThemeName)) ?? .labelColor
-    }
-
-    /// How one run is painted: a resolved colour plus the alpha it draws at.
-    ///
-    /// Pure so the `highlightCurrentSpace` semantics can be asserted without
-    /// AppKit state. With the flag off, a focused space resolves exactly like any
-    /// other — same colour, same alpha, no separate fill.
-    struct RunStyle: Equatable {
-        let colorName: String
-        let alpha: CGFloat
-
-        /// Every distinguishing bit of a run's appearance, for equality checks.
-        static func == (lhs: RunStyle, rhs: RunStyle) -> Bool {
-            lhs.colorName == rhs.colorName && lhs.alpha == rhs.alpha
-        }
-    }
-
-    /// `isCurrent` is ignored entirely when `highlightCurrentSpace` is off, which
-    /// is what makes the current space genuinely indistinguishable rather than
-    /// merely painted in the dimmed colour.
-    ///
-    /// Roles are fixed by the theme palette: the current space and the add
-    /// button draw in `focused`, everything resting draws in `text`. There are
-    /// no per-element colour keys, so `theme` only feeds the caller's colour
-    /// lookup downstream.
-    static func style(
-        for run: GlyphStrip.Run,
-        isCurrent: Bool,
-        strip: GlyphStripConfig,
-        theme: AppTheme
-    ) -> RunStyle {
-        let highlighted = isCurrent && strip.highlightCurrentSpace
-        var isAppGlyph = false
-        if case .app = run { isAppGlyph = true }
-        if GlyphStrip.isNativeIcon(run) { isAppGlyph = true }
-        // Only the highlighted (current) space keeps full-strength glyphs.
-        let alpha: CGFloat = isAppGlyph && !highlighted ? 0.55 : 1.0
-        let name: String
-        if highlighted {
-            name = "focused"
-        } else if case .add = run {
-            name = "focused"
-        } else {
-            name = "text"
-        }
-        return RunStyle(colorName: name, alpha: alpha)
+        GlyphStrip.color(for: "focused", theme: themeStore.named(effectiveThemeName)) ?? .labelColor
     }
 
     fileprivate static func attributedRun(
         for run: GlyphStrip.Run,
         strip: GlyphStripConfig,
         theme: AppTheme,
-        style: RunStyle,
+        style: GlyphStrip.RunStyle,
         face: AppGlyphFont?
     ) -> NSAttributedString {
         let indexSize = CGFloat(strip.indexSize)
@@ -2108,51 +1901,47 @@ private final class GlyphStripStatusView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let controller, !controller.segments.isEmpty else { return }
+        let layout = self.layout
         drawHighlight(
-            for: hoveredSegment,
+            for: hoveredSegment.flatMap(layout.slot),
             color: NSColor.selectedContentBackgroundColor,
             opacity: 0.18 * hoverProgress
         )
         drawHighlight(
-            for: controller.dragTargetSegment,
+            for: controller.dragTargetSegment.flatMap(layout.slot),
             color: NSColor.controlAccentColor,
             opacity: 0.3
         )
 
-        var x = contentOffset
         for (segmentIndex, runs) in controller.attributedRuns.enumerated() {
-            let gaps = controller.runGaps[segmentIndex]
-            let slotWidth = controller.segmentWidths[segmentIndex]
+            guard layout.runs.indices.contains(segmentIndex) else { continue }
             let hoverScale: CGFloat = segmentIndex == hoveredSegment ? 1 + 0.06 * hoverProgress : 1
             let scale = hoverScale * contentScale(for: segmentIndex)
             let context = NSGraphicsContext.current?.cgContext
             let scaled = scale != 1 && context != nil
-            if scaled, let context, let slot = segmentRect(segmentIndex) {
+            if scaled, let context, let slot = layout.slot(segmentIndex) {
                 context.saveGState()
                 context.translateBy(x: slot.midX, y: slot.midY)
                 context.scaleBy(x: scale, y: scale)
                 context.translateBy(x: -slot.midX, y: -slot.midY)
             }
             defer { if scaled { context?.restoreGState() } }
-            var runX = x + 2
             for (runIndex, run) in runs.enumerated() {
-                if runIndex > 0 { runX += gaps[runIndex] }
+                guard layout.runs[segmentIndex].indices.contains(runIndex) else { continue }
+                let frame = layout.runs[segmentIndex][runIndex].frame
                 if let image = controller.nativeIcon(segment: segmentIndex, run: runIndex) {
-                    let side = min(run.size().width, bounds.height - 4)
+                    let side = frame.width
                     image.draw(
-                        in: NSRect(x: runX, y: (bounds.height - side) / 2, width: side, height: side),
+                        in: NSRect(x: frame.minX, y: (bounds.height - side) / 2, width: side, height: side),
                         from: .zero,
                         operation: .sourceOver,
                         fraction: 1
                     )
-                    runX += side
                 } else {
                     let size = run.size()
-                    run.draw(at: NSPoint(x: runX, y: (bounds.height - size.height) / 2))
-                    runX += size.width
+                    run.draw(at: NSPoint(x: frame.minX, y: (bounds.height - size.height) / 2))
                 }
             }
-            x += slotWidth
         }
     }
 
@@ -2162,8 +1951,8 @@ private final class GlyphStripStatusView: NSView {
         return convert(windowPoint, from: nil)
     }
 
-    private func drawHighlight(for segment: Int?, color: NSColor, opacity: CGFloat) {
-        guard let segment, let rect = segmentRect(segment) else { return }
+    private func drawHighlight(for rect: CGRect?, color: NSColor, opacity: CGFloat) {
+        guard let rect else { return }
         color.withAlphaComponent(opacity).setFill()
         NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 3), xRadius: 3, yRadius: 3).fill()
     }
@@ -2216,14 +2005,14 @@ private final class GlyphStripStatusView: NSView {
         pressCommand = controller.command(forSegment: segment, click: .left)
         // Run geometry only matters for a drag. A missing run must not swallow
         // a plain click while the strip is repainting.
-        let run = run(at: pressPoint, in: segment)
+        let layout = self.layout
+        let run = layout.run(at: pressPoint, in: segment) ?? 0
         if run == 0, controller.segments[segment].runs.first?.isIndex == true {
             payload = .space(space)
-        } else if let run,
-                  controller.runWindows.indices.contains(segment),
-                  controller.runWindows[segment].indices.contains(run),
-                  !controller.runWindows[segment][run].isEmpty {
-            payload = .windows(controller.runWindows[segment][run].map(\.id), source: space)
+        } else if layout.runs.indices.contains(segment),
+                  layout.runs[segment].indices.contains(run),
+                  !layout.runs[segment][run].windows.isEmpty {
+            payload = .windows(layout.runs[segment][run].windows.map(\.id), source: space)
         }
         if payload != nil {
             installGlobalDragMonitor()
@@ -2424,43 +2213,16 @@ private final class GlyphStripStatusView: NSView {
         controller.handle(command)
     }
 
-    private var contentOffset: CGFloat {
-        guard let controller else { return 0 }
-        return max((bounds.width - controller.segmentWidths.reduce(0, +)) / 2, 0)
-    }
-
-    private func segmentRect(_ index: Int) -> CGRect? {
-        guard let controller, controller.segmentWidths.indices.contains(index) else { return nil }
-        let x = contentOffset + controller.segmentWidths.prefix(index).reduce(0, +)
-        return CGRect(x: x, y: 0, width: controller.segmentWidths[index], height: bounds.height)
+    /// One render for the button: slots centred in the wider button, native
+    /// icons shrunk to the row.
+    private var layout: GlyphStrip.SegmentLayout {
+        controller?.statusItemLayout(in: bounds)
+            ?? GlyphStrip.SegmentLayout(slots: [], runs: [])
     }
 
     private func segment(at point: NSPoint) -> Int? {
-        guard let controller, bounds.contains(point) else { return nil }
-        var x = contentOffset
-        for (index, width) in controller.segmentWidths.enumerated() {
-            if point.x >= x && point.x < x + width { return index }
-            x += width
-        }
-        return nil
-    }
-
-    private func run(at point: NSPoint, in segment: Int) -> Int? {
-        guard let controller,
-              controller.attributedRuns.indices.contains(segment),
-              let rect = segmentRect(segment) else { return nil }
-        let runs = controller.attributedRuns[segment]
-        let gaps = controller.runGaps[segment]
-        var x = rect.minX + 2
-        for (run, runString) in runs.enumerated() {
-            if run > 0 { x += gaps[run] }
-            let width = controller.nativeIcon(segment: segment, run: run) == nil
-                ? runString.size().width
-                : min(runString.size().width, bounds.height - 4)
-            if point.x >= x && point.x < x + width { return run }
-            x += width
-        }
-        return 0
+        guard bounds.contains(point) else { return nil }
+        return layout.segment(at: point)
     }
 }
 
@@ -2746,14 +2508,11 @@ private final class GlyphStripView: NSView {
             GlyphStrip.fill(highlight, color: controller.hoverColor, opacity: 0.45)
         }
 
-        // `segmentWidths` charges every segment a leading *and* a trailing
-        // `horizontalPadding`, so the pen has to spend both or the drawn content
-        // ends up short of the frame and drifts left of the slot centres the
-        // hover highlight is anchored to.
+        // Every frame comes from the one render value, so the pen, the hover
+        // highlight, and the hit tests cannot disagree.
+        let layout = controller.layout
         for (offset, runs) in controller.runs.enumerated() {
-            // Vertical placement stacks one segment per line; horizontal keeps
-            // every segment on the one menu-bar row.
-            guard let slot = controller.segmentRect(offset) else { continue }
+            guard let slot = layout.slot(offset), layout.runs.indices.contains(offset) else { continue }
             let scale = (offset == scalingSegment ? hoverScale : 1) * contentScale(for: offset)
             let context = NSGraphicsContext.current?.cgContext
             let scaled = scale != 1 && context != nil
@@ -2763,48 +2522,12 @@ private final class GlyphStripView: NSView {
                 context.scaleBy(x: scale, y: scale)
                 context.translateBy(x: -slot.midX, y: -slot.midY)
             }
-            // Restores at the end of this loop iteration, including the
-            // stacked branch's `continue`.
+            // Restores at the end of this loop iteration.
             defer { if scaled { context?.restoreGState() } }
-            if controller.isStackedVertical {
-                // Number on top, one icon per line underneath, each centred.
-                let lines = GlyphStrip.stackedLines(
-                    count: runs.count,
-                    lineHeight: controller.contentLineHeight,
-                    indexGap: controller.stackedGap(before: 1),
-                    iconGap: controller.stackedGap(before: 2),
-                    in: slot.insetBy(dx: 0, dy: controller.hoverPadding)
-                )
-                for (index, run) in runs.enumerated() where lines.indices.contains(index) {
-                    let line = lines[index]
-                    let x = controller.nativeIcon(segment: offset, run: index) == nil
-                        ? Self.inkCenteredX(for: run, in: line)
-                        : line.midX - run.size().width / 2
-                    let advance = draw(run, x: x, in: line, controller: controller, segment: offset, index: index)
-                    controller.recordRunFrame(
-                        CGRect(x: x, y: line.minY, width: advance, height: line.height),
-                        segment: offset,
-                        run: index
-                    )
-                }
-                continue
-            }
-            let gaps = controller.gaps[offset]
-            // Inline vertical centres the space's single line in the strip;
-            // horizontal already has an exact slot.
-            let inner = runs.indices.reduce(CGFloat(0)) { $0 + runs[$1].size().width + gaps[$1] }
-            var x = controller.isVerticalLayout
-                ? slot.midX - inner / 2
-                : slot.minX + GlyphStripPanelController.horizontalPadding
             for (index, run) in runs.enumerated() {
-                if index > 0 { x += gaps[index] }
-                let advance = draw(run, x: x, in: slot, controller: controller, segment: offset, index: index)
-                controller.recordRunFrame(
-                    CGRect(x: x, y: slot.minY, width: advance, height: slot.height),
-                    segment: offset,
-                    run: index
-                )
-                x += advance
+                guard layout.runs[offset].indices.contains(index) else { continue }
+                let frame = layout.runs[offset][index].frame
+                draw(run, x: frame.minX, in: frame, controller: controller, segment: offset, index: index)
             }
         }
     }
@@ -2849,9 +2572,8 @@ private final class GlyphStripView: NSView {
         return line.midX - ink.midX
     }
 
-    /// Draws one run and returns its advance. Native icons fill the fallback
-    /// advance; text draws on the line's shared baseline.
-    @discardableResult
+    /// Draws one run. Native icons fill the fallback advance; text draws on the
+    /// line's shared baseline.
     private func draw(
         _ run: NSAttributedString,
         x: CGFloat,
@@ -2859,7 +2581,7 @@ private final class GlyphStripView: NSView {
         controller: GlyphStripPanelController,
         segment: Int,
         index: Int
-    ) -> CGFloat {
+    ) {
         // Native icon: square image filling the fallback advance, the same
         // width the measuring path charged, centred on the content with the
         // `.app` lift so it sits where a font glyph would.
@@ -2870,14 +2592,13 @@ private final class GlyphStripView: NSView {
             // Fraction honors style() dimming (0.55 on resting runs).
             let fraction = (run.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor)?.alphaComponent ?? 1.0
             image.draw(in: NSRect(x: x, y: y, width: advance, height: advance), from: NSRect(origin: .zero, size: image.size), operation: .sourceOver, fraction: fraction)
-            return advance
+            return
         }
         let baseline = controller.contentBaselineY(in: line)
         run.draw(at: NSPoint(
             x: x,
             y: baseline - GlyphStripPanelController.glyphDrop + controller.drawLift(segment: segment, run: index)
         ))
-        return run.size().width
     }
 
     fileprivate static func font(of run: NSAttributedString) -> NSFont {

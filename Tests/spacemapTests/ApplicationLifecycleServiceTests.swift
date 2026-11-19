@@ -2,8 +2,18 @@ import XCTest
 @testable import spacemap
 
 final class ApplicationLifecycleServiceTests: XCTestCase {
+
+    /// A config path that does not exist yet, removed at teardown. Loading it
+    /// writes the default config there, never into the real user config.
+    private func temporaryConfigPath() -> String {
+        let path = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spacemap-test-config-\(UUID().uuidString).toml").path
+        addTeardownBlock { try? FileManager.default.removeItem(atPath: path) }
+        return path
+    }
+
     func testRuntimeConfigChangesAreEmptyForEquivalentConfig() {
-        let config = GridConfig.default
+        let config = SpacemapConfig.default
 
         let changes = RuntimeConfigChanges(previous: config, current: config)
         XCTAssertFalse(changes.hotkeys)
@@ -13,7 +23,7 @@ final class ApplicationLifecycleServiceTests: XCTestCase {
     }
 
     func testRuntimeConfigChangesIdentifyIndependentSideEffects() {
-        let baseline = GridConfig.default
+        let baseline = SpacemapConfig.default
 
         var hotkeys = baseline
         hotkeys.hotkey = HotkeyConfig(key: .keyCode(122), modifiers: .maskControl)
@@ -37,10 +47,11 @@ final class ApplicationLifecycleServiceTests: XCTestCase {
         yabaiService.runsYabaiQueueImmediately = false
         let services = SpacemapServices(
             yabaiService: yabaiService,
+            themeStore: makeTemporaryThemeStore(),
             alertsService: Alerts()
         )
         let lifecycle = ApplicationLifecycleService(services: services, hud: services.hud)
-        var first = GridConfig.default
+        var first = SpacemapConfig.default
         first.showHUDOnSpaceChange = false
         var latest = first
         latest.showHUDOnSpaceChange = true
@@ -53,6 +64,83 @@ final class ApplicationLifecycleServiceTests: XCTestCase {
         yabaiService.performPendingYabaiQueueBlocks()
         XCTAssertEqual(yabaiService.registerSignalsCallCount, 1)
         XCTAssertEqual(yabaiService.lastRegisterSignalsShowHUDOnSpaceChange, true)
+    }
+
+    func testYabaiDaemonRelaunchRegistersSignalsAgain() {
+        let yabaiService = MockYabaiService()
+        let services = SpacemapServices(
+            yabaiService: yabaiService,
+            configStore: ConfigStore(configPath: temporaryConfigPath()),
+            themeStore: makeTemporaryThemeStore(),
+            alertsService: Alerts()
+        )
+        let lifecycle = ApplicationLifecycleService(services: services, hud: services.hud)
+
+        lifecycle.handleYabaiDaemonPID(4321)
+        XCTAssertEqual(yabaiService.registerSignalsCallCount, 1, "a new daemon starts with no signals")
+        XCTAssertEqual(yabaiService.resetYabaiRunningCacheCallCount, 1, "the running check must forget the old daemon")
+
+        lifecycle.handleYabaiDaemonPID(4321)
+        XCTAssertEqual(yabaiService.registerSignalsCallCount, 1, "polling the same daemon must not re-register")
+
+        lifecycle.handleYabaiDaemonPID(nil)
+        XCTAssertEqual(yabaiService.registerSignalsCallCount, 1, "downtime is not a registration trigger")
+
+        lifecycle.handleYabaiDaemonPID(8765)
+        XCTAssertEqual(yabaiService.registerSignalsCallCount, 2)
+    }
+
+    /// proc_listallpids returns a pid count, not a byte count. Reading it as
+    /// bytes scanned a quarter of the list, so a daemon past that point was
+    /// missed and the strip never re-registered its signals.
+    func testDaemonScanCoversTheWholePIDListAndSkipsYabaiChildren() {
+        let pids: [pid_t] = [501, 502, 503, 504, 505, 506, 507, 508]
+        let paths: [pid_t: String] = [
+            501: "/bin/zsh",
+            502: "/usr/local/bin/yabai",
+            508: "/usr/local/bin/yabai"
+        ]
+        // 502 is a yabai CLI call under a shell; 508 is the daemon at the end
+        // of the list, past the quarter a byte count would have scanned.
+        func scan(parents: [pid_t: pid_t]) -> pid_t? {
+            ApplicationLifecycleService.yabaiDaemonPID(
+                in: pids,
+                filled: Int32(pids.count),
+                executablePath: { paths[$0] },
+                parentPID: { parents[$0] ?? 0 }
+            )
+        }
+
+        XCTAssertEqual(
+            scan(parents: [502: 501, 508: 1]),
+            508,
+            "only the launchd-owned yabai is the daemon, even at the end of the list"
+        )
+        XCTAssertNil(scan(parents: [502: 501]), "a yabai CLI child is not the daemon")
+        XCTAssertNil(scan(parents: [:]), "no yabai process means no daemon")
+    }
+
+    func testShowSignalRefreshesTheGlyphStrip() {
+        _ = NSApplication.shared
+        let services = SpacemapServices(
+            yabaiService: MockYabaiService(),
+            configStore: ConfigStore(configPath: temporaryConfigPath()),
+            themeStore: makeTemporaryThemeStore(),
+            alertsService: Alerts()
+        )
+        let lifecycle = ApplicationLifecycleService(services: services, hud: services.hud)
+        var config = SpacemapConfig.default
+        config.glyphStrip.enabled = true
+        services.applyGlyphStrip(config: config)
+        let refreshesBefore = services.glyphStrip.refreshGeneration
+
+        lifecycle.handleSocketShow()
+
+        XCTAssertEqual(
+            services.glyphStrip.refreshGeneration,
+            refreshesBefore + 1,
+            "a show signal must repaint the strip, which stays visible while the HUD is closed"
+        )
     }
 
     func testDelayedWarningsDoNotDemoteAnOpenSettingsWindow() {
