@@ -50,27 +50,30 @@ final class HUDInputTests: XCTestCase {
 
     func testDefaultHUDKeysRouteVimArrowsAndActions() {
         let defaults = HUDKeyBindings.default
-        let cases: [(CGKeyCode, InputAction)] = [
-            (4, .navigate(direction: .left)), (37, .navigate(direction: .right)),
-            (40, .navigate(direction: .up)), (38, .navigate(direction: .down)),
-            (123, .navigate(direction: .left)), (124, .navigate(direction: .right)),
-            (125, .navigate(direction: .down)), (126, .navigate(direction: .up)),
-            (3, .navigateFirst), (14, .navigateLast), (15, .focusRecent),
-            (53, .closeHUD), (8, .closeHUD),
-            (0, .createSpace), (17, .createAndFocusNewestSpace), (13, .destroyCurrentSpace),
-            (11, .setSpaceLayout(.bsp)), (1, .setSpaceLayout(.stack)),
-            (32, .setSpaceLayout(.float)),
+        let cases: [(CGKeyCode, HUDCommand)] = [
+            (4, .left), (37, .right),
+            (40, .up), (38, .down),
+            (123, .left), (124, .right),
+            (125, .down), (126, .up),
+            (3, .first), (14, .last), (15, .recent),
+            (53, .close), (8, .close),
+            (0, .newSpace), (17, .newSpaceAndFocus), (13, .deleteSpace),
+            (11, .layoutBSP), (1, .layoutStack),
+            (32, .layoutFloat),
         ]
 
         for (keyCode, expected) in cases {
             XCTAssertEqual(
-                HUDInput.hudKeyAction(keyCode: keyCode, flags: [], bindings: defaults),
+                defaults.command(for: keyCode, flags: []),
                 expected
             )
         }
-        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 45, flags: [], bindings: defaults)) // n
-        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 4, flags: .maskCommand, bindings: defaults))
-        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 4, flags: .maskShift, bindings: defaults))
+        XCTAssertNil(defaults.command(for: 45, flags: [])) // n
+        XCTAssertNil(defaults.command(for: 4, flags: .maskCommand))
+        XCTAssertNil(defaults.command(for: 4, flags: .maskShift))
+        XCTAssertEqual(defaults[.moveSpaceBack], [], "move-space keys start unbound")
+        XCTAssertEqual(defaults[.moveSpaceForward], [])
+        XCTAssertEqual(defaults[.cycleLayout], [])
     }
 
     func testCustomHUDKeysReplaceDefaults() throws {
@@ -81,34 +84,174 @@ final class HUDInputTests: XCTestCase {
         ]
 
         XCTAssertEqual(
-            HUDInput.hudKeyAction(keyCode: 7, flags: [], bindings: bindings),
-            .navigate(direction: .left)
+            bindings.command(for: 7, flags: []),
+            .left
         )
         XCTAssertEqual(
-            HUDInput.hudKeyAction(keyCode: 4, flags: .maskCommand, bindings: bindings),
-            .navigate(direction: .left)
+            bindings.command(for: 4, flags: .maskCommand),
+            .left
         )
-        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 4, flags: [], bindings: bindings))
-        XCTAssertNil(HUDInput.hudKeyAction(keyCode: 123, flags: [], bindings: bindings))
+        XCTAssertNil(bindings.command(for: 4, flags: []))
+        XCTAssertNil(bindings.command(for: 123, flags: []))
+    }
+
+    func testMoveSpaceAndCycleLayoutBindingsMatchTheirCommands() throws {
+        var bindings = HUDKeyBindings()
+        bindings[.moveSpaceBack] = [try XCTUnwrap(Hotkey.parseHotkey("ctrl+left"))]
+        bindings[.moveSpaceForward] = [try XCTUnwrap(Hotkey.parseHotkey("ctrl+right"))]
+        bindings[.cycleLayout] = [try XCTUnwrap(Hotkey.parseHotkey("ctrl+l"))]
+
+        XCTAssertEqual(bindings.command(for: 123, flags: .maskControl), .moveSpaceBack)
+        XCTAssertEqual(bindings.command(for: 124, flags: .maskControl), .moveSpaceForward)
+        XCTAssertEqual(bindings.command(for: 37, flags: .maskControl), .cycleLayout)
+    }
+
+    /// Scalar `[behavior]` keys were checked before `[hudKeys]`, so a legacy
+    /// binding for a command beats a table binding for that same command.
+    func testLegacyScalarBindingWinsOverTableBindingForTheSameCommand() throws {
+        var config = SpacemapConfig.default
+        config.hudNewSpaceHotkey = try XCTUnwrap(Hotkey.parseHotkey("x"))
+        var keys = HUDKeyBindings.default
+        keys[.newSpace] = [try XCTUnwrap(Hotkey.parseHotkey("y"))]
+        config.hudKeys = keys
+
+        let bindings = config.hudKeyBindings
+
+        XCTAssertEqual(bindings.command(for: 7, flags: []), .newSpace, "the legacy scalar key stays live")
+        XCTAssertEqual(bindings.command(for: 16, flags: []), .newSpace, "the table binding stays live")
+        XCTAssertEqual(
+            bindings.legacyCommand(for: 7, flags: []),
+            .newSpace,
+            "the legacy scalar is matched before the table"
+        )
+    }
+
+    /// A legacy key also beats a table binding on the same key for a different
+    /// command, because scalars used to be matched before the whole table.
+    func testLegacyScalarKeyBeatsAnyTableBindingOnTheSameKey() throws {
+        var config = SpacemapConfig.default
+        config.hudDeleteSpaceHotkey = try XCTUnwrap(Hotkey.parseHotkey("x"))
+        var keys = HUDKeyBindings.default
+        keys[.left] = [try XCTUnwrap(Hotkey.parseHotkey("x"))]
+        config.hudKeys = keys
+
+        XCTAssertEqual(config.hudKeyBindings.command(for: 7, flags: []), .deleteSpace)
+    }
+
+    /// Settings seeds its key map from this fold, then writes the map back with
+    /// the scalar keys unbound, so both bindings must survive the fold.
+    func testFoldingLegacyKeepsScalarAndTableBindings() throws {
+        var config = SpacemapConfig.default
+        config.hudNewSpaceHotkey = try XCTUnwrap(Hotkey.parseHotkey("x"))
+        config.hudKeys[.newSpace] = [try XCTUnwrap(Hotkey.parseHotkey("y"))]
+
+        let folded = config.hudKeyBindings.foldingLegacy()
+
+        XCTAssertEqual(folded[.newSpace], [
+            try XCTUnwrap(Hotkey.parseHotkey("x")),
+            try XCTUnwrap(Hotkey.parseHotkey("y")),
+        ])
+        XCTAssertEqual(folded.command(for: 7, flags: []), .newSpace)
+        XCTAssertEqual(folded.command(for: 16, flags: []), .newSpace)
+        XCTAssertNil(folded.legacyCommand(for: 7, flags: []),
+                     "the folded map leaves the scalar layer empty")
+    }
+
+    /// A scalar that repeats a table binding must fold to one row, or a
+    /// settings save writes the same shortcut twice.
+    func testFoldingLegacySkipsAScalarThatRepeatsATableBinding() throws {
+        var config = SpacemapConfig.default
+        let key = try XCTUnwrap(Hotkey.parseHotkey("x"))
+        config.hudNewSpaceHotkey = key
+        config.hudKeys[.newSpace] = [key]
+
+        let folded = config.hudKeyBindings.foldingLegacy()
+
+        XCTAssertEqual(folded[.newSpace], [key])
+    }
+
+    func testSpecificBindingBeatsTheDefaultBindingOfTheSameCommand() throws {
+        var config = SpacemapConfig.default
+        var keys = HUDKeyBindings.default
+        keys[.left] = [try XCTUnwrap(Hotkey.parseHotkey("x"))]
+        config.hudKeys = keys
+
+        XCTAssertEqual(config.hudKeyBindings.command(for: 7, flags: []), .left)
+        XCTAssertNil(config.hudKeyBindings.command(for: 4, flags: []),
+                     "replacing an action's bindings drops the old default")
     }
 
     func testHandleHUDKeyDownUsesConfiguredHUDKeys() {
         let input = HUDInput(panel: nil)
         input.updateConfig(hudKeys: .default)
+        func event(_ key: CGKeyCode, flags: CGEventFlags = []) -> CGEvent {
+            let event = CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true)!
+            event.flags = flags
+            return event
+        }
+
+        XCTAssertEqual(input.handleHUDKeyDown(event(4)), .command(.left))
+        XCTAssertEqual(input.handleHUDKeyDown(event(53)), .command(.close))
+        XCTAssertEqual(input.handleHUDKeyDown(event(0)), .command(.newSpace))
+        XCTAssertEqual(input.handleHUDKeyDown(event(32)), .command(.layoutFloat))
+        XCTAssertEqual(input.handleHUDKeyDown(event(45)), HUDKeyPress.none)
+        XCTAssertEqual(input.handleHUDKeyDown(event(43, flags: .maskCommand)), .showSettings)
+        XCTAssertEqual(input.handleHUDKeyDown(event(43)), HUDKeyPress.none,
+                       "settings needs the command modifier")
+    }
+
+    func testNumberJumpSitsBetweenLegacyAndTableBindings() {
+        let input = HUDInput(panel: nil)
+        var keys = HUDKeyBindings.default
+        keys[.left] = [HotkeyConfig(key: .keyCode(18), modifiers: [])]
+        input.updateConfig(hudKeys: keys, jumpToSpaceEnabled: true)
         func event(_ key: CGKeyCode) -> CGEvent {
             CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true)!
         }
 
-        XCTAssertEqual(input.handleHUDKeyDown(event(4)), .navigate(direction: .left))
-        XCTAssertEqual(input.handleHUDKeyDown(event(53)), .closeHUD)
-        XCTAssertEqual(input.handleHUDKeyDown(event(0)), .createSpace)
-        XCTAssertEqual(input.handleHUDKeyDown(event(32)), .setSpaceLayout(.float))
-        XCTAssertEqual(input.handleHUDKeyDown(event(45)), .none)
+        XCTAssertEqual(input.handleHUDKeyDown(event(18)), .number(1),
+                       "a jumpable digit still wins over a table binding")
+    }
+
+    /// The tap checks the legacy scalars before the table, so a scalar key
+    /// wins even when a table action for another command lists the same key.
+    func testHandleHUDKeyDownMatchesLegacyScalarBeforeTheTable() throws {
+        let input = HUDInput(panel: nil)
+        var config = SpacemapConfig.default
+        config.hudDeleteSpaceHotkey = try XCTUnwrap(Hotkey.parseHotkey("x"))
+        var keys = HUDKeyBindings.default
+        keys[.left] = [try XCTUnwrap(Hotkey.parseHotkey("x"))]
+        config.hudKeys = keys
+        input.updateConfig(hudKeys: config.hudKeyBindings)
+        let event = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 7, keyDown: true))
+        event.flags = []
+
+        XCTAssertEqual(input.handleHUDKeyDown(event), .command(.deleteSpace),
+                       "swapping the legacy and table layers must fail here")
+    }
+
+    /// Order is legacy scalars, then number jumps, then the table.
+    func testHandleHUDKeyDownKeepsNumberJumpBetweenBothBindingLayers() throws {
+        let input = HUDInput(panel: nil)
+        var config = SpacemapConfig.default
+        config.hudDeleteSpaceHotkey = try XCTUnwrap(Hotkey.parseHotkey("1"))
+        var keys = HUDKeyBindings.default
+        keys[.left] = [try XCTUnwrap(Hotkey.parseHotkey("2"))]
+        config.hudKeys = keys
+        input.updateConfig(hudKeys: config.hudKeyBindings, jumpToSpaceEnabled: true)
+        func event(_ key: CGKeyCode) -> CGEvent {
+            CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true)!
+        }
+
+        XCTAssertEqual(input.handleHUDKeyDown(event(18)), .command(.deleteSpace),
+                       "a legacy scalar on a digit is matched before the jump")
+        XCTAssertEqual(input.handleHUDKeyDown(event(19)), .number(2),
+                       "the jump still beats a table binding on a digit")
     }
 
     func testNavigateToFirstAndLastMoveAcrossUnifiedGrid() {
         let input = HUDInput(panel: nil)
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.showMode = .active
         config.maxSpaces = 8
         let spaces = [
@@ -130,7 +273,7 @@ final class HUDInputTests: XCTestCase {
 
     func testNavigateToFirstAndLastStayWithinFocusedDisplayInSeparateMode() {
         let input = HUDInput(panel: nil)
-        var config = GridConfig.default
+        var config = SpacemapConfig.default
         config.multiMonitorHUDMode = .separate
         config.maxSpaces = 8
         let spaces = [
@@ -176,14 +319,14 @@ final class HUDInputTests: XCTestCase {
         XCTAssertEqual(notificationCount, 2)
     }
 
-    func testOnlyConsumesVisibleTrustedKeyDownActionsItActsOn() {
+    func testOnlyConsumesVisibleTrustedKeyDownPressesItActsOn() {
         XCTAssertFalse(
             HUDInput.shouldConsumeKeyboardEvent(
                 isTrusted: false,
                 isVisible: true,
                 isPinned: false,
                 type: .keyDown,
-                action: .navigate(direction: .left)
+                press: .command(.left)
             )
         )
         XCTAssertFalse(
@@ -192,7 +335,7 @@ final class HUDInputTests: XCTestCase {
                 isVisible: false,
                 isPinned: false,
                 type: .keyDown,
-                action: .navigate(direction: .left)
+                press: .command(.left)
             )
         )
         XCTAssertFalse(
@@ -201,7 +344,7 @@ final class HUDInputTests: XCTestCase {
                 isVisible: true,
                 isPinned: false,
                 type: .keyDown,
-                action: .none
+                press: .none
             )
         )
         XCTAssertFalse(
@@ -210,7 +353,7 @@ final class HUDInputTests: XCTestCase {
                 isVisible: true,
                 isPinned: false,
                 type: .keyUp,
-                action: .navigate(direction: .left)
+                press: .command(.left)
             )
         )
         XCTAssertTrue(
@@ -219,7 +362,16 @@ final class HUDInputTests: XCTestCase {
                 isVisible: true,
                 isPinned: false,
                 type: .keyDown,
-                action: .navigate(direction: .left)
+                press: .command(.left)
+            )
+        )
+        XCTAssertTrue(
+            HUDInput.shouldConsumeKeyboardEvent(
+                isTrusted: true,
+                isVisible: true,
+                isPinned: false,
+                type: .keyDown,
+                press: .number(2)
             )
         )
     }
@@ -263,44 +415,8 @@ final class HUDInputTests: XCTestCase {
         )
     }
 
-    func testAutoHideSuppressionCancelsAndRestoresTheTimer() {
-        let input = HUDInput(panel: nil)
-        input.autoHideTimeout = 30
-        input.resetAutoHideTimer()
-        XCTAssertTrue(input.isAutoHideScheduled)
-
-        input.setAutoHideSuppressed(true)
-        XCTAssertFalse(input.isAutoHideScheduled,
-            "a window drag must invalidate the pending auto-hide")
-
-        input.setAutoHideSuppressed(false)
-        XCTAssertTrue(input.isAutoHideScheduled)
-        input.stop()
-        XCTAssertFalse(input.isAutoHideScheduled)
-    }
-
-    func testPanelDragDisarmsAndRearmsAutoHide() {
-        let input = HUDInput(panel: nil)
-        input.autoHideTimeout = 30
-        input.resetAutoHideTimer()
-        XCTAssertTrue(input.isAutoHideScheduled)
-
-        input.beginPanelDrag(start: .zero, panelOrigin: .zero)
-        XCTAssertTrue(input.panelDragActive)
-        XCTAssertFalse(input.isAutoHideScheduled,
-            "an armed auto-hide timer must be invalidated on mouse down")
-
-        XCTAssertFalse(input.endPanelDrag())
-        XCTAssertFalse(input.panelDragActive)
-        XCTAssertTrue(input.isAutoHideScheduled,
-            "auto-hide re-arms once the panel drag ends")
-        input.stop()
-    }
-
     func testDeinitStopsTimers() {
         var input: HUDInput? = HUDInput(panel: nil)
-        input?.autoHideTimeout = 30
-        input?.resetAutoHideTimer()
         input?.startPollTimer()
         let stopped = expectation(description: "deinit reached stop()")
         input?.onStopForTesting = { timersCleared in
@@ -357,5 +473,215 @@ final class HUDInputTests: XCTestCase {
         wait(for: [revoked], timeout: 1)
         XCTAssertFalse(input.cachedAccessibilityTrusted,
             "the tap-disabled path must refresh the cached trust value")
+    }
+
+    func testHUDKeyBindingMatchesWhenBindingCarriesNonRelevantFlags() {
+        var bindings = HUDKeyBindings.default
+        bindings[.left] = [
+            HotkeyConfig(key: .keyCode(7), modifiers: [.maskCommand, .maskNumericPad])
+        ]
+
+        XCTAssertEqual(
+            bindings.command(for: 7, flags: [.maskCommand]),
+            .left,
+            "a non-relevant flag on the binding must not block the match"
+        )
+    }
+
+    func testHUDKeyBindingForFunctionKeyMatchesHardwareFnFlag() {
+        var bindings = HUDKeyBindings.default
+        bindings[.left] = [HotkeyConfig(key: .keyCode(100), modifiers: [])]
+        XCTAssertEqual(
+            bindings.command(for: 100, flags: [.maskSecondaryFn]),
+            .left,
+            "hardware fn on a bare F-key binding is the same physical key"
+        )
+
+        bindings[.left] = [HotkeyConfig(key: .keyCode(100), modifiers: [.maskControl])]
+        XCTAssertEqual(
+            bindings.command(for: 100, flags: [.maskControl, .maskSecondaryFn]),
+            .left
+        )
+
+        bindings[.left] = [HotkeyConfig(key: .keyCode(100), modifiers: [.maskSecondaryFn])]
+        XCTAssertNil(
+            bindings.command(for: 100, flags: []),
+            "an explicit fn binding still requires fn"
+        )
+        XCTAssertEqual(
+            bindings.command(for: 100, flags: [.maskSecondaryFn]),
+            .left
+        )
+
+        bindings[.left] = [HotkeyConfig(key: .keyCode(0), modifiers: [])]
+        XCTAssertNil(
+            bindings.command(for: 0, flags: [.maskSecondaryFn]),
+            "hardware fn is not normalized away for non-function keys"
+        )
+    }
+
+    /// One keypress, one command: every command reaches the controller through
+    /// the single `perform` entry point exactly once.
+    func testEveryCommandIsHandedToTheControllerOnceThroughPerform() throws {
+        let input = HUDInput(
+            panel: nil,
+            tapFactory: { _, _, _, _, _, _ in makeFakeEventTapPort() },
+            relaunch: {}
+        )
+        input.accessibilityTrustProvider = { true }
+        input.reconcileSettingsKeyMonitor()
+        input.updateVisibility(true)
+        let recorder = RecordingHUDInputDelegate()
+        input.delegate = recorder
+
+        // Every command takes its own key, outside the ⌘, and digit ranges.
+        let commands = HUDCommand.allCases
+        let keyCodes = (0..<commands.count).map { CGKeyCode($0) }
+        var bindings = HUDKeyBindings()
+        for (command, keyCode) in zip(commands, keyCodes) {
+            bindings[command] = [HotkeyConfig(key: .keyCode(keyCode), modifiers: [])]
+        }
+        input.updateConfig(hudKeys: bindings)
+
+        for keyCode in keyCodes {
+            let event = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true))
+            event.flags = []
+            XCTAssertNil(
+                input.handleTapEvent(type: .keyDown, event: event),
+                "a matched HUD key must be consumed"
+            )
+        }
+        waitUntil("every command dispatched") {
+            recorder.commands.count == commands.count
+        }
+
+        XCTAssertEqual(recorder.commands, commands, "each keypress runs its command exactly once")
+        input.stop()
+    }
+
+    /// Scalar `[behavior]` keys reach the controller as the same commands the
+    /// table binds, so one path serves both config shapes.
+    func testLegacyScalarKeyDispatchesItsCommandThroughPerform() throws {
+        let input = HUDInput(
+            panel: nil,
+            tapFactory: { _, _, _, _, _, _ in makeFakeEventTapPort() },
+            relaunch: {}
+        )
+        input.accessibilityTrustProvider = { true }
+        input.reconcileSettingsKeyMonitor()
+        input.updateVisibility(true)
+        let recorder = RecordingHUDInputDelegate()
+        input.delegate = recorder
+
+        var config = SpacemapConfig.default
+        config.hudMoveSpaceForwardHotkey = HotkeyConfig(key: .keyCode(102), modifiers: [.maskControl])
+        input.updateConfig(hudKeys: config.hudKeyBindings)
+
+        let event = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 102, keyDown: true))
+        event.flags = .maskControl
+        _ = input.handleTapEvent(type: .keyDown, event: event)
+        waitUntil("legacy scalar dispatch") { recorder.commands.count == 1 }
+
+        XCTAssertEqual(recorder.commands, [.moveSpaceForward])
+        input.stop()
+    }
+
+    func testKeyboardTapUsesInjectedFactory() throws {
+        var creations: [(CGEventTapPlacement, CGEventTapOptions, CGEventMask)] = []
+        let input = HUDInput(
+            panel: nil,
+            tapFactory: { _, place, options, mask, _, _ in
+                creations.append((place, options, mask))
+                return makeFakeEventTapPort()
+            }
+        )
+        input.accessibilityTrustProvider = { true }
+
+        input.reconcileSettingsKeyMonitor()
+
+        XCTAssertEqual(creations.count, 1)
+        let creation = try XCTUnwrap(creations.first)
+        XCTAssertEqual(creation.0, .tailAppendEventTap)
+        XCTAssertEqual(creation.1, .defaultTap)
+        XCTAssertEqual(creation.2, HUDInput.keyboardEventTapMask)
+        XCTAssertEqual(input.tapCreationAttempts, 1)
+        XCTAssertTrue(input.isKeyboardTapInstalled)
+
+        input.stop()
+        XCTAssertFalse(input.isKeyboardTapInstalled)
+    }
+
+    func testReleasedInputIsNotRetainedByTheInstalledTap() {
+        var input: HUDInput? = HUDInput(
+            panel: nil,
+            tapFactory: { _, _, _, _, _, _ in makeFakeEventTapPort() },
+            relaunch: {}
+        )
+        weak var weakInput = input
+        input?.accessibilityTrustProvider = { true }
+        input?.reconcileSettingsKeyMonitor()
+        XCTAssertTrue(input?.isKeyboardTapInstalled == true)
+
+        input?.handleAccessibilityState(isTrusted: false)
+        XCTAssertFalse(input?.isKeyboardTapInstalled ?? true, "revocation must release the tap")
+        input = nil
+
+        XCTAssertNil(weakInput, "a torn-down tap must not keep HUDInput alive")
+    }
+
+    func testAccessibilityRevocationUsesInjectedRelaunchHook() {
+        let relaunched = expectation(description: "injected relaunch hook runs")
+        let input = HUDInput(
+            panel: nil,
+            tapFactory: { _, _, _, _, _, _ in makeFakeEventTapPort() },
+            relaunch: { relaunched.fulfill() }
+        )
+        input.accessibilityTrustProvider = { true }
+        input.reconcileSettingsKeyMonitor()
+        XCTAssertTrue(input.isKeyboardTapInstalled)
+
+        input.handleAccessibilityState(isTrusted: false)
+
+        XCTAssertFalse(input.isKeyboardTapInstalled, "revocation must release the tap")
+        wait(for: [relaunched], timeout: 1)
+        input.stop()
+    }
+}
+
+/// A real `CFMachPort` shaped like a tap, so the host install path runs
+/// without accessibility permission or a real session event tap.
+private func makeFakeEventTapPort() -> CFMachPort? {
+    var context = CFMachPortContext(
+        version: 0,
+        info: nil,
+        retain: nil,
+        release: nil,
+        copyDescription: nil
+    )
+    return CFMachPortCreate(kCFAllocatorDefault, { _, _, _, _ in }, &context, nil)
+}
+
+/// Records the commands HUDInput hands to its controller.
+private final class RecordingHUDInputDelegate: HUDInputDelegate {
+    private(set) var commands: [HUDCommand] = []
+
+    func perform(_ command: HUDCommand) {
+        commands.append(command)
+    }
+}
+
+extension HUDInputTests {
+    func waitUntil(
+        _ message: String,
+        timeout: TimeInterval = 2,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        condition: () -> Bool
+    ) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        XCTAssertTrue(condition(), "Timed out waiting for \(message)", file: file, line: line)
     }
 }

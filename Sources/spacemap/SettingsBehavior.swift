@@ -11,11 +11,6 @@ struct SettingsBehavior: View {
     @Binding var hotkeyString: String
     @Binding var pinnedHotkeyString: String
     @Binding var glyphStripHotkeyString: String
-    @Binding var hudMoveBackHotkeyString: String
-    @Binding var hudMoveForwardHotkeyString: String
-    @Binding var hudNewSpaceHotkeyString: String
-    @Binding var hudDeleteSpaceHotkeyString: String
-    @Binding var hudCycleLayoutHotkeyString: String
     @Binding var hudKeys: HUDKeyBindings
     @Binding var hudPositionKind: HUDPositionKind
     @Binding var autoHideTimeout: Int
@@ -25,9 +20,6 @@ struct SettingsBehavior: View {
     @Binding var focusSpaceOnWindowDropModifier: WindowDropFocusModifier
     @Binding var showHUDOnSpaceChange: Bool
     @Binding var showHUDInteractionFeedback: Bool
-    @Binding var spaceDropMode: SpaceDropMode
-    @Binding var spaceDragFocus: DragFocusMode
-    @Binding var windowDragFocus: DragFocusMode
     @Binding var hudAnimationsEnabled: Bool
     @Binding var hudAnimationStyle: HUDAnimationStyle
     @Binding var hudEntranceStyle: HUDEntranceStyle
@@ -39,7 +31,6 @@ struct SettingsBehavior: View {
     @Binding var appFontUpdateMode: AppFontUpdateMode
 
 
-    let onSave: () -> Void
     let checkForUpdates: () -> Void
 
     /// What each placement means in practice. Settings and About always add a
@@ -103,7 +94,6 @@ struct SettingsBehavior: View {
                     if Self.matches(value, glyphStripHotkeyString) {
                         glyphStripHotkeyString = "none"
                     }
-                    onSave()
                 }
             HotkeyRecorder(
                 label: "Pinned HUD Hotkey",
@@ -117,7 +107,6 @@ struct SettingsBehavior: View {
                     if Self.matches(value, glyphStripHotkeyString) {
                         glyphStripHotkeyString = "none"
                     }
-                    onSave()
                 }
             HotkeyRecorder(
                 label: "Toggle Glyph Strip",
@@ -131,7 +120,6 @@ struct SettingsBehavior: View {
                     if Self.matches(value, pinnedHotkeyString) {
                         pinnedHotkeyString = "none"
                     }
-                    onSave()
                 }
             SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. The glyph strip hotkey shows or hides the menu-bar strip for the session.")
 
@@ -140,47 +128,16 @@ struct SettingsBehavior: View {
 
     private var hudKeySection: some View {
         Section(header: SettingsSectionHeader(title: "HUD Keys").settingsAnchor("behavior.hudKeys")) {
-            HotkeyRecorder(
-                label: "Move Space Left",
-                hotkey: $hudMoveBackHotkeyString,
-                coordinator: hotkeyRecorderCoordinator
-            )
-            .onChange(of: hudMoveBackHotkeyString) { _ in onSave() }
-            HotkeyRecorder(
-                label: "Move Space Right",
-                hotkey: $hudMoveForwardHotkeyString,
-                coordinator: hotkeyRecorderCoordinator
-            )
-            .onChange(of: hudMoveForwardHotkeyString) { _ in onSave() }
-            HotkeyRecorder(
-                label: "New Space",
-                hotkey: $hudNewSpaceHotkeyString,
-                coordinator: hotkeyRecorderCoordinator
-            )
-            .onChange(of: hudNewSpaceHotkeyString) { _ in onSave() }
-            HotkeyRecorder(
-                label: "Delete Space",
-                hotkey: $hudDeleteSpaceHotkeyString,
-                coordinator: hotkeyRecorderCoordinator
-            )
-            .onChange(of: hudDeleteSpaceHotkeyString) { _ in onSave() }
-            HotkeyRecorder(
-                label: "Cycle Layout",
-                hotkey: $hudCycleLayoutHotkeyString,
-                coordinator: hotkeyRecorderCoordinator
-            )
-            .onChange(of: hudCycleLayoutHotkeyString) { _ in onSave() }
-            ForEach(HUDKeyAction.allCases, id: \.rawValue) { action in
+            ForEach(HUDCommand.allCases, id: \.rawValue) { command in
                 HUDKeyBindingEditor(
-                    label: action.label,
+                    label: command.label,
                     bindings: Binding(
-                        get: { hudKeys[action] },
-                        set: { hudKeys[action] = $0 }
+                        get: { hudKeys[command] },
+                        set: { hudKeys[command] = $0 }
                     ),
                     coordinator: hotkeyRecorderCoordinator
                 )
             }
-            .onChange(of: hudKeys) { _ in onSave() }
             SettingsFootnote(text: "Defaults are vim keys (h/j/k/l) and arrow keys. Clear a shortcut to unbind it; add a shortcut for an extra binding.")
         }
     }
@@ -193,14 +150,12 @@ struct SettingsBehavior: View {
                 (title: "Bottom", value: .bottom),
                 (title: "Custom", value: .custom),
             ])
-            .onChange(of: hudPositionKind) { _ in onSave() }
 
             if case .custom = hudPositionKind {
                 SettingsFootnote(text: "Drag the HUD to reposition. Position is saved automatically.")
             }
 
             stepper("Auto-hide Timeout (s) (0 = disabled):", value: $autoHideTimeout, range: 0...60)
-                .onChange(of: autoHideTimeout) { _ in onSave() }
 
         }
     }
@@ -208,13 +163,11 @@ struct SettingsBehavior: View {
     private var navigationSection: some View {
         Section(header: SettingsSectionHeader(title: "Navigation").settingsAnchor("behavior.navigation")) {
             Toggle("Jump to Space with Number Keys", isOn: $jumpToSpaceEnabled)
-                .onChange(of: jumpToSpaceEnabled) { _ in onSave() }
 
             GlassSegmentedPicker("Display Navigation", selection: $displayNavigationWrap, options: [
                 (title: "Wrap Within Display", value: .within),
                 (title: "Wrap Between Displays", value: .between),
             ])
-            .onChange(of: displayNavigationWrap) { _ in onSave() }
             SettingsFootnote(text: displayNavigationWrap == .within
                 ? "Keeps navigation within the display containing the focused space."
                 : "Allows navigation to wrap from one display's spaces into another's.")
@@ -230,7 +183,6 @@ struct SettingsBehavior: View {
                 Text("While Holding Modifier").tag(WindowDropFocusMode.modifier)
             }
             .pickerStyle(.menu)
-                .onChange(of: focusSpaceOnWindowDrop) { _ in onSave() }
 
             if focusSpaceOnWindowDrop == .modifier {
                 Picker("Required Modifier", selection: $focusSpaceOnWindowDropModifier) {
@@ -241,7 +193,6 @@ struct SettingsBehavior: View {
                     Text("Shift (⇧)").tag(WindowDropFocusModifier.shift)
                 }
                 .pickerStyle(.menu)
-                .onChange(of: focusSpaceOnWindowDropModifier) { _ in onSave() }
             }
             SettingsFootnote(text: focusSpaceOnWindowDrop == .modifier
                 ? "Switches to the destination only when the selected modifier is held while dropping."
@@ -253,11 +204,9 @@ struct SettingsBehavior: View {
     private var feedbackSection: some View {
         Section(header: SettingsSectionHeader(title: "HUD Feedback").settingsAnchor("behavior.feedback")) {
             Toggle("Show HUD on Space Change", isOn: $showHUDOnSpaceChange)
-                .onChange(of: showHUDOnSpaceChange) { _ in onSave() }
             SettingsFootnote(text: "Shows the HUD whenever yabai changes spaces, including changes triggered by skhd.")
 
             Toggle("HUD Animations", isOn: $hudAnimationsEnabled)
-                .onChange(of: hudAnimationsEnabled) { _ in onSave() }
             if hudAnimationsEnabled {
                 Picker("Entrance", selection: $hudEntranceStyle) {
                     ForEach(HUDEntranceStyle.allCases) { style in
@@ -265,7 +214,6 @@ struct SettingsBehavior: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .onChange(of: hudEntranceStyle) { _ in onSave() }
                 SettingsFootnote(text: "How the HUD arrives and leaves. Slide starts it just outside that screen edge; Scale grows it from a slightly smaller frame.")
 
                 Picker("Motion", selection: $hudAnimationStyle) {
@@ -274,13 +222,11 @@ struct SettingsBehavior: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .onChange(of: hudAnimationStyle) { _ in onSave() }
                 SettingsFootnote(text: "Natural is a calm ease. Springy overshoots and bounces back. Fast is the quickest.")
             }
             SettingsFootnote(text: "Animates the HUD fade, space highlights, and add or delete changes. Off makes every change instant.")
 
             Toggle("Show HUD Feedback", isOn: $showHUDInteractionFeedback)
-                .onChange(of: showHUDInteractionFeedback) { _ in onSave() }
             SettingsFootnote(text: "Draws typed space numbers and action messages over the HUD. Turning this off hides the messages; every action still runs.")
 
         }
@@ -294,7 +240,6 @@ struct SettingsBehavior: View {
                 Text("Dock and Menu Bar").tag(AppPresence.both)
                 Text("Neither").tag(AppPresence.none)
             }
-            .onChange(of: presence) { _ in onSave() }
             SettingsFootnote(text: presenceSummary)
 
             if presence.showsMenuBar {
@@ -305,11 +250,9 @@ struct SettingsBehavior: View {
                     Text("Nearby Spaces").tag(MenuBarDisplayMode.nearby)
                     Text("All Spaces").tag(MenuBarDisplayMode.all)
                 }
-                .onChange(of: menuBarDisplayMode) { _ in onSave() }
 
                 if menuBarDisplayMode == .nearby {
                     stepper("Nearby Space Count", value: $menuBarNearbyCount, range: 1...16)
-                        .onChange(of: menuBarNearbyCount) { _ in onSave() }
                 }
 
                 if menuBarDisplayMode == .dots {
@@ -325,7 +268,6 @@ struct SettingsBehavior: View {
     private var menuBarStripSection: some View {
         Section(header: SettingsSectionHeader(title: "Glyph Strip Menu Bar").settingsAnchor("behavior.menuBarStrip")) {
             Toggle("Show Glyph Strip in Menu Bar", isOn: $glyphStripMenuBarItem)
-                .onChange(of: glyphStripMenuBarItem) { _ in onSave() }
             SettingsFootnote(text: "The strip becomes a compact menu-bar item. The Spacemap menu-bar icon can stay visible at the same time. Shape, glass, free placement and vertical layouts do not apply in the menu bar.")
             if glyphStripMenuBarItem {
                 SettingsFootnote(text: "Turn the strip off in Glyph Strip > General to remove it. Turning this off returns it to the floating strip.")
@@ -340,7 +282,6 @@ struct SettingsBehavior: View {
                 (title: "Notify", value: .notify),
                 (title: "Off", value: .off),
             ])
-            .onChange(of: updateMode) { _ in onSave() }
 
             Button("Check for Updates...") {
                 checkForUpdates()
@@ -355,7 +296,6 @@ struct SettingsBehavior: View {
                 (title: "Manual", value: .manual),
                 (title: "Auto", value: .auto),
             ])
-            .onChange(of: appFontUpdateMode) { _ in onSave() }
             SettingsFootnote(text: "Auto checks GitHub once a day for sketchybar-app-font updates.")
 
             HStack {
@@ -374,14 +314,14 @@ struct SettingsBehavior: View {
             }
         }
         .onAppear {
-            installedFontVersion = AppConfig.load().appFont.installedVersion
+            installedFontVersion = ConfigStore.load().appFont.installedVersion
         }
     }
 
     private func checkForFontUpdate() {
         isCheckingFont = true
         fontStatus = "Checking for updates…"
-        let installedTag = AppConfig.load().appFont.installedVersion
+        let installedTag = ConfigStore.load().appFont.installedVersion
         let hadFace = AppGlyphFont.load() != nil
         installedFontVersion = installedTag
         Task {
@@ -398,7 +338,7 @@ struct SettingsBehavior: View {
                     status = "Updated to \(info.tag)"
                     installedFontVersion = info.tag
                     if hadFace {
-                        AppFontUpdater.relaunchIfGlyphStripUsesFont(AppConfig.load())
+                        AppFontUpdater.relaunchIfGlyphStripUsesFont(ConfigStore.load())
                     }
                 }
             } catch {

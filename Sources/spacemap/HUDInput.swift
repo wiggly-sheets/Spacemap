@@ -1,55 +1,30 @@
 import AppKit
 import CoreGraphics
 
-enum InputAction: Equatable {
-    case navigate(direction: SpaceNavigationDirection)
-    case navigateFirst
-    case navigateLast
-    case closeHUD
-    case focusRecent
-    case createSpace
-    case createAndFocusNewestSpace
-    case destroyCurrentSpace
-    case setSpaceLayout(SpaceLayout)
-    case cycleSpaceLayout
-    case enterSpaceNumber(Int)
+/// What one keystroke asked the HUD to do, before dispatch.
+enum HUDKeyPress: Equatable {
+    case command(HUDCommand)
+    case number(Int)
     case showSettings
-    case moveSpace(direction: SpaceNavigationDirection)
     case none
 }
 
 protocol HUDInputDelegate: AnyObject {
-    func navigate(direction: SpaceNavigationDirection)
-    func navigateToFirst()
-    func navigateToLast()
-    func closeHUD()
-    func focusRecent()
-    func createSpace()
-    func createAndFocusNewestSpace()
-    func destroyCurrentSpace()
-    func setSpaceLayout(_ layout: SpaceLayout)
-    func cycleSpaceLayout()
-    func showSettings()
-    func moveSpace(direction: SpaceNavigationDirection)
+    /// Single entry point for a matched HUD key.
+    func perform(_ command: HUDCommand)
 }
 
 final class HUDInput {
-    enum KeyboardTapRecoveryAction: Equatable {
-        case waitForPermission
-        case remove
-        case install
-        case reinstall
-        case reenable
-        case none
-    }
+    typealias KeyboardTapRecoveryAction = EventTapHost.RecoveryAction
 
     weak var delegate: HUDInputDelegate?
 
     var quartzPointConverter: ((CGPoint) -> CGPoint)?
+    /// The fixed ⌘, shortcut, which is not a configurable HUD command.
+    var onShowSettings: (() -> Void)?
 
-    private var keyboardEventTap: CFMachPort?
-    private var keyboardRunLoopSource: CFRunLoopSource?
-    private var keyboardTapContext: UnsafeMutableRawPointer?
+    private let eventTapHost: EventTapHost
+    private let relaunch: () -> Void
     private var panelDragMonitor: Any?
     private var panelDragStart: CGPoint?
     private var panelDragOrigin: CGPoint?
@@ -60,31 +35,24 @@ final class HUDInput {
     private var isVisible = false
     private var hudKeys = HUDKeyBindings.default
     private var jumpToSpaceEnabled = false
-    private var hudMoveBackHotkey = HotkeyConfig(key: .none, modifiers: [])
-    private var hudMoveForwardHotkey = HotkeyConfig(key: .none, modifiers: [])
-    private var hudNewSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
-    private var hudDeleteSpaceHotkey = HotkeyConfig(key: .none, modifiers: [])
-    private var hudCycleLayoutHotkey = HotkeyConfig(key: .none, modifiers: [])
     private var dragHandlerCellFrames: [(spaceIndex: Int, frame: CGRect)] = []
-    private var autoHideSuppressed = false
 
 
     var isPinned = false
-    var autoHideTimeout: TimeInterval = 0
-    private var autoHideTimer: Timer?
-    var isAutoHideScheduled: Bool { autoHideTimer != nil }
     var lastFocusedSpaceIndex: Int? = nil
     var currentState: GridState?
-    var config: GridConfig?
+    var config: SpacemapConfig?
     var yabaiService: YabaiService?
     var hudStateSync: GridStateCoordinator?
     weak var hudDisplay: HUDDisplay?
     var isPollingFocusedSpace = false
     private var pollTimer: Timer?
-    private var trustWatchdog: Timer?
     private var pollTicks = 0
     var onRefresh: (() -> Void)?
-    var onAutoHide: (() -> Void)?
+    /// The presenter owns auto-hide; this asks it to re-arm the timer.
+    var onAutoHideActivity: (() -> Void)?
+    /// Panel drags disarm auto-hide for their duration.
+    var onPanelDragChanged: ((Bool) -> Void)?
     var onNumberEntry: ((HUDNumberFeedback?) -> Void)?
     var onFocusSpaceChanged: ((Int) -> Void)?
     var onPanelDragEnded: (() -> Void)?
@@ -100,8 +68,21 @@ final class HUDInput {
     /// Overridable in tests; production reads the AX API.
     var accessibilityTrustProvider: () -> Bool = { AXIsProcessTrusted() }
 
-    init(panel: NSPanel?) {
+    var isKeyboardTapInstalled: Bool { eventTapHost.isEventTapInstalled }
+    var tapCreationAttempts: Int { eventTapHost.tapCreationAttempts }
+    var tapCreationFailureCount: Int { eventTapHost.tapCreationFailureCount }
+
+    init(
+        panel: NSPanel?,
+        tapFactory: @escaping EventTapFactory = defaultEventTapFactory,
+        relaunch: @escaping () -> Void = { SystemPermissions.relaunch() }
+    ) {
         self.panel = panel
+        self.relaunch = relaunch
+        self.eventTapHost = EventTapHost(
+            logName: "spacemap/HUDInput",
+            tapFactory: tapFactory
+        )
         cachedAccessibilityTrusted = accessibilityTrustProvider()
     }
 
@@ -120,20 +101,10 @@ final class HUDInput {
 
     func updateConfig(
         hudKeys: HUDKeyBindings = .default,
-        jumpToSpaceEnabled: Bool = false,
-        hudMoveBackHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
-        hudMoveForwardHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
-        hudNewSpaceHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
-        hudDeleteSpaceHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: []),
-        hudCycleLayoutHotkey: HotkeyConfig = HotkeyConfig(key: .none, modifiers: [])
+        jumpToSpaceEnabled: Bool = false
     ) {
         self.hudKeys = hudKeys
         self.jumpToSpaceEnabled = jumpToSpaceEnabled
-        self.hudMoveBackHotkey = hudMoveBackHotkey
-        self.hudMoveForwardHotkey = hudMoveForwardHotkey
-        self.hudNewSpaceHotkey = hudNewSpaceHotkey
-        self.hudDeleteSpaceHotkey = hudDeleteSpaceHotkey
-        self.hudCycleLayoutHotkey = hudCycleLayoutHotkey
     }
 
     func updateCellFrames(_ frames: [(spaceIndex: Int, frame: CGRect)]) {
@@ -156,33 +127,16 @@ final class HUDInput {
         stopTrustWatchdog()
         stopSettingsKeyMonitor()
         stopPanelDragMonitor()
-        autoHideTimer?.invalidate()
-        autoHideTimer = nil
         pollTimer?.invalidate()
         pollTimer = nil
         pollTicks = 0
-        autoHideSuppressed = false
         clearNumberEntry()
-        onStopForTesting?(autoHideTimer == nil && pollTimer == nil)
+        onStopForTesting?(pollTimer == nil)
     }
 
-    /// Test seam: lets a test observe that deinit reached `stop()` with both
-    /// timers invalidated.
+    /// Test seam: lets a test observe that deinit reached `stop()` with the
+    /// poll timer invalidated.
     var onStopForTesting: ((Bool) -> Void)?
-
-    /// Hold/release auto-hide without touching the panel-drag monitor. The
-    /// HUD uses this while a window drag hovers a cell so the HUD cannot
-    /// disappear mid-drag.
-    func setAutoHideSuppressed(_ suppressed: Bool) {
-        guard autoHideSuppressed != suppressed else { return }
-        autoHideSuppressed = suppressed
-        if suppressed {
-            autoHideTimer?.invalidate()
-            autoHideTimer = nil
-        } else {
-            resetAutoHideTimer()
-        }
-    }
 
     func startPanelDragMonitor() {
         guard panelDragMonitor == nil, self.panel != nil else { return }
@@ -202,14 +156,13 @@ final class HUDInput {
                 guard let start = self.panelDragStart,
                       let origin = self.panelDragOrigin else { break }
                 let current = NSEvent.mouseLocation
-                let dx = current.x - start.x
-                let dy = current.y - start.y
+                let delta = PanelPresenter.dragDelta(from: start, to: current)
                 if let quartzPoint = self.quartzPointConverter?(current) {
                     let overCell = self.dragHandlerCellFrames.contains { $0.frame.contains(quartzPoint) }
                     if !overCell {
                         var newOrigin = origin
-                        newOrigin.x += dx
-                        newOrigin.y += dy
+                        newOrigin.x += delta.dx
+                        newOrigin.y += delta.dy
                         panel.setFrameOrigin(newOrigin)
                         self.panelDragDidMove = true
                     }
@@ -225,15 +178,13 @@ final class HUDInput {
     }
 
     /// Start a panel drag: the armed auto-hide timer must be disarmed while
-    /// the mouse is down, otherwise the HUD can vanish mid-drag even though
-    /// `resetAutoHideTimer` refuses to schedule a new one.
+    /// the mouse is down, otherwise the HUD can vanish mid-drag.
     func beginPanelDrag(start: CGPoint, panelOrigin: CGPoint) {
         panelDragStart = start
         panelDragOrigin = panelOrigin
         panelDragDidMove = false
         isPanelDragging = true
-        autoHideTimer?.invalidate()
-        autoHideTimer = nil
+        onPanelDragChanged?(true)
     }
 
     /// Finish a panel drag and re-arm auto-hide. Returns whether the panel
@@ -245,7 +196,7 @@ final class HUDInput {
         panelDragOrigin = nil
         panelDragDidMove = false
         isPanelDragging = false
-        resetAutoHideTimer()
+        onPanelDragChanged?(false)
         return moved
     }
 
@@ -258,21 +209,10 @@ final class HUDInput {
         panelDragOrigin = nil
         panelDragDidMove = false
         isPanelDragging = false
-        if isVisible { resetAutoHideTimer() }
+        onPanelDragChanged?(false)
     }
 
     var panelDragActive: Bool { isPanelDragging }
-
-
-    func resetAutoHideTimer() {
-        guard !panelDragActive, !autoHideSuppressed else { return }
-        autoHideTimer?.invalidate()
-        autoHideTimer = nil
-        guard !isPinned, autoHideTimeout > 0 else { return }
-        autoHideTimer = Timer.scheduledTimer(withTimeInterval: autoHideTimeout, repeats: false) { [weak self] _ in
-            self?.onAutoHide?()
-        }
-    }
 
 
     func startPollTimer() {
@@ -298,7 +238,7 @@ final class HUDInput {
                     guard self.isVisible else { return }
                     if focused != self.lastFocusedSpaceIndex {
                         self.onRefresh?()
-                        self.resetAutoHideTimer()
+                        self.onAutoHideActivity?()
                     }
                 }
             }
@@ -365,7 +305,7 @@ final class HUDInput {
             currentState = optimistic
             hudDisplay?.updateState(optimistic)
         }
-        resetAutoHideTimer()
+        onAutoHideActivity?()
         onFocusSpaceChanged?(index)
     }
 
@@ -449,16 +389,11 @@ final class HUDInput {
         isVisible: Bool,
         isPinned: Bool,
         type: CGEventType,
-        action: InputAction
+        press: HUDKeyPress
     ) -> Bool {
         guard isTrusted, isVisible else { return false }
         guard type == .keyDown else { return false }
-        switch action {
-        case .none:
-            return false
-        case .navigate, .navigateFirst, .navigateLast, .closeHUD, .focusRecent, .createSpace, .createAndFocusNewestSpace, .destroyCurrentSpace, .setSpaceLayout, .cycleSpaceLayout, .enterSpaceNumber, .showSettings, .moveSpace:
-            return true
-        }
+        return press != .none
     }
 
     static func keyboardTapRecoveryAction(
@@ -467,11 +402,12 @@ final class HUDInput {
         tapIsValid: Bool,
         tapIsEnabled: Bool
     ) -> KeyboardTapRecoveryAction {
-        guard isTrusted else { return hasTap ? .remove : .waitForPermission }
-        guard hasTap else { return .install }
-        guard tapIsValid else { return .reinstall }
-        guard tapIsEnabled else { return .reenable }
-        return .none
+        EventTapHost.recoveryAction(
+            isTrusted: isTrusted,
+            hasTap: hasTap,
+            tapIsValid: tapIsValid,
+            tapIsEnabled: tapIsEnabled
+        )
     }
 
 
@@ -484,65 +420,7 @@ final class HUDInput {
             stopSettingsKeyMonitor()
             return
         }
-        guard keyboardEventTap == nil else { return }
-        let mask = CGEventMask(
-            (1 << CGEventType.keyDown.rawValue) |
-            (1 << CGEventType.keyUp.rawValue)
-        )
-        // Retain self for tap lifetime; released in stopSettingsKeyMonitor.
-        if keyboardTapContext == nil { keyboardTapContext = Unmanaged.passRetained(self).toOpaque() }
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .tailAppendEventTap,
-            options: .defaultTap,
-            eventsOfInterest: mask,
-            callback: { _, type, event, refcon in
-                guard let refcon else { return Unmanaged.passUnretained(event) }
-                let input = Unmanaged<HUDInput>.fromOpaque(refcon).takeUnretainedValue()
-                let isTrusted = input.cachedAccessibilityTrusted
-                guard isTrusted else {
-                    if let tap = input.keyboardEventTap, CFMachPortIsValid(tap) {
-                        CGEvent.tapEnable(tap: tap, enable: false)
-                    }
-                    DispatchQueue.main.async {
-                        input.handleAccessibilityState(isTrusted: false)
-                    }
-                    return Unmanaged.passUnretained(event)
-                }
-                if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                    input.handleDisabledKeyboardTap(reason: type)
-                    return Unmanaged.passUnretained(event)
-                }
-                guard input.isVisible else { return Unmanaged.passUnretained(event) }
-                var action = InputAction.none
-                if type == .keyDown {
-                    action = input.handleHUDKeyDown(event)
-                    input.dispatchAction(action)
-                }
-                let shouldConsume = HUDInput.shouldConsumeKeyboardEvent(
-                    isTrusted: isTrusted,
-                    isVisible: input.isVisible,
-                    isPinned: input.isPinned,
-                    type: type,
-                    action: action
-                )
-                return shouldConsume ? nil : Unmanaged.passUnretained(event)
-            },
-            userInfo: keyboardTapContext
-        ) else {
-            if let ctx = keyboardTapContext { Unmanaged<HUDInput>.fromOpaque(ctx).release(); keyboardTapContext = nil }
-            NSLog("spacemap/HUDInput: keyboard capture event tap creation failed")
-            return
-        }
-        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
-            CFMachPortInvalidate(tap)
-            if let ctx = keyboardTapContext { Unmanaged<HUDInput>.fromOpaque(ctx).release(); keyboardTapContext = nil }
-            return
-        }
-        keyboardEventTap = tap
-        keyboardRunLoopSource = source
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
+        eventTapHost.install(consumer: self)
     }
 
     func reconcileSettingsKeyMonitor() {
@@ -554,29 +432,28 @@ final class HUDInput {
     /// while it is hidden, so the tap would keep its cached permission until
     /// the next presentation. Runs on the main run loop at one second.
     private func startTrustWatchdog() {
-        guard trustWatchdog == nil else { return }
-        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            let provider = self.accessibilityTrustProvider
-            PermissionProbe.shared.check(provider: provider) { [weak self] trusted in
-                guard let self else { return }
-                guard trusted != self.cachedAccessibilityTrusted else {
-                    // Untrusted but still cached true? The tap must go regardless.
-                    if !trusted, self.keyboardEventTap != nil {
-                        self.handleAccessibilityState(isTrusted: false)
-                    }
-                    return
-                }
-                self.handleAccessibilityState(isTrusted: trusted)
-            }
+        eventTapHost.startHealthTimer { [weak self] in
+            self?.probeTrustWhileHidden()
         }
-        RunLoop.main.add(timer, forMode: .common)
-        trustWatchdog = timer
+    }
+
+    private func probeTrustWhileHidden() {
+        let provider = accessibilityTrustProvider
+        PermissionProbe.shared.check(provider: provider) { [weak self] trusted in
+            guard let self else { return }
+            guard trusted != self.cachedAccessibilityTrusted else {
+                // Untrusted but still cached true? The tap must go regardless.
+                if !trusted, self.eventTapHost.isEventTapInstalled {
+                    self.handleAccessibilityState(isTrusted: false)
+                }
+                return
+            }
+            self.handleAccessibilityState(isTrusted: trusted)
+        }
     }
 
     private func stopTrustWatchdog() {
-        trustWatchdog?.invalidate()
-        trustWatchdog = nil
+        eventTapHost.stopHealthTimer()
     }
 
     /// Poll-driven reconciliation. Skip the never-trusted startup state so a
@@ -584,9 +461,12 @@ final class HUDInput {
     /// (which would hide a mouse-usable HUD). Once trusted, any transition in
     /// either direction is applied.
     private func reconcileAccessibilityFromPoll() {
-        guard cachedAccessibilityTrusted || keyboardEventTap != nil else { return }
+        guard cachedAccessibilityTrusted || eventTapHost.isEventTapInstalled else { return }
         PermissionProbe.shared.check(provider: accessibilityTrustProvider) { [weak self] trustedNow in
-            guard let self, trustedNow || self.cachedAccessibilityTrusted || self.keyboardEventTap != nil else { return }
+            guard let self,
+                  trustedNow || self.cachedAccessibilityTrusted || self.eventTapHost.isEventTapInstalled else {
+                return
+            }
             self.handleAccessibilityState(isTrusted: trustedNow)
         }
     }
@@ -616,16 +496,14 @@ final class HUDInput {
                 self.handleAccessibilityState(isTrusted: false)
                 return
             }
-            if let tap = self.keyboardEventTap, CFMachPortIsValid(tap) {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            }
+            self.eventTapHost.enableTap()
         }
     }
 
     func handleAccessibilityState(isTrusted: Bool) {
         cachedAccessibilityTrusted = isTrusted
         guard isTrusted else {
-            let hadTap = keyboardEventTap != nil
+            let hadTap = eventTapHost.isEventTapInstalled
             if hadTap {
                 NSLog("spacemap/HUDInput: Accessibility revoked; releasing keyboard capture")
                 stopSettingsKeyMonitor()
@@ -633,8 +511,8 @@ final class HUDInput {
                 // registered even after invalidation. Replacing the process is
                 // the only reliable release, and it is what a manual restart
                 // does today.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    SystemPermissions.relaunch()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [relaunch] in
+                    relaunch()
                 }
             }
             if isVisible, !didNotifyAccessibilityRevocation {
@@ -645,184 +523,54 @@ final class HUDInput {
         }
 
         didNotifyAccessibilityRevocation = false
-        let tapIsValid = keyboardEventTap.map(CFMachPortIsValid) ?? false
-        let tapIsEnabled = tapIsValid && (keyboardEventTap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false)
-        switch Self.keyboardTapRecoveryAction(
-            isTrusted: true,
-            hasTap: keyboardEventTap != nil,
-            tapIsValid: tapIsValid,
-            tapIsEnabled: tapIsEnabled
-        ) {
-        case .waitForPermission, .remove, .none:
-            break
-        case .install:
-            startSettingsKeyMonitor()
-        case .reinstall:
-            stopSettingsKeyMonitor()
-            startSettingsKeyMonitor()
-        case .reenable:
-            guard let tap = keyboardEventTap else { return }
-            CGEvent.tapEnable(tap: tap, enable: true)
-            if !CGEvent.tapIsEnabled(tap: tap) {
-                stopSettingsKeyMonitor()
-                startSettingsKeyMonitor()
-            }
-        }
+        eventTapHost.reconcile(consumer: self)
     }
 
     private func stopSettingsKeyMonitor() {
-        // Disable while the source is still attached. Removing the source first
-        // leaves a window where the WindowServer waits for a callback that can
-        // no longer run, which freezes the whole input stream.
-        if let tap = keyboardEventTap {
-            if CFMachPortIsValid(tap) {
-                CGEvent.tapEnable(tap: tap, enable: false)
-            }
-            CFMachPortInvalidate(tap)
-        }
-        if let source = keyboardRunLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        }
-        keyboardRunLoopSource = nil
-        keyboardEventTap = nil
-        if let ctx = keyboardTapContext { Unmanaged<HUDInput>.fromOpaque(ctx).release(); keyboardTapContext = nil }
+        eventTapHost.tearDown()
     }
 
-    func handleHUDKeyDown(_ event: CGEvent) -> InputAction {
+    func handleHUDKeyDown(_ event: CGEvent) -> HUDKeyPress {
         let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
         let flags = event.flags
         if Self.isSettingsShortcut(keyCode: keyCode, flags: flags) {
             return .showSettings
         }
-        if Self.hotkeyMatches(hudMoveBackHotkey, keyCode: keyCode, flags: flags) {
-            return .moveSpace(direction: .left)
-        }
-        if Self.hotkeyMatches(hudMoveForwardHotkey, keyCode: keyCode, flags: flags) {
-            return .moveSpace(direction: .right)
-        }
-        if Self.hotkeyMatches(hudNewSpaceHotkey, keyCode: keyCode, flags: flags) {
-            return .createSpace
-        }
-        if Self.hotkeyMatches(hudDeleteSpaceHotkey, keyCode: keyCode, flags: flags) {
-            return .destroyCurrentSpace
-        }
-        if Self.hotkeyMatches(hudCycleLayoutHotkey, keyCode: keyCode, flags: flags) {
-            return .cycleSpaceLayout
+        // Legacy scalar keys were checked first, then number jumps, then the
+        // `[hudKeys]` table. That order is the observable pre-merge behavior.
+        if let command = hudKeys.legacyCommand(for: keyCode, flags: flags) {
+            return .command(command)
         }
         if jumpToSpaceEnabled, let number = Self.numberFromKeyCode(keyCode: keyCode, flags: flags) {
-            return .enterSpaceNumber(number)
+            return .number(number)
         }
-        if let action = Self.hudKeyAction(keyCode: keyCode, flags: flags, bindings: hudKeys) {
-            return action
+        if let command = hudKeys.tableCommand(for: keyCode, flags: flags) {
+            return .command(command)
         }
         return .none
     }
 
-    private func dispatchAction(_ action: InputAction) {
-        switch action {
-        case .navigate(let direction):
+    private func dispatch(_ press: HUDKeyPress) {
+        switch press {
+        case .command(let command):
             DispatchQueue.main.async { [weak self] in
-                self?.delegate?.navigate(direction: direction)
+                self?.delegate?.perform(command)
             }
-        case .navigateFirst:
+        case .number(let number):
             DispatchQueue.main.async { [weak self] in
-                self?.delegate?.navigateToFirst()
-            }
-        case .navigateLast:
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.navigateToLast()
-            }
-        case .closeHUD:
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.closeHUD()
-            }
-        case .focusRecent:
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.focusRecent()
-            }
-        case .createSpace:
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.createSpace()
-            }
-        case .createAndFocusNewestSpace:
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.createAndFocusNewestSpace()
-            }
-        case .destroyCurrentSpace:
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.destroyCurrentSpace()
-            }
-        case .setSpaceLayout(let layout):
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.setSpaceLayout(layout)
+                self?.handleNumberEntry(number)
             }
         case .showSettings:
             DispatchQueue.main.async { [weak self] in
-                self?.delegate?.showSettings()
-            }
-        case .moveSpace(let direction):
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.moveSpace(direction: direction)
-            }
-        case .cycleSpaceLayout:
-            DispatchQueue.main.async { [weak self] in
-                self?.delegate?.cycleSpaceLayout()
-            }
-        case .enterSpaceNumber(let number):
-            DispatchQueue.main.async { [weak self] in
-                self?.handleNumberEntry(number)
+                self?.onShowSettings?()
             }
         case .none:
             break
         }
     }
 
-    private static func hotkeyMatches(
-        _ hotkey: HotkeyConfig,
-        keyCode: CGKeyCode,
-        flags: CGEventFlags
-    ) -> Bool {
-        guard case .keyCode(let target) = hotkey.key, !hotkey.isDisabled else { return false }
-        let relevant: CGEventFlags = [.maskControl, .maskCommand, .maskAlternate, .maskShift, .maskSecondaryFn]
-        return keyCode == target && flags.intersection(relevant) == hotkey.modifiers
-    }
-
     static func isSettingsShortcut(keyCode: CGKeyCode, flags: CGEventFlags) -> Bool {
         keyCode == 43 && flags.contains(.maskCommand)
-    }
-
-    /// First binding that matches wins. Bindings match modifiers exactly.
-    static func hudKeyAction(
-        keyCode: CGKeyCode,
-        flags: CGEventFlags,
-        bindings: HUDKeyBindings
-    ) -> InputAction? {
-        for action in HUDKeyAction.allCases {
-            for binding in bindings[action]
-            where hotkeyMatches(binding, keyCode: keyCode, flags: flags) {
-                return inputAction(for: action)
-            }
-        }
-        return nil
-    }
-
-    private static func inputAction(for action: HUDKeyAction) -> InputAction {
-        switch action {
-        case .left: return .navigate(direction: .left)
-        case .right: return .navigate(direction: .right)
-        case .up: return .navigate(direction: .up)
-        case .down: return .navigate(direction: .down)
-        case .goFirst: return .navigateFirst
-        case .goLast: return .navigateLast
-        case .recent: return .focusRecent
-        case .close: return .closeHUD
-        case .createSpace: return .createSpace
-        case .createAndFocusSpace: return .createAndFocusNewestSpace
-        case .destroySpace: return .destroyCurrentSpace
-        case .layoutBSP: return .setSpaceLayout(.bsp)
-        case .layoutStack: return .setSpaceLayout(.stack)
-        case .layoutFloat: return .setSpaceLayout(.float)
-        }
     }
 
     static func numberFromKeyCode(keyCode: CGKeyCode, flags: CGEventFlags) -> Int? {
@@ -852,5 +600,48 @@ final class HUDInput {
         case 92: return 9
         default: return nil
         }
+    }
+}
+
+extension HUDInput: EventTapConsumer {
+    static let keyboardEventTapMask = CGEventMask(
+        (1 << CGEventType.keyDown.rawValue) |
+        (1 << CGEventType.keyUp.rawValue)
+    )
+
+    var eventTapMask: CGEventMask { Self.keyboardEventTapMask }
+    var eventTapPlacement: EventTapPlacement { .main }
+
+    /// The keyboard tap holds the HUD for the tap's lifetime; teardown is the
+    /// only release path.
+    var retainsConsumerForTapLifetime: Bool { true }
+
+    func handleTapEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        let isTrusted = cachedAccessibilityTrusted
+        guard isTrusted else {
+            eventTapHost.disableTap()
+            DispatchQueue.main.async { [weak self] in
+                self?.handleAccessibilityState(isTrusted: false)
+            }
+            return Unmanaged.passUnretained(event)
+        }
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            handleDisabledKeyboardTap(reason: type)
+            return Unmanaged.passUnretained(event)
+        }
+        guard isVisible else { return Unmanaged.passUnretained(event) }
+        var press = HUDKeyPress.none
+        if type == .keyDown {
+            press = handleHUDKeyDown(event)
+            dispatch(press)
+        }
+        let shouldConsume = HUDInput.shouldConsumeKeyboardEvent(
+            isTrusted: isTrusted,
+            isVisible: isVisible,
+            isPinned: isPinned,
+            type: type,
+            press: press
+        )
+        return shouldConsume ? nil : Unmanaged.passUnretained(event)
     }
 }
