@@ -26,12 +26,17 @@ final class ThemeLibraryWindowController: NSWindowController, NSWindowDelegate {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func show(currentTheme: String, onApply: @escaping (String) -> Void) {
+    func show(
+        currentTheme: String,
+        catalog: ThemeCatalogService,
+        onApply: @escaping (String) -> Void
+    ) {
         self.onApply = onApply
         self.currentTheme = currentTheme
         guard let window else { return }
         window.contentView = NSHostingView(rootView: ThemeLibraryView(
-            currentTheme: currentTheme
+            currentTheme: currentTheme,
+            catalog: catalog
         ) { [weak self] name in
             self?.currentTheme = name
             self?.onApply?(name)
@@ -43,7 +48,7 @@ final class ThemeLibraryWindowController: NSWindowController, NSWindowDelegate {
 }
 
 private struct ThemeLibraryView: View {
-    @ObservedObject private var catalog = ThemeCatalogService.shared
+    @ObservedObject private var catalog: ThemeCatalogService
     @State private var search = ""
     @State private var showInstalledOnly = false
     @State private var busy: String?
@@ -52,8 +57,13 @@ private struct ThemeLibraryView: View {
     @State private var currentTheme: String
     let onApply: (String) -> Void
 
-    init(currentTheme: String, onApply: @escaping (String) -> Void) {
+    init(
+        currentTheme: String,
+        catalog: ThemeCatalogService,
+        onApply: @escaping (String) -> Void
+    ) {
         _currentTheme = State(initialValue: currentTheme)
+        _catalog = ObservedObject(wrappedValue: catalog)
         self.onApply = onApply
     }
 
@@ -140,8 +150,8 @@ private struct ThemeLibraryView: View {
                 }
             }
             HStack(spacing: 8) {
-                let applied = ThemeManager.normalizedName(currentTheme)
-                    == ThemeManager.normalizedName(entry.name)
+                let applied = ThemeStore.normalizedName(currentTheme)
+                    == ThemeStore.normalizedName(entry.fileStem)
                 Button(applied ? "Applied" : (installed ? "Apply" : "Install")) {
                     Task { await installOrApply(entry) }
                 }
@@ -193,16 +203,16 @@ private struct ThemeLibraryView: View {
 
     private func installOrApply(_ entry: ThemeCatalogEntry) async {
         if catalog.isInstalled(entry) {
-            currentTheme = entry.name
-            onApply(entry.name)
+            currentTheme = entry.fileStem
+            onApply(entry.fileStem)
             return
         }
         busy = entry.id
         errorMessage = nil
         do {
-            try await catalog.install(entry)
-            currentTheme = entry.name
-            onApply(entry.name)
+            let installed = try await catalog.install(entry)
+            currentTheme = installed
+            onApply(installed)
         } catch {
             errorMessage = error.localizedDescription
         }

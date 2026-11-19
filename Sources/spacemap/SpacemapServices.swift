@@ -5,8 +5,9 @@ import Sparkle
 
 final class SpacemapServices {
     let yabaiService: YabaiService
-    let appConfig: AppConfig
-    let themeService: ThemeManager
+    let configStore: ConfigStore
+    let themeStore: ThemeStore
+    let themeCatalog: ThemeCatalogService
     let sparkleController: SPUStandardUpdaterController
     let fileManager: FileManagerProtocol
     let process: ProcessProtocol
@@ -20,19 +21,24 @@ final class SpacemapServices {
         onInstallCLI: { [weak self] in self?.installCommandLineTools() },
         onCheckForUpdates: { [weak self] in self?.checkForUpdates() },
         onRestartApp: { [weak self] in self?.restartApp() },
-        onGetConfig: { [weak self] in self?.currentConfig ?? GridConfig.default },
+        onGetConfig: { [weak self] in self?.currentConfig ?? SpacemapConfig.default },
         onSetLoginAtLogin: { [weak self] in self?.setLoginAtLogin(enabled: $0) },
         onChangeSpaceNameProfile: { [weak self] index in self?.changeSpaceNameProfile(index: index) }
     )
     lazy var settingsService: SettingsService = SettingsService(
         yabaiService: yabaiService,
+        themeStore: themeStore,
+        themeCatalog: themeCatalog,
         checkForUpdates: { [weak self] in self?.checkForUpdates() },
         restoreFloatingPanels: { [weak self] in self?.glyphStrip.present() },
         restingActivationPolicy: { [weak self] in
             (self?.currentConfig.presence.showsDock ?? false) ? .regular : .accessory
         }
     )
-    private(set) lazy var glyphStrip = GlyphStripPanelController(yabaiService: yabaiService)
+    private(set) lazy var glyphStrip = GlyphStripPanelController(
+        yabaiService: yabaiService,
+        themeStore: themeStore
+    )
     lazy var cliToolsService = CLIToolsService(
         onUpdateSparkleConfig: { [weak self] updateMode in self?.updateSparkleConfig(updateMode: updateMode) },
         sparkleController: sparkleController
@@ -40,7 +46,7 @@ final class SpacemapServices {
     lazy var deepLinkService: DeepLinkService = {
         DeepLinkService(
             hud: hud,
-            themeService: themeService,
+            themeStore: themeStore,
             showSettings: { [weak self] in self?.showSettingsWindow() },
             showMenu: { [weak self] in self?.showMenubarMenu() }
         )
@@ -52,8 +58,8 @@ final class SpacemapServices {
     private(set) lazy var hud: HUDWindowController = HUDWindowController(services: self)
     init(
         yabaiService: YabaiService? = nil,
-        appConfig: AppConfig? = nil,
-        themeService: ThemeManager? = nil,
+        configStore: ConfigStore? = nil,
+        themeStore: ThemeStore? = nil,
         sparkleController: SPUStandardUpdaterController? = nil,
         fileManager: FileManagerProtocol? = nil,
         process: ProcessProtocol? = nil,
@@ -61,8 +67,9 @@ final class SpacemapServices {
         alertsService: AlertsService? = nil
     ) {
         self.yabaiService = yabaiService ?? YabaiClientImpl()
-        self.appConfig = appConfig ?? AppConfig()
-        self.themeService = themeService ?? ThemeManager.shared
+        self.configStore = configStore ?? ConfigStore()
+        self.themeStore = themeStore ?? ThemeStore()
+        self.themeCatalog = ThemeCatalogService(themeStore: self.themeStore)
         self.sparkleController = sparkleController ?? SPUStandardUpdaterController(
             startingUpdater: false,
             updaterDelegate: nil,
@@ -88,35 +95,35 @@ final class SpacemapServices {
             self?.refreshMenubarPreview()
         }
     }
-    var currentConfig: GridConfig {
-        get { appConfig.load() }
+    var currentConfig: SpacemapConfig {
+        get { configStore.load() }
         set {
-            guard AppConfig.saveConfigReportingResult(newValue) else {
+            guard ConfigStore.saveConfigReportingResult(newValue) else {
                 showConfigSaveError()
                 return
             }
         }
     }
-    var configPath: String { appConfig.configPath }
+    var configPath: String { configStore.configPath }
     func setupMenubar() { menubarService.setupMenubar() }
     func showMenubarMenu() { menubarService.showMenubarMenu() }
-    func applyMenubarVisibility(config: GridConfig) { menubarService.applyMenubarVisibility(config: config) }
+    func applyMenubarVisibility(config: SpacemapConfig) { menubarService.applyMenubarVisibility(config: config) }
 
     /// Applies where Spacemap appears at rest: the Dock policy and the menu
     /// bar item. Windows still switch to `.regular` while Settings is open.
-    func applyPresence(config: GridConfig) {
+    func applyPresence(config: SpacemapConfig) {
         // Settings and About are regular windows; keep the Dock icon while one
         // is open even when the resting presence has no Dock icon.
         let hasRegularWindow = NSApp.windows.contains { $0.isVisible && $0.canBecomeKey }
         NSApp.setActivationPolicy(config.presence.showsDock || hasRegularWindow ? .regular : .accessory)
         menubarService.applyMenubarVisibility(config: config)
     }
-    func refreshMenubarPreview(config: GridConfig? = nil) { menubarService.refreshMenubarPreview(config: config) }
-    func applyGlyphStrip(config: GridConfig) { glyphStrip.update(config: config) }
+    func refreshMenubarPreview(config: SpacemapConfig? = nil) { menubarService.refreshMenubarPreview(config: config) }
+    func applyGlyphStrip(config: SpacemapConfig) { glyphStrip.update(config: config) }
     func refreshGlyphStrip() { glyphStrip.refresh() }
     func applyMenubarIcon(to item: NSStatusItem) { menubarService.applyMenubarIcon(to: item) }
     func hotkeyMenuString(_ hotkey: HotkeyConfig) -> String { menubarService.hotkeyMenuString(hotkey) }
-    func restartHotkeys(config: GridConfig) { hotkeyHandler.restartHotkeys(config: config) }
+    func restartHotkeys(config: SpacemapConfig) { hotkeyHandler.restartHotkeys(config: config) }
     func stopHotkeys() { hotkeyHandler.stopHotkeys() }
     func checkApplicationLocation() { cliToolsService.checkApplicationLocation() }
     func showMoveToApplicationsDialog() { cliToolsService.showMoveToApplicationsDialog() }
@@ -145,7 +152,7 @@ final class SpacemapServices {
     func installCommandLineTools() { cliToolsService.installCommandLineTools() }
     func checkForUpdates() { cliToolsService.checkForUpdates() }
     func checkForFontUpdate() {
-        let installedTag = AppConfig.load().appFont.installedVersion
+        let installedTag = ConfigStore.load().appFont.installedVersion
         let hadFace = AppGlyphFont.load() != nil
         Task {
             do {
@@ -155,7 +162,7 @@ final class SpacemapServices {
                 case .updated(let info):
                     AppFontUpdater.recordCheck(installedTag: info.tag)
                     if hadFace {
-                        AppFontUpdater.relaunchIfGlyphStripUsesFont(AppConfig.load())
+                        AppFontUpdater.relaunchIfGlyphStripUsesFont(ConfigStore.load())
                     }
                 }
             } catch {
@@ -179,8 +186,8 @@ final class SpacemapServices {
     func showMRUAlert() { alertsService.showMRUAlert() }
     func showSeparateSpacesAlert() { alertsService.showSeparateSpacesAlert() }
     func changeSpaceNameProfile(index: Int) {
-        var updated: GridConfig?
-        let saved = AppConfig.updateConfig { config in
+        var updated: SpacemapConfig?
+        let saved = ConfigStore.updateConfig { config in
             guard (0..<config.spaceNameProfiles.count).contains(index) else { return }
             config.activeSpaceNameProfileIndex = index
             config.spaceNames = config.spaceNameProfiles[index].spaceNames

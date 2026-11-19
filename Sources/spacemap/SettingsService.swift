@@ -2,6 +2,8 @@ import AppKit
 
 final class SettingsService {
     let yabaiService: YabaiService
+    let themeStore: ThemeStore
+    let themeCatalog: ThemeCatalogService
     let checkForUpdates: () -> Void
     /// Called after the app drops back to an accessory (menu-bar-only) policy,
     /// which orders status-level panels out. The strip re-presents itself here.
@@ -16,11 +18,15 @@ final class SettingsService {
 
     init(
         yabaiService: YabaiService,
+        themeStore: ThemeStore,
+        themeCatalog: ThemeCatalogService,
         checkForUpdates: @escaping () -> Void,
         restoreFloatingPanels: @escaping () -> Void = {},
         restingActivationPolicy: @escaping () -> NSApplication.ActivationPolicy = { .accessory }
     ) {
         self.yabaiService = yabaiService
+        self.themeStore = themeStore
+        self.themeCatalog = themeCatalog
         self.checkForUpdates = checkForUpdates
         self.restoreFloatingPanels = restoreFloatingPanels
         self.restingActivationPolicy = restingActivationPolicy
@@ -46,6 +52,7 @@ final class SettingsService {
     private func rebuildSettingsWindowIfOpen() {
         guard settingsWindowController != nil else { return }
         removeSettingsWindowCloseObserver()
+        settingsWindowController?.discardPendingSettingsSave()
         settingsWindowController?.close()
         settingsWindowController = nil
         showSettingsWindow()
@@ -60,7 +67,11 @@ final class SettingsService {
             return
         }
 
-        let controller = SettingsWindowController(yabaiService: yabaiService)
+        let controller = SettingsWindowController(
+            yabaiService: yabaiService,
+            themeStore: themeStore,
+            themeCatalog: themeCatalog
+        )
         settingsWindowController = controller
         controller.showWindow()
         controller.window?.makeKeyAndOrderFront(nil)
@@ -73,6 +84,7 @@ final class SettingsService {
                 queue: .main
             ) { [weak self] _ in
                 guard let self else { return }
+                self.settingsWindowController?.flushSettings()
                 self.settingsWindowController = nil
                 self.removeSettingsWindowCloseObserver()
                 DispatchQueue.main.async {

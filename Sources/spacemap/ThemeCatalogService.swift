@@ -7,7 +7,19 @@ struct ThemeCatalogEntry: Codable, Identifiable, Equatable {
     let colors: [String: String]
 
     var id: String { file }
-    var theme: AppTheme? { AppTheme(colors: colors) }
+    /// On-disk name the install and apply path both use.
+    var fileStem: String { ThemeStore.fileStem(name) }
+    /// Catalog JSON uses the on-disk colour names; `AppTheme` accepts those.
+    var theme: AppTheme? { AppTheme(colors: colors.compactMapValues(Self.previewHex)) }
+
+    /// Preview only: the old catalog validator accepted 1–8 hex digits, so
+    /// `#fff` and 8-digit ARGB entries still preview. Install stays strict.
+    private static func previewHex(_ raw: String) -> UInt32? {
+        var text = raw.trimmingCharacters(in: .whitespaces)
+        if text.hasPrefix("#") { text.removeFirst() }
+        guard (1...8).contains(text.count) else { return nil }
+        return UInt32(text, radix: 16)
+    }
 }
 
 struct ThemeCatalogFile: Codable {
@@ -19,7 +31,6 @@ struct ThemeCatalogFile: Codable {
 /// user's theme directory. Bundled themes stay read-only.
 @MainActor
 final class ThemeCatalogService: ObservableObject {
-    static let shared = ThemeCatalogService()
 
     static let catalogURL = URL(
         string: ProcessInfo.processInfo.environment["SPACEMAP_THEME_CATALOG"]
@@ -37,8 +48,13 @@ final class ThemeCatalogService: ObservableObject {
     }()
     private let lastRefreshKey = "themeCatalogLastRefresh"
     private var started = false
+    private let themeStore: ThemeStore
 
-    private init() {}
+    /// Nonisolated so `SpacemapServices` can build the catalog at init; the
+    /// instance never touches published state until `start()` on the main actor.
+    nonisolated init(themeStore: ThemeStore) {
+        self.themeStore = themeStore
+    }
 
     func start() {
         guard !started else { return }
@@ -74,7 +90,9 @@ final class ThemeCatalogService: ObservableObject {
         }
     }
 
-    func install(_ entry: ThemeCatalogEntry) async throws {
+    /// Installs the downloaded theme and returns the name it took on disk.
+    @discardableResult
+    func install(_ entry: ThemeCatalogEntry) async throws -> String {
         guard let url = URL(string: entry.file, relativeTo: Self.baseURL),
               url.scheme == "https" else { throw CatalogError.invalidURL }
         var request = URLRequest(url: url)
@@ -83,55 +101,40 @@ final class ThemeCatalogService: ObservableObject {
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
               data.count <= 256_000,
               let content = String(data: data, encoding: .utf8),
-              ThemeManager.parseThemeContent(content) != nil else {
+              ThemeCodec.parseThemeContent(content) != nil else {
             throw CatalogError.invalidTheme
         }
-        ThemeManager.ensureThemesDir()
-        let path = ThemeManager.themesDir()
-            .appendingPathComponent(Self.safeFilename(entry.name) + ".toml").path
+        themeStore.ensureDirectory()
+        let path = themeStore.directory
+            .appendingPathComponent(entry.fileStem + ".toml").path
         guard ConfigLoader.secureWrite(content, to: path) else { throw CatalogError.writeFailed }
-        ThemeManager.shared.reload()
+        themeStore.reload()
+        return entry.fileStem
     }
 
     func uninstall(_ entry: ThemeCatalogEntry) throws {
-        guard !ThemeManager.isBundledTheme(entry.name) else { throw CatalogError.bundledReadOnly }
-        let normalized = ThemeManager.normalizedName(entry.name)
-        let dir = ThemeManager.themesDir()
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: dir,
-            includingPropertiesForKeys: nil
-        )) ?? []
-        guard let file = files.first(where: {
-            ThemeManager.isThemeFile($0)
-                && ThemeManager.normalizedName($0.deletingPathExtension().lastPathComponent) == normalized
+        guard !themeStore.isBundledTheme(entry.name) else { throw CatalogError.bundledReadOnly }
+        let normalized = ThemeStore.normalizedName(entry.fileStem)
+        guard let file = themeStore.themeFiles().first(where: {
+            ThemeStore.normalizedName($0.deletingPathExtension().lastPathComponent) == normalized
         }) else { return }
         try FileManager.default.removeItem(at: file)
-        ThemeManager.shared.reload()
+        themeStore.reload()
     }
 
     func isInstalled(_ entry: ThemeCatalogEntry) -> Bool {
-        if ThemeManager.isBundledTheme(entry.name) { return true }
-        return installedNames().contains(ThemeManager.normalizedName(entry.name))
+        if themeStore.isBundledTheme(entry.name) { return true }
+        return themeStore.installedNames().contains(ThemeStore.normalizedName(entry.fileStem))
     }
 
     func isBundled(_ entry: ThemeCatalogEntry) -> Bool {
-        ThemeManager.isBundledTheme(entry.name)
-    }
-
-    private func installedNames() -> Set<String> {
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: ThemeManager.themesDir(),
-            includingPropertiesForKeys: nil
-        )) ?? []
-        return Set(files.filter(ThemeManager.isThemeFile).map {
-            ThemeManager.normalizedName($0.deletingPathExtension().lastPathComponent)
-        })
+        themeStore.isBundledTheme(entry.name)
     }
 
     private func bundledEntries() -> [ThemeCatalogEntry] {
-        ThemeManager.bundledThemeFiles().compactMap { url in
+        ThemeStore.bundledThemeFiles().compactMap { url in
             guard let content = try? String(contentsOf: url, encoding: .utf8),
-                  let theme = ThemeManager.parseThemeContent(content) else { return nil }
+                  let theme = ThemeCodec.parseThemeContent(content) else { return nil }
             return ThemeCatalogEntry(
                 name: url.deletingPathExtension().lastPathComponent,
                 file: url.lastPathComponent,
@@ -172,11 +175,6 @@ final class ThemeCatalogService: ObservableObject {
         return colors
     }
 
-    private static func safeFilename(_ name: String) -> String {
-        name.replacingOccurrences(of: "/", with: "-")
-            .replacingOccurrences(of: ":", with: "-")
-    }
-
     enum CatalogError: LocalizedError {
         case invalidCatalog, invalidURL, invalidTheme, writeFailed, bundledReadOnly
 
@@ -189,31 +187,5 @@ final class ThemeCatalogService: ObservableObject {
             case .bundledReadOnly: return "Bundled themes cannot be removed."
             }
         }
-    }
-}
-
-private extension AppTheme {
-    init?(colors: [String: String]) {
-        func color(_ name: String) -> UInt32? {
-            guard let raw = colors[name] else { return nil }
-            return UInt32(raw.trimmingCharacters(in: CharacterSet(charactersIn: "#")), radix: 16)
-        }
-        guard let background = color("background"),
-              let focused = color("focused"),
-              let text = color("text"),
-              let drop = color("dropTarget"),
-              let cellBg = color("cellBg"),
-              let cellFocused = color("cellBgFocused") else { return nil }
-        self.init(
-            background: background,
-            focused: focused,
-            text: text,
-            dropTarget: drop,
-            cellBg: cellBg,
-            cellBgFocused: cellFocused,
-            rect1: color("rect1") ?? focused,
-            rect2: color("rect2") ?? focused,
-            rect3: color("rect3") ?? focused
-        )
     }
 }

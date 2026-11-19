@@ -2,15 +2,15 @@ import AppKit
 
 final class DeepLinkService {
     private let hud: HUDWindowController
-    private let themeService: ThemeManager
+    private let themeStore: ThemeStore
     private let showSettings: () -> Void
     private let showMenu: () -> Void
     private var isReady = false
     private var pendingActions: [DeepLinkAction] = []
 
-    init(hud: HUDWindowController, themeService: ThemeManager, showSettings: @escaping () -> Void, showMenu: @escaping () -> Void) {
+    init(hud: HUDWindowController, themeStore: ThemeStore, showSettings: @escaping () -> Void, showMenu: @escaping () -> Void) {
         self.hud = hud
-        self.themeService = themeService
+        self.themeStore = themeStore
         self.showSettings = showSettings
         self.showMenu = showMenu
     }
@@ -33,11 +33,11 @@ final class DeepLinkService {
         case .menu:
             showMenu()
         case .config:
-            _ = AppConfig.load()
-            NSWorkspace.shared.open(URL(fileURLWithPath: AppConfig.configPath))
+            _ = ConfigStore.load()
+            NSWorkspace.shared.open(URL(fileURLWithPath: ConfigStore.configPath))
         case .themes:
-            themeService.reload()
-            NSWorkspace.shared.open(ThemeManager.themesDir())
+            themeStore.reload()
+            NSWorkspace.shared.open(themeStore.directory)
         }
     }
 

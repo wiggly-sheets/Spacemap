@@ -6,7 +6,7 @@ import AppKit
 /// Settings pane for the always-visible menu-bar glyph strip.
 ///
 /// One `@Binding` to the whole `GlyphStripConfig`; every control writes through
-/// `onSave`, which is the same path every other settings pane uses.
+/// the draft's debounced save.
 struct SettingsGlyphStrip: View {
 
     @Binding var glyphStrip: GlyphStripConfig
@@ -14,30 +14,22 @@ struct SettingsGlyphStrip: View {
     /// resolves against it when the strip follows the main HUD.
     let themeName: String
 
-    let onSave: () -> Void
-
-    /// Built once and reused: a fresh `.shared` per render re-reads the
-    /// whole themes directory on every keystroke. Reloaded when the pane opens
-    /// so `.smthemes` edits show up without rebuilding the view.
-    private static let themeService = ThemeManager.shared
+    /// The app-wide store; reloaded when the pane opens so `.smthemes` edits
+    /// show up without rebuilding the view.
+    let themeStore: ThemeStore
 
     /// The strip's own theme, or the main HUD's when it follows it or matches
     /// the whole HUD appearance.
     private var effectiveThemeName: String {
-        if glyphStrip.matchHUDAppearance { return themeName }
-        return glyphStrip.theme.isEmpty ? themeName : glyphStrip.theme
+        themeStore.resolvedThemeName(strip: glyphStrip, hudTheme: themeName)
     }
-
-    private var theme: AppTheme { Self.themeService.named(effectiveThemeName) }
 
     var body: some View {
         Section(header: SettingsSectionHeader(title: "Glyph Strip").settingsAnchor("glyphStrip.general")) {
             Toggle("Enabled", isOn: $glyphStrip.enabled)
-                .onChange(of: glyphStrip.enabled) { _ in onSave() }
             SettingsFootnote(text: "Each space shows its index plus a glyph per window.")
             SettingsFootnote(text: "To show the strip as a compact menu-bar item, use General > Glyph Strip Menu Bar.")
             Toggle("Hide in Fullscreen", isOn: $glyphStrip.hideInFullscreen)
-                .onChange(of: glyphStrip.hideInFullscreen) { _ in onSave() }
             SettingsFootnote(text: "Hides the strip while another app is in native fullscreen, such as after clicking a window's green button.")
 
             if glyphStrip.displayMode == .floating {
@@ -47,89 +39,63 @@ struct SettingsGlyphStrip: View {
                 Text("Center").tag(GlyphStripPosition.center)
                 Text("Custom").tag(GlyphStripPosition.custom)
             }
-            .onChange(of: glyphStrip.position) { _ in onSave() }
 
             if glyphStrip.position == .custom {
                 Picker("Layout", selection: $glyphStrip.orientation) {
                     Text("Horizontal").tag(GlyphStripOrientation.horizontal)
                     Text("Vertical").tag(GlyphStripOrientation.vertical)
                 }
-                .onChange(of: glyphStrip.orientation) { _ in onSave() }
                 if glyphStrip.orientation == .vertical {
                     Picker("Icon Layout", selection: $glyphStrip.verticalLayout) {
                         Text("Beside Numbers").tag(GlyphStripVerticalLayout.inline)
                         Text("Under Numbers").tag(GlyphStripVerticalLayout.stacked)
                     }
-                    .onChange(of: glyphStrip.verticalLayout) { _ in onSave() }
                     SettingsFootnote(text: "Beside Numbers keeps each space on one row. Under Numbers puts the space number on top and stacks its icons beneath it.")
                 }
                 SettingsFootnote(text: "Vertical stacks one space per row, for a strip on a screen edge. Drag the strip to place it anywhere on screen; its position is saved automatically.")
                 Toggle("Lock Position", isOn: $glyphStrip.lockPosition)
-                    .onChange(of: glyphStrip.lockPosition) { _ in onSave() }
                 SettingsFootnote(text: "Locks the strip where it is. Turn it off to drag the strip again. Off by default.")
             }
 
             if glyphStrip.position == .leftOfNotch || glyphStrip.position == .rightOfNotch {
                 stepper("Notch Margin", value: $glyphStrip.margin, range: 0...40, step: 1)
-                    .onChange(of: glyphStrip.margin) { _ in onSave() }
                 SettingsFootnote(text: "Gap between the strip and the edge of the notch area.")
-            }
-            if glyphStrip.position != .custom {
-                stepper("Vertical Offset", value: $glyphStrip.yOffset, range: -10...10, step: 1)
-                    .onChange(of: glyphStrip.yOffset) { _ in onSave() }
-                SettingsFootnote(text: "Fine-tunes the strip inside the menu bar. Positive values move it down, negative values move it up; 0 keeps it centred.")
             }
             }
 
             Toggle("Same Padding on All Sides", isOn: $glyphStrip.lockPadding)
-                .onChange(of: glyphStrip.lockPadding) { _ in onSave() }
             if glyphStrip.lockPadding {
                 stepper("Padding", value: $glyphStrip.padding, range: 0...40, step: 1)
-                    .onChange(of: glyphStrip.padding) { _ in onSave() }
                 SettingsFootnote(text: "Space between the glyphs and the strip edge, on every side.")
             } else {
                 stepper("Horizontal Padding", value: $glyphStrip.horizontalPadding, range: 0...40, step: 1)
-                    .onChange(of: glyphStrip.horizontalPadding) { _ in onSave() }
                 stepper("Vertical Padding", value: $glyphStrip.verticalPadding, range: 0...40, step: 1)
-                    .onChange(of: glyphStrip.verticalPadding) { _ in onSave() }
                 SettingsFootnote(text: "Separate left/right and top/bottom padding.")
             }
 
             Section(header: SettingsSectionHeader(title: "Contents").settingsAnchor("glyphStrip.contents")) {
                 Toggle(showSpaceNumbersTitle, isOn: $glyphStrip.showSpaceNumbers)
-                    .onChange(of: glyphStrip.showSpaceNumbers) { _ in onSave() }
                 Toggle("Show Layout Suffix (f / s / b)", isOn: $glyphStrip.showLayoutSuffix)
-                    .onChange(of: glyphStrip.showLayoutSuffix) { _ in onSave() }
                 if glyphStrip.showLayoutSuffix {
                     Toggle("Show BSP Layout (b)", isOn: $glyphStrip.showBSPLayoutBadge)
-                        .onChange(of: glyphStrip.showBSPLayoutBadge) { _ in onSave() }
                     Toggle("Show Stack Layout (s)", isOn: $glyphStrip.showStackLayoutBadge)
-                        .onChange(of: glyphStrip.showStackLayoutBadge) { _ in onSave() }
                     Toggle("Show Float Layout (f)", isOn: $glyphStrip.showFloatLayoutBadge)
-                        .onChange(of: glyphStrip.showFloatLayoutBadge) { _ in onSave() }
                 }
                 SettingsFootnote(text: "Floating spaces are marked f, stack spaces s, bsp spaces b. Each letter can be hidden.")
                 Toggle("Show App Icons", isOn: $glyphStrip.showAppIcons)
-                    .onChange(of: glyphStrip.showAppIcons) { _ in onSave() }
                 Picker("Icon Source", selection: $glyphStrip.iconSource) {
                     Text("App Font").tag(GlyphStripIconSource.sbarFont)
                     Text("Native Icons").tag(GlyphStripIconSource.nativeIcons)
                 }
-                .onChange(of: glyphStrip.iconSource) { _ in onSave() }
                 SettingsFootnote(text: "App Font draws sketchybar-app-font glyphs. Native Icons draws each app's own icon, falling back to the app-font glyph then initials when unavailable.")
                 Toggle("One Glyph Per App", isOn: $glyphStrip.dedupeAppsPerSpace)
-                    .onChange(of: glyphStrip.dedupeAppsPerSpace) { _ in onSave() }
                 SettingsFootnote(text: "When on, an app with several windows on one space shows a single glyph.")
                 Toggle("Show Empty Space Placeholder", isOn: $glyphStrip.showPlaceholders)
-                    .onChange(of: glyphStrip.showPlaceholders) { _ in onSave() }
                 Toggle("Show Display Separators", isOn: $glyphStrip.showDisplaySeparators)
-                    .onChange(of: glyphStrip.showDisplaySeparators) { _ in onSave() }
                 SettingsFootnote(text: "Draws a | between spaces that sit on different displays.")
                 Toggle("Show Add Space Button", isOn: $glyphStrip.showAddSpaceButton)
-                    .onChange(of: glyphStrip.showAddSpaceButton) { _ in onSave() }
 
                 stepper("Icons Per Space (0 = unlimited)", value: $glyphStrip.maxIconsPerSpace, range: 0...16)
-                    .onChange(of: glyphStrip.maxIconsPerSpace) { _ in onSave() }
                 SettingsFootnote(text: "Extra windows on a space collapse into a +N indicator once this cap is reached.")
             }
 
@@ -144,28 +110,21 @@ struct SettingsGlyphStrip: View {
                 if !glyphStrip.matchHUDAppearance {
                     Picker("Theme", selection: $glyphStrip.theme) {
                         Text("Follow main HUD").tag("")
-                        ForEach(Self.themeService.allNames(), id: \.self) { name in
+                        ForEach(themeStore.allNames(), id: \.self) { name in
                             Text(name.capitalized).tag(name)
                         }
                     }
-                    .onChange(of: glyphStrip.theme) { _ in onSave() }
                     SettingsFootnote(text: "Glyphs, fills and the glass edge resolve against this theme. Follow main HUD uses the theme from the Appearance pane.")
                 }
 
                 stepper("Icon Size", value: $glyphStrip.iconSize, range: 6...24, step: 1)
-                    .onChange(of: glyphStrip.iconSize) { _ in onSave() }
                 stepper("Space Number Size", value: $glyphStrip.indexSize, range: 6...24, step: 1)
-                    .onChange(of: glyphStrip.indexSize) { _ in onSave() }
                 stepper("Icon Spacing", value: $glyphStrip.iconSpacing, range: 0...20, step: 0.5)
-                    .onChange(of: glyphStrip.iconSpacing) { _ in onSave() }
                 stepper("Index Padding", value: $glyphStrip.indexPadding, range: 0...20, step: 0.5)
-                    .onChange(of: glyphStrip.indexPadding) { _ in onSave() }
                 SettingsFootnote(text: "Icon Spacing is the gap between two app icons, and between stacked icon lines. Index Padding is the gap between a space's number and its first icon, horizontal or stacked.")
                 stepper("Maximum Length", value: $glyphStrip.autoResizeMaxLength, range: 0...2000, step: 25)
-                    .onChange(of: glyphStrip.autoResizeMaxLength) { _ in onSave() }
                 SettingsFootnote(text: "Shrinks glyphs to keep the strip inside this length (width when horizontal, height when vertical). 0 keeps the configured sizes however long the strip grows.")
                 Toggle("Highlight Current Space", isOn: $glyphStrip.highlightCurrentSpace)
-                    .onChange(of: glyphStrip.highlightCurrentSpace) { _ in onSave() }
                 SettingsFootnote(text: "Colours come from the \(effectiveThemeName.capitalized) theme — the current space, the + button and the hover highlight use focused, everything else uses text. No per-element colour keys.")
 
                 if !glyphStrip.matchHUDAppearance {
@@ -174,14 +133,12 @@ struct SettingsGlyphStrip: View {
                         Text("Solid").tag(GlyphStripBackgroundMaterial.solid)
                         Text("Liquid Glass").tag(GlyphStripBackgroundMaterial.liquidGlass)
                     }
-                    .onChange(of: glyphStrip.backgroundMaterial) { _ in onSave() }
                     if glyphStrip.backgroundMaterial == .liquidGlass {
                         GlassSegmentedPicker("Glass Style", selection: $glyphStrip.glassStyle, options: [
                             (title: "Clear", value: .clear),
                             (title: "Regular", value: .regular),
                             (title: "Tinted", value: .tinted),
                         ])
-                        .onChange(of: glyphStrip.glassStyle) { _ in onSave() }
                         SettingsFootnote(text: "Clear is the native light material, Regular the frosted one, and Tinted adds the theme accent.")
 
                         Picker("Glass Finish", selection: stripVariantBinding) {
@@ -189,13 +146,11 @@ struct SettingsGlyphStrip: View {
                                 Text("Variant \(number)").tag(number)
                             }
                         }
-                        .onChange(of: stripVariantBinding.wrappedValue) { _ in onSave() }
                         if glyphStrip.glassStyle == .tinted {
                             GlassSegmentedPicker("Tinted Material", selection: $glyphStrip.glassTintedMaterial, options: [
                                 (title: "Clear", value: .clear),
                                 (title: "Regular", value: .regular),
                             ])
-                            .onChange(of: glyphStrip.glassTintedMaterial) { _ in onSave() }
                         }
                         SettingsFootnote(text: "Finish is the private macOS glass variant, 0 to 21. Opacity still applies on top.")
                     }
@@ -207,17 +162,14 @@ struct SettingsGlyphStrip: View {
                     Text("Rounded Rectangle").tag(GlyphStripShape.roundedRect)
                     Text("Bar").tag(GlyphStripShape.bar)
                 }
-                .onChange(of: glyphStrip.shape) { _ in onSave() }
                 SettingsFootnote(text: "None draws no background shape. Pill is fully rounded ends, Rounded Rectangle uses the corner radius below, Bar is square ends.")
                 // Shapes the background (and the glass mask). Pill and Bar ignore
                 // it; the hover highlight has its own radius below.
                 if glyphStrip.shape == .roundedRect {
                     stepper("Background Corner Radius", value: $glyphStrip.cornerRadius, range: 0...40, step: 1)
-                        .onChange(of: glyphStrip.cornerRadius) { _ in onSave() }
                 }
 
                 Toggle("Outline", isOn: $glyphStrip.borderEnabled)
-                    .onChange(of: glyphStrip.borderEnabled) { _ in onSave() }
                 SettingsFootnote(text: "Hairline outline around the strip, independent of the material. With none it outlines the plain strip bounds.")
 
                 if !glyphStrip.matchHUDAppearance, glyphStrip.backgroundMaterial != .none {
@@ -242,7 +194,6 @@ struct SettingsGlyphStrip: View {
                         in: 1...100,
                         step: 1
                     )
-                    .onChange(of: activeBackgroundOpacity.wrappedValue) { _ in onSave() }
                     SettingsFootnote(
                         text: glyphStrip.backgroundMaterial == .solid
                             ? "Solid stays unblurred; lower opacity simply lets the menu bar and desktop show through."
@@ -253,23 +204,18 @@ struct SettingsGlyphStrip: View {
 
             Section(header: SettingsSectionHeader(title: "Hover Highlight").settingsAnchor("glyphStrip.hover")) {
                 stepper("Hover Padding", value: $glyphStrip.hoverPadding, range: 0...12, step: 0.5)
-                    .onChange(of: glyphStrip.hoverPadding) { _ in onSave() }
                 stepper("Hover Corner Radius", value: $glyphStrip.hoverCornerRadius, range: 0...20, step: 0.5)
-                    .onChange(of: glyphStrip.hoverCornerRadius) { _ in onSave() }
                 SettingsFootnote(text: "The highlight is the hovered segment's glyph box grown by Hover Padding on both axes, not the height of the menu bar, and hover only arms within it.")
             }
 
             Section(header: SettingsSectionHeader(title: "Clicks").settingsAnchor("glyphStrip.clicks")) {
                 actionPicker("Left Click", selection: $glyphStrip.leftClickAction)
-                    .onChange(of: glyphStrip.leftClickAction) { _ in onSave() }
                 actionPicker("Right Click", selection: $glyphStrip.rightClickAction)
-                    .onChange(of: glyphStrip.rightClickAction) { _ in onSave() }
                 actionPicker("Middle Click", selection: $glyphStrip.middleClickAction)
-                    .onChange(of: glyphStrip.middleClickAction) { _ in onSave() }
                 SettingsFootnote(text: "Destroy Space takes effect immediately with no confirmation. Window actions apply to the focused window; Merge Windows moves every window of the clicked space into the current one.")
             }
         }
-        .onAppear { Self.themeService.reload() }
+        .onAppear { themeStore.reload() }
     }
 
     /// Slider target: shared when matching, otherwise the active material/style.
@@ -322,7 +268,6 @@ struct SettingsGlyphStrip: View {
                     )
                 }
                 glyphStrip.matchBackgroundOpacity = newValue
-                onSave()
             }
         )
     }
@@ -332,7 +277,6 @@ struct SettingsGlyphStrip: View {
             get: { glyphStrip.matchHUDAppearance },
             set: { newValue in
                 glyphStrip.matchHUDAppearance = newValue
-                onSave()
             }
         )
     }
