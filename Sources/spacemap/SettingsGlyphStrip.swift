@@ -136,10 +136,14 @@ struct SettingsGlyphStrip: View {
                 SettingsFootnote(text: "Colours come from the \(effectiveThemeName.capitalized) theme — the current space, the + button and the hover highlight use focused, everything else uses text. No per-element colour keys.")
 
                 if !glyphStrip.matchHUDAppearance {
+                    // A status item cannot sample the desktop without flashing,
+                    // so menu-bar mode offers solid or transparent only.
                     Picker("Background Material", selection: $glyphStrip.backgroundMaterial) {
                         Text("Transparent").tag(GlyphStripBackgroundMaterial.none)
                         Text("Solid").tag(GlyphStripBackgroundMaterial.solid)
-                        Text("Liquid Glass").tag(GlyphStripBackgroundMaterial.liquidGlass)
+                        if glyphStrip.displayMode == .floating {
+                            Text("Liquid Glass").tag(GlyphStripBackgroundMaterial.liquidGlass)
+                        }
                     }
                     if glyphStrip.backgroundMaterial == .liquidGlass {
                         GlassSegmentedPicker("Glass Style", selection: $glyphStrip.glassStyle, options: [
@@ -164,21 +168,16 @@ struct SettingsGlyphStrip: View {
                     }
                 }
 
-                Picker("Shape", selection: $glyphStrip.shape) {
-                    Text("None").tag(GlyphStripShape.none)
-                    Text("Pill").tag(GlyphStripShape.pill)
-                    Text("Rounded Rectangle").tag(GlyphStripShape.roundedRect)
-                    Text("Bar").tag(GlyphStripShape.bar)
-                }
-                SettingsFootnote(text: "None draws no background shape. Pill is fully rounded ends, Rounded Rectangle uses the corner radius below, Bar is square ends.")
-                // Shapes the background (and the glass mask). Pill and Bar ignore
-                // it; the hover highlight has its own radius below.
-                if glyphStrip.shape == .roundedRect {
+                // The radius alone describes the background shape, so it has
+                // nothing to act on while the material is transparent. Matching
+                // the HUD may still resolve to a drawn background.
+                if glyphStrip.matchHUDAppearance || glyphStrip.backgroundMaterial != .none {
                     stepper("Background Corner Radius", value: $glyphStrip.cornerRadius, range: 0...40, step: 1)
+                    SettingsFootnote(text: "Rounds the background and the glass mask. Half the strip height or more looks like a pill, 0 gives square ends. The hover highlight has its own radius below.")
                 }
 
                 Toggle("Outline", isOn: $glyphStrip.borderEnabled)
-                SettingsFootnote(text: "Hairline outline around the strip, independent of the material. With none it outlines the plain strip bounds.")
+                SettingsFootnote(text: "Hairline outline around the strip, independent of the material. With none it follows the same corner radius and outlines the plain strip bounds.")
 
                 if !glyphStrip.matchHUDAppearance, glyphStrip.backgroundMaterial != .none {
                     Toggle("Use Same Opacity for All Styles", isOn: matchOpacityBinding)
@@ -224,6 +223,13 @@ struct SettingsGlyphStrip: View {
             }
         }
         .onAppear { themeStore.reload() }
+        .onChange(of: glyphStrip.displayMode) { mode in
+            // Menu-bar mode has no glass; keep the saved material valid for the
+            // picker instead of showing a blank selection.
+            if mode == .menuBarItem, glyphStrip.backgroundMaterial == .liquidGlass {
+                glyphStrip.backgroundMaterial = .solid
+            }
+        }
     }
 
     /// Slider target: shared when matching, otherwise the active material/style.

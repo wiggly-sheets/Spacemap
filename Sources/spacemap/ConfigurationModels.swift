@@ -208,19 +208,6 @@ enum GlyphStripBackgroundMaterial: String, CaseIterable, Identifiable, Equatable
     var drawsBackdrop: Bool { self != .none }
 }
 
-enum GlyphStripShape: String, CaseIterable, Identifiable, Equatable {
-    /// No background shape — just glyphs. Border can still be enabled.
-    case none
-    /// Fully rounded ends — a capsule.
-    case pill
-    /// Explicit radius from `cornerRadius`, capped to half the strip height.
-    case roundedRect
-    /// Square ends — one continuous bar.
-    case bar
-
-    var id: String { rawValue }
-}
-
 enum GlyphStripAction: String, CaseIterable, Identifiable, Equatable {
     case none
     case focusSpace
@@ -342,7 +329,6 @@ struct GlyphStripConfig: Equatable {
     var glassRegularOpacity: Double = 0.35
     var glassTintedOpacity: Double = 0.35
     var solidOpacity: Double = 0.35
-    var shape: GlyphStripShape = .none
     var cornerRadius: Double = 20
     var margin: Double = 6
     /// Inner padding around the glyphs. `lockPadding` keeps all sides equal.

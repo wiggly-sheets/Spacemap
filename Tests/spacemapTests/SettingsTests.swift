@@ -637,7 +637,6 @@ final class SettingsTests: XCTestCase {
         strip.backgroundMaterial = .liquidGlass
         strip.glassStyle = .tinted
         strip.matchHUDAppearance = true
-        strip.shape = .pill
         strip.backgroundOpacity = 0.6
         strip.glassClearOpacity = 0.2
         strip.glassRegularOpacity = 0.4

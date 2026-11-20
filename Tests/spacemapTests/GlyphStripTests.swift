@@ -1571,35 +1571,17 @@ final class GlyphStripTests: XCTestCase {
 
     private var insetHeight: CGFloat { stripBounds.height - GlyphStrip.backdropVerticalInset * 2 }
 
-    func testPillShapeDrawsACapsuleOverTheWholeStrip() {
-        let backdrop = GlyphStrip.backdrop(for: .pill, bounds: stripBounds, cornerRadius: 8)
-        XCTAssertEqual(backdrop.shape, .capsule)
-        XCTAssertEqual(backdrop.rect, stripBounds.insetBy(dx: 0, dy: GlyphStrip.backdropVerticalInset))
-        XCTAssertEqual(backdrop.rect.width, stripBounds.width)
-        XCTAssertEqual(backdrop.rect.height, insetHeight)
-    }
+    func testCornerRadiusCarriesTheShapeIncludingPillAndSquareEnds() {
+        let rounded = GlyphStrip.backdrop(bounds: stripBounds, cornerRadius: 6)
+        XCTAssertEqual(rounded.cornerRadius, 6)
+        XCTAssertEqual(rounded.rect, stripBounds.insetBy(dx: 0, dy: GlyphStrip.backdropVerticalInset))
+        XCTAssertEqual(rounded.rect.width, stripBounds.width)
+        XCTAssertEqual(rounded.rect.height, insetHeight)
 
-    func testBarShapeFillsTheWholeStripWithSquareEnds() {
-        let backdrop = GlyphStrip.backdrop(for: .bar, bounds: stripBounds, cornerRadius: 8)
-        XCTAssertEqual(backdrop.shape, .bar)
-        XCTAssertEqual(backdrop.rect.width, stripBounds.width, "only as wide as the content")
-        XCTAssertEqual(backdrop.rect.height, insetHeight)
-    }
+        XCTAssertEqual(GlyphStrip.backdrop(bounds: stripBounds, cornerRadius: 0).cornerRadius, 0)
 
-    func testRoundedRectShapeHonorsCornerRadiusCappedToHalfHeight() {
-        let backdrop = GlyphStrip.backdrop(for: .roundedRect, bounds: stripBounds, cornerRadius: 6)
-        XCTAssertEqual(backdrop.shape, .rounded(6))
-
-        // A radius taller than the rect collapses to a capsule, never a bulge.
-        let oversized = GlyphStrip.backdrop(for: .roundedRect, bounds: stripBounds, cornerRadius: 400)
-        XCTAssertEqual(oversized.shape, .rounded(insetHeight / 2))
-    }
-
-    func testEveryShapeResolvesToItsOwnBackdrop() {
-        let shapes = GlyphStripShape.allCases.map {
-            GlyphStrip.backdrop(for: $0, bounds: stripBounds, cornerRadius: 6).shape
-        }
-        XCTAssertEqual(shapes, [.none, .capsule, .rounded(6), .bar])
+        // A radius at half the height or more is a pill, never a bulge.
+        XCTAssertEqual(GlyphStrip.backdrop(bounds: stripBounds, cornerRadius: 400).cornerRadius, insetHeight / 2)
     }
 
     func testOnlyNoneMaterialDeclaresThatItDrawsNoBackdrop() {
@@ -1612,17 +1594,13 @@ final class GlyphStripTests: XCTestCase {
         }
     }
 
-    /// Hover is the same rounded capsule for every shape, composited over the
-    /// base layer.
-    func testHoverFillIsRoundedInEveryShape() {
+    /// Hover keeps its own radius, independent of the background radius.
+    func testHoverFillKeepsItsOwnCornerRadius() {
         let segment = CGRect(x: 20, y: 0, width: 60, height: 30)
-        for shape in GlyphStripShape.allCases {
-            XCTAssertEqual(
-                GlyphStrip.hoverFill(segmentRect: segment, runHeight: 20, padding: 2, cornerRadius: 8)?.shape,
-                .rounded(8),
-                "hover shape under \(shape.rawValue)"
-            )
-        }
+        XCTAssertEqual(
+            GlyphStrip.hoverFill(segmentRect: segment, runHeight: 20, padding: 2, cornerRadius: 8)?.cornerRadius,
+            8
+        )
     }
 
     func testHoverFillIsAbsentWithoutAHoveredSegmentOrWithZeroWidth() {
@@ -1916,7 +1894,7 @@ final class GlyphStripTests: XCTestCase {
         let segment = CGRect(x: 20, y: 0, width: 60, height: 30)
         let hovered = GlyphStrip.hoverFill(segmentRect: segment, runHeight: 20, padding: 2, cornerRadius: 8)
         XCTAssertEqual(hovered, GlyphStrip.hoverFill(segmentRect: segment, runHeight: 20, padding: 2, cornerRadius: 8))
-        XCTAssertEqual(hovered?.shape, .rounded(8))
+        XCTAssertEqual(hovered?.cornerRadius, 8)
         XCTAssertEqual(
             GlyphStrip.hoverHighlightOpacity, GlyphStrip.hoverHighlightOpacity,
             "one hover opacity for all segments"
@@ -2026,7 +2004,7 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(config?.showAppIcons, false)
     }
 
-    func testInvalidEnumValuesFallBackForMaterialShapeAndPosition() {
+    func testInvalidEnumValuesFallBackForMaterialAndPosition() {
         let config = decodeGlyphStrip("""
         [glyphStrip]
         backgroundMaterial = "plasma"
@@ -2036,7 +2014,6 @@ final class GlyphStripTests: XCTestCase {
         """)
 
         XCTAssertEqual(config?.backgroundMaterial, GlyphStripBackgroundMaterial.none)
-        XCTAssertEqual(config?.shape, GlyphStripShape.none)
         XCTAssertEqual(config?.position, GlyphStripPosition.leftOfNotch)
         XCTAssertEqual(config?.spaceLabelStyle, .numbers)
     }
@@ -2050,16 +2027,6 @@ final class GlyphStripTests: XCTestCase {
             decodeGlyphStrip("[glyphStrip]\nspaceLabelStyle = \"both\"")?.spaceLabelStyle,
             .both
         )
-    }
-
-    func testExplicitMaterialAndShapeKeysDecode() {
-        let config = decodeGlyphStrip("""
-        [glyphStrip]
-        backgroundMaterial = "liquidGlass"
-        shape = "pill"
-        """)
-        XCTAssertEqual(config?.backgroundMaterial, .liquidGlass)
-        XCTAssertEqual(config?.shape, .pill)
     }
 
     func testGlassStyleDecodesAndDefaultsToOpaque() {
@@ -2267,7 +2234,6 @@ final class GlyphStripTests: XCTestCase {
         original.backgroundMaterial = .liquidGlass
         original.glassStyle = .tinted
         original.matchHUDAppearance = true
-        original.shape = .pill
         original.backgroundOpacity = 0.6
         original.glassClearOpacity = 0.2
         original.glassRegularOpacity = 0.4

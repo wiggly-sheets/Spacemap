@@ -91,7 +91,6 @@ final class ConfigSchemaTests: XCTestCase {
         strip.indexSize = 9
         strip.highlightCurrentSpace = false
         strip.backgroundMaterial = .liquidGlass
-        strip.shape = .pill
         strip.backgroundOpacity = 0.5
         strip.glassClearOpacity = 0.05
         strip.glassRegularOpacity = 0.35
@@ -438,15 +437,15 @@ final class ConfigSchemaTests: XCTestCase {
         XCTAssertFalse(AppPresence.none.showsMenuBar)
     }
 
-    func testNewMaterialAndShapeKeysRoundTripThroughTheConfigString() throws {
+    func testMaterialAndCornerRadiusRoundTripThroughTheConfigString() throws {
         var config = SpacemapConfig.default
         config.glyphStrip.backgroundMaterial = .liquidGlass
-        config.glyphStrip.shape = .bar
+        config.glyphStrip.cornerRadius = 0
 
         let reread = try decoded(written(config)).config
 
         XCTAssertEqual(reread.glyphStrip.backgroundMaterial, .liquidGlass)
-        XCTAssertEqual(reread.glyphStrip.shape, .bar)
+        XCTAssertEqual(reread.glyphStrip.cornerRadius, 0)
     }
 
     func testGlyphStripNumbersClampAndFlagRepair() throws {

@@ -397,7 +397,6 @@ enum ConfigLoader {
             "glassRegularOpacity = \(glyphStrip.glassRegularOpacity)",
             "glassTintedOpacity = \(glyphStrip.glassTintedOpacity)",
             "solidOpacity = \(glyphStrip.solidOpacity)",
-            "shape = \(tomlString(glyphStrip.shape.rawValue))",
             "cornerRadius = \(glyphStrip.cornerRadius)",
             "margin = \(glyphStrip.margin)",
             "padding = \(glyphStrip.padding)",

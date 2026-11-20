@@ -656,6 +656,7 @@ final class GlyphStripPanelController: NSObject {
             statusView?.frame = button.bounds
         }
         statusView?.refreshHover()
+        statusView?.needsLayout = true
         statusView?.needsDisplay = true
     }
 
@@ -1318,7 +1319,6 @@ final class GlyphStripPanelController: NSObject {
     fileprivate var glassTintedMaterial: HUDGlassMaterial {
         config.glyphStrip.resolvedGlassTintedMaterial(hud: config)
     }
-    fileprivate var shape: GlyphStripShape { config.glyphStrip.shape }
     fileprivate var backgroundOpacity: CGFloat {
         CGFloat(config.glyphStrip.resolvedBackgroundOpacity(hud: config))
     }
@@ -1398,30 +1398,28 @@ final class GlyphStripPanelController: NSObject {
     /// The flat fill only exists for `.solid`, at `backgroundOpacity`.
     fileprivate var usesSolid: Bool { backgroundMaterial == .solid }
 
-    /// No backdrop at all when the material is `.none` or the shape is `.none`.
-    /// Single source of truth for `layout()` and `draw()`.
-    fileprivate var drawsBackdrop: Bool { backgroundMaterial != .none && shape != .none }
+    /// No backdrop at all when the material is `.none`. Single source of truth
+    /// for `layout()` and `draw()`.
+    fileprivate var drawsBackdrop: Bool { backgroundMaterial != .none }
 
     /// Single resolved backdrop shared by the solid fill and the glass mask so
     /// the two rects cannot disagree. `nil` when nothing is painted, or when
     /// the shape degenerates.
     fileprivate func backdrop(in bounds: CGRect) -> GlyphStrip.Backdrop? {
         guard drawsBackdrop else { return nil }
-        let resolved = GlyphStrip.backdrop(for: shape, bounds: bounds, cornerRadius: cornerRadius, insetForGlass: usesGlass)
+        let resolved = GlyphStrip.backdrop(bounds: bounds, cornerRadius: cornerRadius, insetForGlass: usesGlass)
         let clipped = resolved.rect.intersection(bounds)
         guard clipped.width > 0, clipped.height > 0 else { return nil }
-        return GlyphStrip.Backdrop(shape: resolved.shape, rect: clipped)
+        return GlyphStrip.Backdrop(rect: clipped, cornerRadius: resolved.cornerRadius)
     }
 
-    /// Outline path when no fill painted: same shape resolution as `backdrop`,
-    /// so material `.none` border follows pill/bar/roundedRect. `nil` for
-    /// shape `.none` = no outline.
+    /// Outline path when no fill painted: the same rounded rect as
+    /// `backdrop`, so material `.none` still outlines a pill, bar, or radius.
     fileprivate func borderBackdrop(in bounds: CGRect) -> GlyphStrip.Backdrop? {
-        guard shape != .none else { return nil }
-        let resolved = GlyphStrip.backdrop(for: shape, bounds: bounds, cornerRadius: cornerRadius, insetForGlass: usesGlass)
+        let resolved = GlyphStrip.backdrop(bounds: bounds, cornerRadius: cornerRadius, insetForGlass: usesGlass)
         let clipped = resolved.rect.intersection(bounds)
         guard clipped.width > 0, clipped.height > 0 else { return nil }
-        return GlyphStrip.Backdrop(shape: resolved.shape, rect: clipped)
+        return GlyphStrip.Backdrop(rect: clipped, cornerRadius: resolved.cornerRadius)
     }
 
     fileprivate var strokeColor: NSColor {
@@ -1628,7 +1626,7 @@ private final class GlyphStripContainerView: NSView {
             addSubview(glass, positioned: .below, relativeTo: glyphs)
             GlassVariant.apply(controller.glassVariant, to: glass)
             glass.tintColor = controller.glassTintColor
-            glass.cornerRadius = backdrop.glassCornerRadius
+            glass.cornerRadius = backdrop.cornerRadius
             glass.frame = backdrop.rect
             glass.alphaValue = CGFloat(controller.backgroundOpacity)
             glass.isHidden = false
@@ -1675,30 +1673,17 @@ private final class GlyphStripContainerView: NSView {
     /// the shape filled white at origin zero. Matches the rect the stroke
     /// paints (translated to zero), so mask and edge cannot disagree.
     /// `flipped: false` matches this non-flipped view's y-up coordinates.
-    private static func maskImage(for backdrop: GlyphStrip.Backdrop) -> NSImage? {
+    fileprivate static func maskImage(for backdrop: GlyphStrip.Backdrop) -> NSImage? {
         let size = backdrop.rect.size
         guard size.width > 0, size.height > 0 else { return nil }
         let rect = CGRect(origin: .zero, size: size)
         let image = NSImage(size: size, flipped: false) { _ in
             NSColor.white.setFill()
-            switch backdrop.shape {
-            case .none:
-                return false
-            case .bar:
-                rect.fill()
-            case .capsule:
-                NSBezierPath(
-                    roundedRect: rect,
-                    xRadius: rect.height / 2,
-                    yRadius: rect.height / 2
-                ).fill()
-            case .rounded(let radius):
-                NSBezierPath(
-                    roundedRect: rect,
-                    xRadius: radius,
-                    yRadius: radius
-                ).fill()
-            }
+            NSBezierPath(
+                roundedRect: rect,
+                xRadius: backdrop.cornerRadius,
+                yRadius: backdrop.cornerRadius
+            ).fill()
             return true
         }
         image.size = size
@@ -1744,6 +1729,7 @@ private final class GlyphStripStatusView: NSView {
 
     private var tracking: NSTrackingArea?
     private var hoveredSegment: Int?
+    private lazy var content = GlyphStripStatusContent(owner: self)
     private var pressSegment: Int?
     private var pressCommand: GlyphStrip.Command?
     private var lastMouseDownTime: TimeInterval = 0
@@ -1765,6 +1751,12 @@ private final class GlyphStripStatusView: NSView {
         super.init(frame: .zero)
         setAccessibilityRole(.group)
         setAccessibilityLabel("Spacemap spaces")
+        addSubview(content)
+    }
+
+    override func layout() {
+        super.layout()
+        content.frame = bounds
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -1900,9 +1892,30 @@ private final class GlyphStripStatusView: NSView {
         return 0.9 + 0.1 * (1 - pow(1 - progress, 3))
     }
 
-    override func draw(_ dirtyRect: NSRect) {
+    /// All painting happens in this child so the view itself can stay empty.
+    override func draw(_ dirtyRect: NSRect) {}
+
+    private var backdropArea: CGRect { bounds.insetBy(dx: 2, dy: 2) }
+    fileprivate func drawContent(_ dirtyRect: NSRect) {
         guard let controller, !controller.segments.isEmpty else { return }
-        let layout = self.layout
+        if controller.usesSolid, let backdrop = controller.backdrop(in: backdropArea) {
+            GlyphStrip.fill(backdrop, color: controller.solidColor, opacity: controller.backgroundOpacity)
+            if controller.borderEnabled {
+                GlyphStrip.stroke(backdrop, color: controller.strokeColor, opacity: 1)
+            }
+        } else if controller.usesGlass, let backdrop = controller.backdrop(in: backdropArea) {
+            // A status item cannot host a backdrop blur: both
+            // `NSGlassEffectView` and behind-window vibrancy flash black when
+            // spaces change. Menu-bar mode is solid or transparent only, so
+            // glass renders as its solid fill; the floating strip keeps glass.
+            GlyphStrip.fill(backdrop, color: controller.solidColor, opacity: controller.backgroundOpacity)
+            if controller.borderEnabled {
+                GlyphStrip.stroke(backdrop, color: controller.strokeColor, opacity: 1)
+            }
+        } else if controller.borderEnabled, let border = controller.borderBackdrop(in: backdropArea) {
+            GlyphStrip.stroke(border, color: controller.strokeColor, opacity: 1)
+        }
+        let layout = self.segmentLayout
         drawHighlight(
             for: hoveredSegment.flatMap(layout.slot),
             color: NSColor.selectedContentBackgroundColor,
@@ -2008,7 +2021,7 @@ private final class GlyphStripStatusView: NSView {
         pressCommand = controller.command(forSegment: segment, click: .left)
         // Run geometry only matters for a drag. A missing run must not swallow
         // a plain click while the strip is repainting.
-        let layout = self.layout
+        let layout = self.segmentLayout
         let run = layout.run(at: pressPoint, in: segment) ?? 0
         if run == 0, controller.segments[segment].runs.first?.isIndex == true {
             payload = .space(space)
@@ -2218,14 +2231,33 @@ private final class GlyphStripStatusView: NSView {
 
     /// One render for the button: slots centred in the wider button, native
     /// icons shrunk to the row.
-    private var layout: GlyphStrip.SegmentLayout {
+    private var segmentLayout: GlyphStrip.SegmentLayout {
         controller?.statusItemLayout(in: bounds)
             ?? GlyphStrip.SegmentLayout(slots: [], runs: [])
     }
 
     private func segment(at point: NSPoint) -> Int? {
         guard bounds.contains(point) else { return nil }
-        return layout.segment(at: point)
+        return segmentLayout.segment(at: point)
+    }
+}
+
+/// Transparent drawing layer above the status item's glass/backdrop.
+private final class GlyphStripStatusContent: NSView {
+    weak var owner: GlyphStripStatusView?
+
+    init(owner: GlyphStripStatusView) {
+        self.owner = owner
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func draw(_ dirtyRect: NSRect) {
+        owner?.drawContent(dirtyRect)
     }
 }
 

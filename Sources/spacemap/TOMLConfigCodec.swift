@@ -589,9 +589,6 @@ enum TOMLConfigDecoder {
         if let name = table["backgroundMaterial"] as? String {
             config.backgroundMaterial = parsedEnum(from: name) ?? GlyphStripConfig.default.backgroundMaterial
         }
-        if let name = table["shape"] as? String {
-            config.shape = parsedEnum(from: name) ?? GlyphStripConfig.default.shape
-        }
         if let name = table["glassStyle"] as? String {
             config.glassStyle = parsedEnum(from: name) ?? GlyphStripConfig.default.glassStyle
         }

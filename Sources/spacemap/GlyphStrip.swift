@@ -92,38 +92,11 @@ enum GlyphStrip {
 
     // MARK: - Placement
 
-    /// The shape a resolved backdrop asks the view to fill. Kept separate from
-    /// `GlyphStripShape` so the drawn geometry can be asserted in tests without
-    /// inspecting AppKit state.
-    enum BackdropShape: Equatable {
-        /// Draw nothing.
-        case none
-        /// Fully rounded ends — a capsule.
-        case capsule
-        /// Square ends — one continuous bar.
-        case bar
-        /// Rounded rectangle with an explicit radius, already capped to half the
-        /// rect's height.
-        case rounded(CGFloat)
-    }
-
     struct Backdrop: Equatable {
-        let shape: BackdropShape
         let rect: CGRect
-
-        /// Corner radius the native glass view needs for this backdrop: a
-        /// capsule rounds to half the height, a rounded rect carries its
-        /// capped radius, bar/none need no rounding.
-        var glassCornerRadius: CGFloat {
-            switch shape {
-            case .capsule:
-                return rect.height / 2
-            case .rounded(let radius):
-                return radius
-            case .bar, .none:
-                return 0
-            }
-        }
+        /// Already capped to half the rect's height, so a big configured
+        /// radius renders as a pill and 0 renders as a square bar.
+        let cornerRadius: CGFloat
     }
 
     /// Placement of the strip inside the menu bar row.
@@ -398,35 +371,24 @@ enum GlyphStrip {
     /// backdrop.
     static let hoverHighlightOpacity: CGFloat = 0.18
 
-    /// The layer drawn behind the whole strip, resolved from the configured
-    /// shape. The material decides whether that layer exists at all — `.none`
-    /// draws nothing, so callers guard on it before asking.
+    /// The layer drawn behind the whole strip. The material decides whether
+    /// that layer exists at all — `.none` draws nothing, so callers guard on it
+    /// before asking.
     ///
-    /// `.pill` resolves to a capsule covering the full content width. `.bar` is
-    /// one continuous square-ended bar. `.roundedRect` rounds at `cornerRadius`
-    /// (capped to half the height, so an oversized radius collapses to a
-    /// capsule) and is the shape the glass clips to.
+    /// The corner radius carries the shape: half the height or more is a pill,
+    /// 0 is a square bar, and anything between is a rounded rectangle. It is
+    /// capped here so an oversized radius can never bulge past the ends.
     ///
     /// - Parameter insetForGlass: When true (default), applies a small vertical
     ///   inset so the glass mask doesn't touch the menu bar edges. Set to false
     ///   for solid fills that should span the full panel height.
     static func backdrop(
-        for shape: GlyphStripShape,
         bounds: CGRect,
         cornerRadius: CGFloat,
         insetForGlass: Bool = true
     ) -> Backdrop {
         let rect = bounds.insetBy(dx: 0, dy: insetForGlass ? backdropVerticalInset : 0)
-        switch shape {
-        case .none:
-            return Backdrop(shape: .none, rect: rect)
-        case .pill:
-            return Backdrop(shape: .capsule, rect: rect)
-        case .bar:
-            return Backdrop(shape: .bar, rect: rect)
-        case .roundedRect:
-            return Backdrop(shape: .rounded(min(cornerRadius, rect.height / 2)), rect: rect)
-        }
+        return Backdrop(rect: rect, cornerRadius: min(cornerRadius, rect.height / 2))
     }
 
     /// The fill behind the hovered segment, sized to the glyphs it covers.
@@ -478,7 +440,7 @@ enum GlyphStrip {
             rect = rect.intersection(limits)
             guard rect.width > 0, rect.height > 0 else { return nil }
         }
-        return Backdrop(shape: .rounded(min(cornerRadius, rect.height / 2)), rect: rect)
+        return Backdrop(rect: rect, cornerRadius: min(cornerRadius, rect.height / 2))
     }
 
     /// Visual lift for icon-font glyphs. sketchybar-app-font ink sits low in
@@ -519,55 +481,24 @@ enum GlyphStrip {
     /// and testable.
     static func fill(_ backdrop: Backdrop, color: NSColor, opacity: CGFloat) {
         color.withAlphaComponent(opacity).setFill()
-        switch backdrop.shape {
-        case .none:
-            return
-        case .capsule:
-            // Fully rounded ends, not an ellipse: the radius is half the height,
-            // which is what makes a wide capsule read as a pill.
-            NSBezierPath(
-                roundedRect: backdrop.rect,
-                xRadius: backdrop.rect.height / 2,
-                yRadius: backdrop.rect.height / 2
-            ).fill()
-        case .bar:
-            backdrop.rect.fill()
-        case .rounded(let radius):
-            NSBezierPath(
-                roundedRect: backdrop.rect,
-                xRadius: radius,
-                yRadius: radius
-            ).fill()
-        }
+        NSBezierPath(
+            roundedRect: backdrop.rect,
+            xRadius: backdrop.cornerRadius,
+            yRadius: backdrop.cornerRadius
+        ).fill()
     }
 
     /// 1px hairline inset by half its width so it lands fully inside `backdrop`.
     static func stroke(_ backdrop: Backdrop, color: NSColor, opacity: CGFloat) {
-        guard backdrop.shape != .none else { return }
         let inset = backdrop.rect.insetBy(dx: 0.5, dy: 0.5)
         guard inset.width > 0, inset.height > 0 else { return }
         color.withAlphaComponent(opacity).setStroke()
-        let lineWidth: CGFloat = 1
-        let path: NSBezierPath
-        switch backdrop.shape {
-        case .none:
-            return
-        case .bar:
-            path = NSBezierPath(rect: inset)
-        case .capsule:
-            path = NSBezierPath(
-                roundedRect: inset,
-                xRadius: inset.height / 2,
-                yRadius: inset.height / 2
-            )
-        case .rounded(let radius):
-            path = NSBezierPath(
-                roundedRect: inset,
-                xRadius: max(radius - 0.5, 0),
-                yRadius: max(radius - 0.5, 0)
-            )
-        }
-        path.lineWidth = lineWidth
+        let path = NSBezierPath(
+            roundedRect: inset,
+            xRadius: max(backdrop.cornerRadius - 0.5, 0),
+            yRadius: max(backdrop.cornerRadius - 0.5, 0)
+        )
+        path.lineWidth = 1
         path.stroke()
     }
 
