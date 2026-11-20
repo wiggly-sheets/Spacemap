@@ -125,6 +125,8 @@ struct SettingsBehavior: View {
                 }
             SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. The glyph strip hotkey shows or hides the menu-bar strip for the session.")
 
+            Toggle("Jump to Space with Number Keys", isOn: $jumpToSpaceEnabled)
+
             Toggle("Jump to Space by Name", isOn: Binding(
                 // Space names drive the match, so hiding them also shows
                 // this as off without forgetting the saved value.
@@ -173,8 +175,6 @@ struct SettingsBehavior: View {
 
     private var navigationSection: some View {
         Section(header: SettingsSectionHeader(title: "Navigation").settingsAnchor("behavior.navigation")) {
-            Toggle("Jump to Space with Number Keys", isOn: $jumpToSpaceEnabled)
-
             GlassSegmentedPicker("Display Navigation", selection: $displayNavigationWrap, options: [
                 (title: "Wrap Within Display", value: .within),
                 (title: "Wrap Between Displays", value: .between),
