@@ -1955,7 +1955,9 @@ private final class GlyphStripStatusView: NSView {
     private func drawHighlight(for rect: CGRect?, color: NSColor, opacity: CGFloat) {
         guard let rect else { return }
         color.withAlphaComponent(opacity).setFill()
-        NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 3), xRadius: 3, yRadius: 3).fill()
+        // No horizontal inset: the number's ink starts at the slot edge, and
+        // trimming a point left an unhovered sliver beside it.
+        NSBezierPath(roundedRect: rect.insetBy(dx: 0, dy: 3), xRadius: 3, yRadius: 3).fill()
     }
 
     /// The status item can deliver a synthesized center press when another
