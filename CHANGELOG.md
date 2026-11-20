@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-20
+
 ### Added
 - `[spaceNames] namingMode` (`custom`, `auto`) lets spaces name themselves. In `auto` mode each space takes up to `autoNameAppCount` (1-3, default 3) visible apps in reading order, joined by `·` with a trailing `…` when the space has more apps than shown; that name feeds the HUD cells, `names`/`both` strip labels, and fuzzy name jumps. Typed names and profiles stay saved and reappear when you switch back to `custom`; auto names are never written to the config. `custom` is the default and keeps today's behavior.
 - Typing letters with the HUD visible fuzzy-matches space names and jumps: the typed prefix matches names by exact prefix first, then as an in-order subsequence, and jumps as soon as one named space matches. It collects for 0.3 s while several spaces still match, Backspace deletes a character, and Escape (when unbound) cancels the prefix. It shares the `jumpToSpaceEnabled` toggle and the digit readout with number entry; unnamed spaces are not candidates. Letters already bound in `[hudKeys]` or the legacy `[behavior]` keys still run their command.
