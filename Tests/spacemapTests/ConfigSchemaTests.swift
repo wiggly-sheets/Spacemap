@@ -437,6 +437,17 @@ final class ConfigSchemaTests: XCTestCase {
         XCTAssertFalse(AppPresence.none.showsMenuBar)
     }
 
+    func testMenuBarModeHealsSavedGlassMaterialToSolid() throws {
+        let result = try decoded("""
+        [glyphStrip]
+        displayMode = "menuBarItem"
+        backgroundMaterial = "liquidGlass"
+        """)
+
+        XCTAssertEqual(result.config.glyphStrip.backgroundMaterial, .solid)
+        XCTAssertTrue(result.needsRepair)
+    }
+
     func testMaterialAndCornerRadiusRoundTripThroughTheConfigString() throws {
         var config = SpacemapConfig.default
         config.glyphStrip.backgroundMaterial = .liquidGlass

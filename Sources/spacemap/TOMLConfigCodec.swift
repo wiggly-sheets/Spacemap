@@ -507,7 +507,13 @@ enum TOMLConfigDecoder {
         }
 
         // Out-of-range strip numbers clamp in memory and flag a rewrite.
-        if let strip = glyphStripConfig(from: object) {
+        if var strip = glyphStripConfig(from: object) {
+            // A status item cannot draw glass. Heal a saved glass material so
+            // menu-bar mode stays solid or transparent.
+            if strip.displayMode == .menuBarItem, strip.backgroundMaterial == .liquidGlass {
+                strip.backgroundMaterial = .solid
+                needsRepair = true
+            }
             let clamped = strip.clamped()
             if clamped != strip { needsRepair = true }
             config.glyphStrip = clamped

@@ -145,7 +145,7 @@ struct SettingsGlyphStrip: View {
                             Text("Liquid Glass").tag(GlyphStripBackgroundMaterial.liquidGlass)
                         }
                     }
-                    if glyphStrip.backgroundMaterial == .liquidGlass {
+                    if glyphStrip.displayMode == .floating, glyphStrip.backgroundMaterial == .liquidGlass {
                         GlassSegmentedPicker("Glass Style", selection: $glyphStrip.glassStyle, options: [
                             (title: "Clear", value: .clear),
                             (title: "Regular", value: .regular),
