@@ -57,6 +57,7 @@ final class ConfigSchemaTests: XCTestCase {
         config.spaceNames = [1: "Term", 2: "Code"]
         config.hudKeys = .default
         config.jumpToSpaceEnabled = true
+        config.fuzzySpaceJumpEnabled = false
         config.hudPosition = .custom(x: 0.25, y: 0.75, screen: "display-A")
         config.presence = AppPresence.none
         config.menuBarDisplayMode = .nearby
@@ -146,6 +147,7 @@ final class ConfigSchemaTests: XCTestCase {
         XCTAssertEqual(decoded.spaceNames, [1: "Term", 2: "Code"])
         XCTAssertEqual(decoded.hudKeys, HUDKeyBindings.default)
         XCTAssertTrue(decoded.jumpToSpaceEnabled)
+        XCTAssertFalse(decoded.fuzzySpaceJumpEnabled)
         XCTAssertEqual(decoded.hudPosition, .custom(x: 0.25, y: 0.75, screen: "display-A"))
         XCTAssertEqual(decoded.presence, .none)
         XCTAssertEqual(decoded.menuBarDisplayMode, .nearby)

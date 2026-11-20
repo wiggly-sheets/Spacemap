@@ -345,6 +345,21 @@ final class ModelTests: XCTestCase {
                        "out-of-range counts behave like three")
     }
 
+    func testFuzzyJumpTurnsOffWithHiddenSpaceNames() {
+        var config = SpacemapConfig.default
+        XCTAssertTrue(config.effectiveFuzzySpaceJumpEnabled,
+                      "name jumps are on by default while names are visible")
+
+        config.showSpaceNames = false
+        XCTAssertFalse(config.effectiveFuzzySpaceJumpEnabled,
+                       "hiding space names also turns name jumps off")
+
+        config.showSpaceNames = true
+        config.fuzzySpaceJumpEnabled = false
+        XCTAssertFalse(config.effectiveFuzzySpaceJumpEnabled,
+                       "the toggle alone can turn name jumps off")
+    }
+
     func testGridStateEquality() {
         let a = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: 1)
         let b = GridState(config: .default, spaces: [], windows: [], displayBounds: .zero, focusedIndex: 1)

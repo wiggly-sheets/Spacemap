@@ -99,7 +99,8 @@ class HUDWindowController {
         }
         hudInput.updateConfig(
             hudKeys: config.hudKeyBindings,
-            jumpToSpaceEnabled: config.jumpToSpaceEnabled
+            jumpToSpaceEnabled: config.jumpToSpaceEnabled,
+            fuzzySpaceJumpEnabled: config.effectiveFuzzySpaceJumpEnabled
         )
         hudInput.yabaiService = services.yabaiService
         hudInput.config = config
@@ -322,7 +323,8 @@ class HUDWindowController {
         hudInput.config = config
         hudInput.updateConfig(
             hudKeys: config.hudKeyBindings,
-            jumpToSpaceEnabled: config.jumpToSpaceEnabled
+            jumpToSpaceEnabled: config.jumpToSpaceEnabled,
+            fuzzySpaceJumpEnabled: config.effectiveFuzzySpaceJumpEnabled
         )
         hudDisplay.updateConfig(config)
         coordinator.reloadConfig()
@@ -372,6 +374,8 @@ extension HUDWindowController: HUDInputDelegate {
         case .cycleLayout: cycleSpaceLayout()
         case .moveSpaceBack: moveSpace(direction: .left)
         case .moveSpaceForward: moveSpace(direction: .right)
+        case .previousSpace: hudInput.navigateToPreviousSpace()
+        case .nextSpace: hudInput.navigateToNextSpace()
         }
     }
 

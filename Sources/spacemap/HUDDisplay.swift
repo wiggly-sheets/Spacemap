@@ -86,9 +86,9 @@ final class HUDDisplay {
 
     /// Typed letters for a fuzzy space-name jump, gated like digit feedback and
     /// drawn by the same overlay.
-    func updateDisplayTypedText(_ text: String?) {
-        guard text == nil || currentConfig.showHUDInteractionFeedback else { return }
-        numberState.updateTypedText(text)
+    func updateDisplayTypedText(_ feedback: HUDTypedFeedback?) {
+        guard feedback == nil || currentConfig.showHUDInteractionFeedback else { return }
+        numberState.updateTypedText(feedback)
     }
 
     /// Action feedback is optional; the action itself never depends on it.

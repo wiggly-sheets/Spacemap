@@ -447,6 +447,11 @@ enum ConfigSchema {
             decode: bool, encode: { "\($0)" }, repair: .orDefault
         ).erased,
         Field(
+            key: "fuzzySpaceJumpEnabled", section: "behavior",
+            keyPath: \.fuzzySpaceJumpEnabled,
+            decode: bool, encode: { "\($0)" }, repair: .orDefault
+        ).erased,
+        Field(
             key: "focusSpaceOnWindowDrop", section: "behavior",
             keyPath: \.focusSpaceOnWindowDrop,
             decode: { ($0 as? String).flatMap { TOMLConfigDecoder.parsedEnum(from: $0) } },

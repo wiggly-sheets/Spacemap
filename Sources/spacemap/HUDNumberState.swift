@@ -9,13 +9,21 @@ struct HUDNumberFeedback: Equatable {
     let exists: Bool
 }
 
+/// What the HUD shows for typed letters. `matches` is false when no space name
+/// matches the prefix, so the overlay can mark the miss like a missing space
+/// number.
+struct HUDTypedFeedback: Equatable {
+    let text: String
+    let matches: Bool
+}
+
 /// Small observable so a key press repaints only the number overlay. The grid
 /// body is not re-rendered, and no state fetch is needed to show a digit.
 final class HUDNumberState: ObservableObject {
     @Published private(set) var feedback: HUDNumberFeedback?
     /// Typed letters for a fuzzy space-name jump. Shares this observable so the
     /// one overlay host repaints without a grid render.
-    @Published private(set) var typedText: String?
+    @Published private(set) var typedText: HUDTypedFeedback?
     private var clearWork: DispatchWorkItem?
 
     /// Shows `feedback`, or clears when nil. Invalid numbers can ask for a
@@ -34,13 +42,13 @@ final class HUDNumberState: ObservableObject {
 
     /// Shows typed letters, or clears when nil. Holds are scheduled by the
     /// caller, exactly like number entry. A letter also ends a held digit.
-    func updateTypedText(_ text: String?) {
-        if text != nil {
+    func updateTypedText(_ feedback: HUDTypedFeedback?) {
+        if feedback != nil {
             clearWork?.cancel()
             clearWork = nil
-            feedback = nil
+            self.feedback = nil
         }
-        typedText = text
+        typedText = feedback
     }
 }
 
@@ -54,10 +62,14 @@ struct HUDNumberOverlay: View {
     var overrideColor: Color? = nil
 
     var body: some View {
-        if let text = state.typedText {
-            Text(text)
+        if let typed = state.typedText {
+            Text(typed.text)
                 .font(HUDFont.font(name: fontName, size: 44, weight: .semibold))
-                .foregroundStyle((overrideColor ?? Color(hex: theme.text)).opacity(0.9))
+                .foregroundStyle(
+                    (typed.matches ? (overrideColor ?? Color(hex: theme.text)) : Color(hex: theme.dropTarget))
+                        .opacity(typed.matches ? 0.9 : 0.8)
+                )
+                .strikethrough(!typed.matches, color: Color(hex: theme.dropTarget))
                 .allowsHitTesting(false)
         } else if let feedback = state.feedback {
             Text("\(feedback.number)")

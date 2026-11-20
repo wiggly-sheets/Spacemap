@@ -235,6 +235,8 @@ struct SettingsView: View {
             hudPositionKind: draft.hudPositionKindBinding,
             autoHideTimeout: draft.binding(\.autoHideTimeout),
             jumpToSpaceEnabled: draft.binding(\.jumpToSpaceEnabled),
+            fuzzySpaceJumpEnabled: draft.binding(\.fuzzySpaceJumpEnabled),
+            showSpaceNames: draft.binding(\.showSpaceNames),
             displayNavigationWrap: draft.binding(\.displayNavigationWrap),
             focusSpaceOnWindowDrop: draft.binding(\.focusSpaceOnWindowDrop),
             focusSpaceOnWindowDropModifier: draft.binding(\.focusSpaceOnWindowDropModifier),

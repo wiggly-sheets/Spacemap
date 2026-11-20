@@ -585,6 +585,7 @@ enum HUDCommand: String, CaseIterable, Equatable {
     case newSpace, newSpaceAndFocus, deleteSpace
     case layoutBSP, layoutStack, layoutFloat
     case cycleLayout, moveSpaceBack, moveSpaceForward
+    case previousSpace, nextSpace
 
     /// Display name. Settings is the only place these are shown.
     var label: String {
@@ -606,6 +607,8 @@ enum HUDCommand: String, CaseIterable, Equatable {
         case .cycleLayout: return "Cycle Layout"
         case .moveSpaceBack: return "Move Space Left"
         case .moveSpaceForward: return "Move Space Right"
+        case .previousSpace: return "Previous Space"
+        case .nextSpace: return "Next Space"
         }
     }
 }
@@ -703,7 +706,9 @@ struct HUDKeyBindings: Equatable {
         .deleteSpace: [key("w")],
         .layoutBSP: [key("b")],
         .layoutStack: [key("s")],
-        .layoutFloat: [key("u")]
+        .layoutFloat: [key("u")],
+        .previousSpace: [key("p")],
+        .nextSpace: [key("n")]
     ])
 }
 
@@ -863,6 +868,12 @@ struct SpacemapConfig: Equatable {
     /// How many apps auto naming lists per space, 1-3, joined by "·".
     var autoNameAppCount: Int = 3
     var jumpToSpaceEnabled: Bool = false
+    /// Letters typed while the HUD is open fuzzy-match space names. Effective
+    /// only when space names are shown, so hiding them turns this off too.
+    var fuzzySpaceJumpEnabled: Bool = true
+    var effectiveFuzzySpaceJumpEnabled: Bool {
+        fuzzySpaceJumpEnabled && showSpaceNames
+    }
     var hudPosition: HUDPosition
     var showExtraWindows: Bool
     var focusSpaceOnWindowDrop: WindowDropFocusMode = .never

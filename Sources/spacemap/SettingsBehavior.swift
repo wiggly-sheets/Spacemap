@@ -15,6 +15,8 @@ struct SettingsBehavior: View {
     @Binding var hudPositionKind: HUDPositionKind
     @Binding var autoHideTimeout: Int
     @Binding var jumpToSpaceEnabled: Bool
+    @Binding var fuzzySpaceJumpEnabled: Bool
+    @Binding var showSpaceNames: Bool
     @Binding var displayNavigationWrap: DisplayNavigationWrap
     @Binding var focusSpaceOnWindowDrop: WindowDropFocusMode
     @Binding var focusSpaceOnWindowDropModifier: WindowDropFocusModifier
@@ -122,6 +124,15 @@ struct SettingsBehavior: View {
                     }
                 }
             SettingsFootnote(text: "Optional. Toggles a HUD that stays visible until you use either hotkey to hide it. The glyph strip hotkey shows or hides the menu-bar strip for the session.")
+
+            Toggle("Jump to Space by Name", isOn: Binding(
+                // Space names drive the match, so hiding them also shows
+                // this as off without forgetting the saved value.
+                get: { fuzzySpaceJumpEnabled && showSpaceNames },
+                set: { fuzzySpaceJumpEnabled = $0 }
+            ))
+            .disabled(!showSpaceNames)
+            SettingsFootnote(text: "Typing a space name while the HUD is open jumps to a matching space. Unavailable while space names are hidden.")
 
         }
     }

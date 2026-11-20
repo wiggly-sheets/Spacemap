@@ -40,6 +40,7 @@ final class HUDInput {
     private var isVisible = false
     private var hudKeys = HUDKeyBindings.default
     private var jumpToSpaceEnabled = false
+    private var fuzzySpaceJumpEnabled = true
     private var dragHandlerCellFrames: [(spaceIndex: Int, frame: CGRect)] = []
 
 
@@ -59,7 +60,7 @@ final class HUDInput {
     /// Panel drags disarm auto-hide for their duration.
     var onPanelDragChanged: ((Bool) -> Void)?
     var onNumberEntry: ((HUDNumberFeedback?) -> Void)?
-    var onTypedText: ((String?) -> Void)?
+    var onTypedText: ((HUDTypedFeedback?) -> Void)?
     var onFocusSpaceChanged: ((Int) -> Void)?
     var onPanelDragEnded: (() -> Void)?
     var onAccessibilityRevoked: (() -> Void)?
@@ -117,10 +118,12 @@ final class HUDInput {
 
     func updateConfig(
         hudKeys: HUDKeyBindings = .default,
-        jumpToSpaceEnabled: Bool = false
+        jumpToSpaceEnabled: Bool = false,
+        fuzzySpaceJumpEnabled: Bool = true
     ) {
         self.hudKeys = hudKeys
         self.jumpToSpaceEnabled = jumpToSpaceEnabled
+        self.fuzzySpaceJumpEnabled = fuzzySpaceJumpEnabled
     }
 
     func updateCellFrames(_ frames: [(spaceIndex: Int, frame: CGRect)]) {
@@ -295,24 +298,42 @@ final class HUDInput {
 
     func navigateToFirst() { navigateToEdge { $0.first } }
     func navigateToLast() { navigateToEdge { $0.last } }
+    func navigateToPreviousSpace() { navigateToAdjacentSpace(by: -1) }
+    func navigateToNextSpace() { navigateToAdjacentSpace(by: 1) }
+
+    /// Steps through the spaces the HUD shows, wrapping at either end so the
+    /// last space leads to the first and the other way round.
+    private func navigateToAdjacentSpace(by offset: Int) {
+        guard let visible = navigationSpaceIndices(), !visible.isEmpty,
+              let current = lastFocusedSpaceIndex,
+              let position = visible.firstIndex(of: current) else { return }
+        let target = visible[(position + offset + visible.count) % visible.count]
+        guard target != current else { return }
+        focus(space: target)
+    }
 
     private func navigateToEdge(_ pick: ([Int]) -> Int?) {
-        guard let state = currentState else { return }
-        let visible: [Int]
+        guard let visible = navigationSpaceIndices(), let target = pick(visible) else { return }
+        focus(space: target)
+    }
+
+    /// Spaces in the order the HUD navigates them: the whole grid in unified
+    /// mode, or the focused display's spaces in separate mode.
+    private func navigationSpaceIndices() -> [Int]? {
+        guard let state = currentState else { return nil }
         switch state.config.multiMonitorHUDMode {
         case .unified:
-            visible = GridLayout.visibleSpaceIndices(
-                maxSpaces: state.config.maxSpaces,
-                showMode: state.config.showMode,
-                activeIndices: Set(state.spaces.map(\.index))
+            // An `.all` grid pads out to maxSpaces with cells for spaces that
+            // do not exist yet; navigation must not land on one of those.
+            return SpaceNavigator.navigableSpaceIndices(
+                activeSpaceIndices: state.spaces.map(\.index),
+                maxSpaces: state.config.maxSpaces
             )
         case .separate:
             guard let currentIdx = lastFocusedSpaceIndex,
-                  let display = state.displayIndex(forSpace: currentIdx) else { return }
-            visible = state.spaces(forDisplay: display).map(\.index)
+                  let display = state.displayIndex(forSpace: currentIdx) else { return nil }
+            return state.spaces(forDisplay: display).map(\.index)
         }
-        guard let target = pick(visible) else { return }
-        focus(space: target)
     }
 
     func focus(space index: Int) {
@@ -533,17 +554,19 @@ final class HUDInput {
     }
 
     /// The typed prefix, plus the space name once the best tier is one space.
+    /// `matches` keeps the prefix visibly struck while nothing can match it.
     static func letterFeedback(
         prefix: String,
         matches: [Int],
         mustWait: Bool,
         names: [Int: String]
-    ) -> String {
+    ) -> HUDTypedFeedback {
+        guard !matches.isEmpty else { return HUDTypedFeedback(text: prefix, matches: false) }
         guard !mustWait,
               let index = matches.first,
               let name = names[index]?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !name.isEmpty else { return prefix }
-        return "\(prefix) → \(name)"
+              !name.isEmpty else { return HUDTypedFeedback(text: prefix, matches: true) }
+        return HUDTypedFeedback(text: "\(prefix) → \(name)", matches: true)
     }
 
     /// Never swallow a key the HUD does not act on. A stale or revoked tap
@@ -712,7 +735,7 @@ final class HUDInput {
             return .command(command)
         }
         // Only unbound, unmodified keys reach typed letter entry.
-        guard jumpToSpaceEnabled else { return .none }
+        guard fuzzySpaceJumpEnabled else { return .none }
         let letter = Self.letterFromKeyCode(keyCode: keyCode, flags: flags)
         // Shift alone types a letter, not a binding modifier: a binding on the
         // bare key still wins, so Shift+W runs a `w` command.

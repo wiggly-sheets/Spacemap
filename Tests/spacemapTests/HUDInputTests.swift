@@ -60,6 +60,7 @@ final class HUDInputTests: XCTestCase {
             (0, .newSpace), (17, .newSpaceAndFocus), (13, .deleteSpace),
             (11, .layoutBSP), (1, .layoutStack),
             (32, .layoutFloat),
+            (35, .previousSpace), (45, .nextSpace),
         ]
 
         for (keyCode, expected) in cases {
@@ -68,7 +69,7 @@ final class HUDInputTests: XCTestCase {
                 expected
             )
         }
-        XCTAssertNil(defaults.command(for: 45, flags: [])) // n
+        XCTAssertNil(defaults.command(for: 12, flags: [])) // q
         XCTAssertNil(defaults.command(for: 4, flags: .maskCommand))
         XCTAssertNil(defaults.command(for: 4, flags: .maskShift))
         XCTAssertEqual(defaults[.moveSpaceBack], [], "move-space keys start unbound")
@@ -194,7 +195,7 @@ final class HUDInputTests: XCTestCase {
         XCTAssertEqual(input.handleHUDKeyDown(event(53)), .command(.close))
         XCTAssertEqual(input.handleHUDKeyDown(event(0)), .command(.newSpace))
         XCTAssertEqual(input.handleHUDKeyDown(event(32)), .command(.layoutFloat))
-        XCTAssertEqual(input.handleHUDKeyDown(event(45)), HUDKeyPress.none)
+        XCTAssertEqual(input.handleHUDKeyDown(event(45)), .command(.nextSpace))
         XCTAssertEqual(input.handleHUDKeyDown(event(43, flags: .maskCommand)), .showSettings)
         XCTAssertEqual(input.handleHUDKeyDown(event(43)), HUDKeyPress.none,
                        "settings needs the command modifier")
@@ -265,14 +266,37 @@ final class HUDInputTests: XCTestCase {
 
         input.updateConfig(hudKeys: .default, jumpToSpaceEnabled: false)
 
+        XCTAssertEqual(input.handleHUDKeyDown(event(2)), .letter("d"),
+                       "name jumps do not need the number jump")
+        XCTAssertEqual(input.handleHUDKeyDown(event(18)), HUDKeyPress.none,
+                       "with the number jump off a digit reaches the focused app")
+    }
+
+    func testTypedLettersPassThroughWhenNameJumpIsOff() {
+        let input = HUDInput(panel: nil)
+        func event(_ key: CGKeyCode) -> CGEvent {
+            CGEvent(keyboardEventSource: nil, virtualKey: key, keyDown: true)!
+        }
+        input.updateConfig(
+            hudKeys: .default,
+            jumpToSpaceEnabled: true,
+            fuzzySpaceJumpEnabled: false
+        )
+
         XCTAssertEqual(input.handleHUDKeyDown(event(2)), HUDKeyPress.none,
-                       "jumpToSpaceEnabled governs letters as it governs digits")
+                       "an unbound letter reaches the focused app when name jumps are off")
+        XCTAssertEqual(input.handleHUDKeyDown(event(18)), .number(1),
+                       "number jumps still work on their own toggle")
     }
 
     /// The tap-level guard is what keeps a letter from being swallowed when the
     /// jump is off; classification alone is not enough.
     func testTapPassesLettersThroughWhenTheJumpIsDisabled() throws {
-        let input = makeTypingInput(names: [1: "Web"], jumpToSpaceEnabled: false)
+        let input = makeTypingInput(
+            names: [1: "Web"],
+            jumpToSpaceEnabled: true,
+            fuzzySpaceJumpEnabled: false
+        )
         let event = try XCTUnwrap(CGEvent(keyboardEventSource: nil, virtualKey: 2, keyDown: true))
         event.flags = []
 
@@ -291,7 +315,7 @@ final class HUDInputTests: XCTestCase {
         let recorder = RecordingHUDInputDelegate()
         input.delegate = recorder
         var typed: [String?] = []
-        input.onTypedText = { typed.append($0) }
+        input.onTypedText = { typed.append($0?.text) }
 
         press(input, 13, flags: .maskShift) // Shift+W: default binds w to deleteSpace
 
@@ -330,7 +354,7 @@ final class HUDInputTests: XCTestCase {
         var jumped: [Int] = []
         var typed: [String] = []
         input.onFocusSpaceChanged = { jumped.append($0) }
-        input.onTypedText = { if let text = $0 { typed.append(text) } }
+        input.onTypedText = { if let text = $0?.text { typed.append(text) } }
 
         press(input, 2) // d
 
@@ -346,7 +370,7 @@ final class HUDInputTests: XCTestCase {
         var typed: [String?] = []
         var jumped: [Int] = []
         input.onFocusSpaceChanged = { jumped.append($0) }
-        input.onTypedText = { typed.append($0) }
+        input.onTypedText = { typed.append($0?.text) }
 
         press(input, 2) // d: unique, jumps and clears the prefix
         waitUntil("the unique match jumps") { jumped == [1] }
@@ -364,7 +388,7 @@ final class HUDInputTests: XCTestCase {
         var jumped: [Int] = []
         var typed: [String] = []
         input.onFocusSpaceChanged = { jumped.append($0) }
-        input.onTypedText = { if let text = $0 { typed.append(text) } }
+        input.onTypedText = { if let text = $0?.text { typed.append(text) } }
 
         press(input, 13) // w: shared by both names
         press(input, 14) // e: only Web is left
@@ -377,24 +401,24 @@ final class HUDInputTests: XCTestCase {
     /// A bound command owns its keystroke, so a prefix that was still waiting
     /// for the ambiguity timer must not survive it.
     func testABoundCommandCancelsAPendingLetterPrefix() {
-        let input = makeTypingInput(names: [1: "Notes", 2: "Nexus"])
+        let input = makeTypingInput(names: [1: "Xcode", 2: "Xylophone"])
         input.updateConfig(hudKeys: .default, jumpToSpaceEnabled: true)
         let recorder = RecordingHUDInputDelegate()
         input.delegate = recorder
         var typed: [String?] = []
         var jumped: [Int] = []
-        input.onTypedText = { typed.append($0) }
+        input.onTypedText = { typed.append($0?.text) }
         input.onFocusSpaceChanged = { jumped.append($0) }
 
-        press(input, 45) // n: ambiguous, waits 0.3s
-        waitUntil("prefix shown") { typed == ["n"] }
+        press(input, 7) // x: ambiguous, waits 0.3s
+        waitUntil("prefix shown") { typed == ["x"] }
         press(input, 37) // l: default binds it to right
 
         waitUntil("the command ran") { recorder.commands == [.right] }
-        XCTAssertEqual(typed, ["n", nil], "the command clears the pending prefix at once")
-        press(input, 12) // q: must start a fresh prefix, not continue "n"
+        XCTAssertEqual(typed, ["x", nil], "the command clears the pending prefix at once")
+        press(input, 12) // q: must start a fresh prefix, not continue "x"
         waitUntil("the next letter starts a fresh prefix") { typed.last == "q" }
-        XCTAssertEqual(typed, ["n", nil, "q"])
+        XCTAssertEqual(typed, ["x", nil, "q"])
         XCTAssertEqual(jumped, [], "the pending prefix must not jump after the command")
         input.stop()
     }
@@ -414,14 +438,15 @@ final class HUDInputTests: XCTestCase {
     func testNoNameMatchKeepsCollectingWithoutJumping() {
         let input = makeTypingInput(names: [1: "Web"])
         var jumped: [Int] = []
-        var typed: [String] = []
+        var typed: [HUDTypedFeedback] = []
         input.onFocusSpaceChanged = { jumped.append($0) }
-        input.onTypedText = { if let text = $0 { typed.append(text) } }
+        input.onTypedText = { if let feedback = $0 { typed.append(feedback) } }
 
         press(input, 6) // z: no space name contains it
         press(input, 13) // w
 
-        waitUntil("both letters reached the overlay") { typed.last == "zw" }
+        waitUntil("both letters reached the overlay") { typed.last?.text == "zw" }
+        XCTAssertEqual(typed.last?.matches, false, "a prefix with no candidate is marked as a miss")
         XCTAssertEqual(jumped, [], "a prefix that matches nothing never jumps")
         input.stop()
     }
@@ -440,15 +465,15 @@ final class HUDInputTests: XCTestCase {
             displayBounds: .zero,
             focusedIndex: nil
         )
-        var typed: [String?] = []
+        var typed: [HUDTypedFeedback] = []
         var jumped: [Int] = []
-        input.onTypedText = { typed.append($0) }
+        input.onTypedText = { if let feedback = $0 { typed.append(feedback) } }
         input.onFocusSpaceChanged = { jumped.append($0) }
 
         press(input, 2) // d: would uniquely match the stale name
 
-        waitUntil("the stale name shows no match") { typed.last == "d" }
-        XCTAssertEqual(typed, ["d"], "a deleted space is not a candidate")
+        waitUntil("the stale name shows no match") { typed.last?.text == "d" }
+        XCTAssertEqual(typed.last?.matches, false, "a stale name is a miss")
         XCTAssertEqual(jumped, [], "a stale name must not jump")
         input.stop()
     }
@@ -484,7 +509,7 @@ final class HUDInputTests: XCTestCase {
     func testFastBackspaceIsCapturedBeforeThePrefixIsApplied() {
         let input = makeTypingInput(names: [1: "Notes", 2: "Nexus"])
         var typed: [String?] = []
-        input.onTypedText = { typed.append($0) }
+        input.onTypedText = { typed.append($0?.text) }
 
         let letterConsumed = press(input, 45) == nil // n: applied on a later main-queue turn
         let backspaceConsumed = press(input, HUDInput.backspaceKeyCode) == nil
@@ -500,7 +525,7 @@ final class HUDInputTests: XCTestCase {
         var jumped: [Int] = []
         var typed: [String] = []
         input.onFocusSpaceChanged = { jumped.append($0) }
-        input.onTypedText = { if let text = $0 { typed.append(text) } }
+        input.onTypedText = { if let text = $0?.text { typed.append(text) } }
 
         press(input, 13) // w
         press(input, 14) // e
@@ -515,7 +540,7 @@ final class HUDInputTests: XCTestCase {
     func testUnboundEscapeCancelsTheTypedPrefix() {
         let input = makeTypingInput(names: [1: "Wrench", 2: "Web"])
         var typed: [String?] = []
-        input.onTypedText = { typed.append($0) }
+        input.onTypedText = { typed.append($0?.text) }
 
         press(input, 13) // w
         waitUntil("prefix shown") { typed == ["w"] }
@@ -528,7 +553,7 @@ final class HUDInputTests: XCTestCase {
     func testStopClearsTheTypedPrefix() {
         let input = makeTypingInput(names: [1: "Wrench", 2: "Web"])
         var typed: [String?] = []
-        input.onTypedText = { typed.append($0) }
+        input.onTypedText = { typed.append($0?.text) }
 
         press(input, 13)
         waitUntil("prefix shown") { typed == ["w"] }
@@ -541,7 +566,7 @@ final class HUDInputTests: XCTestCase {
         let input = makeTypingInput(names: [1: "Wrench", 2: "Web"])
         var typed: [String?] = []
         var numbers: [Int] = []
-        input.onTypedText = { typed.append($0) }
+        input.onTypedText = { typed.append($0?.text) }
         input.onNumberEntry = { if let feedback = $0 { numbers.append(feedback.number) } }
 
         press(input, 13) // w: two names still match
@@ -559,7 +584,7 @@ final class HUDInputTests: XCTestCase {
         let input = makeTypingInput(names: [1: "Web", 10: "Wrench"])
         var typed: [String?] = []
         var numbers: [HUDNumberFeedback?] = []
-        input.onTypedText = { typed.append($0) }
+        input.onTypedText = { typed.append($0?.text) }
         input.onNumberEntry = { numbers.append($0) }
 
         press(input, 18) // 1: could still become 10
@@ -576,16 +601,16 @@ final class HUDInputTests: XCTestCase {
     func testATypedReadoutReplacesTheOtherEvenDuringAHold() {
         let state = HUDNumberState()
 
-        state.updateTypedText("w → Web")
+        state.updateTypedText(HUDTypedFeedback(text: "w → Web", matches: true))
         state.update(HUDNumberFeedback(number: 1, exists: true))
 
         XCTAssertNil(state.typedText, "a digit ends a held letter readout")
         XCTAssertEqual(state.feedback?.number, 1)
 
-        state.updateTypedText("w")
+        state.updateTypedText(HUDTypedFeedback(text: "w", matches: true))
 
         XCTAssertNil(state.feedback, "a letter ends a held digit readout")
-        XCTAssertEqual(state.typedText, "w")
+        XCTAssertEqual(state.typedText, HUDTypedFeedback(text: "w", matches: true))
     }
 
     func testNavigateToFirstAndLastMoveAcrossUnifiedGrid() {
@@ -610,6 +635,31 @@ final class HUDInputTests: XCTestCase {
         XCTAssertEqual(input.lastFocusedSpaceIndex, 8)
     }
 
+    func testNextAndPreviousSpaceStepAndWrap() {
+        let input = HUDInput(panel: nil)
+        var config = SpacemapConfig.default
+        // `.all` pads the grid to maxSpaces with cells for spaces that do not
+        // exist; stepping must stay on real spaces.
+        config.showMode = .all
+        config.maxSpaces = 8
+        let spaces = [
+            YabaiSpace(id: 1, index: 3, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 2, index: 5, display: 1, hasFocus: false, isVisible: nil, label: nil),
+            YabaiSpace(id: 3, index: 8, display: 1, hasFocus: false, isVisible: nil, label: nil)
+        ]
+        input.currentState = GridState(config: config, spaces: spaces, windows: [], displayBounds: .zero, focusedIndex: 5)
+        input.lastFocusedSpaceIndex = 5
+
+        input.navigateToNextSpace()
+        XCTAssertEqual(input.lastFocusedSpaceIndex, 8)
+
+        input.navigateToNextSpace()
+        XCTAssertEqual(input.lastFocusedSpaceIndex, 3, "next past the last space wraps to the first")
+
+        input.navigateToPreviousSpace()
+        XCTAssertEqual(input.lastFocusedSpaceIndex, 8, "previous before the first space wraps to the last")
+    }
+
     func testNavigateToFirstAndLastStayWithinFocusedDisplayInSeparateMode() {
         let input = HUDInput(panel: nil)
         var config = SpacemapConfig.default
@@ -631,6 +681,12 @@ final class HUDInputTests: XCTestCase {
         input.navigateToFirst()
 
         XCTAssertEqual(input.lastFocusedSpaceIndex, 4)
+
+        input.navigateToNextSpace()
+        XCTAssertEqual(input.lastFocusedSpaceIndex, 7, "next stays within the focused display")
+
+        input.navigateToNextSpace()
+        XCTAssertEqual(input.lastFocusedSpaceIndex, 4, "next wraps within the focused display")
     }
 
     func testAccessibilityRevocationNotifiesOwner() {
@@ -1025,7 +1081,8 @@ extension HUDInputTests {
         names: [Int: String],
         windows: [YabaiWindow] = [],
         namingMode: SpaceNamingMode = .custom,
-        jumpToSpaceEnabled: Bool = true
+        jumpToSpaceEnabled: Bool = true,
+        fuzzySpaceJumpEnabled: Bool = true
     ) -> HUDInput {
         let input = HUDInput(
             panel: nil,
@@ -1035,7 +1092,11 @@ extension HUDInputTests {
         input.accessibilityTrustProvider = { true }
         input.reconcileSettingsKeyMonitor()
         input.updateVisibility(true)
-        input.updateConfig(hudKeys: HUDKeyBindings(), jumpToSpaceEnabled: jumpToSpaceEnabled)
+        input.updateConfig(
+            hudKeys: HUDKeyBindings(),
+            jumpToSpaceEnabled: jumpToSpaceEnabled,
+            fuzzySpaceJumpEnabled: fuzzySpaceJumpEnabled
+        )
         var config = SpacemapConfig.default
         config.spaceNames = names
         config.namingMode = namingMode
