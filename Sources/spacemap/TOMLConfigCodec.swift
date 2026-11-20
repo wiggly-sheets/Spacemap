@@ -411,6 +411,9 @@ enum TOMLConfigDecoder {
             if let naming = section["namingMode"] {
                 result["namingMode"] = naming
             }
+            if let appCount = section["autoNameAppCount"] {
+                result["autoNameAppCount"] = appCount
+            }
             if let nested = section["names"] as? [String: Any] {
                 spaceNames.merge(nested) { _, new in new }
             }
@@ -492,6 +495,15 @@ enum TOMLConfigDecoder {
         // to an existing section. An unknown value falls back to custom.
         if let name = object["namingMode"] as? String {
             config.namingMode = parsedEnum(from: name) ?? SpacemapConfig.default.namingMode
+        }
+        // New key too: absent in old files heals silently. Values outside the
+        // stepper's 1-3 range clamp and flag a rewrite.
+        if let appCount = object["autoNameAppCount"] as? Int {
+            let clamped = min(max(appCount, 1), 3)
+            if clamped != appCount { needsRepair = true }
+            config.autoNameAppCount = clamped
+        } else {
+            config.autoNameAppCount = SpacemapConfig.default.autoNameAppCount
         }
 
         // Out-of-range strip numbers clamp in memory and flag a rewrite.

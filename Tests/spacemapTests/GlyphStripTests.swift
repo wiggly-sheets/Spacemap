@@ -745,8 +745,10 @@ final class GlyphStripTests: XCTestCase {
 
         let segments = GlyphStrip.segments(for: state, options: options)
 
-        XCTAssertEqual(segments[0].runs.first, .index("Terminal"),
-                       "the leftmost window app names the space, not the typed profile name")
+        XCTAssertEqual(state.resolvedSpaceNames[1], "Terminal · Safari",
+                       "visible apps in reading order name the space, not the typed profile name")
+        XCTAssertEqual(segments[0].runs.first, .index("Terminal · S…"),
+                       "the strip label uses the derived name and its existing length cap")
         XCTAssertEqual(segments[1].runs.first, .index("Mail"))
     }
 

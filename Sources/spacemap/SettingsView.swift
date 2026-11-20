@@ -43,6 +43,7 @@ struct SettingsView: View {
     @State private var isYabaiHealthy: Bool?
     @State private var isSocketHealthy: Bool?
     @State private var isRefreshingDiagnostics = false
+    @State private var autoSpaceNames: [Int: String] = [:]
 
     private let yabaiService: YabaiService
     private let themeStore: ThemeStore
@@ -133,7 +134,9 @@ struct SettingsView: View {
                     maxSpaces: draft.binding(\.maxSpaces),
                     profiles: draft.binding(\.spaceNameProfiles),
                     activeProfileIndex: draft.binding(\.activeSpaceNameProfileIndex),
-                    namingMode: draft.binding(\.namingMode)
+                    namingMode: draft.binding(\.namingMode),
+                    autoNameAppCount: draft.binding(\.autoNameAppCount),
+                    autoSpaceNames: autoSpaceNames
                 )
 
             case .hud:
@@ -199,9 +202,14 @@ struct SettingsView: View {
         .onChange(of: selectedSection) { section in
             draft.flush()
             if section == .advanced { refreshDiagnostics() }
+            if section == .spaces { refreshAutoSpaceNames() }
+        }
+        .onChange(of: draft.config.namingMode) { _ in
+            refreshAutoSpaceNames()
         }
         .onReceive(diagnosticsTimer) { _ in
             if selectedSection == .advanced { refreshDiagnostics() }
+            if selectedSection == .spaces { refreshAutoSpaceNames() }
         }
         .alert(
             "Could not save settings",
@@ -281,6 +289,19 @@ struct SettingsView: View {
                     themeStore: themeStore,
                     themeCatalog: themeCatalog
                 )
+    }
+
+    /// Derived names are read-only, so the settings pane shows what the HUD
+    /// renders instead of graying out the stored custom names.
+    private func refreshAutoSpaceNames() {
+        let config = draft.config
+        guard config.namingMode == .auto else { return }
+        yabaiService.runOnYabaiQueue {
+            let names = yabaiService.buildGridState(config: config, focusedIndex: nil).resolvedSpaceNames
+            DispatchQueue.main.async {
+                autoSpaceNames = names
+            }
+        }
     }
 
     private func refreshDiagnostics() {

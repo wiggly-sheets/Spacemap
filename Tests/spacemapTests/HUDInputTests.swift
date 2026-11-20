@@ -456,15 +456,17 @@ final class HUDInputTests: XCTestCase {
     /// Auto naming feeds the same fuzzy candidates as typed names, using each
     /// space's leftmost window app.
     func testAutoNamingModeMatchesTheLeftmostWindowApp() {
+        var safari = YabaiWindow(
+            id: 1, app: "Safari", space: 1,
+            frame: .init(x: 0, y: 0, w: 10, h: 10),
+            isHidden: false, isMinimized: false, subLayer: "normal"
+        )
+        safari.role = "AXWindow"
+        safari.subrole = "AXStandardWindow"
+        safari.isRootWindow = true
         let input = makeTypingInput(
             names: [1: "Typed"],
-            windows: [
-                YabaiWindow(
-                    id: 1, app: "Safari", space: 1,
-                    frame: .init(x: 0, y: 0, w: 10, h: 10),
-                    isHidden: false, isMinimized: false, subLayer: "normal"
-                )
-            ],
+            windows: [safari],
             namingMode: .auto
         )
         var jumped: [Int] = []

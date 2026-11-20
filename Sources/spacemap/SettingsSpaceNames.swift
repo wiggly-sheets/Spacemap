@@ -8,6 +8,9 @@ struct SettingsSpaceNames: View {
     @Binding var profiles: [SpaceNameProfile]
     @Binding var activeProfileIndex: Int
     @Binding var namingMode: SpaceNamingMode
+    @Binding var autoNameAppCount: Int
+    /// HUD-derived names shown read-only while auto naming is on.
+    var autoSpaceNames: [Int: String]
 
     @State private var editingProfileIndex: Int?
     @State private var newProfileName: String = ""
@@ -19,23 +22,31 @@ struct SettingsSpaceNames: View {
                 Text("Auto from apps").tag(SpaceNamingMode.auto)
             }
             if namingMode == .auto {
-                SettingsFootnote(text: "Each space takes the app of its leftmost visible window. Typed names stay saved but are ignored while auto is on, and an empty space shows its number.")
+                stepper("Apps per name", value: $autoNameAppCount, range: 1...3)
+                SettingsFootnote(text: "Each space lists up to \(autoNameAppCount) visible apps in window order, separated by ·, with … when it has more.")
             }
             Toggle("Show Space Names", isOn: $showSpaceNames)
 
             if showSpaceNames {
                 if namingMode == .custom {
                     SettingsFootnote(text: "Each input corresponds to its space number, up to Max Spaces.")
+                } else {
+                    SettingsFootnote(text: "Showing the names auto naming derives from each space's visible apps. Custom names stay saved and return when you switch back.")
                 }
                 ForEach(1...max(1, maxSpaces), id: \.self) { spaceIndex in
                     HStack {
                         Text("Space \(spaceIndex):")
                             .frame(width: 80, alignment: .leading)
-                        TextField("", text: binding(for: spaceIndex))
-                            .textFieldStyle(.roundedBorder)
+                        if namingMode == .auto {
+                            Text(autoName(for: spaceIndex))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            TextField("", text: binding(for: spaceIndex))
+                                .textFieldStyle(.roundedBorder)
+                        }
                     }
                 }
-                .disabled(namingMode == .auto)
             }
         }
 
@@ -102,6 +113,11 @@ struct SettingsSpaceNames: View {
             }
             .padding(.top, 4)
         }
+    }
+
+    private func autoName(for spaceIndex: Int) -> String {
+        let name = autoSpaceNames[spaceIndex]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.isEmpty ? "—" : name
     }
 
     private func binding(for spaceIndex: Int) -> Binding<String> {

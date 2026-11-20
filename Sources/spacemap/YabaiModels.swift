@@ -175,28 +175,34 @@ struct GridState: Equatable {
 
 extension GridState {
     /// Names every surface displays: the active profile's typed names, or in
-    /// auto mode the app of each space's leftmost visible window. Derived names
-    /// are read-only, so custom names and profiles survive a switch back.
+    /// auto mode up to `autoNameAppCount` apps of each space's visible windows,
+    /// in reading order and joined by "·". Derived names are read-only, so
+    /// custom names and profiles survive a switch back.
     var resolvedSpaceNames: [Int: String] {
         guard config.namingMode == .auto else { return config.spaceNames }
+        let limit = min(max(config.autoNameAppCount, 1), 3)
         var names: [Int: String] = [:]
         for space in spaces {
-            let app = YabaiWindow.inReadingOrder(
+            let apps = YabaiWindow.inReadingOrder(
                 windows(forSpace: space.index).filter {
-                    // Only windows the HUD can draw may name a space: skip
-                    // hidden, minimized, zero-size placeholders, sticky
-                    // followers, and fully transparent phantoms.
-                    !$0.isHidden
-                        && !$0.isMinimized
-                        && $0.frame.w > 0
-                        && $0.frame.h > 0
-                        && ($0.opacity ?? 1) > 0
-                        && $0.isSticky != true
+                    // Only windows the HUD draws may name a space, so a hidden
+                    // helper window (Plexamp and friends) cannot leak in.
+                    $0.shouldDisplay(showExtraWindows: config.showExtraWindows)
                 }
-            ).first?.app.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let app, !app.isEmpty {
-                names[space.index] = app
+            ).compactMap { window -> String? in
+                let app = window.app.trimmingCharacters(in: .whitespacesAndNewlines)
+                return app.isEmpty ? nil : app
             }
+            var uniqueApps: [String] = []
+            for app in apps where !uniqueApps.contains(app) {
+                uniqueApps.append(app)
+            }
+            guard !uniqueApps.isEmpty else { continue }
+            var name = uniqueApps.prefix(limit).joined(separator: " · ")
+            if uniqueApps.count > limit {
+                name += "…"
+            }
+            names[space.index] = name
         }
         return names
     }

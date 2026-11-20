@@ -753,8 +753,8 @@ struct AppFontConfig: Equatable {
 }
 
 /// Where a space's displayed name comes from: the active profile's typed names,
-/// or the app of the space's leftmost window. Auto names are computed on read
-/// and never written to `[spaceNames.names]`.
+/// or the apps of the space's visible windows in reading order. Auto names are
+/// computed on read and never written to `[spaceNames.names]`.
 enum SpaceNamingMode: String, CaseIterable, Identifiable, Equatable {
     case custom
     case auto
@@ -858,8 +858,10 @@ struct SpacemapConfig: Equatable {
     var menuBarDisplayMode: MenuBarDisplayMode = .icon
     var menuBarNearbyCount: Int = 3
     var spaceNames: [Int: String]
-    /// Displayed names: the profile's typed names, or each space's leftmost app.
+    /// Displayed names: the profile's typed names, or each space's visible apps.
     var namingMode: SpaceNamingMode = .custom
+    /// How many apps auto naming lists per space, 1-3, joined by "·".
+    var autoNameAppCount: Int = 3
     var jumpToSpaceEnabled: Bool = false
     var hudPosition: HUDPosition
     var showExtraWindows: Bool

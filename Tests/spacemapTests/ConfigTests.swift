@@ -176,6 +176,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertTrue(generated.contains("[grid]"))
         XCTAssertTrue(generated.contains("[spaceNames.names]"))
         XCTAssertTrue(generated.contains("namingMode = \"custom\""))
+        XCTAssertTrue(generated.contains("autoNameAppCount = 3"))
         XCTAssertTrue(generated.contains("[appearance]"))
         XCTAssertTrue(generated.contains("[behavior.hotkey]"))
         XCTAssertTrue(generated.contains("[advanced]"))

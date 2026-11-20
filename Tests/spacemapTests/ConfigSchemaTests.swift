@@ -194,6 +194,27 @@ final class ConfigSchemaTests: XCTestCase {
         XCTAssertFalse(repaired.needsRepair)
     }
 
+    func testAutoNameAppCountRoundTripsClampsAndHealsSilently() throws {
+        var config = SpacemapConfig.default
+        config.autoNameAppCount = 2
+
+        let written = written(config)
+        XCTAssertTrue(written.contains("autoNameAppCount = 2"), "the writer emits the count under [spaceNames]")
+        XCTAssertEqual(try decoded(written).config.autoNameAppCount, 2)
+        XCTAssertFalse(try decoded(written).needsRepair)
+
+        // Older files have no count line: it defaults without forcing a rewrite.
+        let legacy = written.replacingOccurrences(of: "autoNameAppCount = 2\n", with: "")
+        XCTAssertEqual(try decoded(legacy).config.autoNameAppCount, 3)
+        XCTAssertFalse(try decoded(legacy).needsRepair)
+
+        // Values outside the stepper range clamp in memory and flag a rewrite.
+        let outOfRange = written.replacingOccurrences(of: "autoNameAppCount = 2", with: "autoNameAppCount = 9")
+        let clamped = try decoded(outOfRange)
+        XCTAssertEqual(clamped.config.autoNameAppCount, 3)
+        XCTAssertTrue(clamped.needsRepair)
+    }
+
     func testBackgroundAndGlassStylesRoundTrip() throws {
         for style in HUDBackgroundStyle.allCases {
             var config = SpacemapConfig.default
