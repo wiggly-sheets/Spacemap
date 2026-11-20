@@ -11,13 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `[hudKeys]` gains the `previousSpace` and `nextSpace` commands, bound to `p` and `n` by default, stepping through existing spaces and wrapping at either end. Empty grid cells in an `.all` grid are skipped, and in separate mode the step stays on the focused display. Every existing HUD key keeps its default, and both commands can be rebound or unbound in Settings > Hotkeys.
 - Typed letters for a space-name jump now show the prefix struck through in the drop-target colour while no existing space name matches it, the same miss style as a typed space number that does not exist. A prefix that matches clears the strike as soon as it resolves. Letters bound to an active `[hudKeys]` command still run that command instead of entering the prefix.
 - `[behavior] fuzzySpaceJumpEnabled` (default `true`) and a Settings > Hotkeys > Hotkeys toggle, "Jump to Space by Name", turn space-name letter jumps off without disabling number jumps. The two jump toggles are independent. The toggle reads off and the jump is ignored while space names are hidden; the saved value returns when names are shown again.
-- The menu-bar glyph strip now paints the background material from the same `[glyphStrip]` keys as the floating strip. Menu-bar mode offers solid or transparent only; selecting it while Liquid Glass is saved switches the material to solid, because a status item cannot host a backdrop blur without flashing black on space switches. Anything else paints the solid fill. Corner radius, border, and theme are shared. The floating strip keeps the real glass and its variant.
+- The menu-bar glyph strip now paints the background material from the same `[glyphStrip]` keys as the floating strip. Menu-bar mode offers solid or transparent only; selecting it while Liquid Glass is saved switches the material to solid, as does loading such a config, because a status item cannot host a backdrop blur without flashing black on space switches. Anything else paints the solid fill. Corner radius, border, and theme are shared. The floating strip keeps the real glass and its variant.
 
 ### Changed
 - The glyph strip has one background shape instead of a shape picker: `cornerRadius` alone decides between square ends (0), a rounded rectangle, and a pill (half the strip height or more). `shape` is no longer written or read. A transparent background no longer offers a shape or radius to set.
 
 ### Fixed
 - The menu-bar glyph strip's hover highlight now covers the whole segment, including the left edge of a space number.
+- The floating strip's hover highlight uses the theme colour instead of the system selection colour.
+- A transparent floating strip no longer gives every glyph a black outline: the panel only casts a window shadow when it paints a backdrop.
+- Vertical padding now grows a free-placed horizontal strip, so Same Padding on All Sides changes the top and bottom gaps as well as the sides. An anchored strip stays the menu-bar row height.
 - Settings > Glyph Strip hides Shape and Background Corner Radius while Background Material is Transparent, because no background is drawn to shape. Matching the HUD still shows the picker, since the HUD's material may draw one.
 
 ## [2.1.0] - 2026-11-20
