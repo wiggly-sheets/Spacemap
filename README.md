@@ -323,14 +323,13 @@ glassRegularVariant = 5
 glassTintedVariant = 2
 glassTintedMaterial = "clear"
 matchHUDAppearance = false        # true = copy HUD material, glass type, finish, opacity, theme
-shape = "none"                    # none | pill | roundedRect | bar (none = no background, no outline)
 backgroundOpacity = 0.35          # shared opacity when matchBackgroundOpacity is on
 matchBackgroundOpacity = false    # true = all strip styles share backgroundOpacity
 glassClearOpacity = 0.35          # per-style glass backing opacity
 glassRegularOpacity = 0.35
 glassTintedOpacity = 0.35
 solidOpacity = 0.35               # solid backing opacity, no blur
-cornerRadius = 20.0               # roundedRect only, 0...40
+cornerRadius = 20.0               # shape: 0 = square ends, half the strip height or more = pill
 margin = 6.0                      # gap to the notch edge, clamped 0...40
 iconSpacing = 3.0                  # extra gap between two app icons and before +N, clamped 0...20
 indexPadding = 6.0                 # gap from the space number to its first icon or placeholder, clamped 0...20
@@ -351,7 +350,7 @@ customX = 0.5                     # custom only; fraction of the screen's spare 
 customY = 0.5                     # custom only; fraction of the spare height, 0 bottom, 1 top
 customScreen = ""                 # custom only; display identity, empty = usual target screen
 borderEnabled = true              # hairline outline, independent of the material;
-                                  # with none it follows shape, shape none = no outline
+                                  # with none it follows the corner radius
 theme = ""                        # follow main HUD theme; or a theme name
                                     # leftOfNotch/rightOfNotch sit BESIDE the notch:
                                     # the strip's outer edge is anchored `margin` short
@@ -377,7 +376,7 @@ theme = ""                        # follow main HUD theme; or a theme name
 | `[behavior]` | `autoHideTimeout`, `jumpToSpaceEnabled`, `fuzzySpaceJumpEnabled`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `showHUDInteractionFeedback`, `spaceDropMode`, `spaceDragFocus`, `windowDragFocus`, `hudAnimationsEnabled`, `hudAnimationStyle`, `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, `showThumbnailWallpaper`, `presence`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
 | `[behavior.hudPosition]` | `kind` (`center`, `top`, `bottom`, `custom`); custom adds `x`/`y` (0...1 spare-width/height fractions) and an optional `screen` display identity, written by dragging the HUD |
 | `[hudKeys]` | one key per HUD action (`left`, `right`, `up`, `down`, `first`, `last`, `recent`, `close`, `newSpace`, `newSpaceAndFocus`, `deleteSpace`, `layoutBSP`, `layoutStack`, `layoutFloat`, `cycleLayout`, `moveSpaceBack`, `moveSpaceForward`, `previousSpace`, `nextSpace`), each a list of hotkeys; an empty list leaves the action unbound |
-| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `spaceLabelStyle`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `shape`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `padding`, `lockPadding`, `horizontalPadding`, `displayMode`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `orientation`, `verticalLayout`, `customX`, `customY`, `customScreen`, `lockPosition`, `borderEnabled` |
+| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `spaceLabelStyle`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `padding`, `lockPadding`, `horizontalPadding`, `displayMode`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `orientation`, `verticalLayout`, `customX`, `customY`, `customScreen`, `lockPosition`, `borderEnabled` |
 | `[advanced]` | `socketHealthInterval`, `showExtraWindows` |
 
 Space names example:
