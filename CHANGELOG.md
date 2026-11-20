@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `[hudKeys]` gains the `previousSpace` and `nextSpace` commands, bound to `p` and `n` by default, stepping through existing spaces and wrapping at either end. Empty grid cells in an `.all` grid are skipped, and in separate mode the step stays on the focused display. Every existing HUD key keeps its default, and both commands can be rebound or unbound in Settings > Hotkeys.
+- Typed letters for a space-name jump now show the prefix struck through in the drop-target colour while no existing space name matches it, the same miss style as a typed space number that does not exist. A prefix that matches clears the strike as soon as it resolves. Letters bound to an active `[hudKeys]` command still run that command instead of entering the prefix.
+- `[behavior] fuzzySpaceJumpEnabled` (default `true`) and a Settings > Hotkeys > Hotkeys toggle, "Jump to Space by Name", turn space-name letter jumps off without disabling number jumps. The two jump toggles are independent. The toggle reads off and the jump is ignored while space names are hidden; the saved value returns when names are shown again.
+
 ## [2.1.0] - 2026-11-20
 
 ### Added

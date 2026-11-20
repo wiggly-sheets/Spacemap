@@ -266,6 +266,7 @@ hudShadow = true
 [behavior]
 autoHideTimeout = 5
 jumpToSpaceEnabled = false
+fuzzySpaceJumpEnabled = true # type a space name to jump; unbound letters only
 
 [hudKeys]
 left = ["h", "left"]          # every HUD action takes a list of hotkeys
@@ -285,6 +286,8 @@ layoutFloat = ["u"]
 cycleLayout = []              # cycle BSP -> stack -> float; empty list = unbound
 moveSpaceBack = []            # move the focused space one slot left
 moveSpaceForward = []         # move the focused space one slot right
+previousSpace = ["p"]         # previous space, wrapping at the start
+nextSpace = ["n"]             # next space, wrapping at the end
 
 [behavior.hotkey]
 keyKind = "keyCode"
@@ -369,11 +372,11 @@ theme = ""                        # follow main HUD theme; or a theme name
 | Table | Useful keys |
 |---|---|
 | `[grid]` | `cols`, `rows`, `maxSpaces`, `cellStyle`, `showMode`, `multiMonitorHUDMode`, `unifiedHUDVisibility`, `separateHUDVisibility`, `displayNavigationWrap`, `showSpaceNumbers`, `showSpaceLayout`, `showIconStrip`, `showMultiAppIcons`, `hudIconSource`, `hudIconStripSeparate`, `hudIconStripSource` |
-| `[spaceNames]` | `showSpaceNames`; `namingMode` (`custom`, `auto`); names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]`. In `auto` mode each space takes the app of its leftmost visible window |
+| `[spaceNames]` | `showSpaceNames`; `namingMode` (`custom`, `auto`); `autoNameAppCount` (1-3); names live in `[spaceNames.names]` as quoted space-number keys; named sets live in `[spaceNameProfiles]`. In `auto` mode each space lists up to `autoNameAppCount` visible apps in reading order, joined by `·` |
 | `[appearance]` | `theme`, `mode`, `backgroundAlpha`, `backgroundStyle`, `glassStyle`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `matchBackgroundOpacity`, `hudShadow`, `hudCornerRadius`, `hudFontName`, `hudFontSize`, `hudTextColor`, `spacesMatchBackground`, `spacesBackgroundStyle`, `spacesGlassStyle`, `spacesGlassClearVariant`, `spacesGlassRegularVariant`, `spacesGlassTintedVariant`, `spacesGlassTintedMaterial`, `spacesOpacity`, `spacesCornerRadius`, `uiScale`, `iconScale` |
-| `[behavior]` | `autoHideTimeout`, `jumpToSpaceEnabled`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `showHUDInteractionFeedback`, `spaceDropMode`, `spaceDragFocus`, `windowDragFocus`, `hudAnimationsEnabled`, `hudAnimationStyle`, `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, `showThumbnailWallpaper`, `presence`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
+| `[behavior]` | `autoHideTimeout`, `jumpToSpaceEnabled`, `fuzzySpaceJumpEnabled`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `showHUDInteractionFeedback`, `spaceDropMode`, `spaceDragFocus`, `windowDragFocus`, `hudAnimationsEnabled`, `hudAnimationStyle`, `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, `showThumbnailWallpaper`, `presence`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
 | `[behavior.hudPosition]` | `kind` (`center`, `top`, `bottom`, `custom`); custom adds `x`/`y` (0...1 spare-width/height fractions) and an optional `screen` display identity, written by dragging the HUD |
-| `[hudKeys]` | one key per HUD action (`left`, `right`, `up`, `down`, `first`, `last`, `recent`, `close`, `newSpace`, `newSpaceAndFocus`, `deleteSpace`, `layoutBSP`, `layoutStack`, `layoutFloat`, `cycleLayout`, `moveSpaceBack`, `moveSpaceForward`), each a list of hotkeys; an empty list leaves the action unbound |
+| `[hudKeys]` | one key per HUD action (`left`, `right`, `up`, `down`, `first`, `last`, `recent`, `close`, `newSpace`, `newSpaceAndFocus`, `deleteSpace`, `layoutBSP`, `layoutStack`, `layoutFloat`, `cycleLayout`, `moveSpaceBack`, `moveSpaceForward`, `previousSpace`, `nextSpace`), each a list of hotkeys; an empty list leaves the action unbound |
 | `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `spaceLabelStyle`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `shape`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `padding`, `lockPadding`, `horizontalPadding`, `displayMode`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `orientation`, `verticalLayout`, `customX`, `customY`, `customScreen`, `lockPosition`, `borderEnabled` |
 | `[advanced]` | `socketHealthInterval`, `showExtraWindows` |
 
