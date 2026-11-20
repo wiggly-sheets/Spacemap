@@ -137,11 +137,16 @@ final class ApplicationLifecycleService {
 
             if !SystemPermissions.hasAccessibility {
                 SystemPermissions.requestAccessibility()
+                // Show the privacy pane before the drag helper so the icon has
+                // a visible target. The legacy anchor still resolves on macOS 27,
+                // where the pane is titled Device Control and Data Access.
+                SystemPermissions.openAccessibilitySettings()
                 PermissionDragWindowController.shared.show()
             }
 
             if config.cellStyle == .thumbnails, !SystemPermissions.hasScreenRecording {
                 SystemPermissions.requestScreenRecording()
+                SystemPermissions.openScreenRecordingSettings()
             }
 
             AccessibilityHealthMonitor.shared.start()
