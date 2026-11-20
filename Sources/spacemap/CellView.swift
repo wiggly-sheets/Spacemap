@@ -194,12 +194,14 @@ var body: some View {
             }
 
             if showSpaceNames, let name = spaceName, !name.isEmpty {
+                let cell = GridLayout.cellSize(forEffectiveScale: uiScale)
                 Text(name)
                     .font(hudFont(points: 14, weight: .medium))
                     .foregroundColor(textColor)
-                    .position(GridLayout.spaceNamePosition(in: GridLayout.cellSize(forEffectiveScale: uiScale)))
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.3)
+                    .frame(width: max(cell.width - 8 * uiScale, 0))
+                    .position(GridLayout.spaceNamePosition(in: cell))
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
