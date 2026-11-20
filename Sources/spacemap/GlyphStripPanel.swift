@@ -759,6 +759,10 @@ final class GlyphStripPanelController: NSObject {
             ? ScreenContext.safeScreenFrame(on: screen).height
             : row.height
         panel.level = strip.position == .custom ? .floating : .statusBar
+        // A transparent strip draws no backdrop, so its only opaque pixels are
+        // the glyphs and the window server would cast their outline as a black
+        // shadow. Only shadow a surface that actually paints a shape.
+        panel.hasShadow = strip.resolvedBackgroundMaterial(hud: config) != .none
         let frame = GlyphStrip.frame(
             contentSize: stripContentSize(
                 rowHeight: row.height,
@@ -787,7 +791,16 @@ final class GlyphStripPanelController: NSObject {
     private func stripContentSize(rowHeight: CGFloat, availableHeight: CGFloat) -> CGSize {
         guard isVerticalLayout else {
             let horizontal = CGFloat(config.glyphStrip.resolvedHorizontalPadding) * 2
-            return CGSize(width: max(segmentWidths.reduce(0, +) + horizontal, 1), height: rowHeight)
+            // An anchored strip is pinned to the menu-bar row, so vertical
+            // padding can only move the glyphs inside it. A free strip owns
+            // its height, so padding grows the panel around the row.
+            let vertical = config.glyphStrip.position == .custom
+                ? CGFloat(config.glyphStrip.resolvedVerticalPadding) * 2
+                : 0
+            return CGSize(
+                width: max(segmentWidths.reduce(0, +) + horizontal, 1),
+                height: rowHeight + vertical
+            )
         }
         var width: CGFloat
         if isStackedVertical {
@@ -1918,8 +1931,8 @@ private final class GlyphStripStatusView: NSView {
         let layout = self.segmentLayout
         drawHighlight(
             for: hoveredSegment.flatMap(layout.slot),
-            color: NSColor.selectedContentBackgroundColor,
-            opacity: 0.18 * hoverProgress
+            color: controller.hoverColor,
+            opacity: GlyphStrip.hoverHighlightOpacity * hoverProgress
         )
         drawHighlight(
             for: controller.dragTargetSegment.flatMap(layout.slot),
@@ -2514,7 +2527,6 @@ private final class GlyphStripView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         guard let controller else { return }
-
         // `.liquidGlass` paints only its edge here. The view's alpha carries the
         // opacity, so there is no fill to wash out the material.
         if controller.usesGlass, let backdrop = controller.backdrop(in: bounds) {
