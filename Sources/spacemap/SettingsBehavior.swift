@@ -127,12 +127,15 @@ struct SettingsBehavior: View {
 
             Toggle("Jump to Space with Number Keys", isOn: $jumpToSpaceEnabled)
 
-            Toggle("Jump to Space by Name", isOn: Binding(
+            Toggle(isOn: Binding(
                 // Space names drive the match, so hiding them also shows
                 // this as off without forgetting the saved value.
                 get: { fuzzySpaceJumpEnabled && showSpaceNames },
                 set: { fuzzySpaceJumpEnabled = $0 }
-            ))
+            )) {
+                Text("Jump to Space by Name")
+                    .foregroundStyle(showSpaceNames ? .primary : .secondary)
+            }
             .disabled(!showSpaceNames)
             SettingsFootnote(text: "Typing a space name while the HUD is open jumps to a matching space. Unavailable while space names are hidden.")
 
