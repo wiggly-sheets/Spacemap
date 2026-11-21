@@ -89,7 +89,10 @@ final class GlyphStripPanelController: NSObject {
     /// Session-only visibility flag for native fullscreen. Recomputed by a
     /// timer: entering or leaving fullscreen need not produce a yabai signal.
     private var hiddenByFullscreen = false
-    private var fullscreenTimer: Timer?
+    /// Session-only visibility flag for Mission Control. Recomputed by the
+    /// same timer: the window server sends no Mission Control notification.
+    private var hiddenByMissionControl = false
+    private var overlayTimer: Timer?
     private var statusItem: NSStatusItem?
     fileprivate var statusView: GlyphStripStatusView?
     fileprivate var segments: [GlyphStrip.Segment] = []
@@ -146,11 +149,12 @@ final class GlyphStripPanelController: NSObject {
         self.themeStore = themeStore
         self.coordinator = GridStateCoordinator(yabaiService: yabaiService)
         super.init()
-        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
-            self?.reconcileFullscreenVisibility()
+        // 0.25s keeps the Mission Control hide ahead of its snapshot animation.
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            self?.reconcileOverlayVisibility()
         }
         RunLoop.main.add(timer, forMode: .common)
-        fullscreenTimer = timer
+        overlayTimer = timer
         // A resolution change or a display being unplugged moves the notch and
         // resizes the menu bar row, so the cached frame has to be recomputed.
         screenObserver = NotificationCenter.default.addObserver(
@@ -171,7 +175,7 @@ final class GlyphStripPanelController: NSObject {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.reconcileFullscreenVisibility()
+                self?.reconcileOverlayVisibility()
             }
         }
         accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -210,7 +214,7 @@ final class GlyphStripPanelController: NSObject {
 
     deinit {
         pendingRefresh?.cancel()
-        fullscreenTimer?.invalidate()
+        overlayTimer?.invalidate()
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
         }
@@ -255,7 +259,7 @@ final class GlyphStripPanelController: NSObject {
         // need no reload (the file is already parsed), and this runs on every
         // save.
         themeStore.reloadIfChanged()
-        guard config.glyphStrip.enabled, !hiddenByHotkey, !hiddenByFullscreen else {
+        guard config.glyphStrip.enabled, !hiddenByHotkey, !hiddenByFullscreen, !hiddenByMissionControl else {
             hide()
             return
         }
@@ -275,11 +279,15 @@ final class GlyphStripPanelController: NSObject {
         needsFollowupRefresh = true
     }
 
-    /// Hides the strip while another app owns a native fullscreen window, and
-    /// brings it back when that app leaves fullscreen. Polled because the
-    /// window server gives no fullscreen notification; yabai signals alone miss
-    /// the green-button case.
-    private func reconcileFullscreenVisibility() {
+    /// Hides the strip while another app owns a native fullscreen window or
+    /// Mission Control is up, and brings it back afterwards. Polled because
+    /// the window server gives no notification for either; yabai signals alone
+    /// miss the green-button case.
+    private func reconcileOverlayVisibility() {
+        // Mission Control copies every visible window into each space
+        // thumbnail, so the strip hides there regardless of the fullscreen
+        // setting.
+        applyMissionControlVisibility(ScreenContext.isMissionControlActive())
         guard config.glyphStrip.enabled, config.glyphStrip.hideInFullscreen else {
             guard hiddenByFullscreen else { return }
             hiddenByFullscreen = false
@@ -301,6 +309,16 @@ final class GlyphStripPanelController: NSObject {
     private func applyFullscreenVisibility(_ shouldHide: Bool) {
         guard shouldHide != hiddenByFullscreen else { return }
         hiddenByFullscreen = shouldHide
+        if shouldHide {
+            hide()
+        } else {
+            update(config: config)
+        }
+    }
+
+    private func applyMissionControlVisibility(_ shouldHide: Bool) {
+        guard shouldHide != hiddenByMissionControl else { return }
+        hiddenByMissionControl = shouldHide
         if shouldHide {
             hide()
         } else {
@@ -335,7 +353,7 @@ final class GlyphStripPanelController: NSObject {
     /// coalesce to one pass. Font IO + segment model build run on the work
     /// queue; only the attributed-run apply + frame runs on main.
     func refresh() {
-        guard config.glyphStrip.enabled, !hiddenByHotkey else { return }
+        guard config.glyphStrip.enabled, !hiddenByHotkey, !hiddenByMissionControl else { return }
         refreshGeneration += 1
         pendingRefresh?.cancel()
         // Leading edge: react to the first event immediately. Bursts within the
@@ -359,7 +377,7 @@ final class GlyphStripPanelController: NSObject {
     }
 
     private func runRefresh() {
-        guard config.glyphStrip.enabled, !hiddenByHotkey else { return }
+        guard config.glyphStrip.enabled, !hiddenByHotkey, !hiddenByMissionControl else { return }
         // Re-entrant guard: a refresh landing mid-pass (e.g. an icon resolve
         // landing one) collapses to a single bounded follow-up.
         guard !refreshInFlight else {
@@ -460,7 +478,8 @@ final class GlyphStripPanelController: NSObject {
         // disabled or hidden by hotkey while the state work was in flight.
         guard generation == refreshGeneration,
               config.glyphStrip.enabled,
-              !hiddenByHotkey else {
+              !hiddenByHotkey,
+              !hiddenByMissionControl else {
             finishRefresh(generation: generation)
             return
         }
@@ -675,7 +694,7 @@ final class GlyphStripPanelController: NSObject {
     /// happens only when the panel is not already visible, so steady-state
     /// refreshes do not re-order the panel on every yabai signal.
     func present() {
-        guard config.glyphStrip.enabled, !hiddenByHotkey, !hiddenByFullscreen else {
+        guard config.glyphStrip.enabled, !hiddenByHotkey, !hiddenByFullscreen, !hiddenByMissionControl else {
             hide()
             return
         }

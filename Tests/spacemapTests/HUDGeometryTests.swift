@@ -142,4 +142,35 @@ final class ScreenContextGeometryTests: XCTestCase {
         XCTAssertEqual(safe.minY, 64, accuracy: 0.0001, "the dock plus a 4pt gap")
         XCTAssertEqual(safe.width, 1440, accuracy: 0.0001, "side and floating windows change nothing")
     }
+
+    func testMissionControlNeedsFullScreenWindowManagerShield() {
+        let screen = NSScreen.screens.first?.frame ?? CGRect(x: 0, y: 0, width: 1440, height: 900)
+        func window(layer: Int, width: CGFloat, height: CGFloat) -> [String: Any] {
+            [
+                kCGWindowLayer as String: layer,
+                kCGWindowOwnerPID as String: 1,
+                kCGWindowBounds as String: [
+                    "X": 0, "Y": 0, "Width": width, "Height": height,
+                ],
+            ]
+        }
+        let isWindowManager: (pid_t) -> Bool = { _ in true }
+
+        XCTAssertTrue(ScreenContext.isMissionControlActive(
+            windows: [window(layer: 19, width: screen.width, height: screen.height)],
+            isWindowManager: isWindowManager
+        ))
+        XCTAssertFalse(ScreenContext.isMissionControlActive(
+            windows: [window(layer: 18, width: screen.width, height: screen.height)],
+            isWindowManager: isWindowManager
+        ), "another layer is not the Mission Control shield")
+        XCTAssertFalse(ScreenContext.isMissionControlActive(
+            windows: [window(layer: 19, width: 300, height: 200)],
+            isWindowManager: isWindowManager
+        ), "a small layer-19 window is not a full-screen shield")
+        XCTAssertFalse(ScreenContext.isMissionControlActive(
+            windows: [window(layer: 19, width: screen.width, height: screen.height)],
+            isWindowManager: { _ in false }
+        ), "a shield from another process is ignored")
+    }
 }

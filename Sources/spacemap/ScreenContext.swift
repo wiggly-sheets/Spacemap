@@ -434,4 +434,45 @@ enum ScreenContext {
         }
         return false
     }
+
+    // MARK: - Mission Control detection
+
+    /// True while Mission Control or Exposé is on screen. WindowManager draws
+    /// a full-screen shield at layer 19 in those modes and nothing on screen
+    /// otherwise. Mission Control copies every visible window into each space
+    /// thumbnail, so a strip left up is duplicated there.
+    static func isMissionControlActive() -> Bool {
+        let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        return isMissionControlActive(windows: windows)
+    }
+
+    /// Pure predicate over a window list. `isWindowManager` is a seam so tests
+    /// can match a shield without a real WindowManager process.
+    static func isMissionControlActive(
+        windows: [[String: Any]],
+        isWindowManager: (pid_t) -> Bool = {
+            NSRunningApplication(processIdentifier: $0)?.bundleIdentifier == "com.apple.WindowManager"
+        }
+    ) -> Bool {
+        for window in windows {
+            guard let layer = window[kCGWindowLayer as String] as? Int, layer == 19,
+                  let owner = window[kCGWindowOwnerPID as String] as? Int,
+                  isWindowManager(pid_t(owner)),
+                  let rawBounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let bounds = CGRect(dictionaryRepresentation: rawBounds as CFDictionary) else {
+                continue
+            }
+            // The shield covers most of a display; a small layer-19 window is
+            // something else and must not hide the strip.
+            if NSScreen.screens.contains(where: {
+                bounds.width >= $0.frame.width * 0.5 && bounds.height >= $0.frame.height * 0.5
+            }) {
+                return true
+            }
+        }
+        return false
+    }
 }
