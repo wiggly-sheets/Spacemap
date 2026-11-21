@@ -43,6 +43,24 @@ final class HUDPresenterTests: XCTestCase {
         XCTAssertNil(rig.display.renderedState, "hide must drop the rendered state")
     }
 
+    func testMissionControlBlocksShowAndHidesAVisibleHUD() {
+        let rig = makeRig()
+        rig.presenter.isMissionControlActive = { true }
+
+        rig.presenter.show(config: .default)
+        XCTAssertFalse(rig.presenter.isVisible,
+            "the HUD must not open into the Mission Control snapshot")
+
+        rig.presenter.isMissionControlActive = { false }
+        rig.presenter.show(config: .default)
+        waitUntil("first render") { rig.presenter.state != nil }
+
+        rig.presenter.isMissionControlActive = { true }
+        rig.presenter.pollMissionControl()
+
+        XCTAssertFalse(rig.presenter.isVisible, "an open HUD must hide in Mission Control")
+    }
+
     func testCommandResultLandsOnlyOnThePresentationThatStartedIt() {
         let rig = makeRig()
         rig.presenter.show(config: .default)

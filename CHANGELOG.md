@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - The glyph strip now hides while Mission Control or Exposé is on screen, so it is no longer copied into every space thumbnail. Detection uses the same window-server shield check as menu-titles, and needs no setting: the strip always hides there and returns when Mission Control closes.
+- The HUD also hides while Mission Control or Exposé is on screen, and refuses to open until it closes, so it no longer appears in space thumbnails. It shares the glyph strip's detection and needs no setting.
 
 ## [2.2.1] - 2026-11-21
 

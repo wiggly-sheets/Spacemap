@@ -26,6 +26,11 @@ final class HUDPresenter {
     var autoHideTimeout: TimeInterval = 0
     var isAutoHideScheduled: Bool { autoHideTimer != nil }
     private var autoHideTimer: Timer?
+    /// Polls the window server while a presentation is up. Mission Control
+    /// posts no notification, so a short poll is the only signal.
+    private var missionControlTimer: Timer?
+    /// Test seam: Mission Control shield check.
+    var isMissionControlActive: () -> Bool = ScreenContext.isMissionControlActive
     private var autoHideSuppressed = false
     private var panelDragActive = false
     private var dragAutoHidePoll: DispatchWorkItem?
@@ -82,6 +87,7 @@ final class HUDPresenter {
 
     func show(config: SpacemapConfig) {
         guard !isVisible else { return }
+        guard !isMissionControlActive() else { return }
         display.hide()
         generation += 1
         isVisible = true
@@ -112,6 +118,7 @@ final class HUDPresenter {
         resetAutoHideTimer()
         input.startPollTimer()
         input.start()
+        startMissionControlPoll()
         coordinator.fetch { [weak self] in self?.renderRefreshedState(force: false, refreshFocusedWindow: true) }
     }
 
@@ -130,6 +137,8 @@ final class HUDPresenter {
         autoHideSuppressed = false
         autoHideTimer?.invalidate()
         autoHideTimer = nil
+        missionControlTimer?.invalidate()
+        missionControlTimer = nil
         display.hide()
         input.stop()
         hoveredCell = nil
@@ -260,6 +269,23 @@ final class HUDPresenter {
         autoHideTimer = Timer.scheduledTimer(withTimeInterval: autoHideTimeout, repeats: false) { [weak self] _ in
             self?.hide()
         }
+    }
+
+    /// Mission Control snapshots every window, so a visible HUD would be
+    /// copied into each space thumbnail. 0.25s keeps the hide ahead of the
+    /// snapshot animation; the poll stops with the presentation.
+    private func startMissionControlPoll() {
+        missionControlTimer?.invalidate()
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            self?.pollMissionControl()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        missionControlTimer = timer
+    }
+
+    func pollMissionControl() {
+        guard isVisible, isMissionControlActive() else { return }
+        hide()
     }
 
     /// Mouse down on the panel must disarm an armed auto-hide timer; mouse up
