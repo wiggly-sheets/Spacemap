@@ -691,6 +691,9 @@ final class HUDInput {
         cachedAccessibilityTrusted = isTrusted
         guard isTrusted else {
             let hadTap = eventTapHost.isEventTapInstalled
+            // A stalled probe reports false so capture can be released; that is
+            // not proof of revocation, so it must not replace the process.
+            let revoked = !PermissionProbe.shared.isStalled
             if hadTap {
                 NSLog("spacemap/HUDInput: Accessibility revoked; releasing keyboard capture")
                 stopSettingsKeyMonitor()
@@ -698,11 +701,13 @@ final class HUDInput {
                 // registered even after invalidation. Replacing the process is
                 // the only reliable release, and it is what a manual restart
                 // does today.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [relaunch] in
-                    relaunch()
+                if revoked {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [relaunch] in
+                        relaunch()
+                    }
                 }
             }
-            if isVisible, !didNotifyAccessibilityRevocation {
+            if isVisible, revoked, !didNotifyAccessibilityRevocation {
                 didNotifyAccessibilityRevocation = true
                 onAccessibilityRevoked?()
             }

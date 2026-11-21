@@ -25,7 +25,22 @@ enum SystemPermissions {
             kAXFocusedApplicationAttribute as CFString,
             &value
         )
-        return error == .success || error == .noValue
+        return accessibilityIsUsable(trusted: true, error: error)
+    }
+
+    /// Only `.apiDisabled` proves the permission was revoked. A focused app
+    /// that is busy or protected makes the AX server answer `.cannotComplete`;
+    /// treating that as revocation relaunched the whole app.
+    static func accessibilityIsUsable(trusted: Bool, error: AXError) -> Bool {
+        guard trusted else { return false }
+        switch error {
+        case .success, .noValue:
+            return true
+        case .apiDisabled:
+            return false
+        default:
+            return true
+        }
     }
 
     /// Shows the system prompt when macOS has not asked yet. Returns the
@@ -152,8 +167,12 @@ final class AccessibilityHealthMonitor {
     deinit { timer?.invalidate() }
 
     private func check() {
-        PermissionProbe.shared.check(provider: SystemPermissions.accessibilityIsUsable) { [weak self] usable in
+        let probe = PermissionProbe.shared
+        probe.check(provider: SystemPermissions.accessibilityIsUsable) { [weak self] usable in
             guard let self else { return }
+            // A stalled probe reports false so event taps can be released. A
+            // timeout is not proof of revocation and must not restart the app.
+            guard !probe.isStalled else { return }
             let previous = self.lastUsable
             self.lastUsable = usable
             guard previous == true, !usable else { return }

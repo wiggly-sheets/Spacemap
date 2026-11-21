@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The app no longer relaunches itself when macOS answers a permission probe with a transient AX error such as `kAXErrorCannotComplete`, or when a permission check stalls. Only a disabled Accessibility API or a revoked trust bit counts as a revocation. Real revocations still release the event taps and relaunch the app.
+
 ## [2.2.0] - 2026-11-20
 
 ### Added
