@@ -613,6 +613,7 @@ enum TOMLConfigDecoder {
         if let value = table["matchHUDAppearance"] as? Bool { config.matchHUDAppearance = value }
         if let value = number(table["cornerRadius"]) { config.cornerRadius = value }
         if let value = number(table["margin"]) { config.margin = value }
+        if let value = number(table["plainMargin"]) { config.plainMargin = value }
         if let value = number(table["padding"]) { config.padding = value }
         if let value = table["lockPadding"] as? Bool { config.lockPadding = value }
         if let value = number(table["horizontalPadding"]) { config.horizontalPadding = value }
@@ -639,6 +640,9 @@ enum TOMLConfigDecoder {
         if let name = table["position"] as? String {
             config.position = parsedEnum(from: name) ?? GlyphStripConfig.default.position
         }
+        if let name = table["plainPosition"] as? String {
+            config.plainPosition = parsedEnum(from: name) ?? GlyphStripConfig.default.plainPosition
+        }
         if let name = table["orientation"] as? String {
             config.orientation = parsedEnum(from: name) ?? GlyphStripConfig.default.orientation
         }
@@ -650,6 +654,19 @@ enum TOMLConfigDecoder {
         if let value = number(table["customX"]) { config.customX = value }
         if let value = number(table["customY"]) { config.customY = value }
         if let name = table["customScreen"] as? String { config.customScreen = name }
+        if let value = number(table["plainCustomX"]) { config.plainCustomX = value }
+        if let value = number(table["plainCustomY"]) { config.plainCustomY = value }
+        if let name = table["plainCustomScreen"] as? String { config.plainCustomScreen = name }
+        // Pre-separation configs shared one point between both screen types.
+        // Seed the plain point from it so a dragged plain strip survives the
+        // upgrade with its old position.
+        if table["plainCustomX"] == nil,
+           table["plainCustomY"] == nil,
+           table["plainCustomScreen"] == nil {
+            config.plainCustomX = config.customX
+            config.plainCustomY = config.customY
+            config.plainCustomScreen = config.customScreen
+        }
         if let value = table["borderEnabled"] as? Bool { config.borderEnabled = value }
         if let value = table["theme"] as? String { config.theme = value }
         return config

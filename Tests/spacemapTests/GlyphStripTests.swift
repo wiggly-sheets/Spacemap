@@ -1125,9 +1125,57 @@ final class GlyphStripTests: XCTestCase {
 
         var strip = GlyphStripConfig.default
         strip.lockPosition = true
-        XCTAssertFalse(strip.isPositionLocked, "anchored positions ignore the lock")
+        XCTAssertFalse(
+            strip.isPositionLocked(hasNotch: true),
+            "anchored positions ignore the lock"
+        )
+        XCTAssertFalse(
+            strip.isPositionLocked(hasNotch: false),
+            "the plain default is centred, so the lock has nothing to hold"
+        )
         strip.position = .custom
-        XCTAssertTrue(strip.isPositionLocked)
+        XCTAssertTrue(strip.isPositionLocked(hasNotch: true))
+        strip.position = .leftOfNotch
+        strip.plainPosition = .custom
+        XCTAssertTrue(
+            strip.isPositionLocked(hasNotch: false),
+            "a free-placed plain strip locks independently of the notch placement"
+        )
+    }
+
+    func testCustomStripRaisesToMenuBarLevelOnlyInsideTheRow() {
+        let row = CGRect(x: 0, y: 1085, width: 1728, height: 32)
+        let inside = CGRect(x: 200, y: 1085, width: 100, height: 32)
+        let below = CGRect(x: 200, y: 900, width: 100, height: 32)
+
+        XCTAssertTrue(
+            GlyphStrip.usesMenuBarLevel(position: .leftOfNotch, frame: below, menuBarRow: row),
+            "anchored placements always sit above the menu bar"
+        )
+        XCTAssertTrue(
+            GlyphStrip.usesMenuBarLevel(position: .custom, frame: inside, menuBarRow: row),
+            "a custom strip in the row must stay clickable above the menu bar"
+        )
+        XCTAssertFalse(
+            GlyphStrip.usesMenuBarLevel(position: .custom, frame: below, menuBarRow: row),
+            "a free strip below the row stays below the menu bar"
+        )
+    }
+
+    func testNotchAndPlainPlacementsResolveIndependently() {
+        var strip = GlyphStripConfig.default
+        strip.position = .rightOfNotch
+        strip.margin = 12
+        strip.plainPosition = .leftOfNotch
+        strip.plainMargin = 3
+
+        let notched = strip.placement(hasNotch: true)
+        XCTAssertEqual(notched.position, .rightOfNotch)
+        XCTAssertEqual(notched.margin, 12)
+
+        let plain = strip.placement(hasNotch: false)
+        XCTAssertEqual(plain.position, .leftOfNotch)
+        XCTAssertEqual(plain.margin, 3)
     }
 
     // MARK: - Vertical layout
@@ -2148,6 +2196,7 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(clamped?.backgroundOpacity, 1)
         XCTAssertEqual(clamped?.cornerRadius, 0)
         XCTAssertEqual(clamped?.margin, 40)
+        XCTAssertEqual(clamped?.plainMargin, 6, "an unset plain margin keeps its default")
         XCTAssertEqual(clamped?.maxIconsPerSpace, 0)
     }
 
@@ -2161,6 +2210,15 @@ final class GlyphStripTests: XCTestCase {
 
     func testMarginDefaultsToSixWhenUnset() {
         XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.margin, 6)
+        XCTAssertEqual(decodeGlyphStrip("[glyphStrip]\nenabled = true")?.plainMargin, 6)
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\nplainMargin = -4.0")?.clamped().plainMargin,
+            0
+        )
+        XCTAssertEqual(
+            decodeGlyphStrip("[glyphStrip]\nplainMargin = 400.0")?.clamped().plainMargin,
+            40
+        )
     }
 
     func testCustomPlacementDefaultsToCentredFractions() {
@@ -2168,6 +2226,39 @@ final class GlyphStripTests: XCTestCase {
         XCTAssertEqual(defaults?.customX, 0.5)
         XCTAssertEqual(defaults?.customY, 0.5)
         XCTAssertEqual(defaults?.customScreen, "", "no display pairing by default")
+        XCTAssertEqual(defaults?.plainCustomX, 0.5)
+        XCTAssertEqual(defaults?.plainCustomY, 0.5)
+        XCTAssertEqual(defaults?.plainCustomScreen, "", "no display pairing by default")
+    }
+
+    func testCustomPointsAreIndependentPerScreenType() {
+        var strip = GlyphStripConfig.default
+        strip.position = .custom
+        strip.plainPosition = .custom
+        strip.setCustomPlacement(hasNotch: true, x: 0.2, y: 0.9, screen: "notched")
+        strip.setCustomPlacement(hasNotch: false, x: 0.8, y: 0.1, screen: "plain")
+
+        let notched = strip.customPlacement(hasNotch: true)
+        XCTAssertEqual(notched.x, 0.2)
+        XCTAssertEqual(notched.y, 0.9)
+        XCTAssertEqual(notched.screen, "notched")
+
+        let plain = strip.customPlacement(hasNotch: false)
+        XCTAssertEqual(plain.x, 0.8)
+        XCTAssertEqual(plain.y, 0.1)
+        XCTAssertEqual(plain.screen, "plain")
+    }
+
+    func testOldSharedCustomPointSeedsThePlainPoint() {
+        let config = decodeGlyphStrip("""
+        [glyphStrip]
+        customX = 0.3
+        customY = 0.7
+        customScreen = "old-display"
+        """)
+        XCTAssertEqual(config?.plainCustomX, 0.3)
+        XCTAssertEqual(config?.plainCustomY, 0.7)
+        XCTAssertEqual(config?.plainCustomScreen, "old-display")
     }
 
     func testHoverPaddingDefaultsToOneAndClampsToZeroAndTwelve() {
@@ -2186,8 +2277,14 @@ final class GlyphStripTests: XCTestCase {
         let config = decodeGlyphStrip("[glyphStrip]\nenabled = true")
         XCTAssertEqual(config?.theme, "", "empty theme = follow the main HUD")
         XCTAssertEqual(config?.customX, 0.5)
+        XCTAssertEqual(config?.plainCustomX, 0.5)
         XCTAssertEqual(config?.borderEnabled, true, "border defaults to on")
         XCTAssertEqual(config?.position, .leftOfNotch)
+        XCTAssertEqual(
+            config?.plainPosition,
+            .center,
+            "a plain display defaults to centred instead of a notch anchor's screen edge"
+        )
     }
 
     func testStripThemeDecodesAndFallsBackOnWrongType() {
@@ -2252,9 +2349,14 @@ final class GlyphStripTests: XCTestCase {
         original.rightClickAction = .mergeWindows
         original.middleClickAction = .balanceWindows
         original.position = .custom
+        original.plainPosition = .rightOfNotch
+        original.plainMargin = 4
         original.customX = 0.3
         original.customY = 0.7
         original.customScreen = "display-A"
+        original.plainCustomX = 0.8
+        original.plainCustomY = 0.2
+        original.plainCustomScreen = "display-B"
         original.theme = "nord"
         original.borderEnabled = false
 
@@ -2396,9 +2498,24 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         strip.position = .leftOfNotch
         XCTAssertNil(GlyphStripPanelController.storedScreen(for: strip, screens: [main]))
 
+        let identifier = ScreenContext.displayIdentifier(for: main)
+        strip.plainPosition = .custom
+        strip.plainCustomScreen = identifier
+        XCTAssertTrue(GlyphStripPanelController.storedScreen(for: strip, screens: [main]) === main)
+
+        strip.plainPosition = .center
         strip.position = .custom
         strip.customScreen = "gone-display"
         XCTAssertNil(GlyphStripPanelController.storedScreen(for: strip, screens: [main]))
+
+        strip.position = .leftOfNotch
+        strip.plainPosition = .custom
+        strip.plainCustomScreen = "gone-plain"
+        strip.customScreen = identifier
+        XCTAssertNil(
+            GlyphStripPanelController.storedScreen(for: strip, hasNotch: false, screens: [main]),
+            "a plain placement does not reuse the notch display identity"
+        )
     }
 
     func testSettingsUpdateClearsAWedgeRefreshLatch() {

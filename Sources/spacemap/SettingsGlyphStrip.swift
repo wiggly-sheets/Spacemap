@@ -33,14 +33,21 @@ struct SettingsGlyphStrip: View {
             SettingsFootnote(text: "Hides the strip while another app is in native fullscreen, such as after clicking a window's green button.")
 
             if glyphStrip.displayMode == .floating {
-            Picker("Position", selection: $glyphStrip.position) {
+            Picker("Position on Notched Screen", selection: $glyphStrip.position) {
                 Text("Left of Notch").tag(GlyphStripPosition.leftOfNotch)
                 Text("Right of Notch").tag(GlyphStripPosition.rightOfNotch)
                 Text("Center").tag(GlyphStripPosition.center)
                 Text("Custom").tag(GlyphStripPosition.custom)
             }
+            Picker("Position on Screen Without Notch", selection: $glyphStrip.plainPosition) {
+                Text("Left Edge").tag(GlyphStripPosition.leftOfNotch)
+                Text("Center").tag(GlyphStripPosition.center)
+                Text("Right Edge").tag(GlyphStripPosition.rightOfNotch)
+                Text("Custom").tag(GlyphStripPosition.custom)
+            }
+            SettingsFootnote(text: "Each display type uses its own position. A screen without a notch no longer falls back to the screen edge when a notch preset is selected.")
 
-            if glyphStrip.position == .custom {
+            if glyphStrip.position == .custom || glyphStrip.plainPosition == .custom {
                 Picker("Layout", selection: $glyphStrip.orientation) {
                     Text("Horizontal").tag(GlyphStripOrientation.horizontal)
                     Text("Vertical").tag(GlyphStripOrientation.vertical)
@@ -52,14 +59,18 @@ struct SettingsGlyphStrip: View {
                     }
                     SettingsFootnote(text: "Beside Numbers keeps each space on one row. Under Numbers puts the space number on top and stacks its icons beneath it.")
                 }
-                SettingsFootnote(text: "Vertical stacks one space per row, for a strip on a screen edge. Drag the strip to place it anywhere on screen; its position is saved automatically.")
+                SettingsFootnote(text: "Vertical stacks one space per row, for a strip on a screen edge. Drag the strip to place it anywhere on screen; its position and display are saved separately for each screen type.")
                 Toggle("Lock Position", isOn: $glyphStrip.lockPosition)
-                SettingsFootnote(text: "Locks the strip where it is. Turn it off to drag the strip again. Off by default.")
+                SettingsFootnote(text: "Locks the strip on both screen types where they use Custom. Turn it off to drag again. Off by default.")
             }
 
             if glyphStrip.position == .leftOfNotch || glyphStrip.position == .rightOfNotch {
                 stepper("Notch Margin", value: $glyphStrip.margin, range: 0...40, step: 1)
                 SettingsFootnote(text: "Gap between the strip and the edge of the notch area.")
+            }
+            if glyphStrip.plainPosition == .leftOfNotch || glyphStrip.plainPosition == .rightOfNotch {
+                stepper("Edge Margin", value: $glyphStrip.plainMargin, range: 0...40, step: 1)
+                SettingsFootnote(text: "Gap between the strip and the screen edge on a display without a notch.")
             }
             }
 

@@ -178,6 +178,17 @@ enum GlyphStrip {
         return CGRect(x: clampedX, y: y, width: width, height: height)
     }
 
+    /// True when the panel must sit above the menu bar window. Anchored
+    /// placements live in the row; a custom strip dragged into the row must
+    /// also outrank the menu bar or clicks never reach it.
+    static func usesMenuBarLevel(
+        position: GlyphStripPosition,
+        frame: CGRect,
+        menuBarRow: CGRect
+    ) -> Bool {
+        position != .custom || frame.intersects(menuBarRow)
+    }
+
     /// Vertical placement rects, laid out top-down inside `bounds` from the
     /// height of each segment. The first height owns the top slot, so a
     /// vertical strip reads in space order from the top edge.
@@ -279,6 +290,16 @@ enum GlyphStrip {
         if hudTarget != nil { return true }
         guard let targetSpace, let sourceSpace else { return false }
         return targetSpace != sourceSpace
+    }
+
+    /// True when the display has a camera housing: AppKit reports both
+    /// unobscured top strips as non-empty rects.
+    static func hasNotch(leftNotchArea: CGRect?, rightNotchArea: CGRect?) -> Bool {
+        guard let left = leftNotchArea, !left.isEmpty,
+              let right = rightNotchArea, !right.isEmpty else {
+            return false
+        }
+        return true
     }
 
     /// The gap between the two notch areas, or the whole row when the display

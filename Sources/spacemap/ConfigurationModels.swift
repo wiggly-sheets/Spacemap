@@ -331,6 +331,8 @@ struct GlyphStripConfig: Equatable {
     var solidOpacity: Double = 0.35
     var cornerRadius: Double = 20
     var margin: Double = 6
+    /// Gap to the screen edge on a display without a notch.
+    var plainMargin: Double = 6
     /// Inner padding around the glyphs. `lockPadding` keeps all sides equal.
     var padding: Double = 4
     var lockPadding: Bool = true
@@ -349,19 +351,34 @@ struct GlyphStripConfig: Equatable {
     var leftClickAction: GlyphStripAction = .focusSpace
     var rightClickAction: GlyphStripAction = .destroySpace
     var middleClickAction: GlyphStripAction = .none
+    /// Placement on a display with a notch. Plain displays use
+    /// `plainPosition` instead, so a notch anchor never parks the strip
+    /// against a screen edge on a display that has no housing to anchor to.
     var position: GlyphStripPosition = .leftOfNotch
+    /// Placement on a display without a notch. Centred by default.
+    var plainPosition: GlyphStripPosition = .center
     var orientation: GlyphStripOrientation = .horizontal
     var verticalLayout: GlyphStripVerticalLayout = .inline
-    /// Free-placement X as a fraction of the screen's spare width; only for
-    /// `.custom`. 0 is the left edge, 1 the right edge.
+    /// Free-placement X on a display with a notch, as a fraction of the
+    /// screen's spare width; only for `.custom`. 0 is the left edge, 1 the
+    /// right edge.
     var customX: Double = 0.5
-    /// Free-placement Y as a fraction of the screen's spare height; only for
-    /// `.custom`. 0 is the bottom edge, 1 the top edge (AppKit grows upward).
+    /// Free-placement Y on a display with a notch; only for `.custom`. 0 is
+    /// the bottom edge, 1 the top edge (AppKit grows upward).
     var customY: Double = 0.5
-    /// Display the free-placed strip belongs to, so the position survives
+    /// Display the notch free placement belongs to, so the position survives
     /// monitor changes. Empty means no identity: the strip uses its usual
     /// target screen.
     var customScreen: String = ""
+    /// Free-placement X on a display without a notch. Separate from the notch
+    /// point so each screen type keeps its own physical position.
+    var plainCustomX: Double = 0.5
+    /// Free-placement Y on a display without a notch.
+    var plainCustomY: Double = 0.5
+    /// Display the plain free placement belongs to.
+    var plainCustomScreen: String = ""
+    /// One lock for both screen types. It applies wherever a display type
+    /// resolves to `.custom`.
     var lockPosition: Bool = false
     var theme: String = ""
     var borderEnabled: Bool = true
@@ -371,8 +388,54 @@ struct GlyphStripConfig: Equatable {
     var resolvedHorizontalPadding: Double { lockPadding ? padding : horizontalPadding }
     var resolvedVerticalPadding: Double { lockPadding ? padding : verticalPadding }
 
-    /// True when the current placement must not follow a drag.
-    var isPositionLocked: Bool { position == .custom && lockPosition }
+    /// Placement and margin for a display, keyed on whether it has a notch.
+    /// Notch anchors need the camera housing, so a plain display reads its own
+    /// pair instead of collapsing to the screen edge.
+    func placement(hasNotch: Bool) -> (position: GlyphStripPosition, margin: CGFloat) {
+        hasNotch
+            ? (position, CGFloat(margin))
+            : (plainPosition, CGFloat(plainMargin))
+    }
+
+    /// Saved free-placement point and display identity for a screen type.
+    func customPlacement(hasNotch: Bool) -> (x: Double, y: Double, screen: String) {
+        hasNotch
+            ? (customX, customY, customScreen)
+            : (plainCustomX, plainCustomY, plainCustomScreen)
+    }
+
+    /// Stores a free-placement point for one screen type only.
+    mutating func setCustomPlacement(
+        hasNotch: Bool,
+        x: Double,
+        y: Double,
+        screen: String
+    ) {
+        if hasNotch {
+            customX = x
+            customY = y
+            customScreen = screen
+        } else {
+            plainCustomX = x
+            plainCustomY = y
+            plainCustomScreen = screen
+        }
+    }
+
+    /// Stores the display identity for one screen type, keeping its point.
+    mutating func setCustomScreen(_ screen: String, hasNotch: Bool) {
+        if hasNotch {
+            customScreen = screen
+        } else {
+            plainCustomScreen = screen
+        }
+    }
+
+    /// True when the placement resolved for a display must not follow a drag.
+    /// The lock itself is global and covers both screen types.
+    func isPositionLocked(hasNotch: Bool) -> Bool {
+        lockPosition && placement(hasNotch: hasNotch).position == .custom
+    }
 
     func clamped() -> GlyphStripConfig {
         var copy = self
@@ -389,6 +452,7 @@ struct GlyphStripConfig: Equatable {
         copy.solidOpacity = min(max(solidOpacity, 0.01), 1)
         copy.cornerRadius = min(max(cornerRadius, 0), 40)
         copy.margin = min(max(margin, 0), 40)
+        copy.plainMargin = min(max(plainMargin, 0), 40)
         copy.padding = min(max(padding, 0), 40)
         copy.horizontalPadding = min(max(horizontalPadding, 0), 40)
         copy.hoverPadding = min(max(hoverPadding, 0), 12)
@@ -399,6 +463,8 @@ struct GlyphStripConfig: Equatable {
         copy.indexPadding = min(max(indexPadding, 0), 20)
         copy.customX = min(max(customX, 0), 1)
         copy.customY = min(max(customY, 0), 1)
+        copy.plainCustomX = min(max(plainCustomX, 0), 1)
+        copy.plainCustomY = min(max(plainCustomY, 0), 1)
         return copy
     }
 

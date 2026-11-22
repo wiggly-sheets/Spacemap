@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `[glyphStrip] plainPosition` and `plainMargin` place the strip on a display without a notch, independently from the notch anchors. Notch presets on a plain display no longer jump to the screen edge; the default is centred. Settings > Glyph Strip shows one position picker per screen type.
+
+### Changed
+- Custom glyph strip position and display identity are now saved separately for notched and plain displays. `plainCustomX`, `plainCustomY`, and `plainCustomScreen` hold the plain point. Lock Position stays one global toggle for both screen types.
+
+### Fixed
+- A notch-anchored glyph strip no longer parks against the far left or right screen edge on a display without a notch. Plain displays default to centred until their own placement is set.
+- A custom-position glyph strip can be dragged into the menu bar row. It now rises above the menu bar there, so it stays visible and clickable; below the row it keeps the floating level.
+
 ## [2.2.2] - 2026-11-21
 
 ### Fixed

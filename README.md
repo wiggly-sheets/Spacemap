@@ -331,6 +331,7 @@ glassTintedOpacity = 0.35
 solidOpacity = 0.35               # solid backing opacity, no blur
 cornerRadius = 20.0               # shape: 0 = square ends, half the strip height or more = pill
 margin = 6.0                      # gap to the notch edge, clamped 0...40
+plainMargin = 6.0                 # gap to the screen edge on a display without a notch
 iconSpacing = 3.0                  # extra gap between two app icons and before +N, clamped 0...20
 indexPadding = 6.0                 # gap from the space number to its first icon or placeholder, clamped 0...20
 hoverPadding = 1.0                # grow around the hovered segment's glyph box, both
@@ -345,21 +346,30 @@ leftClickAction = "focusSpace"    # none | focusSpace | destroySpace | moveWindo
                                  # toggleFullscreen | floatWindow | balanceWindows | mergeWindows
 rightClickAction = "destroySpace"
 middleClickAction = "none"
-position = "leftOfNotch"          # leftOfNotch | rightOfNotch | center | custom
-customX = 0.5                     # custom only; fraction of the screen's spare width, 0...1
-customY = 0.5                     # custom only; fraction of the spare height, 0 bottom, 1 top
-customScreen = ""                 # custom only; display identity, empty = usual target screen
+position = "leftOfNotch"          # notched displays: leftOfNotch | rightOfNotch | center | custom
+plainPosition = "center"          # displays without a notch: leftOfNotch = left edge,
+                                  # center, rightOfNotch = right edge, custom
+customX = 0.5                     # notched custom only; fraction of spare width, 0...1
+customY = 0.5                     # notched custom only; fraction of spare height, 0 bottom, 1 top
+customScreen = ""                 # notched custom only; display identity, empty = usual target
+plainCustomX = 0.5                # plain custom only; fraction of spare width, 0...1
+plainCustomY = 0.5                # plain custom only; fraction of spare height
+plainCustomScreen = ""            # plain custom only; display identity
 borderEnabled = true              # hairline outline, independent of the material;
                                   # with none it follows the corner radius
 theme = ""                        # follow main HUD theme; or a theme name
-                                    # leftOfNotch/rightOfNotch sit BESIDE the notch:
-                                    # the strip's outer edge is anchored `margin` short
-                                    # of NSScreen.auxiliaryTopLeftArea.maxX /
+                                    # On a notched display, leftOfNotch/rightOfNotch sit
+                                    # BESIDE the notch: the strip's outer edge is anchored
+                                    # `margin` short of NSScreen.auxiliaryTopLeftArea.maxX /
                                     # auxiliaryTopRightArea.minX, so it never overlaps the
-                                    # camera housing. Displays without a notch report empty
-                                    # auxiliary rects, so these fall back to the screen edge.
-                                    # center puts the strip on the notch midpoint, which is
-                                    # under the camera on most displays — avoid it.
+                                    # camera housing. center puts the strip on the notch
+                                    # midpoint, which is under the camera on most displays —
+                                    # avoid it. A display without a notch uses
+                                    # plainPosition/plainMargin instead, and defaults to
+                                    # centre, so a notch preset never parks the strip against
+                                    # the screen edge on a plain display. Custom X/Y and the
+                                    # display identity are stored separately for each screen
+                                    # type; Lock Position is one toggle for both.
 
 ```
 
@@ -376,7 +386,7 @@ theme = ""                        # follow main HUD theme; or a theme name
 | `[behavior]` | `autoHideTimeout`, `jumpToSpaceEnabled`, `fuzzySpaceJumpEnabled`, `focusSpaceOnWindowDrop`, `focusSpaceOnWindowDropModifier`, `showHUDOnSpaceChange`, `showHUDInteractionFeedback`, `spaceDropMode`, `spaceDragFocus`, `windowDragFocus`, `hudAnimationsEnabled`, `hudAnimationStyle`, `showBSPLayoutBadge`, `showStackLayoutBadge`, `showFloatLayoutBadge`, `showThumbnailWallpaper`, `presence`, `updateMode`, `glyphStripHotkey` (session-only strip toggle, default unbound) |
 | `[behavior.hudPosition]` | `kind` (`center`, `top`, `bottom`, `custom`); custom adds `x`/`y` (0...1 spare-width/height fractions) and an optional `screen` display identity, written by dragging the HUD |
 | `[hudKeys]` | one key per HUD action (`left`, `right`, `up`, `down`, `first`, `last`, `recent`, `close`, `newSpace`, `newSpaceAndFocus`, `deleteSpace`, `layoutBSP`, `layoutStack`, `layoutFloat`, `cycleLayout`, `moveSpaceBack`, `moveSpaceForward`, `previousSpace`, `nextSpace`), each a list of hotkeys; an empty list leaves the action unbound |
-| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `spaceLabelStyle`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `padding`, `lockPadding`, `horizontalPadding`, `displayMode`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `orientation`, `verticalLayout`, `customX`, `customY`, `customScreen`, `lockPosition`, `borderEnabled` |
+| `[glyphStrip]` | `enabled`, `theme`, `showSpaceNumbers`, `spaceLabelStyle`, `showLayoutSuffix`, `showAppIcons`, `dedupeAppsPerSpace`, `maxIconsPerSpace`, `iconSize`, `indexSize`, `iconSpacing`, `indexPadding`, `highlightCurrentSpace`, `backgroundMaterial`, `glassStyle`, `matchHUDAppearance`, `backgroundOpacity`, `matchBackgroundOpacity`, `glassClearVariant`, `glassRegularVariant`, `glassTintedVariant`, `glassTintedMaterial`, `glassClearOpacity`, `glassRegularOpacity`, `glassTintedOpacity`, `solidOpacity`, `cornerRadius`, `margin`, `plainMargin`, `padding`, `lockPadding`, `horizontalPadding`, `displayMode`, `hoverPadding`, `hoverCornerRadius`, `showDisplaySeparators`, `showAddSpaceButton`, `showPlaceholders`, `leftClickAction`, `rightClickAction`, `middleClickAction`, `position`, `plainPosition`, `orientation`, `verticalLayout`, `customX`, `customY`, `customScreen`, `plainCustomX`, `plainCustomY`, `plainCustomScreen`, `lockPosition`, `borderEnabled` |
 | `[advanced]` | `socketHealthInterval`, `showExtraWindows` |
 
 Space names example:

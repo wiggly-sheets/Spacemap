@@ -768,16 +768,18 @@ final class GlyphStripPanelController: NSObject {
     private func applyFrame(to panel: NSPanel, screen explicitScreen: NSScreen? = nil) {
         let screen = explicitScreen ?? targetScreen()
         let strip = config.glyphStrip
+        let hasNotch = screen.map(Self.hasNotch) ?? false
+        let placement = strip.placement(hasNotch: hasNotch)
+        let custom = strip.customPlacement(hasNotch: hasNotch)
         let row = ScreenContext.menuBarRow(on: screen)
         // Free placement can leave the menu bar row, so `presentationFrame`
         // there is the whole display. Anchored positions keep the row.
         // Dragging stays free: the pointer can reach any screen edge. The safe
         // area only decides when a tall strip wraps into more columns.
-        let area = strip.position == .custom ? ScreenContext.screenFrame(on: screen) : row
-        let availableHeight = strip.position == .custom
+        let area = placement.position == .custom ? ScreenContext.screenFrame(on: screen) : row
+        let availableHeight = placement.position == .custom
             ? ScreenContext.safeScreenFrame(on: screen).height
             : row.height
-        panel.level = strip.position == .custom ? .floating : .statusBar
         // A transparent strip draws no backdrop, so its only opaque pixels are
         // the glyphs and the window server would cast their outline as a black
         // shadow. Only shadow a surface that actually paints a shape.
@@ -785,17 +787,27 @@ final class GlyphStripPanelController: NSObject {
         let frame = GlyphStrip.frame(
             contentSize: stripContentSize(
                 rowHeight: row.height,
-                availableHeight: availableHeight
+                availableHeight: availableHeight,
+                position: placement.position
             ),
             menuBarRow: row,
             screenFrame: area,
             leftNotchArea: screen?.auxiliaryTopLeftArea,
             rightNotchArea: screen?.auxiliaryTopRightArea,
-            position: strip.position,
-            margin: CGFloat(strip.margin),
-            xFraction: strip.customX,
-            yFraction: strip.customY
+            position: placement.position,
+            margin: placement.margin,
+            xFraction: custom.x,
+            yFraction: custom.y
         )
+        // A custom strip can be dragged into the menu bar row. The menu bar
+        // window covers anything below it, so raise the strip above the bar
+        // there while keeping free placement below it everywhere else.
+        // Anchored placements always need the status-bar level.
+        panel.level = GlyphStrip.usesMenuBarLevel(
+            position: placement.position,
+            frame: frame,
+            menuBarRow: row
+        ) ? .statusBar : .floating
         // Only move the window when the frame changed, but always repaint:
         // content can change (new glyphs, focus, theme) at an identical frame.
         if panel.frame != frame {
@@ -807,13 +819,17 @@ final class GlyphStripPanelController: NSObject {
 
     /// Slot size for the panel: one horizontal row in the menu bar, or one
     /// stacked block per space when `.custom` renders vertically.
-    private func stripContentSize(rowHeight: CGFloat, availableHeight: CGFloat) -> CGSize {
-        guard isVerticalLayout else {
+    private func stripContentSize(
+        rowHeight: CGFloat,
+        availableHeight: CGFloat,
+        position: GlyphStripPosition
+    ) -> CGSize {
+        guard isVerticalLayout(position: position) else {
             let horizontal = CGFloat(config.glyphStrip.resolvedHorizontalPadding) * 2
             // An anchored strip is pinned to the menu-bar row, so vertical
             // padding can only move the glyphs inside it. A free strip owns
             // its height, so padding grows the panel around the row.
-            let vertical = config.glyphStrip.position == .custom
+            let vertical = position == .custom
                 ? CGFloat(config.glyphStrip.resolvedVerticalPadding) * 2
                 : 0
             return CGSize(
@@ -845,10 +861,15 @@ final class GlyphStripPanelController: NSObject {
 
     /// Vertical stacking only applies to free placement; anchored positions
     /// stay in the single menu-bar row.
-    fileprivate var isVerticalLayout: Bool {
+    private func isVerticalLayout(position: GlyphStripPosition) -> Bool {
         config.glyphStrip.displayMode == .floating
-            && config.glyphStrip.position == .custom
+            && position == .custom
             && config.glyphStrip.orientation == .vertical
+    }
+
+    /// Layout for the display the strip currently sits on.
+    fileprivate var isVerticalLayout: Bool {
+        isVerticalLayout(position: resolvedPlacement.position)
     }
 
     /// Strip content box. Both axes are inset, so split padding works for
@@ -1041,19 +1062,26 @@ final class GlyphStripPanelController: NSObject {
     /// itself comes from `applyFrame(to:)`, so the clamps apply exactly as they
     /// do on every other path.
     fileprivate func dragPanel(from startFrame: CGRect, by delta: CGVector) {
-        guard !config.glyphStrip.isPositionLocked, config.glyphStrip.enabled, !hiddenByHotkey, let panel else { return }
+        guard !isPositionLocked, config.glyphStrip.enabled, !hiddenByHotkey, let panel else { return }
         let candidate = PanelPresenter.draggedFrame(from: startFrame, by: delta)
         let screen = panelScreen() ?? targetScreen()
+        let hasNotch = screen.map(Self.hasNotch) ?? true
+        let identifier = screen.map(ScreenContext.displayIdentifier(for:)) ?? ""
         var strip = config.glyphStrip
-        strip.position = .custom
+        markCustomPlacement(&strip, hasNotch: hasNotch)
         if let fractions = GlyphStrip.customFractions(
             for: candidate,
             area: ScreenContext.screenFrame(on: screen)
         ) {
-            strip.customX = fractions.x
-            strip.customY = fractions.y
+            strip.setCustomPlacement(
+                hasNotch: hasNotch,
+                x: fractions.x,
+                y: fractions.y,
+                screen: identifier
+            )
+        } else {
+            strip.setCustomScreen(identifier, hasNotch: hasNotch)
         }
-        strip.customScreen = screen.map(ScreenContext.displayIdentifier(for:)) ?? ""
         config.glyphStrip = strip.clamped()
         applyFrame(to: panel, screen: screen)
     }
@@ -1071,14 +1099,20 @@ final class GlyphStripPanelController: NSObject {
             area: ScreenContext.screenFrame(on: screen)
         )
         let identifier = screen.map(ScreenContext.displayIdentifier(for:)) ?? ""
+        let hasNotch = screen.map(Self.hasNotch) ?? true
         ConfigStore.updateConfig { saved in
             var strip = saved.glyphStrip
-            strip.position = .custom
+            markCustomPlacement(&strip, hasNotch: hasNotch)
             if let fractions {
-                strip.customX = fractions.x
-                strip.customY = fractions.y
+                strip.setCustomPlacement(
+                    hasNotch: hasNotch,
+                    x: fractions.x,
+                    y: fractions.y,
+                    screen: identifier
+                )
+            } else {
+                strip.setCustomScreen(identifier, hasNotch: hasNotch)
             }
-            strip.customScreen = identifier
             saved.glyphStrip = strip.clamped()
         }
         applyFrame(to: panel, screen: screen)
@@ -1089,6 +1123,37 @@ final class GlyphStripPanelController: NSObject {
         NotificationCenter.default.post(name: .glyphStripPositionChanged, object: nil)
     }
 
+    /// Placement and margin for a display. A notched display uses the notch
+    /// anchors; a plain display uses its own position and margin, so a notch
+    /// anchor never parks the strip against a screen edge on a display with no
+    /// housing to anchor to.
+    private func placement(on screen: NSScreen?) -> (position: GlyphStripPosition, margin: CGFloat) {
+        config.glyphStrip.placement(hasNotch: screen.map(Self.hasNotch) ?? false)
+    }
+
+    /// Placement resolved for the display the strip is on or headed to.
+    private var resolvedPlacement: (position: GlyphStripPosition, margin: CGFloat) {
+        placement(on: panelScreen() ?? targetScreen())
+    }
+
+    private static func hasNotch(_ screen: NSScreen) -> Bool {
+        GlyphStrip.hasNotch(
+            leftNotchArea: screen.auxiliaryTopLeftArea,
+            rightNotchArea: screen.auxiliaryTopRightArea
+        )
+    }
+
+    /// Marks the placement custom for one screen type. The saved point stays
+    /// separate: notch displays use `customX`/`customY`/`customScreen`,
+    /// plain displays use the `plainCustom*` keys.
+    private func markCustomPlacement(_ strip: inout GlyphStripConfig, hasNotch: Bool) {
+        if hasNotch {
+            strip.position = .custom
+        } else {
+            strip.plainPosition = .custom
+        }
+    }
+
     /// The strip follows the display that owns yabai's focused space, falling
     /// back to the display it is currently parked on, and only then to the
     /// pointer. A free-placed strip first honours the display it was dragged
@@ -1096,33 +1161,68 @@ final class GlyphStripPanelController: NSObject {
     /// follows the key window, which is usually not Spacemap, so it is never
     /// the primary signal.
     private func targetScreen() -> NSScreen? {
+        if let focused = focusedScreen() {
+            let hasNotch = Self.hasNotch(focused)
+            // A free placement only claims its saved display for its own
+            // screen type; a notch point must not drag a plain-focused strip
+            // onto another monitor.
+            if config.glyphStrip.placement(hasNotch: hasNotch).position == .custom,
+               let stored = Self.storedScreen(
+                   for: config.glyphStrip,
+                   hasNotch: hasNotch
+               ) {
+                return stored
+            }
+            return focused
+        }
         if let stored = Self.storedScreen(for: config.glyphStrip) {
             return stored
         }
-        if let state = coordinator.state {
-            if let focused = state.focusedIndex,
-               let displayIndex = state.displayIndex(forSpace: focused),
-               let display = state.displays.first(where: { $0.index == displayIndex }),
-               let screen = ScreenContext.screen(containingQuartzFrame: display.frame.cgFrame) {
-                return screen
-            }
-            if let focusedDisplay = state.displays.first(where: \.hasFocus),
-               let screen = ScreenContext.screen(containingQuartzFrame: focusedDisplay.frame.cgFrame) {
-                return screen
-            }
-        }
         return panelScreen() ?? ScreenContext.targetScreen()
+    }
+
+    /// The display that owns yabai's focused space, or the display flagged
+    /// focused. Nil before the first topology arrives.
+    private func focusedScreen() -> NSScreen? {
+        guard let state = coordinator.state else { return nil }
+        if let focused = state.focusedIndex,
+           let displayIndex = state.displayIndex(forSpace: focused),
+           let display = state.displays.first(where: { $0.index == displayIndex }),
+           let screen = ScreenContext.screen(containingQuartzFrame: display.frame.cgFrame) {
+            return screen
+        }
+        if let focusedDisplay = state.displays.first(where: \.hasFocus),
+           let screen = ScreenContext.screen(containingQuartzFrame: focusedDisplay.frame.cgFrame) {
+            return screen
+        }
+        return nil
     }
 
     /// The display a free-placed strip was saved on, if that display is still
     /// attached. Presets and a missing display return nil so the callers below
     /// pick the target.
+    /// The display a free placement was saved on for one screen type, if that
+    /// display is still attached.
+    static func storedScreen(
+        for strip: GlyphStripConfig,
+        hasNotch: Bool,
+        screens: [NSScreen] = NSScreen.screens
+    ) -> NSScreen? {
+        guard strip.placement(hasNotch: hasNotch).position == .custom else { return nil }
+        return ScreenContext.screen(
+            matchingIdentifier: strip.customPlacement(hasNotch: hasNotch).screen,
+            screens: screens
+        )
+    }
+
+    /// The display a free-placed strip was saved on, preferring the notch
+    /// point. Callers that know the target screen type pass `hasNotch`.
     static func storedScreen(
         for strip: GlyphStripConfig,
         screens: [NSScreen] = NSScreen.screens
     ) -> NSScreen? {
-        guard strip.position == .custom else { return nil }
-        return ScreenContext.screen(matchingIdentifier: strip.customScreen, screens: screens)
+        storedScreen(for: strip, hasNotch: true, screens: screens)
+            ?? storedScreen(for: strip, hasNotch: false, screens: screens)
     }
 
     /// The display the panel currently sits on, if any. Used by drags so a
@@ -1338,7 +1438,10 @@ final class GlyphStripPanelController: NSObject {
         return GlyphStrip.baselineLift(for: segments[offset].runs[index])
     }
     fileprivate var hovered: Int? { hoveredSegment }
-    fileprivate var isPositionLocked: Bool { config.glyphStrip.isPositionLocked }
+    fileprivate var isPositionLocked: Bool {
+        let screen = panelScreen() ?? targetScreen()
+        return config.glyphStrip.isPositionLocked(hasNotch: screen.map(Self.hasNotch) ?? false)
+    }
     fileprivate var backgroundMaterial: GlyphStripBackgroundMaterial {
         config.glyphStrip.resolvedBackgroundMaterial(hud: config)
     }

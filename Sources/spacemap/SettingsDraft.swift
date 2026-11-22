@@ -295,9 +295,13 @@ final class SettingsDraft: ObservableObject {
         guard pendingSave == nil else { return }
         let saved = load().glyphStrip
         config.glyphStrip.position = saved.position
+        config.glyphStrip.plainPosition = saved.plainPosition
         config.glyphStrip.customX = saved.customX
         config.glyphStrip.customY = saved.customY
         config.glyphStrip.customScreen = saved.customScreen
+        config.glyphStrip.plainCustomX = saved.plainCustomX
+        config.glyphStrip.plainCustomY = saved.plainCustomY
+        config.glyphStrip.plainCustomScreen = saved.plainCustomScreen
     }
 
     /// The menu bar switched the active space-name profile. The names still in

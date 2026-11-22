@@ -399,6 +399,7 @@ enum ConfigLoader {
             "solidOpacity = \(glyphStrip.solidOpacity)",
             "cornerRadius = \(glyphStrip.cornerRadius)",
             "margin = \(glyphStrip.margin)",
+            "plainMargin = \(glyphStrip.plainMargin)",
             "padding = \(glyphStrip.padding)",
             "lockPadding = \(glyphStrip.lockPadding)",
             "horizontalPadding = \(glyphStrip.horizontalPadding)",
@@ -414,12 +415,16 @@ enum ConfigLoader {
             "rightClickAction = \(tomlString(glyphStrip.rightClickAction.rawValue))",
             "middleClickAction = \(tomlString(glyphStrip.middleClickAction.rawValue))",
             "position = \(tomlString(glyphStrip.position.rawValue))",
+            "plainPosition = \(tomlString(glyphStrip.plainPosition.rawValue))",
             "orientation = \(tomlString(glyphStrip.orientation.rawValue))",
             "verticalLayout = \(tomlString(glyphStrip.verticalLayout.rawValue))",
             "lockPosition = \(glyphStrip.lockPosition)",
             "customX = \(glyphStrip.customX)",
             "customY = \(glyphStrip.customY)",
             "customScreen = \(tomlString(glyphStrip.customScreen))",
+            "plainCustomX = \(glyphStrip.plainCustomX)",
+            "plainCustomY = \(glyphStrip.plainCustomY)",
+            "plainCustomScreen = \(tomlString(glyphStrip.plainCustomScreen))",
             "borderEnabled = \(glyphStrip.borderEnabled)"
         ]
 
