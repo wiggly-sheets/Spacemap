@@ -411,7 +411,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added macOS 26 adaptive app-icon support while retaining the legacy `.icns` fallback.
 
 ### Changed
-- Changed the app bundle and URL-scheme identifiers from `com.jsheffie.spacemap` to `com.zm.spacemap` for the independently maintained fork.
+- Changed the app bundle and URL-scheme identifiers to `com.zm.spacemap` for the independently maintained fork.
 - Capitalized the packaged executable as `Spacemap` while retaining lowercase `spacemap` for the command-line symlink.
 - Moved About Spacemap above Settings and redesigned its native window with About, Contributors, License, and Software Used tabs.
 
@@ -800,12 +800,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2023-06-01
 
 ### Added
-- Homebrew distribution via `jsheffie/tap`
+- Homebrew distribution via a Homebrew tap
 - Initial public release
 - Basic UI scaling support
-
-### Changed
-- Repository moved to `jsheffie/spacemap`
 
 ---
 
