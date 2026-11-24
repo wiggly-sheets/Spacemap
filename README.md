@@ -438,12 +438,7 @@ make app       # assemble Spacemap.app (universal)
 make dmg       # arm64 and x86_64 DMGs
 ```
 
-For an Xcode project:
-
-```bash
-python3 scripts/generate-xcodeproj.py
-open spacemap.xcodeproj
-```
+To browse the package in Xcode, open `Package.swift`. There is no separate Xcode project to keep in sync.
 
 Architecture-specific bundles:
 

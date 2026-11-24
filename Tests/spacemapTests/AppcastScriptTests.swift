@@ -41,16 +41,6 @@ final class AppcastScriptTests: XCTestCase {
         return try XCTUnwrap(try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
     }
 
-    private func values(of key: String, in project: String) -> [String] {
-        let prefix = "\(key) = "
-        return project.split(separator: "\n").compactMap { line in
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            guard trimmed.hasPrefix(prefix) else { return nil }
-            return String(trimmed.dropFirst(prefix.count))
-                .trimmingCharacters(in: CharacterSet(charactersIn: "\";"))
-        }
-    }
-
     func testGenerateAppcastAllowsMissingWhenFlagSet() throws {
         let workDirectory = try makeTemporaryDirectory()
         let script = repositoryRoot.appendingPathComponent(".github/scripts/generate-appcast.sh").path
@@ -89,34 +79,6 @@ final class AppcastScriptTests: XCTestCase {
         )
     }
 
-    func testGeneratedXcodeProjectIsUpToDate() throws {
-        let script = repositoryRoot.appendingPathComponent("scripts/generate-xcodeproj.py").path
-        let result = try run("/usr/bin/env", ["python3", script, "--check"])
-        XCTAssertEqual(result.status, 0, "generate-xcodeproj.py --check failed:\n\(result.output)")
-    }
-
-    func testGenerateXcodeprojRejectsInvalidVersion() throws {
-        let root = try makeTemporaryDirectory()
-        let scripts = root.appendingPathComponent("scripts", isDirectory: true)
-        try FileManager.default.createDirectory(at: scripts, withIntermediateDirectories: true)
-        let script = scripts.appendingPathComponent("generate-xcodeproj.py")
-        try FileManager.default.copyItem(
-            at: repositoryRoot.appendingPathComponent("scripts/generate-xcodeproj.py"),
-            to: script
-        )
-        let versionURL = root.appendingPathComponent("VERSION")
-
-        try "1.2.3 beta\n".write(to: versionURL, atomically: true, encoding: .utf8)
-        let bogus = try run("/usr/bin/env", ["python3", script.path, "--check"])
-        XCTAssertNotEqual(bogus.status, 0)
-        XCTAssertTrue(bogus.output.contains("must contain a version"), bogus.output)
-
-        try FileManager.default.removeItem(at: versionURL)
-        let missing = try run("/usr/bin/env", ["python3", script.path, "--check"])
-        XCTAssertNotEqual(missing.status, 0)
-        XCTAssertTrue(missing.output.contains("not found"), missing.output)
-    }
-
     func testGeneratedVersionsComeFromVersionFile() throws {
         let versionURL = repositoryRoot.appendingPathComponent("VERSION")
         let version = try String(contentsOf: versionURL, encoding: .utf8)
@@ -126,16 +88,6 @@ final class AppcastScriptTests: XCTestCase {
         let plist = try infoPlist()
         XCTAssertEqual(plist["CFBundleShortVersionString"] as? String, version)
         XCTAssertEqual(plist["CFBundleVersion"] as? String, version)
-
-        // Four targets times Debug and Release.
-        let projectURL = repositoryRoot.appendingPathComponent("spacemap.xcodeproj/project.pbxproj")
-        let project = try String(contentsOf: projectURL, encoding: .utf8)
-        let marketingVersions = values(of: "MARKETING_VERSION", in: project)
-        let projectVersions = values(of: "CURRENT_PROJECT_VERSION", in: project)
-        XCTAssertEqual(marketingVersions.count, 8)
-        XCTAssertEqual(projectVersions.count, 8)
-        XCTAssertEqual(Set(marketingVersions), Set([version]))
-        XCTAssertEqual(Set(projectVersions), Set([version]))
     }
 
     func testInfoPlistMinimumSystemVersionMatchesDeploymentTarget() throws {
@@ -157,12 +109,6 @@ final class AppcastScriptTests: XCTestCase {
             makefile.contains(":LSMinimumSystemVersion"),
             "The bundle assembly step should set LSMinimumSystemVersion"
         )
-
-        let projectURL = repositoryRoot.appendingPathComponent("spacemap.xcodeproj/project.pbxproj")
-        let project = try String(contentsOf: projectURL, encoding: .utf8)
-        let projectTargets = values(of: "MACOSX_DEPLOYMENT_TARGET", in: project)
-        XCTAssertFalse(projectTargets.isEmpty, "The Xcode project must set MACOSX_DEPLOYMENT_TARGET")
-        XCTAssertEqual(Set(projectTargets), Set([minimum]))
     }
 
     func testInfoPlistProhibitsMultipleInstances() throws {

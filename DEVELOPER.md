@@ -322,12 +322,8 @@ The release notes are the section of `CHANGELOG.md` for the released version. A 
 
 The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work.
 
-### Xcode Project
-```bash
-python3 scripts/generate-xcodeproj.py   # Generate from SPM
-open spacemap.xcodeproj                 # Open in Xcode
-```
-4 targets: default, arm64, x86_64, universal. Edit `Package.swift`, not the `.xcodeproj`.
+### Xcode
+Open `Package.swift` in Xcode. The package is the only build definition; there is no generated `.xcodeproj`.
 
 ### Development Cycle
 1. `make dev1` — uninstalls app

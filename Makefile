@@ -53,7 +53,7 @@ endif
 	dmg dmg-arm dmg-intel dmg-universal release-artifacts release-notes release clean \
 	install run dev uninstall config distconfig archive permissions \
 	install-cli uninstall-cli build-arm64 build-x86_64 build-universal \
-	app-arm64 app-x86_64 verify-localizations generate-xcodeproj man \
+	app-arm64 app-x86_64 verify-localizations man \
 
 .DEFAULT_GOAL := help
 
@@ -90,10 +90,9 @@ help:
 		'  Signing stays ad-hoc: codesign --force --sign - --options runtime.' \
 		'  There is no Developer ID identity and no notarization.' \
 		'  CHANGELOG.md follows the shared shape and `make test` checks it.' \
-		'  Spacemap releases a stable x.y.z only: the Xcode project stores the version' \
-		'  as its build version, which is numeric.' \
+		'  Spacemap releases a stable x.y.z only, because the bundle version is numeric.' \
 		'  `make release VERSION=1.2.3` moves [Unreleased] to the version, writes the' \
-		'  VERSION file and the Info.plist, regenerates spacemap.xcodeproj, runs the' \
+		'  VERSION file and the Info.plist, runs the' \
 		'  tests, builds and verifies the artifacts, commits the bump, tags v1.2.3' \
 		'  locally and prints the push commands. It never pushes.' \
 		'  The old names app-arm64, app-x86_64, dmg-arm64 and dmg-x86_64 still work.' \
@@ -112,9 +111,6 @@ man: $(MAN_PAGE)
 $(MAN_PAGE): $(MAN_SOURCE)
 	@command -v scdoc >/dev/null || (echo "scdoc is required to build $(MAN_PAGE)" && exit 1)
 	scdoc < $(MAN_SOURCE) > $(MAN_PAGE)
-
-generate-xcodeproj:
-	python3 scripts/generate-xcodeproj.py
 
 # Newer toolchains write both architectures into one shared product directory,
 # so copy the just-built binary aside before the next arch build overwrites it.

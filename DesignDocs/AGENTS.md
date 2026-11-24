@@ -187,12 +187,8 @@ make release-artifacts # Build the DMGs and write checksums.txt
 make release VERSION=x.y.z  # Bump version, commit, tag locally, print the push command (no push)
 ```
 
-### Xcode Project
-```bash
-python3 scripts/generate-xcodeproj.py   # Generate from SPM
-open spacemap.xcodeproj                 # Open in Xcode
-```
-Targets: default, arm64, x86_64, universal. Project is regenerated from `Package.swift` — edit SPM, not the `.xcodeproj`.
+### Xcode
+Open `Package.swift` in Xcode. The package is the only build definition; there is no generated `.xcodeproj`.
 
 ### Testing Changes
 1. `make dev1` (uninstalls app)
@@ -260,7 +256,6 @@ Targets: default, arm64, x86_64, universal. Project is regenerated from `Package
 - File-based theme system (.smthemes and .toml files in ~/.config/spacemap/themes/, plus the in-app editor)
 - Grid-aware keyboard navigation (arrow keys + vim keys with wrapping)
 - Dynamic yabai path detection (ARM + Intel)
-- Xcode project generation (`scripts/generate-xcodeproj.py`, 4 targets)
 - Unit test suite: ~588 tests across 35 files when this entry was written (since grown to 945 tests across 105 files, below)
 - Glyph strip: theme-driven menu-bar index+glyph strip (material/shape/glass style, per-style variant and opacity, optional match-HUD appearance, notch anchors or free placement, horizontal/vertical/stacked layouts, position lock, fullscreen hiding)
 - Space-name profiles with menu-bar switching; fn modifier preserved across hotkeys/drop-focus

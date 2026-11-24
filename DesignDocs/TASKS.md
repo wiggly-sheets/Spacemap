@@ -112,7 +112,6 @@ A living list of planned features, known bugs, and future improvements for the p
 - **DMG Assets**: Gray-and-black grid background with install guidance, arrow, and Applications symlink
 - **Native About Window**: Tabbed project, contributor/fork, license, and software attribution
 - **Fork Identity**: `com.zm.spacemap` bundle identity and capitalized `Spacemap` executable with lowercase CLI command
-- **Xcode Project Generation**: `scripts/generate-xcodeproj.py` with 4 architecture targets
 - **Architecture-specific Builds**: ARM64, x86_64, universal DMGs via `create-dmg`
 - **CI DMG Verification**: Release workflow mounts each DMG and verifies architecture with `lipo -archs`
 - **Info.plist Version Injection**: Makefile sed replaces hardcoded 1.0.0 with VERSION file at build time
@@ -198,7 +197,6 @@ A living list of planned features, known bugs, and future improvements for the p
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- |
 | **Unit Tests**               | 816 tests across 38 files (+ mock) | ✅ Done |
 | **GitHub Actions / CI**      | `ci.yml` (swift test + build on push/PR), `release.yml` (3 DMGs + checksums on tag), Dependabot                     | ✅ Done |
-| **Xcode Project**            | Generated from SPM, 4 targets (default, arm64, x86_64, universal) via`scripts/generate-xcodeproj.py`                  | ✅ Done |
 | **Architecture Builds**      | ARM64, x86_64, universal DMGs via`create-dmg`                                                                         | ✅ Done |
 | **Homebrew Formula Updates** | Consolidated tap renders its own arch-conditional cask and follows the latest stable release                          | ✅ Done |
 

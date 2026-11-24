@@ -10,10 +10,9 @@ cd "$ROOT"
 
 VERSION="${1:-}"
 APP_NAME="${APP_NAME:-Spacemap}"
-# The Xcode project stores the version as its build version, which is numeric,
-# so Spacemap releases a stable x.y.z only.
+# The bundle version is numeric, so Spacemap releases a stable x.y.z only.
 VERSION_RE='^[0-9]+\.[0-9]+\.[0-9]+$'
-BUMPED=(CHANGELOG.md VERSION Sources/spacemap/Info.plist spacemap.xcodeproj/project.pbxproj)
+BUMPED=(CHANGELOG.md VERSION Sources/spacemap/Info.plist)
 
 die() {
 	echo "error: $*" >&2
@@ -58,7 +57,6 @@ current="$(git symbolic-ref --quiet --short HEAD || true)"
 echo "$VERSION" >VERSION
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Sources/spacemap/Info.plist
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" Sources/spacemap/Info.plist
-python3 scripts/generate-xcodeproj.py
 
 committed=0
 restore() {
