@@ -15,8 +15,16 @@
 		f814ff26-40d9-7619-8f2c-b3045d3bc6c1 /* ApplicationLifecycleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9b7a407c-0c88-d544-962f-a02eb14e7d53 /* ApplicationLifecycleService.swift */; };
 		4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2f2e28ad-f93b-9098-0718-489ce336228a /* CLI.swift */; };
 		7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4773e3cc-160f-5e77-d431-9585eb80e7c4 /* CLISymlinkInstaller.swift */; };
+		22048d8e-3d57-1af2-cc4f-5da835fc54c2 /* CLIToolsService+AppInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = cc78d135-c061-fc25-876e-cbbfbb964f86 /* CLIToolsService+AppInfo.swift */; };
+		2a07d608-4bfc-eb36-9d0d-120cd751261e /* CLIToolsService+ApplicationLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 407a1e44-a130-fc73-24d0-e11fc1699bf7 /* CLIToolsService+ApplicationLocation.swift */; };
+		a887689f-0a18-4dc8-cad7-7d85ef072fc1 /* CLIToolsService+CLIInstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = e940d43d-2efa-0def-268b-40a134f9bc9b /* CLIToolsService+CLIInstall.swift */; };
+		8d535887-c545-62c7-e3de-4ae193fa847f /* CLIToolsService+LaunchAtLogin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523e847d-a895-72a6-8d74-ae113126bd7d /* CLIToolsService+LaunchAtLogin.swift */; };
 		a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1163b404-cded-465d-f401-009884f352d3 /* CLIToolsService.swift */; };
 		118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */; };
+		e120dc1d-af76-5745-cdd3-742bed60026f /* ConfigLoader+Encode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7951488f-280c-6599-f4f9-f62365eaeaab /* ConfigLoader+Encode.swift */; };
+		cde8b2d9-b3ee-e0f2-2f4d-9611b9343c4f /* ConfigLoader+Load.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0be91620-d5da-5622-976a-a25c59c57c25 /* ConfigLoader+Load.swift */; };
+		0e549976-6188-b3d6-4ded-506cac62ff5e /* ConfigLoader+Sanitize.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9baca718-a08d-d765-b7f8-91edb8810371 /* ConfigLoader+Sanitize.swift */; };
+		afb0f31d-daf4-aa54-97b8-9dbe6ed1415b /* ConfigLoader+Save.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5973a4e3-6b20-5677-5671-89bde25ddbaf /* ConfigLoader+Save.swift */; };
 		fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = afd5b8c3-56cd-b1ab-897f-a7676bd15d3f /* ConfigLoader.swift */; };
 		781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2f4a5792-7e50-2c66-a3b6-78ab5b6f0b49 /* ConfigPresetStore.swift */; };
 		90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = c5b66fe7-e2c3-4378-16cc-e4c41f45bc33 /* ConfigSchema+AppearanceFields.swift */; };
@@ -44,6 +52,9 @@
 		e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = d2e15965-90c4-9e6c-3631-7872f22986fa /* GlyphStrip+RenderLayout.swift */; };
 		b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */; };
 		c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */; };
+		7643369a-9370-9044-ce21-daac152b9480 /* GlyphStripPanelController+Refresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0e6618cb-b2a5-46d2-f35e-e9fe7552377c /* GlyphStripPanelController+Refresh.swift */; };
+		e710ae1f-81da-1392-f872-f0bdaf0813c0 /* GlyphStripPanelController+StatusItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8d5aa733-a5cc-3ee7-b067-58acfcf22992 /* GlyphStripPanelController+StatusItem.swift */; };
+		941740b2-72aa-130a-c317-52d89a11c96e /* GlyphStripPanelController+Visibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01ee1de0-06ca-d0e9-0c2a-c373253c8425 /* GlyphStripPanelController+Visibility.swift */; };
 		126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = eaa47bb6-2831-5525-8adb-94decaa11fb6 /* GlyphStripPanelDrag.swift */; };
 		8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = d3a66fe3-827e-483f-6e6f-71af10ac2a0f /* GlyphStripPanelInput.swift */; };
 		e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5e76e922-31d7-1d7a-541d-3ee3624486dc /* GlyphStripPanelLayout.swift */; };
@@ -151,8 +162,16 @@
 		9b7a407c-0c88-d544-962f-a02eb14e7d53 /* ApplicationLifecycleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationLifecycleService.swift; sourceTree = "<group>"; };
 		2f2e28ad-f93b-9098-0718-489ce336228a /* CLI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLI.swift; sourceTree = "<group>"; };
 		4773e3cc-160f-5e77-d431-9585eb80e7c4 /* CLISymlinkInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLISymlinkInstaller.swift; sourceTree = "<group>"; };
+		cc78d135-c061-fc25-876e-cbbfbb964f86 /* CLIToolsService+AppInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIToolsService+AppInfo.swift; sourceTree = "<group>"; };
+		407a1e44-a130-fc73-24d0-e11fc1699bf7 /* CLIToolsService+ApplicationLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIToolsService+ApplicationLocation.swift; sourceTree = "<group>"; };
+		e940d43d-2efa-0def-268b-40a134f9bc9b /* CLIToolsService+CLIInstall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIToolsService+CLIInstall.swift; sourceTree = "<group>"; };
+		523e847d-a895-72a6-8d74-ae113126bd7d /* CLIToolsService+LaunchAtLogin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIToolsService+LaunchAtLogin.swift; sourceTree = "<group>"; };
 		1163b404-cded-465d-f401-009884f352d3 /* CLIToolsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIToolsService.swift; sourceTree = "<group>"; };
 		240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CellView.swift; sourceTree = "<group>"; };
+		7951488f-280c-6599-f4f9-f62365eaeaab /* ConfigLoader+Encode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigLoader+Encode.swift; sourceTree = "<group>"; };
+		0be91620-d5da-5622-976a-a25c59c57c25 /* ConfigLoader+Load.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigLoader+Load.swift; sourceTree = "<group>"; };
+		9baca718-a08d-d765-b7f8-91edb8810371 /* ConfigLoader+Sanitize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigLoader+Sanitize.swift; sourceTree = "<group>"; };
+		5973a4e3-6b20-5677-5671-89bde25ddbaf /* ConfigLoader+Save.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigLoader+Save.swift; sourceTree = "<group>"; };
 		afd5b8c3-56cd-b1ab-897f-a7676bd15d3f /* ConfigLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigLoader.swift; sourceTree = "<group>"; };
 		2f4a5792-7e50-2c66-a3b6-78ab5b6f0b49 /* ConfigPresetStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigPresetStore.swift; sourceTree = "<group>"; };
 		c5b66fe7-e2c3-4378-16cc-e4c41f45bc33 /* ConfigSchema+AppearanceFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSchema+AppearanceFields.swift; sourceTree = "<group>"; };
@@ -180,6 +199,9 @@
 		d2e15965-90c4-9e6c-3631-7872f22986fa /* GlyphStrip+RenderLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip+RenderLayout.swift; sourceTree = "<group>"; };
 		f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip.swift; sourceTree = "<group>"; };
 		f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanel.swift; sourceTree = "<group>"; };
+		0e6618cb-b2a5-46d2-f35e-e9fe7552377c /* GlyphStripPanelController+Refresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelController+Refresh.swift; sourceTree = "<group>"; };
+		8d5aa733-a5cc-3ee7-b067-58acfcf22992 /* GlyphStripPanelController+StatusItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelController+StatusItem.swift; sourceTree = "<group>"; };
+		01ee1de0-06ca-d0e9-0c2a-c373253c8425 /* GlyphStripPanelController+Visibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelController+Visibility.swift; sourceTree = "<group>"; };
 		eaa47bb6-2831-5525-8adb-94decaa11fb6 /* GlyphStripPanelDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelDrag.swift; sourceTree = "<group>"; };
 		d3a66fe3-827e-483f-6e6f-71af10ac2a0f /* GlyphStripPanelInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelInput.swift; sourceTree = "<group>"; };
 		5e76e922-31d7-1d7a-541d-3ee3624486dc /* GlyphStripPanelLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelLayout.swift; sourceTree = "<group>"; };
@@ -343,8 +365,16 @@
 				9b7a407c-0c88-d544-962f-a02eb14e7d53 /* ApplicationLifecycleService.swift */,
 				2f2e28ad-f93b-9098-0718-489ce336228a /* CLI.swift */,
 				4773e3cc-160f-5e77-d431-9585eb80e7c4 /* CLISymlinkInstaller.swift */,
+				cc78d135-c061-fc25-876e-cbbfbb964f86 /* CLIToolsService+AppInfo.swift */,
+				407a1e44-a130-fc73-24d0-e11fc1699bf7 /* CLIToolsService+ApplicationLocation.swift */,
+				e940d43d-2efa-0def-268b-40a134f9bc9b /* CLIToolsService+CLIInstall.swift */,
+				523e847d-a895-72a6-8d74-ae113126bd7d /* CLIToolsService+LaunchAtLogin.swift */,
 				1163b404-cded-465d-f401-009884f352d3 /* CLIToolsService.swift */,
 				240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */,
+				7951488f-280c-6599-f4f9-f62365eaeaab /* ConfigLoader+Encode.swift */,
+				0be91620-d5da-5622-976a-a25c59c57c25 /* ConfigLoader+Load.swift */,
+				9baca718-a08d-d765-b7f8-91edb8810371 /* ConfigLoader+Sanitize.swift */,
+				5973a4e3-6b20-5677-5671-89bde25ddbaf /* ConfigLoader+Save.swift */,
 				afd5b8c3-56cd-b1ab-897f-a7676bd15d3f /* ConfigLoader.swift */,
 				2f4a5792-7e50-2c66-a3b6-78ab5b6f0b49 /* ConfigPresetStore.swift */,
 				c5b66fe7-e2c3-4378-16cc-e4c41f45bc33 /* ConfigSchema+AppearanceFields.swift */,
@@ -372,6 +402,9 @@
 				d2e15965-90c4-9e6c-3631-7872f22986fa /* GlyphStrip+RenderLayout.swift */,
 				f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */,
 				f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */,
+				0e6618cb-b2a5-46d2-f35e-e9fe7552377c /* GlyphStripPanelController+Refresh.swift */,
+				8d5aa733-a5cc-3ee7-b067-58acfcf22992 /* GlyphStripPanelController+StatusItem.swift */,
+				01ee1de0-06ca-d0e9-0c2a-c373253c8425 /* GlyphStripPanelController+Visibility.swift */,
 				eaa47bb6-2831-5525-8adb-94decaa11fb6 /* GlyphStripPanelDrag.swift */,
 				d3a66fe3-827e-483f-6e6f-71af10ac2a0f /* GlyphStripPanelInput.swift */,
 				5e76e922-31d7-1d7a-541d-3ee3624486dc /* GlyphStripPanelLayout.swift */,
@@ -638,8 +671,16 @@
 				f814ff26-40d9-7619-8f2c-b3045d3bc6c1 /* ApplicationLifecycleService.swift in Sources */,
 				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
 				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
+				22048d8e-3d57-1af2-cc4f-5da835fc54c2 /* CLIToolsService+AppInfo.swift in Sources */,
+				2a07d608-4bfc-eb36-9d0d-120cd751261e /* CLIToolsService+ApplicationLocation.swift in Sources */,
+				a887689f-0a18-4dc8-cad7-7d85ef072fc1 /* CLIToolsService+CLIInstall.swift in Sources */,
+				8d535887-c545-62c7-e3de-4ae193fa847f /* CLIToolsService+LaunchAtLogin.swift in Sources */,
 				a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
+				e120dc1d-af76-5745-cdd3-742bed60026f /* ConfigLoader+Encode.swift in Sources */,
+				cde8b2d9-b3ee-e0f2-2f4d-9611b9343c4f /* ConfigLoader+Load.swift in Sources */,
+				0e549976-6188-b3d6-4ded-506cac62ff5e /* ConfigLoader+Sanitize.swift in Sources */,
+				afb0f31d-daf4-aa54-97b8-9dbe6ed1415b /* ConfigLoader+Save.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
 				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
 				90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */,
@@ -667,6 +708,9 @@
 				e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
+				7643369a-9370-9044-ce21-daac152b9480 /* GlyphStripPanelController+Refresh.swift in Sources */,
+				e710ae1f-81da-1392-f872-f0bdaf0813c0 /* GlyphStripPanelController+StatusItem.swift in Sources */,
+				941740b2-72aa-130a-c317-52d89a11c96e /* GlyphStripPanelController+Visibility.swift in Sources */,
 				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
 				8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */,
 				e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */,
@@ -775,8 +819,16 @@
 				f814ff26-40d9-7619-8f2c-b3045d3bc6c1 /* ApplicationLifecycleService.swift in Sources */,
 				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
 				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
+				22048d8e-3d57-1af2-cc4f-5da835fc54c2 /* CLIToolsService+AppInfo.swift in Sources */,
+				2a07d608-4bfc-eb36-9d0d-120cd751261e /* CLIToolsService+ApplicationLocation.swift in Sources */,
+				a887689f-0a18-4dc8-cad7-7d85ef072fc1 /* CLIToolsService+CLIInstall.swift in Sources */,
+				8d535887-c545-62c7-e3de-4ae193fa847f /* CLIToolsService+LaunchAtLogin.swift in Sources */,
 				a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
+				e120dc1d-af76-5745-cdd3-742bed60026f /* ConfigLoader+Encode.swift in Sources */,
+				cde8b2d9-b3ee-e0f2-2f4d-9611b9343c4f /* ConfigLoader+Load.swift in Sources */,
+				0e549976-6188-b3d6-4ded-506cac62ff5e /* ConfigLoader+Sanitize.swift in Sources */,
+				afb0f31d-daf4-aa54-97b8-9dbe6ed1415b /* ConfigLoader+Save.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
 				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
 				90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */,
@@ -804,6 +856,9 @@
 				e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
+				7643369a-9370-9044-ce21-daac152b9480 /* GlyphStripPanelController+Refresh.swift in Sources */,
+				e710ae1f-81da-1392-f872-f0bdaf0813c0 /* GlyphStripPanelController+StatusItem.swift in Sources */,
+				941740b2-72aa-130a-c317-52d89a11c96e /* GlyphStripPanelController+Visibility.swift in Sources */,
 				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
 				8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */,
 				e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */,
@@ -912,8 +967,16 @@
 				f814ff26-40d9-7619-8f2c-b3045d3bc6c1 /* ApplicationLifecycleService.swift in Sources */,
 				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
 				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
+				22048d8e-3d57-1af2-cc4f-5da835fc54c2 /* CLIToolsService+AppInfo.swift in Sources */,
+				2a07d608-4bfc-eb36-9d0d-120cd751261e /* CLIToolsService+ApplicationLocation.swift in Sources */,
+				a887689f-0a18-4dc8-cad7-7d85ef072fc1 /* CLIToolsService+CLIInstall.swift in Sources */,
+				8d535887-c545-62c7-e3de-4ae193fa847f /* CLIToolsService+LaunchAtLogin.swift in Sources */,
 				a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
+				e120dc1d-af76-5745-cdd3-742bed60026f /* ConfigLoader+Encode.swift in Sources */,
+				cde8b2d9-b3ee-e0f2-2f4d-9611b9343c4f /* ConfigLoader+Load.swift in Sources */,
+				0e549976-6188-b3d6-4ded-506cac62ff5e /* ConfigLoader+Sanitize.swift in Sources */,
+				afb0f31d-daf4-aa54-97b8-9dbe6ed1415b /* ConfigLoader+Save.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
 				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
 				90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */,
@@ -941,6 +1004,9 @@
 				e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
+				7643369a-9370-9044-ce21-daac152b9480 /* GlyphStripPanelController+Refresh.swift in Sources */,
+				e710ae1f-81da-1392-f872-f0bdaf0813c0 /* GlyphStripPanelController+StatusItem.swift in Sources */,
+				941740b2-72aa-130a-c317-52d89a11c96e /* GlyphStripPanelController+Visibility.swift in Sources */,
 				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
 				8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */,
 				e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */,
@@ -1049,8 +1115,16 @@
 				f814ff26-40d9-7619-8f2c-b3045d3bc6c1 /* ApplicationLifecycleService.swift in Sources */,
 				4a430eca-5a7d-dbde-4606-cfbe43ab6613 /* CLI.swift in Sources */,
 				7d0a3564-bb8b-b5c4-94c1-1599b2305ed7 /* CLISymlinkInstaller.swift in Sources */,
+				22048d8e-3d57-1af2-cc4f-5da835fc54c2 /* CLIToolsService+AppInfo.swift in Sources */,
+				2a07d608-4bfc-eb36-9d0d-120cd751261e /* CLIToolsService+ApplicationLocation.swift in Sources */,
+				a887689f-0a18-4dc8-cad7-7d85ef072fc1 /* CLIToolsService+CLIInstall.swift in Sources */,
+				8d535887-c545-62c7-e3de-4ae193fa847f /* CLIToolsService+LaunchAtLogin.swift in Sources */,
 				a0651e2f-0452-272e-2ae5-822673e0a614 /* CLIToolsService.swift in Sources */,
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
+				e120dc1d-af76-5745-cdd3-742bed60026f /* ConfigLoader+Encode.swift in Sources */,
+				cde8b2d9-b3ee-e0f2-2f4d-9611b9343c4f /* ConfigLoader+Load.swift in Sources */,
+				0e549976-6188-b3d6-4ded-506cac62ff5e /* ConfigLoader+Sanitize.swift in Sources */,
+				afb0f31d-daf4-aa54-97b8-9dbe6ed1415b /* ConfigLoader+Save.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
 				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
 				90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */,
@@ -1078,6 +1152,9 @@
 				e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
+				7643369a-9370-9044-ce21-daac152b9480 /* GlyphStripPanelController+Refresh.swift in Sources */,
+				e710ae1f-81da-1392-f872-f0bdaf0813c0 /* GlyphStripPanelController+StatusItem.swift in Sources */,
+				941740b2-72aa-130a-c317-52d89a11c96e /* GlyphStripPanelController+Visibility.swift in Sources */,
 				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
 				8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */,
 				e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */,
