@@ -45,6 +45,6 @@
 | `WindowDragHandler` | `Sources/spacemap/WindowDragHandler.swift` | `onHoverCell`, `onDropInCell` closures; `cellFrames`, `cachedWindows` |
 | `SpaceNavigator` | `Sources/spacemap/SpaceNavigator.swift` | Pure computation: `destination(...)`, `destinationAcrossDisplays(...)` |
 | `GridStateCoordinator` | `Sources/spacemap/GridStateCoordinator.swift` | Single-writer state machine: `fetch(completion:)`, `refresh(completion:)`, `updateFocusedIndex(_:)`, `latestState`, `phase` |
-| `GlyphStrip` | `Sources/spacemap/GlyphStrip.swift` (pure) + `GlyphStripPanel.swift` (AppKit) | `segments(for:options:font:)`, `layout(...)` → `SegmentLayout`, `frame(...)`, `hoverFill(...)`, `command(...)`; panel `update(config:)`, `refresh()`, `toggleVisibilityByHotkey()` (session-only) |
+| `GlyphStrip` | `Sources/spacemap/GlyphStrip.swift` (pure) + `GlyphStripPanel*.swift`, `GlyphStrip*View.swift` (AppKit) | `segments(for:options:font:)`, `layout(...)` → `SegmentLayout`, `frame(...)`, `hoverFill(...)`, `command(...)`; panel `update(config:)`, `refresh()`, `toggleVisibilityByHotkey()` (session-only) |
 | `Hotkey` | `Sources/spacemap/Hotkey.swift` | Parse/format round-trip, key-code and media-key tables |
 | `ThemeStore` | `Sources/spacemap/ThemeStore.swift` + `ThemeCodec.swift` | `reload()`, `reloadIfChanged()`, `named(_:)`, `allNames()`, `save(theme:name:)`, `resolvedThemeName(strip:hudTheme:)`; directory injected, bundled themes fill gaps, `.smthemes`/`.toml` read, TOML written |

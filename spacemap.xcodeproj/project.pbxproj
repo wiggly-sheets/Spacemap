@@ -30,6 +30,13 @@
 		91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */ = {isa = PBXBuildFile; fileRef = dd9eb7f9-0c7b-a1ff-d4eb-45ea1e1c1d53 /* GlassVariant.swift */; };
 		b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */; };
 		c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */; };
+		126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = eaa47bb6-2831-5525-8adb-94decaa11fb6 /* GlyphStripPanelDrag.swift */; };
+		8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = d3a66fe3-827e-483f-6e6f-71af10ac2a0f /* GlyphStripPanelInput.swift */; };
+		e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5e76e922-31d7-1d7a-541d-3ee3624486dc /* GlyphStripPanelLayout.swift */; };
+		b1c2c601-3a13-a180-5181-f7bc78840f39 /* GlyphStripPanelPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = f30555e7-37a4-75dd-a722-1078fd10bcba /* GlyphStripPanelPlacement.swift */; };
+		e4957c44-efbe-c50b-2a44-63db8d62d985 /* GlyphStripPanelWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = cb114433-7723-b0e3-578d-5466c6586661 /* GlyphStripPanelWindow.swift */; };
+		7a944a98-483d-ed83-9218-203399f1467c /* GlyphStripStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = e6b21bf5-d1ab-0c7c-88d6-bb9c5fbc18c6 /* GlyphStripStatusView.swift */; };
+		3b886c8f-8920-af5c-da7e-c7f21e58477b /* GlyphStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = a5ea8ce5-ba68-363f-98f1-c28042a9990e /* GlyphStripView.swift */; };
 		a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */; };
 		452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87e490e7-f6d1-5951-be31-b380c3522d0a /* GridStateCoordinator.swift */; };
 		b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */; };
@@ -120,6 +127,13 @@
 		dd9eb7f9-0c7b-a1ff-d4eb-45ea1e1c1d53 /* GlassVariant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassVariant.swift; sourceTree = "<group>"; };
 		f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip.swift; sourceTree = "<group>"; };
 		f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanel.swift; sourceTree = "<group>"; };
+		eaa47bb6-2831-5525-8adb-94decaa11fb6 /* GlyphStripPanelDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelDrag.swift; sourceTree = "<group>"; };
+		d3a66fe3-827e-483f-6e6f-71af10ac2a0f /* GlyphStripPanelInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelInput.swift; sourceTree = "<group>"; };
+		5e76e922-31d7-1d7a-541d-3ee3624486dc /* GlyphStripPanelLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelLayout.swift; sourceTree = "<group>"; };
+		f30555e7-37a4-75dd-a722-1078fd10bcba /* GlyphStripPanelPlacement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelPlacement.swift; sourceTree = "<group>"; };
+		cb114433-7723-b0e3-578d-5466c6586661 /* GlyphStripPanelWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelWindow.swift; sourceTree = "<group>"; };
+		e6b21bf5-d1ab-0c7c-88d6-bb9c5fbc18c6 /* GlyphStripStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripStatusView.swift; sourceTree = "<group>"; };
+		a5ea8ce5-ba68-363f-98f1-c28042a9990e /* GlyphStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripView.swift; sourceTree = "<group>"; };
 		5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridLayout.swift; sourceTree = "<group>"; };
 		87e490e7-f6d1-5951-be31-b380c3522d0a /* GridStateCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridStateCoordinator.swift; sourceTree = "<group>"; };
 		e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridView.swift; sourceTree = "<group>"; };
@@ -266,6 +280,13 @@
 				dd9eb7f9-0c7b-a1ff-d4eb-45ea1e1c1d53 /* GlassVariant.swift */,
 				f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */,
 				f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */,
+				eaa47bb6-2831-5525-8adb-94decaa11fb6 /* GlyphStripPanelDrag.swift */,
+				d3a66fe3-827e-483f-6e6f-71af10ac2a0f /* GlyphStripPanelInput.swift */,
+				5e76e922-31d7-1d7a-541d-3ee3624486dc /* GlyphStripPanelLayout.swift */,
+				f30555e7-37a4-75dd-a722-1078fd10bcba /* GlyphStripPanelPlacement.swift */,
+				cb114433-7723-b0e3-578d-5466c6586661 /* GlyphStripPanelWindow.swift */,
+				e6b21bf5-d1ab-0c7c-88d6-bb9c5fbc18c6 /* GlyphStripStatusView.swift */,
+				a5ea8ce5-ba68-363f-98f1-c28042a9990e /* GlyphStripView.swift */,
 				5483513a-0c27-7fd7-2a39-5ad4db0925e8 /* GridLayout.swift */,
 				87e490e7-f6d1-5951-be31-b380c3522d0a /* GridStateCoordinator.swift */,
 				e4594772-b44b-9ab5-fb40-041e496c542a /* GridView.swift */,
@@ -515,6 +536,13 @@
 				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
+				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
+				8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */,
+				e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */,
+				b1c2c601-3a13-a180-5181-f7bc78840f39 /* GlyphStripPanelPlacement.swift in Sources */,
+				e4957c44-efbe-c50b-2a44-63db8d62d985 /* GlyphStripPanelWindow.swift in Sources */,
+				7a944a98-483d-ed83-9218-203399f1467c /* GlyphStripStatusView.swift in Sources */,
+				3b886c8f-8920-af5c-da7e-c7f21e58477b /* GlyphStripView.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
 				452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
@@ -606,6 +634,13 @@
 				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
+				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
+				8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */,
+				e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */,
+				b1c2c601-3a13-a180-5181-f7bc78840f39 /* GlyphStripPanelPlacement.swift in Sources */,
+				e4957c44-efbe-c50b-2a44-63db8d62d985 /* GlyphStripPanelWindow.swift in Sources */,
+				7a944a98-483d-ed83-9218-203399f1467c /* GlyphStripStatusView.swift in Sources */,
+				3b886c8f-8920-af5c-da7e-c7f21e58477b /* GlyphStripView.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
 				452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
@@ -697,6 +732,13 @@
 				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
+				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
+				8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */,
+				e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */,
+				b1c2c601-3a13-a180-5181-f7bc78840f39 /* GlyphStripPanelPlacement.swift in Sources */,
+				e4957c44-efbe-c50b-2a44-63db8d62d985 /* GlyphStripPanelWindow.swift in Sources */,
+				7a944a98-483d-ed83-9218-203399f1467c /* GlyphStripStatusView.swift in Sources */,
+				3b886c8f-8920-af5c-da7e-c7f21e58477b /* GlyphStripView.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
 				452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,
@@ -788,6 +830,13 @@
 				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
+				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
+				8cbcb06d-09aa-83a9-4ba9-41ecf5c7eaaa /* GlyphStripPanelInput.swift in Sources */,
+				e569cc53-3fc8-f1c5-bdae-3cb96e23c8a2 /* GlyphStripPanelLayout.swift in Sources */,
+				b1c2c601-3a13-a180-5181-f7bc78840f39 /* GlyphStripPanelPlacement.swift in Sources */,
+				e4957c44-efbe-c50b-2a44-63db8d62d985 /* GlyphStripPanelWindow.swift in Sources */,
+				7a944a98-483d-ed83-9218-203399f1467c /* GlyphStripStatusView.swift in Sources */,
+				3b886c8f-8920-af5c-da7e-c7f21e58477b /* GlyphStripView.swift in Sources */,
 				a9ca1ec1-48c6-ad20-1ba8-e82dbda9507b /* GridLayout.swift in Sources */,
 				452f904a-2f71-34a8-3726-f2be8da62748 /* GridStateCoordinator.swift in Sources */,
 				b5174866-a28d-e4fd-1442-1dd326615d1d /* GridView.swift in Sources */,

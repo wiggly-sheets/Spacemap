@@ -26,7 +26,7 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **Signals**: `SocketListener.swift` – Unix domain socket (mode 0600) for yabai `space_changed` events.
 - **Models**: `ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift` – data structs (SpacemapConfig, YabaiSpace, AppTheme with rect1/rect2/rect3, etc.).
 - **Settings**: `SettingsView.swift` (+ per-category `SettingsGrid`/`SettingsSpaceNames`/`SettingsAppearance`/`SettingsBehavior`/`SettingsGlyphStrip`/`SettingsAdvanced`) + `SettingsDraft.swift` + `SettingsWindowController.swift` – permanent category sidebar with live-save detail forms. Every control binds one field of `SettingsDraft`, which owns the whole `SpacemapConfig` and writes it through a 0.5 s debounce (flushed on pane switch, window close, quit, and before a preset apply or import).
-- **Glyph strip**: `GlyphStrip.swift` (pure model) + `GlyphStripPanel.swift` (panel/view) – menu-bar index+glyph strip, theme-driven, notch anchors or free placement, horizontal or vertical layouts, optional fullscreen hiding, session-only hotkey toggle.
+- **Glyph strip**: `GlyphStrip.swift` (pure model) + `GlyphStripPanelController` in `GlyphStripPanel.swift`, with placement, layout, drag and input extensions in `GlyphStripPanelPlacement/Layout/Drag/Input.swift`; AppKit views in `GlyphStripPanelWindow.swift`, `GlyphStripStatusView.swift`, `GlyphStripView.swift` – menu-bar index+glyph strip, theme-driven, notch anchors or free placement, horizontal or vertical layouts, optional fullscreen hiding, session-only hotkey toggle.
 - **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
 - **Config**: Stored at `~/.config/spacemap/config.toml`; reloads on HUD open, Settings applies hotkeys/update-mode/socket-health immediately (no restart).
@@ -59,7 +59,14 @@ Sources/spacemap/
 ├── ThemeModels.swift        # AppTheme (9 roles incl rect1/rect2/rect3)
 ├── YabaiModels.swift        # YabaiSpace, YabaiWindow, GridState
 ├── GlyphStrip.swift         # Menu-bar strip model (pure, testable)
-├── GlyphStripPanel.swift    # Strip panel/view (AppKit, notch-aware)
+├── GlyphStripPanel.swift    # Strip controller: state, refresh, menu-bar item
+├── GlyphStripPanelPlacement.swift # Panel lifecycle, frames, strip geometry
+├── GlyphStripPanelLayout.swift    # Segment/run layout and drawing inputs
+├── GlyphStripPanelDrag.swift      # Strip drag + screen placement persistence
+├── GlyphStripPanelInput.swift     # Clicks, hover, space/window drag-drop
+├── GlyphStripPanelWindow.swift    # Panel, glass container, VoiceOver elements
+├── GlyphStripStatusView.swift     # Compact menu-bar strip view + drawing layer
+├── GlyphStripView.swift           # Floating strip view (clicks, drag, drawing)
 ├── ThumbnailCache.swift   # ScreenCaptureKit capture, per-space caching (macOS 14+)
 ├── IconCache.swift         # App icon cache to avoid repeated NSWorkspace lookups
 ├── ThemeStore.swift        # Loads .smthemes/.toml themes, seeds built-ins, saves TOML
