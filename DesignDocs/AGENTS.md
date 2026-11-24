@@ -19,14 +19,14 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
 - **Sparkle updater**: `App.swift` initializes `SPUStandardUpdaterController` with `startingUpdater: false`; `start()` called after config load. Keys generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`.
 - **UI**: `GridView.swift` (container) + `CellView.swift` (per-cell rendering).
-- **Data**: `YabaiClientImpl.swift` (+ `YabaiService.swift` protocol) – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows, 10s command timeout with async pipe drain; `ConfigStore.swift` (+ `ConfigLoader`/`TOMLConfigCodec` + `ConfigSchema`) – reads `~/.config/spacemap/config.toml`.
+- **Data**: `YabaiClientImpl.swift` with extension files (`YabaiClientImpl+Trust/Process/Snapshots/Signals/SpaceCommands/WindowCommands/GridState/Displays/Decoding.swift`), plus `YabaiService.swift` protocol – auto-detects yabai (`/opt/homebrew/bin/yabai` or `/usr/local/bin/yabai`) for spaces/windows, 10s command timeout with async pipe drain; `ConfigStore.swift` (+ `ConfigLoader`/`TOMLConfigCodec` + `ConfigSchema`) – reads `~/.config/spacemap/config.toml`.
 - **Themes**: `ThemeStore.swift` – loads `.smthemes`/`.toml` files from `~/.config/spacemap/themes/`; 20 iTerm2 themes are bundled read-only, the Theme Library installs more from the `spacemap-themes` index, and edited themes save as separate `(Edited)` TOML copies. `ThemeCodec.swift` holds the pure parse/render/hex rules; the store takes its directory by injection and `SpacemapServices` owns the one instance.
 - **Hotkey**: `HotkeyMonitor.swift` (+ `HotkeyService`/`HotkeyHandler`) – global CGEventTap for normal, pinned, and glyph-strip bindings; every HUD-only action binds through the single `[hudKeys]` map; fails open on revocation; fn preserved.
 - **Drag‑and‑drop**: `WindowDragHandler.swift` – second CGEventTap for window drag detection.
 - **Signals**: `SocketListener.swift` – Unix domain socket (mode 0600) for yabai `space_changed` events.
-- **Models**: `ConfigurationModels.swift` / `ThemeModels.swift` / `YabaiModels.swift` – data structs (SpacemapConfig, YabaiSpace, AppTheme with rect1/rect2/rect3, etc.).
+- **Models**: `ConfigurationModels+Appearance/Behavior/GlyphStrip/Keys/SpacemapConfig.swift` / `ThemeModels.swift` / `YabaiModels.swift` – data structs (SpacemapConfig, YabaiSpace, AppTheme with rect1/rect2/rect3, etc.).
 - **Settings**: `SettingsView.swift` (+ per-category `SettingsGrid`/`SettingsSpaceNames`/`SettingsAppearance`/`SettingsBehavior`/`SettingsGlyphStrip`/`SettingsAdvanced`) + `SettingsDraft.swift` + `SettingsWindowController.swift` – permanent category sidebar with live-save detail forms. Every control binds one field of `SettingsDraft`, which owns the whole `SpacemapConfig` and writes it through a 0.5 s debounce (flushed on pane switch, window close, quit, and before a preset apply or import).
-- **Glyph strip**: `GlyphStrip.swift` (pure model) + `GlyphStripPanelController` in `GlyphStripPanel.swift`, with placement, layout, drag and input extensions in `GlyphStripPanelPlacement/Layout/Drag/Input.swift`; AppKit views in `GlyphStripPanelWindow.swift`, `GlyphStripStatusView.swift`, `GlyphStripView.swift` – menu-bar index+glyph strip, theme-driven, notch anchors or free placement, horizontal or vertical layouts, optional fullscreen hiding, session-only hotkey toggle.
+- **Glyph strip**: `GlyphStrip.swift` (pure model) with placement, colours, backgrounds and render layout in `GlyphStrip+Placement/Colours/Backgrounds/RenderLayout.swift` + `GlyphStripPanelController` in `GlyphStripPanel.swift`, with placement, layout, drag and input extensions in `GlyphStripPanelPlacement/Layout/Drag/Input.swift`; AppKit views in `GlyphStripPanelWindow.swift`, `GlyphStripStatusView.swift`, `GlyphStripView.swift` – menu-bar index+glyph strip, theme-driven, notch anchors or free placement, horizontal or vertical layouts, optional fullscreen hiding, session-only hotkey toggle.
 - **Thumbnails**: `ThumbnailCache.swift` – ScreenCaptureKit capture, per-space caching (macOS 14+).
 - **Build**: Use `make run` to build, install, launch. `make dev1`/`make dev2` for dev cycle.
 - **Config**: Stored at `~/.config/spacemap/config.toml`; reloads on HUD open, Settings applies hotkeys/update-mode/socket-health immediately (no restart).
@@ -50,15 +50,18 @@ Sources/spacemap/
 ├── GridView.swift         # SwiftUI grid container
 ├── CellView.swift         # Individual cell rendering (rects/icons/thumbnails)
 ├── YabaiClientImpl.swift   # Shells out to yabai binary for data/manipulation
+├── YabaiClientImpl+*.swift # Trust, process, snapshots, signals, space/window commands
 ├── YabaiService.swift       # Protocol seam for yabai access (mockable)
 ├── ConfigStore.swift   # Config entry point over ConfigLoader/TOMLConfigCodec/ConfigSchema
+├── ConfigSchema+*.swift # Key tables (grid/appearance/behavior/table) plus writer and parser helpers
 ├── HotkeyMonitor.swift   # Global CGEventTap for normal/pinned/glyph-strip hotkeys
 ├── WindowDragHandler.swift # Detects window drag-and-drop over HUD
 ├── SocketListener.swift   # Unix domain socket server for yabai signals
-├── ConfigurationModels.swift # SpacemapConfig, GlyphStripConfig, hotkeys, profiles
+├── ConfigurationModels+*.swift # SpacemapConfig, GlyphStripConfig, hotkeys, profiles
 ├── ThemeModels.swift        # AppTheme (9 roles incl rect1/rect2/rect3)
 ├── YabaiModels.swift        # YabaiSpace, YabaiWindow, GridState
 ├── GlyphStrip.swift         # Menu-bar strip model (pure, testable)
+├── GlyphStrip+*.swift       # Strip placement, colours, backgrounds, render layout
 ├── GlyphStripPanel.swift    # Strip controller: state, refresh, menu-bar item
 ├── GlyphStripPanelPlacement.swift # Panel lifecycle, frames, strip geometry
 ├── GlyphStripPanelLayout.swift    # Segment/run layout and drawing inputs

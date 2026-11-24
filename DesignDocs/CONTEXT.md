@@ -37,7 +37,7 @@
 | Module | File(s) | Interface seam |
 |---|---|---|
 | `GridLayout` | `Sources/spacemap/GridLayout.swift` | Static geometry: cell size, gap, padding, ideal size, slot frames, hit-test, window→cell transforms (guarded inputs) |
-| `YabaiClient` | `Sources/spacemap/YabaiClientImpl.swift` + `YabaiService.swift` | `querySpaces()`, `queryWindows()`, `buildGridState()`, `focusSpace()`, `moveWindowCreatingSpacesIfNeeded()` (10s timeout, async pipe drain) |
+| `YabaiClient` | `Sources/spacemap/YabaiClientImpl.swift` + `YabaiClientImpl+*.swift` + `YabaiService.swift` | `querySpaces()`, `queryWindows()`, `buildGridState()`, `focusSpace()`, `moveWindowCreatingSpacesIfNeeded()` (10s timeout, async pipe drain) |
 | `HUDWindowController` | `Sources/spacemap/HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`GridStateCoordinator` | `show()`, `hide()`, `toggle()`, `refresh()`, `reloadConfig()` |
 | `Config` | `Sources/spacemap/ConfigStore.swift` + `ConfigLoader`/`TOMLConfigCodec` + `ConfigSchema` | `load()`, `saveConfig()`, `updateConfig()`, `parseConfig()` (one key table drives decode, repair, and encode; invalid fields self-heal after `.bak`) |
 | `SocketListener` | `Sources/spacemap/SocketListener.swift` | Callback closures: `onRefresh`, `onShow`, `onToggle`, `onSettings` (socket mode 0600) |
@@ -45,6 +45,6 @@
 | `WindowDragHandler` | `Sources/spacemap/WindowDragHandler.swift` | `onHoverCell`, `onDropInCell` closures; `cellFrames`, `cachedWindows` |
 | `SpaceNavigator` | `Sources/spacemap/SpaceNavigator.swift` | Pure computation: `destination(...)`, `destinationAcrossDisplays(...)` |
 | `GridStateCoordinator` | `Sources/spacemap/GridStateCoordinator.swift` | Single-writer state machine: `fetch(completion:)`, `refresh(completion:)`, `updateFocusedIndex(_:)`, `latestState`, `phase` |
-| `GlyphStrip` | `Sources/spacemap/GlyphStrip.swift` (pure) + `GlyphStripPanel*.swift`, `GlyphStrip*View.swift` (AppKit) | `segments(for:options:font:)`, `layout(...)` → `SegmentLayout`, `frame(...)`, `hoverFill(...)`, `command(...)`; panel `update(config:)`, `refresh()`, `toggleVisibilityByHotkey()` (session-only) |
+| `GlyphStrip` | `Sources/spacemap/GlyphStrip.swift` + `GlyphStrip+*.swift` (pure) + `GlyphStripPanel*.swift`, `GlyphStrip*View.swift` (AppKit) | `segments(for:options:font:)`, `layout(...)` → `SegmentLayout`, `frame(...)`, `hoverFill(...)`, `command(...)`; panel `update(config:)`, `refresh()`, `toggleVisibilityByHotkey()` (session-only) |
 | `Hotkey` | `Sources/spacemap/Hotkey.swift` | Parse/format round-trip, key-code and media-key tables |
 | `ThemeStore` | `Sources/spacemap/ThemeStore.swift` + `ThemeCodec.swift` | `reload()`, `reloadIfChanged()`, `named(_:)`, `allNames()`, `save(theme:name:)`, `resolvedThemeName(strip:hudTheme:)`; directory injected, bundled themes fill gaps, `.smthemes`/`.toml` read, TOML written |
