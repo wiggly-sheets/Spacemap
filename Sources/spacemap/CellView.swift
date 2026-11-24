@@ -1,13 +1,12 @@
 import SwiftUI
 import AppKit
 import Combine
-
 struct CellView: View {
-    @ObservedObject private var thumbnailStore = ThumbnailStore.shared
+    @ObservedObject var thumbnailStore = ThumbnailStore.shared
     /// Bumped on every IconCache.didChange so async resolves repaint the
     /// cached-only icon reads below. Never read directly: the write alone
     /// invalidates the view.
-    @State private var iconGeneration = 0
+    @State var iconGeneration = 0
 
     let spaceIndex: Int
     let spaceLabel: String?
@@ -26,30 +25,30 @@ struct CellView: View {
     let spaceCornerRadius: CGFloat
     let onSelect: (Int) -> Void
     
-    private let uiScale: CGFloat
-    private let resolvedTheme: AppTheme
-    private let mode: ThemeMode
-    private let iconScale: CGFloat
-    private let showSpaceNumbers: Bool
-    private let showSpaceLayout: Bool
-    private let showSpaceNames: Bool
-    private let showIconStrip: Bool
-    private let showMultiAppIcons: Bool
-    private let showExtraWindows: Bool
-    private let iconSource: GlyphStripIconSource
-    private let stripIconSource: GlyphStripIconSource
-    private let hudAnimation: HUDAnimationStyle?
-    private let hudTextColor: String
-    private let hudFontName: String
-    private let hudFontSize: Double
-    private let onDragActive: ((Bool) -> Void)?
-    private let onDragEnd: ((NSPoint) -> Void)?
-    private let onSpaceDragStart: ((Int) -> Void)?
-    private let onWindowDragStart: ((Int) -> Void)?
-    private let onWindowDrop: (([Int], Int, NSPoint) -> Void)?
-    @State private var iconDragActive = false
+    let uiScale: CGFloat
+    let resolvedTheme: AppTheme
+    let mode: ThemeMode
+    let iconScale: CGFloat
+    let showSpaceNumbers: Bool
+    let showSpaceLayout: Bool
+    let showSpaceNames: Bool
+    let showIconStrip: Bool
+    let showMultiAppIcons: Bool
+    let showExtraWindows: Bool
+    let iconSource: GlyphStripIconSource
+    let stripIconSource: GlyphStripIconSource
+    let hudAnimation: HUDAnimationStyle?
+    let hudTextColor: String
+    let hudFontName: String
+    let hudFontSize: Double
+    let onDragActive: ((Bool) -> Void)?
+    let onDragEnd: ((NSPoint) -> Void)?
+    let onSpaceDragStart: ((Int) -> Void)?
+    let onWindowDragStart: ((Int) -> Void)?
+    let onWindowDrop: (([Int], Int, NSPoint) -> Void)?
+    @State var iconDragActive = false
 
-    private var isDarkMode: Bool {
+    var isDarkMode: Bool {
         switch mode {
         case .light: return false
         case .dark:  return true
@@ -57,26 +56,11 @@ struct CellView: View {
         }
     }
 
-    private var filteredWindows: [YabaiWindow] {
+    var filteredWindows: [YabaiWindow] {
         windows.filter { $0.shouldDisplay(showExtraWindows: showExtraWindows) }
     }
 
-    /// HUD badge for a space layout type: float->f, stack->s, bsp->b.
-    static func spaceLayoutBadge(
-        for type: String?,
-        showBSP: Bool = true,
-        showStack: Bool = true,
-        showFloat: Bool = true
-    ) -> String {
-        switch type {
-        case "float": return showFloat ? "f" : ""
-        case "stack": return showStack ? "s" : ""
-        case "bsp": return showBSP ? "b" : ""
-        default: return ""
-        }
-    }
-
-    private var spaceLayoutBadgeText: String {
+    var spaceLayoutBadgeText: String {
         guard showSpaceNumbers, showSpaceLayout else { return "" }
         return spaceLayoutBadge
     }
@@ -232,12 +216,7 @@ var body: some View {
         }
     }
     
-    private func hudFont(points: CGFloat, weight: Font.Weight) -> Font {
-        let size = points * uiScale * CGFloat(hudFontSize / 12)
-        return HUDFont.font(name: hudFontName, size: size, weight: weight)
-    }
-
-    private enum CellOpacity {
+    enum CellOpacity {
         static let dropTargetDark: CGFloat = 0.35
         static let dropTargetLight: CGFloat = 0.5
         static let focusedBgDark: CGFloat = 0.55
@@ -251,298 +230,11 @@ var body: some View {
         static let borderLight: CGFloat = 0.3
     }
 
-    private enum CellBorder {
+    enum CellBorder {
         static let emphasized: CGFloat = 2.5
         static let normal: CGFloat = 0.5
     }
 
-    private var cellCornerRadius: CGFloat {
-        spaceBackground == .theme ? 4 : spaceCornerRadius
-    }
-
-    @ViewBuilder
-    private var cellBackground: some View {
-        switch spaceBackground {
-        case .theme:
-            RoundedRectangle(cornerRadius: cellCornerRadius).fill(backgroundColor)
-        case .none:
-            Color.clear
-        case .solid(let color, let opacity):
-            RoundedRectangle(cornerRadius: cellCornerRadius).fill(color.opacity(opacity))
-        case .glass(let appearance):
-            // The capture for a thumbnail cell rides above the glass inside
-            // SpaceGlassView: SwiftUI drawing under a glass effect view reads as
-            // the desktop, which is what hid the capture when the glass was a
-            // plain SwiftUI background.
-            SpaceGlassView(
-                appearance: appearance,
-                capture: cellStyle.drawsCaptureAboveGlass ? thumbnailCapture : nil
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cellCornerRadius))
-            .overlay {
-                // The theme fill would wash out a capture; focus and drop
-                // already read from the 2.5 pt border.
-                if !cellStyle.drawsCaptureAboveGlass {
-                    RoundedRectangle(cornerRadius: cellCornerRadius)
-                        .fill(backgroundColor.opacity(0.45))
-                }
-            }
-        }
-    }
-
-    private var usesGlassBackground: Bool {
-        if case .glass = spaceBackground { return true }
-        return false
-    }
-
-    private var thumbnailCapture: NSImage? {
-        guard #available(macOS 14.0, *) else { return nil }
-        return thumbnailStore.image(forSpace: spaceIndex)
-    }
-
-    private var backgroundColor: Color {
-        let t = resolvedTheme
-        let baseColor: Color
-        if isDropTarget { baseColor = Color(hex: t.dropTarget).opacity(isDarkMode ? CellOpacity.dropTargetDark : CellOpacity.dropTargetLight) }
-        else if isFocused {
-            if isDarkMode { baseColor = Color(hex: t.cellBgFocused).opacity(CellOpacity.focusedBgDark) }
-            else { baseColor = Color(hex: t.focused).opacity(CellOpacity.focusedBgLight) }
-        }
-        else if isDarkMode { baseColor = Color(hex: t.cellBg).opacity(CellOpacity.cellBgDark) }
-        else { baseColor = Color.white.opacity(CellOpacity.cellBgLight) }
-
-        if !isActive { return baseColor.opacity(CellOpacity.inactive) }
-        return baseColor
-    }
-
-    private var textColor: Color {
-        let t = resolvedTheme
-        if let value = ThemeCodec.parseHexValue(hudTextColor) { return Color(hex: value) }
-        if isFocused { return Color(hex: t.focused) }
-        if isDarkMode { return Color(hex: t.text).opacity(CellOpacity.textDarkDim) }
-        return Color(hex: 0x333333).opacity(CellOpacity.textDim)
-    }
-
-    private var borderColor: Color {
-        let t = resolvedTheme
-        if isDropTarget { return Color(hex: t.dropTarget) }
-        if isFocused { return Color(hex: t.focused) }
-        if !spaceExists { return Color(hex: t.text).opacity(isDarkMode ? 0.7 : 0.75) }
-        if isDarkMode { return Color(hex: t.text).opacity(CellOpacity.borderDark) }
-        return Color(hex: 0x999999).opacity(CellOpacity.borderLight)
-    }
-
-    /// Dashes mark a space that yabai has not created. Focus and drop targets
-    /// keep a solid emphasized outline so the selection still reads first.
-    private var borderDash: [CGFloat] {
-        guard !spaceExists, !isFocused, !isDropTarget else { return [] }
-        return [4, 3]
-    }
-
-    private var borderWidth: CGFloat {
-        if isDropTarget || isFocused { return CellBorder.emphasized }
-        // A missing space needs to read at a glance, not disappear at 0.5 pt.
-        return spaceExists ? CellBorder.normal : 1
-    }
-    
-    @ViewBuilder
-    private func windowRect(_ window: YabaiWindow) -> some View {
-        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
-        if let frame = GridLayout.scaledWindowFrame(
-            windowFrame: window.cgFrame,
-            displayBounds: displayBounds,
-            cellSize: cs
-        ) {
-            RoundedRectangle(cornerRadius: 1)
-                .fill(appColor(window.app).opacity(0.6))
-                .frame(width: frame.width, height: frame.height)
-                .offset(x: frame.minX, y: frame.minY)
-        }
-    }
-
-    @ViewBuilder
-    private func hybridWindowIcon(_ window: YabaiWindow) -> some View {
-        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
-        if let frame = GridLayout.scaledWindowFrame(
-            windowFrame: window.cgFrame,
-            displayBounds: displayBounds,
-            cellSize: cs
-        ) {
-            let iconSize = GridLayout.hybridIconSize(uiScale: uiScale, windowFrame: frame)
-            appIconView(for: window.app, width: iconSize, height: iconSize)
-                .position(x: frame.midX, y: frame.midY)
-        }
-    }
-    
-    @ViewBuilder
-    private func iconGrid() -> some View {
-        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
-        let layouts = GridLayout.windowIconLayouts(
-            windows: filteredWindows,
-            displayBounds: displayBounds,
-            cellSize: cs
-        )
-
-        ForEach(layouts) { layout in
-            windowIcon(layout)
-        }
-    }
-
-    @ViewBuilder
-    private func windowIcon(_ layout: GridLayout.WindowIconLayout) -> some View {
-        appIconView(for: layout.app, width: layout.frame.width, height: layout.frame.height)
-            .offset(x: layout.frame.minX, y: layout.frame.minY)
-            .transition(.scale(scale: 0.8).combined(with: .opacity))
-            .highPriorityGesture(appDragGesture(windowID: layout.windowID, app: layout.app))
-    }
-    
-    @ViewBuilder
-    private func iconStrip() -> some View {
-        let icons = Self.iconStripWindows(
-            filteredWindows,
-            showMultiAppIcons: showMultiAppIcons
-        )
-        let ic = iconScale
-        let baseIconSize = 12 * uiScale * ic * 2
-        let spacing = 2 * uiScale * ic * 2
-        let padding = 3 * uiScale * ic * 2
-        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
-        let availableWidth = cs.width - padding * 2
-        let neededWidth = CGFloat(icons.count) * baseIconSize + CGFloat(max(0, icons.count - 1)) * spacing
-        let fitScale: CGFloat = neededWidth > availableWidth ? availableWidth / neededWidth : 1.0
-        let finalIconSize = baseIconSize * fitScale
-        let finalSpacing = spacing * fitScale
-        HStack(spacing: finalSpacing) {
-            ForEach(icons, id: \.id) { window in
-                appIconView(for: window.app, width: finalIconSize, height: finalIconSize, source: stripIconSource)
-                    .transition(.scale(scale: 0.8).combined(with: .opacity))
-                    .highPriorityGesture(appDragGesture(windowID: window.id, app: window.app))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, padding)
-        .frame(maxHeight: .infinity, alignment: .bottom)
-        .padding(.bottom, padding)
-    }
-    
-    private func appDragGesture(windowID: Int, app: String) -> some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { _ in
-                guard !iconDragActive else { return }
-                iconDragActive = true
-                onWindowDragStart?(spaceIndex)
-                onDragActive?(true)
-            }
-            .onEnded { _ in
-                // One icon per window moves that window; a deduped app icon
-                // moves every window of the app.
-                let ids = showMultiAppIcons
-                    ? [windowID]
-                    : windows.filter { $0.app == app }.map(\.id)
-                onWindowDrop?(ids, spaceIndex, NSEvent.mouseLocation)
-                onDragActive?(false)
-                iconDragActive = false
-            }
-    }
-
-    static func iconStripWindows(
-        _ displayedWindows: [YabaiWindow],
-        showMultiAppIcons: Bool
-    ) -> [YabaiWindow] {
-        let sorted = displayedWindows.sorted {
-            if $0.cgFrame.minX == $1.cgFrame.minX {
-                if $0.cgFrame.minY == $1.cgFrame.minY {
-                    return $0.id < $1.id
-                }
-                return $0.cgFrame.minY < $1.cgFrame.minY
-            }
-            return $0.cgFrame.minX < $1.cgFrame.minX
-        }
-        return showMultiAppIcons ? sorted : uniqueIconWindows(sorted)
-    }
-
-    static func uniqueIconWindows(_ displayedWindows: [YabaiWindow]) -> [YabaiWindow] {
-        var seen = Set<String>()
-        return displayedWindows.filter { seen.insert($0.app).inserted }
-    }
-    
-    @ViewBuilder
-    private func appIconView(
-        for app: String,
-        width: CGFloat,
-        height: CGFloat,
-        source: GlyphStripIconSource? = nil
-    ) -> some View {
-        if (source ?? iconSource) == .sbarFont,
-           let font = AppGlyphFont.load(),
-           let face = font.face(size: min(width, height) * 0.82) {
-            Text(font.glyph(forApp: app))
-                .font(Font(face))
-                .foregroundColor(textColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .frame(width: width, height: height)
-        } else if let icon = appIcon(for: app) {
-            Image(nsImage: icon)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: width, height: height)
-        } else {
-            Color.clear.frame(width: width, height: height)
-        }
-    }
-
-    private func appIcon(for appName: String) -> NSImage? {
-        // Reads iconGeneration so didChange bumps repaint this view.
-        _ = iconGeneration
-        if let cached = IconCache.shared.cachedIcon(for: appName) { return cached }
-        IconCache.shared.resolveInBackground(appName: appName)
-        return nil
-    }
-    
-    private func thumbnailImage(_ spaceIndex: Int) -> some View {
-        guard #available(macOS 14.0, *),
-               let nsImage = thumbnailStore.image(forSpace: spaceIndex) else {
-            return AnyView(Color.clear)
-        }
-        let cs = GridLayout.cellSize(forEffectiveScale: uiScale)
-        return AnyView(Image(nsImage: nsImage)
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(width: cs.width, height: cs.height)
-            .clipped())
-    }
-    
-    private func appColor(_ name: String) -> Color {
-        Self.appColor(name, theme: resolvedTheme)
-    }
-
-    static func appColor(_ name: String, theme: AppTheme) -> Color {
-        let rects = [theme.rect1, theme.rect2, theme.rect3]
-        return Color(hex: rects[Int(stableAppHash(name) % UInt64(rects.count))])
-    }
-
-    static func stableAppHash(_ name: String) -> UInt64 {
-        var hash: UInt64 = 14_695_981_039_346_656_037
-        for byte in name.precomposedStringWithCanonicalMapping.utf8 {
-            hash ^= UInt64(byte)
-            hash &*= 1_099_511_628_211
-        }
-        return hash
-    }
-
-    static func appColorVariation(for name: String) -> (
-        paletteIndex: Int,
-        saturation: Double,
-        lightness: Double
-    ) {
-        let hash = stableAppHash(name)
-        return (
-            paletteIndex: Int(hash % 3),
-            saturation: 0.35 + Double((hash >> 8) % 35) / 100,
-            lightness: 0.42 + Double((hash >> 16) % 17) / 100
-        )
-    }
 }
 
 extension Color {
