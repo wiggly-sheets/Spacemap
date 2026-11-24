@@ -15,6 +15,7 @@ Whenever you are working in this repo, be as concise as possible with your answe
 - Menubar and/or Dock presence for manual show/hide (`presence`: dock, menuBar, both, none)
 
 ## Quick Reference for Agents
+- **File size**: a new concern gets a new extension file (or a new file for a new type), never more lines in the file that happens to be closest. `Tests/spacemapTests/SourceSizeTests.swift` fails the build when any Swift file in `Sources/` or `Tests/` passes 500 lines; split it, don't raise the limit.
 - **Entry point**: `Sources/spacemap/App.swift` – sets up menubar, hotkey monitor, socket listener, Sparkle updater.
 - **HUD controller**: `Sources/spacemap/HUDWindowController.swift` – manages NSPanel, show/hide, auto-hide timer, state refresh.
 - **Sparkle updater**: `App.swift` initializes `SPUStandardUpdaterController` with `startingUpdater: false`; `start()` called after config load. Keys generated via `.build/artifacts/sparkle/Sparkle/bin/generate_keys`.
