@@ -121,7 +121,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 ### Testing & CI/CD
 
-- **Unit Test Suite**: 816 tests across 38 files (+ `MockYabaiService.swift`)
+- **Unit Test Suite**: 943 tests across 105 files (+ `MockYabaiService.swift`)
 - **GitHub Actions CI/CD**: CI (swift test + build), Release (3 DMGs + checksums), Dependabot
 - **Rendering Math Tests**: 8 unit tests for scale mapping (min/max/midpoint/monotonicity)
 
@@ -195,7 +195,7 @@ A living list of planned features, known bugs, and future improvements for the p
 
 | Task                               | Description                                                                                                             | Status  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------- |
-| **Unit Tests**               | 816 tests across 38 files (+ mock) | ✅ Done |
+| **Unit Tests**               | 943 tests across 105 files (+ mock) | ✅ Done |
 | **GitHub Actions / CI**      | `ci.yml` (swift test + build on push/PR), `release.yml` (3 DMGs + checksums on tag), Dependabot                     | ✅ Done |
 | **Architecture Builds**      | ARM64, x86_64, universal DMGs via`create-dmg`                                                                         | ✅ Done |
 | **Homebrew Formula Updates** | Consolidated tap renders its own arch-conditional cask and follows the latest stable release                          | ✅ Done |
