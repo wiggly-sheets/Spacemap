@@ -19,15 +19,29 @@
 		118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */; };
 		fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = afd5b8c3-56cd-b1ab-897f-a7676bd15d3f /* ConfigLoader.swift */; };
 		781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2f4a5792-7e50-2c66-a3b6-78ab5b6f0b49 /* ConfigPresetStore.swift */; };
+		90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = c5b66fe7-e2c3-4378-16cc-e4c41f45bc33 /* ConfigSchema+AppearanceFields.swift */; };
+		2b698a6b-037e-f828-3920-9ede3b9b11b7 /* ConfigSchema+BehaviorFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = 224265db-0c55-5b26-2a8a-71867d2fa73e /* ConfigSchema+BehaviorFields.swift */; };
+		2e3b7ec5-9a66-65fe-1ddc-ad26e0e40462 /* ConfigSchema+GridFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = a1a4f45a-1b99-e181-0e8e-9f628e1805be /* ConfigSchema+GridFields.swift */; };
+		2aea1c96-aa36-ee6a-88f3-327edb0739a4 /* ConfigSchema+Parsing.swift in Sources */ = {isa = PBXBuildFile; fileRef = a13de7cb-15d6-acc9-f0b9-f4882669d621 /* ConfigSchema+Parsing.swift */; };
+		4a02dcb7-91ed-9a17-1ef3-f651ce0b8b6d /* ConfigSchema+TableFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = a59e60ab-a1c7-1341-0970-b2ac1e8632dc /* ConfigSchema+TableFields.swift */; };
+		b6778cf7-acf1-a2c9-37f2-9a522b796408 /* ConfigSchema+Writing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2a6529ed-60b5-d909-4df9-9f70305bad0a /* ConfigSchema+Writing.swift */; };
 		210b18f2-f49b-13e8-b925-9f093a8c2a03 /* ConfigSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5da68c01-7e74-41e3-d1bb-f045ea345d59 /* ConfigSchema.swift */; };
 		7645159d-2cf9-d4a8-1194-f2a832009a43 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = a69051ae-d950-e46a-2426-af780997d160 /* ConfigStore.swift */; };
-		28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46166bf5-f702-94da-7579-b932374e63e8 /* ConfigurationModels.swift */; };
+		a7bd9ed2-2d20-3056-d0d1-6465e1e63e5d /* ConfigurationModels+Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = ce97d6ab-3ece-ca46-4941-8ddb0733b463 /* ConfigurationModels+Appearance.swift */; };
+		2308edc0-ba50-da19-b38e-cb9a9cc6e401 /* ConfigurationModels+Behavior.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ab499b7-5a89-09ae-3588-05f4ecfd2400 /* ConfigurationModels+Behavior.swift */; };
+		3ba186ba-f565-1ebc-6310-0c6c68b8fd5e /* ConfigurationModels+GlyphStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = abc4a14f-bfac-fbb7-26f2-385af190aae9 /* ConfigurationModels+GlyphStrip.swift */; };
+		8487dfd9-40e8-f3b3-21cf-8e0355a95415 /* ConfigurationModels+Keys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0447b693-9a90-e71a-99d3-55ed27fb6fcb /* ConfigurationModels+Keys.swift */; };
+		c7350029-f27d-c58d-f3ce-de7dbc8e17af /* ConfigurationModels+SpacemapConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986e7300-012c-3b88-3aea-4f0243dab573 /* ConfigurationModels+SpacemapConfig.swift */; };
 		a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */; };
 		fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34ad3dc0-23a8-e44b-c9f2-c235ec20a03e /* DeepLinkService.swift */; };
 		d2b8ba48-18fb-a414-306e-97c20f296bc7 /* EventTapHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1fb8ffdd-6e21-b371-42e9-fd7867c6bed2 /* EventTapHost.swift */; };
 		9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2da676f1-f422-0aaf-c90c-b29616ebe8e2 /* GlassCompat.swift */; };
 		b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0617c682-0f6f-aaa2-62d1-caadb21bbf38 /* GlassSegmentedControl.swift */; };
 		91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */ = {isa = PBXBuildFile; fileRef = dd9eb7f9-0c7b-a1ff-d4eb-45ea1e1c1d53 /* GlassVariant.swift */; };
+		55dd0672-e748-a139-b953-a5b312218054 /* GlyphStrip+Backgrounds.swift in Sources */ = {isa = PBXBuildFile; fileRef = b246381f-ea7b-7e46-68a8-dabbf715ec0f /* GlyphStrip+Backgrounds.swift */; };
+		9b2a1558-9a9b-361b-ad0d-e814a2511014 /* GlyphStrip+Colours.swift in Sources */ = {isa = PBXBuildFile; fileRef = 385b5051-4ba4-f7a7-65e3-d67add36737b /* GlyphStrip+Colours.swift */; };
+		92ef4c37-d299-e6d9-7323-55bc9e3dcac7 /* GlyphStrip+Placement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58db326e-4b81-c92d-4782-723a9fdcfdb3 /* GlyphStrip+Placement.swift */; };
+		e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = d2e15965-90c4-9e6c-3631-7872f22986fa /* GlyphStrip+RenderLayout.swift */; };
 		b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */; };
 		c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */; };
 		126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */ = {isa = PBXBuildFile; fileRef = eaa47bb6-2831-5525-8adb-94decaa11fb6 /* GlyphStripPanelDrag.swift */; };
@@ -125,15 +139,29 @@
 		240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CellView.swift; sourceTree = "<group>"; };
 		afd5b8c3-56cd-b1ab-897f-a7676bd15d3f /* ConfigLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigLoader.swift; sourceTree = "<group>"; };
 		2f4a5792-7e50-2c66-a3b6-78ab5b6f0b49 /* ConfigPresetStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigPresetStore.swift; sourceTree = "<group>"; };
+		c5b66fe7-e2c3-4378-16cc-e4c41f45bc33 /* ConfigSchema+AppearanceFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSchema+AppearanceFields.swift; sourceTree = "<group>"; };
+		224265db-0c55-5b26-2a8a-71867d2fa73e /* ConfigSchema+BehaviorFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSchema+BehaviorFields.swift; sourceTree = "<group>"; };
+		a1a4f45a-1b99-e181-0e8e-9f628e1805be /* ConfigSchema+GridFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSchema+GridFields.swift; sourceTree = "<group>"; };
+		a13de7cb-15d6-acc9-f0b9-f4882669d621 /* ConfigSchema+Parsing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSchema+Parsing.swift; sourceTree = "<group>"; };
+		a59e60ab-a1c7-1341-0970-b2ac1e8632dc /* ConfigSchema+TableFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSchema+TableFields.swift; sourceTree = "<group>"; };
+		2a6529ed-60b5-d909-4df9-9f70305bad0a /* ConfigSchema+Writing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSchema+Writing.swift; sourceTree = "<group>"; };
 		5da68c01-7e74-41e3-d1bb-f045ea345d59 /* ConfigSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigSchema.swift; sourceTree = "<group>"; };
 		a69051ae-d950-e46a-2426-af780997d160 /* ConfigStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigStore.swift; sourceTree = "<group>"; };
-		46166bf5-f702-94da-7579-b932374e63e8 /* ConfigurationModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationModels.swift; sourceTree = "<group>"; };
+		ce97d6ab-3ece-ca46-4941-8ddb0733b463 /* ConfigurationModels+Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationModels+Appearance.swift; sourceTree = "<group>"; };
+		1ab499b7-5a89-09ae-3588-05f4ecfd2400 /* ConfigurationModels+Behavior.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationModels+Behavior.swift; sourceTree = "<group>"; };
+		abc4a14f-bfac-fbb7-26f2-385af190aae9 /* ConfigurationModels+GlyphStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationModels+GlyphStrip.swift; sourceTree = "<group>"; };
+		0447b693-9a90-e71a-99d3-55ed27fb6fcb /* ConfigurationModels+Keys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationModels+Keys.swift; sourceTree = "<group>"; };
+		986e7300-012c-3b88-3aea-4f0243dab573 /* ConfigurationModels+SpacemapConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationModels+SpacemapConfig.swift; sourceTree = "<group>"; };
 		ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLink.swift; sourceTree = "<group>"; };
 		34ad3dc0-23a8-e44b-c9f2-c235ec20a03e /* DeepLinkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepLinkService.swift; sourceTree = "<group>"; };
 		1fb8ffdd-6e21-b371-42e9-fd7867c6bed2 /* EventTapHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventTapHost.swift; sourceTree = "<group>"; };
 		2da676f1-f422-0aaf-c90c-b29616ebe8e2 /* GlassCompat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCompat.swift; sourceTree = "<group>"; };
 		0617c682-0f6f-aaa2-62d1-caadb21bbf38 /* GlassSegmentedControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSegmentedControl.swift; sourceTree = "<group>"; };
 		dd9eb7f9-0c7b-a1ff-d4eb-45ea1e1c1d53 /* GlassVariant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassVariant.swift; sourceTree = "<group>"; };
+		b246381f-ea7b-7e46-68a8-dabbf715ec0f /* GlyphStrip+Backgrounds.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip+Backgrounds.swift; sourceTree = "<group>"; };
+		385b5051-4ba4-f7a7-65e3-d67add36737b /* GlyphStrip+Colours.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip+Colours.swift; sourceTree = "<group>"; };
+		58db326e-4b81-c92d-4782-723a9fdcfdb3 /* GlyphStrip+Placement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip+Placement.swift; sourceTree = "<group>"; };
+		d2e15965-90c4-9e6c-3631-7872f22986fa /* GlyphStrip+RenderLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip+RenderLayout.swift; sourceTree = "<group>"; };
 		f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStrip.swift; sourceTree = "<group>"; };
 		f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanel.swift; sourceTree = "<group>"; };
 		eaa47bb6-2831-5525-8adb-94decaa11fb6 /* GlyphStripPanelDrag.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlyphStripPanelDrag.swift; sourceTree = "<group>"; };
@@ -287,15 +315,29 @@
 				240510f3-2c40-b8ae-f730-6bd161d1004c /* CellView.swift */,
 				afd5b8c3-56cd-b1ab-897f-a7676bd15d3f /* ConfigLoader.swift */,
 				2f4a5792-7e50-2c66-a3b6-78ab5b6f0b49 /* ConfigPresetStore.swift */,
+				c5b66fe7-e2c3-4378-16cc-e4c41f45bc33 /* ConfigSchema+AppearanceFields.swift */,
+				224265db-0c55-5b26-2a8a-71867d2fa73e /* ConfigSchema+BehaviorFields.swift */,
+				a1a4f45a-1b99-e181-0e8e-9f628e1805be /* ConfigSchema+GridFields.swift */,
+				a13de7cb-15d6-acc9-f0b9-f4882669d621 /* ConfigSchema+Parsing.swift */,
+				a59e60ab-a1c7-1341-0970-b2ac1e8632dc /* ConfigSchema+TableFields.swift */,
+				2a6529ed-60b5-d909-4df9-9f70305bad0a /* ConfigSchema+Writing.swift */,
 				5da68c01-7e74-41e3-d1bb-f045ea345d59 /* ConfigSchema.swift */,
 				a69051ae-d950-e46a-2426-af780997d160 /* ConfigStore.swift */,
-				46166bf5-f702-94da-7579-b932374e63e8 /* ConfigurationModels.swift */,
+				ce97d6ab-3ece-ca46-4941-8ddb0733b463 /* ConfigurationModels+Appearance.swift */,
+				1ab499b7-5a89-09ae-3588-05f4ecfd2400 /* ConfigurationModels+Behavior.swift */,
+				abc4a14f-bfac-fbb7-26f2-385af190aae9 /* ConfigurationModels+GlyphStrip.swift */,
+				0447b693-9a90-e71a-99d3-55ed27fb6fcb /* ConfigurationModels+Keys.swift */,
+				986e7300-012c-3b88-3aea-4f0243dab573 /* ConfigurationModels+SpacemapConfig.swift */,
 				ebb559d5-0537-24a7-f03f-76abd7cbb068 /* DeepLink.swift */,
 				34ad3dc0-23a8-e44b-c9f2-c235ec20a03e /* DeepLinkService.swift */,
 				1fb8ffdd-6e21-b371-42e9-fd7867c6bed2 /* EventTapHost.swift */,
 				2da676f1-f422-0aaf-c90c-b29616ebe8e2 /* GlassCompat.swift */,
 				0617c682-0f6f-aaa2-62d1-caadb21bbf38 /* GlassSegmentedControl.swift */,
 				dd9eb7f9-0c7b-a1ff-d4eb-45ea1e1c1d53 /* GlassVariant.swift */,
+				b246381f-ea7b-7e46-68a8-dabbf715ec0f /* GlyphStrip+Backgrounds.swift */,
+				385b5051-4ba4-f7a7-65e3-d67add36737b /* GlyphStrip+Colours.swift */,
+				58db326e-4b81-c92d-4782-723a9fdcfdb3 /* GlyphStrip+Placement.swift */,
+				d2e15965-90c4-9e6c-3631-7872f22986fa /* GlyphStrip+RenderLayout.swift */,
 				f344445f-fc89-a2d0-9993-3aa00f2d8d1f /* GlyphStrip.swift */,
 				f68c6e82-fdb7-6781-1f18-d5c3b68c8f0d /* GlyphStripPanel.swift */,
 				eaa47bb6-2831-5525-8adb-94decaa11fb6 /* GlyphStripPanelDrag.swift */,
@@ -552,15 +594,29 @@
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
 				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
+				90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */,
+				2b698a6b-037e-f828-3920-9ede3b9b11b7 /* ConfigSchema+BehaviorFields.swift in Sources */,
+				2e3b7ec5-9a66-65fe-1ddc-ad26e0e40462 /* ConfigSchema+GridFields.swift in Sources */,
+				2aea1c96-aa36-ee6a-88f3-327edb0739a4 /* ConfigSchema+Parsing.swift in Sources */,
+				4a02dcb7-91ed-9a17-1ef3-f651ce0b8b6d /* ConfigSchema+TableFields.swift in Sources */,
+				b6778cf7-acf1-a2c9-37f2-9a522b796408 /* ConfigSchema+Writing.swift in Sources */,
 				210b18f2-f49b-13e8-b925-9f093a8c2a03 /* ConfigSchema.swift in Sources */,
 				7645159d-2cf9-d4a8-1194-f2a832009a43 /* ConfigStore.swift in Sources */,
-				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
+				a7bd9ed2-2d20-3056-d0d1-6465e1e63e5d /* ConfigurationModels+Appearance.swift in Sources */,
+				2308edc0-ba50-da19-b38e-cb9a9cc6e401 /* ConfigurationModels+Behavior.swift in Sources */,
+				3ba186ba-f565-1ebc-6310-0c6c68b8fd5e /* ConfigurationModels+GlyphStrip.swift in Sources */,
+				8487dfd9-40e8-f3b3-21cf-8e0355a95415 /* ConfigurationModels+Keys.swift in Sources */,
+				c7350029-f27d-c58d-f3ce-de7dbc8e17af /* ConfigurationModels+SpacemapConfig.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
 				d2b8ba48-18fb-a414-306e-97c20f296bc7 /* EventTapHost.swift in Sources */,
 				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
 				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
 				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
+				55dd0672-e748-a139-b953-a5b312218054 /* GlyphStrip+Backgrounds.swift in Sources */,
+				9b2a1558-9a9b-361b-ad0d-e814a2511014 /* GlyphStrip+Colours.swift in Sources */,
+				92ef4c37-d299-e6d9-7323-55bc9e3dcac7 /* GlyphStrip+Placement.swift in Sources */,
+				e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
@@ -659,15 +715,29 @@
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
 				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
+				90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */,
+				2b698a6b-037e-f828-3920-9ede3b9b11b7 /* ConfigSchema+BehaviorFields.swift in Sources */,
+				2e3b7ec5-9a66-65fe-1ddc-ad26e0e40462 /* ConfigSchema+GridFields.swift in Sources */,
+				2aea1c96-aa36-ee6a-88f3-327edb0739a4 /* ConfigSchema+Parsing.swift in Sources */,
+				4a02dcb7-91ed-9a17-1ef3-f651ce0b8b6d /* ConfigSchema+TableFields.swift in Sources */,
+				b6778cf7-acf1-a2c9-37f2-9a522b796408 /* ConfigSchema+Writing.swift in Sources */,
 				210b18f2-f49b-13e8-b925-9f093a8c2a03 /* ConfigSchema.swift in Sources */,
 				7645159d-2cf9-d4a8-1194-f2a832009a43 /* ConfigStore.swift in Sources */,
-				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
+				a7bd9ed2-2d20-3056-d0d1-6465e1e63e5d /* ConfigurationModels+Appearance.swift in Sources */,
+				2308edc0-ba50-da19-b38e-cb9a9cc6e401 /* ConfigurationModels+Behavior.swift in Sources */,
+				3ba186ba-f565-1ebc-6310-0c6c68b8fd5e /* ConfigurationModels+GlyphStrip.swift in Sources */,
+				8487dfd9-40e8-f3b3-21cf-8e0355a95415 /* ConfigurationModels+Keys.swift in Sources */,
+				c7350029-f27d-c58d-f3ce-de7dbc8e17af /* ConfigurationModels+SpacemapConfig.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
 				d2b8ba48-18fb-a414-306e-97c20f296bc7 /* EventTapHost.swift in Sources */,
 				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
 				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
 				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
+				55dd0672-e748-a139-b953-a5b312218054 /* GlyphStrip+Backgrounds.swift in Sources */,
+				9b2a1558-9a9b-361b-ad0d-e814a2511014 /* GlyphStrip+Colours.swift in Sources */,
+				92ef4c37-d299-e6d9-7323-55bc9e3dcac7 /* GlyphStrip+Placement.swift in Sources */,
+				e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
@@ -766,15 +836,29 @@
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
 				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
+				90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */,
+				2b698a6b-037e-f828-3920-9ede3b9b11b7 /* ConfigSchema+BehaviorFields.swift in Sources */,
+				2e3b7ec5-9a66-65fe-1ddc-ad26e0e40462 /* ConfigSchema+GridFields.swift in Sources */,
+				2aea1c96-aa36-ee6a-88f3-327edb0739a4 /* ConfigSchema+Parsing.swift in Sources */,
+				4a02dcb7-91ed-9a17-1ef3-f651ce0b8b6d /* ConfigSchema+TableFields.swift in Sources */,
+				b6778cf7-acf1-a2c9-37f2-9a522b796408 /* ConfigSchema+Writing.swift in Sources */,
 				210b18f2-f49b-13e8-b925-9f093a8c2a03 /* ConfigSchema.swift in Sources */,
 				7645159d-2cf9-d4a8-1194-f2a832009a43 /* ConfigStore.swift in Sources */,
-				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
+				a7bd9ed2-2d20-3056-d0d1-6465e1e63e5d /* ConfigurationModels+Appearance.swift in Sources */,
+				2308edc0-ba50-da19-b38e-cb9a9cc6e401 /* ConfigurationModels+Behavior.swift in Sources */,
+				3ba186ba-f565-1ebc-6310-0c6c68b8fd5e /* ConfigurationModels+GlyphStrip.swift in Sources */,
+				8487dfd9-40e8-f3b3-21cf-8e0355a95415 /* ConfigurationModels+Keys.swift in Sources */,
+				c7350029-f27d-c58d-f3ce-de7dbc8e17af /* ConfigurationModels+SpacemapConfig.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
 				d2b8ba48-18fb-a414-306e-97c20f296bc7 /* EventTapHost.swift in Sources */,
 				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
 				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
 				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
+				55dd0672-e748-a139-b953-a5b312218054 /* GlyphStrip+Backgrounds.swift in Sources */,
+				9b2a1558-9a9b-361b-ad0d-e814a2511014 /* GlyphStrip+Colours.swift in Sources */,
+				92ef4c37-d299-e6d9-7323-55bc9e3dcac7 /* GlyphStrip+Placement.swift in Sources */,
+				e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
@@ -873,15 +957,29 @@
 				118925cf-ac52-c80f-8be7-71b76cde8671 /* CellView.swift in Sources */,
 				fb3f3408-16ba-3732-3533-1df01aa26521 /* ConfigLoader.swift in Sources */,
 				781dd48f-7989-b2b5-133f-57d45c303c43 /* ConfigPresetStore.swift in Sources */,
+				90119d73-4bc4-9a7e-ec9b-4d8fe422a654 /* ConfigSchema+AppearanceFields.swift in Sources */,
+				2b698a6b-037e-f828-3920-9ede3b9b11b7 /* ConfigSchema+BehaviorFields.swift in Sources */,
+				2e3b7ec5-9a66-65fe-1ddc-ad26e0e40462 /* ConfigSchema+GridFields.swift in Sources */,
+				2aea1c96-aa36-ee6a-88f3-327edb0739a4 /* ConfigSchema+Parsing.swift in Sources */,
+				4a02dcb7-91ed-9a17-1ef3-f651ce0b8b6d /* ConfigSchema+TableFields.swift in Sources */,
+				b6778cf7-acf1-a2c9-37f2-9a522b796408 /* ConfigSchema+Writing.swift in Sources */,
 				210b18f2-f49b-13e8-b925-9f093a8c2a03 /* ConfigSchema.swift in Sources */,
 				7645159d-2cf9-d4a8-1194-f2a832009a43 /* ConfigStore.swift in Sources */,
-				28bc2b64-d1fc-60fe-4888-a884b3ef7122 /* ConfigurationModels.swift in Sources */,
+				a7bd9ed2-2d20-3056-d0d1-6465e1e63e5d /* ConfigurationModels+Appearance.swift in Sources */,
+				2308edc0-ba50-da19-b38e-cb9a9cc6e401 /* ConfigurationModels+Behavior.swift in Sources */,
+				3ba186ba-f565-1ebc-6310-0c6c68b8fd5e /* ConfigurationModels+GlyphStrip.swift in Sources */,
+				8487dfd9-40e8-f3b3-21cf-8e0355a95415 /* ConfigurationModels+Keys.swift in Sources */,
+				c7350029-f27d-c58d-f3ce-de7dbc8e17af /* ConfigurationModels+SpacemapConfig.swift in Sources */,
 				a8bf65ff-6dd0-57f6-a4c7-91da54eb9343 /* DeepLink.swift in Sources */,
 				fef0c6f0-64ba-eb03-62ef-cfe7629f1372 /* DeepLinkService.swift in Sources */,
 				d2b8ba48-18fb-a414-306e-97c20f296bc7 /* EventTapHost.swift in Sources */,
 				9809f72b-2c61-4e28-8495-7a1756fc9e9b /* GlassCompat.swift in Sources */,
 				b93bcace-0d95-db71-92ef-ac0a76c7ad3c /* GlassSegmentedControl.swift in Sources */,
 				91d6f814-956c-a4b6-5d91-62e720a3a579 /* GlassVariant.swift in Sources */,
+				55dd0672-e748-a139-b953-a5b312218054 /* GlyphStrip+Backgrounds.swift in Sources */,
+				9b2a1558-9a9b-361b-ad0d-e814a2511014 /* GlyphStrip+Colours.swift in Sources */,
+				92ef4c37-d299-e6d9-7323-55bc9e3dcac7 /* GlyphStrip+Placement.swift in Sources */,
+				e5137227-81d9-b72a-c212-f2e660307c6f /* GlyphStrip+RenderLayout.swift in Sources */,
 				b8ef7bea-5125-e1af-1cd6-4ee8bfcf4c31 /* GlyphStrip.swift in Sources */,
 				c97897b5-c750-514a-8aed-0a95fc5d19ee /* GlyphStripPanel.swift in Sources */,
 				126fb828-8392-cc19-6605-059a7aaae4aa /* GlyphStripPanelDrag.swift in Sources */,
