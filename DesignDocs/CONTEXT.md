@@ -38,9 +38,9 @@
 |---|---|---|
 | `GridLayout` | `Sources/spacemap/GridLayout.swift` | Static geometry: cell size, gap, padding, ideal size, slot frames, hit-test, window→cell transforms (guarded inputs) |
 | `YabaiClient` | `Sources/spacemap/YabaiClientImpl.swift` + `YabaiClientImpl+*.swift` + `YabaiService.swift` | `querySpaces()`, `queryWindows()`, `buildGridState()`, `focusSpace()`, `moveWindowCreatingSpacesIfNeeded()` (10s timeout, async pipe drain) |
-| `HUDWindowController` | `Sources/spacemap/HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`GridStateCoordinator` | `show()`, `hide()`, `toggle()`, `refresh()`, `reloadConfig()` |
-| `Config` | `Sources/spacemap/ConfigStore.swift` + `ConfigLoader`/`TOMLConfigCodec` + `ConfigSchema` | `load()`, `saveConfig()`, `updateConfig()`, `parseConfig()` (one key table drives decode, repair, and encode; invalid fields self-heal after `.bak`) |
-| `SocketListener` | `Sources/spacemap/SocketListener.swift` | Callback closures: `onRefresh`, `onShow`, `onToggle`, `onSettings` (socket mode 0600) |
+| `HUDWindowController` | `Sources/spacemap/HUDWindowController.swift` + `HUDInput`/`HUDDisplay`/`GridStateCoordinator` (each with extension files) | `show()`, `hide()`, `toggle()`, `refresh()`, `reloadConfig()` |
+| `Config` | `Sources/spacemap/ConfigStore.swift` + `ConfigLoader`/`TOMLConfigCodec` + `TOMLDocumentParser`/`TOMLConfigDecoder` + `ConfigSchema` | `load()`, `saveConfig()`, `updateConfig()`, `parseConfig()` (one key table drives decode, repair, and encode; invalid fields self-heal after `.bak`) |
+| `SocketListener` | `Sources/spacemap/SocketListener.swift` + `SocketListener+{Bind,Clients,Nonce,Framing}.swift` | Callback closures: `onRefresh`, `onShow`, `onToggle`, `onSettings` (socket mode 0600) |
 | `HotkeyMonitor` | `Sources/spacemap/HotkeyMonitor.swift` + `HotkeyService`/`HotkeyHandler` | `start()`, `stop()`, `onTrigger` closure (normal/pinned/glyph-strip bindings; fn preserved) |
 | `WindowDragHandler` | `Sources/spacemap/WindowDragHandler.swift` | `onHoverCell`, `onDropInCell` closures; `cellFrames`, `cachedWindows` |
 | `SpaceNavigator` | `Sources/spacemap/SpaceNavigator.swift` | Pure computation: `destination(...)`, `destinationAcrossDisplays(...)` |
