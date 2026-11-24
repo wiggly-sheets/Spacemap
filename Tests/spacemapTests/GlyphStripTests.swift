@@ -2453,6 +2453,31 @@ final class GlyphStripPanelPresentationTests: XCTestCase {
         XCTAssertEqual(controller.layoutBuildCount, builds + 1)
     }
 
+    /// A fullscreen exit can leave AppKit treating the strip as visible while
+    /// the window server has pinned it to the old space. Reattaching must put
+    /// it back on every space, not just the active one.
+    func testReattachRestoresAllSpacesBehavior() throws {
+        _ = NSApplication.shared
+        let controller = GlyphStripPanelController(
+            yabaiService: MockYabaiService(),
+            themeStore: makeTemporaryThemeStore()
+        )
+        controller.update(config: enabledConfig())
+        controller.present()
+
+        let panel = try XCTUnwrap(controller.panel)
+        XCTAssertTrue(panel.isVisible)
+        controller.reattachPanelToActiveSpace()
+
+        let restored = expectation(description: "collection behavior restored")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { restored.fulfill() }
+        wait(for: [restored], timeout: 1)
+        XCTAssertEqual(
+            panel.collectionBehavior,
+            [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+        )
+    }
+
     func testHidingInvalidatesInFlightRefreshAndStalePresentCannotShow() throws {
         _ = NSApplication.shared
         let controller = GlyphStripPanelController(

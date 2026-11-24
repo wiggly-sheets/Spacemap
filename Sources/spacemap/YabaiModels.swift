@@ -9,12 +9,14 @@ struct YabaiSpace: Decodable, Equatable {
     let isVisible: Bool?
     let label: String?
     var type: String? = nil
+    var isNativeFullscreen: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
         case id, index, display
         case hasFocus = "has-focus"
         case isVisible = "is-visible"
         case label, type
+        case isNativeFullscreen = "is-native-fullscreen"
     }
 }
 
@@ -153,6 +155,15 @@ struct GridState: Equatable {
 
     func windows(forSpace index: Int) -> [YabaiWindow] {
         return windowsBySpace[index] ?? []
+    }
+
+    /// Native fullscreen on `spaceIndex`, from the Space or a window on it.
+    /// yabai can report the window as not fullscreen while its Space is.
+    func isFullscreen(spaceIndex: Int) -> Bool? {
+        guard let space = spaces.first(where: { $0.index == spaceIndex }) else { return nil }
+        let windowFlags = windows(forSpace: spaceIndex).compactMap(\.isNativeFullscreen)
+        guard space.isNativeFullscreen != nil || !windowFlags.isEmpty else { return nil }
+        return space.isNativeFullscreen == true || windowFlags.contains(true)
     }
 
     func spaces(forDisplay displayIndex: Int) -> [YabaiSpace] {

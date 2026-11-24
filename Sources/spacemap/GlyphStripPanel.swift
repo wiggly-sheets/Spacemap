@@ -15,6 +15,14 @@ final class GlyphStripPanelController: NSObject {
     /// Notified when displays are added, removed, or resized.
     private static let screenParametersChanged: Notification.Name =
         NSApplication.didChangeScreenParametersNotification
+    /// A menu-bar overlay joins every space, so it survives a space switch
+    /// without being re-ordered.
+    private static let stripCollectionBehavior: NSWindow.CollectionBehavior = [
+        .canJoinAllSpaces,
+        .stationary,
+        .ignoresCycle,
+        .fullScreenAuxiliary
+    ]
 
     private let yabaiService: YabaiService
     /// Own coordinator so the strip stays live while the HUD is hidden.
@@ -174,8 +182,11 @@ final class GlyphStripPanelController: NSObject {
                 forName: name,
                 object: nil,
                 queue: .main
-            ) { [weak self] _ in
+            ) { [weak self] note in
                 self?.reconcileOverlayVisibility()
+                if note.name == NSWorkspace.activeSpaceDidChangeNotification {
+                    self?.reattachPanelToActiveSpace()
+                }
             }
         }
         accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -326,15 +337,13 @@ final class GlyphStripPanelController: NSObject {
         }
     }
 
-    /// Native fullscreen on the focused space, from yabai's own space model.
+    /// Native fullscreen on the focused space, from yabai's window or space flag.
     /// A fullscreen window on another space is invisible to the user, so the
     /// window-server and Accessibility checks alone cannot tell them apart.
     /// `nil` when the focused space or the field is unavailable.
     private func fullscreenWindowOnFocusedSpace() -> Bool? {
         guard let state = coordinator.state, let focused = state.focusedIndex else { return nil }
-        let windows = state.windows(forSpace: focused)
-        guard windows.contains(where: { $0.isNativeFullscreen != nil }) else { return nil }
-        return windows.contains { $0.isNativeFullscreen == true }
+        return state.isFullscreen(spaceIndex: focused)
     }
 
     /// Toggles the session-only hotkey visibility. Disabled strip: the flag
@@ -690,6 +699,31 @@ final class GlyphStripPanelController: NSObject {
 
     // MARK: - Panel
 
+    /// AppKit can leave the strip pinned to the space where it was ordered
+    /// out during a fullscreen transition. Re-register the panel on the active
+    /// space, then restore all-spaces membership so the next space switch
+    /// carries it along.
+    func reattachPanelToActiveSpace() {
+        guard config.glyphStrip.enabled,
+              config.glyphStrip.displayMode == .floating,
+              !hiddenByHotkey,
+              !hiddenByFullscreen,
+              !hiddenByMissionControl,
+              let panel,
+              panel.isVisible else { return }
+        // Each behavior change needs its own run-loop turn; the window server
+        // ignores a move that is undone in the same turn.
+        panel.collectionBehavior = .managed
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak panel] in
+            guard let panel else { return }
+            panel.collectionBehavior = .moveToActiveSpace
+            panel.orderFrontRegardless()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak panel] in
+                panel?.collectionBehavior = Self.stripCollectionBehavior
+            }
+        }
+    }
+
     /// Creates the panel on first use, then always lays it out. Ordering front
     /// happens only when the panel is not already visible, so steady-state
     /// refreshes do not re-order the panel on every yabai signal.
@@ -746,12 +780,7 @@ final class GlyphStripPanelController: NSObject {
         let panel = presenter.makePanel(PanelPresenter.Surface(
             level: .statusBar,
             hasShadow: true,
-            collectionBehavior: [
-                .canJoinAllSpaces,
-                .stationary,
-                .ignoresCycle,
-                .fullScreenAuxiliary
-            ],
+            collectionBehavior: Self.stripCollectionBehavior,
             hidesOnDeactivate: false
         ))
         let container = GlyphStripContainerView(controller: self)

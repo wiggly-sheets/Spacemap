@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom glyph strip position and display identity are now saved separately for notched and plain displays. `plainCustomX`, `plainCustomY`, and `plainCustomScreen` hold the plain point. Lock Position stays one global toggle for both screen types.
 
 ### Fixed
+- The floating glyph strip now stays hidden in native fullscreen when yabai reports the flag on the Space rather than the window, and returns when fullscreen ends.
+- The floating glyph strip is reattached to the active space after a space switch. Leaving native fullscreen could leave the panel pinned to the space where fullscreen started, so the strip disappeared on every other space until the app restarted.
 - A notch-anchored glyph strip no longer parks against the far left or right screen edge on a display without a notch. Plain displays default to centred until their own placement is set.
 - A custom-position glyph strip can be dragged into the menu bar row. It now rises above the menu bar there, so it stays visible and clickable; below the row it keeps the floating level.
 
