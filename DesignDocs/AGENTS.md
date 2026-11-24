@@ -204,7 +204,7 @@ Open `Package.swift` in Xcode. The package is the only build definition; there i
 3. **SwiftUI performance:** Each HUD open creates a new NSHostingView. The state is cached during a drag, but the view is recreated.
 4. **Icon strip flicker:** Fixed via `IconCache` (64 icons, LRU); `CellView` no longer re-fetches through `NSWorkspace` per render
 5. **Drag resolution:** Window drag detection uses frontmost app name matching, which can be ambiguous for multi-window apps. Falls back to click proximity.
-6. **Test suite:** 943 tests across 105 files (`Tests/spacemapTests/` + `MockYabaiService.swift`). Run with `make test` or `swift test`.
+6. **Test suite:** 944 tests across 106 files (`Tests/spacemapTests/` + `MockYabaiService.swift`). Run with `make test` or `swift test`.
 7. **Socket health check:** Periodic `fcntl(fd, F_GETFD)` check + file existence check. Restarts on failure.
 
 ## Potential Extension Points
@@ -256,7 +256,7 @@ Open `Package.swift` in Xcode. The package is the only build definition; there i
 - File-based theme system (.smthemes and .toml files in ~/.config/spacemap/themes/, plus the in-app editor)
 - Grid-aware keyboard navigation (arrow keys + vim keys with wrapping)
 - Dynamic yabai path detection (ARM + Intel)
-- Unit test suite: ~588 tests across 35 files when this entry was written (since grown to 943 tests across 105 files, below)
+- Unit test suite: ~588 tests across 35 files when this entry was written (since grown to 944 tests across 106 files, below)
 - Glyph strip: theme-driven menu-bar index+glyph strip (material/shape/glass style, per-style variant and opacity, optional match-HUD appearance, notch anchors or free placement, horizontal/vertical/stacked layouts, position lock, fullscreen hiding)
 - Space-name profiles with menu-bar switching; fn modifier preserved across hotkeys/drop-focus
 - Hardening: yabai 10s timeout + async pipe drain, socket mode 0600, release tag/appcast checks
@@ -276,7 +276,7 @@ Open `Package.swift` in Xcode. The package is the only build definition; there i
 - CLI: `--status`, `--print-config`, `--update`, `--update-font` (beyond the earlier `--version/--help/--config/--trigger/--space/--show-menu/--settings`)
 - Pre-2.0 config key aliases removed from the parser (no migration code — see DesignDocs/adr/0001)
 - Local installs and the CLI symlink target standardized on `/Applications`
-- Test suite: 943 tests across 105 files, aligned to testing standards
+- Test suite: 944 tests across 106 files, aligned to testing standards
 - Theme bug fix: `dropTarget` case sensitivity in `.smthemes` parsing
 
 See [TASKS.md](./TASKS.md) for planned features, bug fixes, and known issues.

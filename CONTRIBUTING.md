@@ -66,6 +66,7 @@ The old names `app-arm64`, `app-x86_64`, `dmg-arm64` and `dmg-x86_64` still work
 - **Follow existing code style** - consistency is key
 - **No forced unwraps** - use `guard`/`if let` safely
 - **Minimal comments** - write self-documenting code
+- **Files stay under 500 lines** - give a new concern a new extension file; `SourceSizeTests` fails the build when a file grows past the limit
 
 ## Contribution Guidelines
 
@@ -108,7 +109,7 @@ swift test            # Direct SPM test runner
 swift test --filter ConfigTests   # Run a specific test class
 ```
 
-943 tests across 105 files, including config migration/healing, hotkey/media-key recovery, models, grid rendering, navigation, themes, deep links, thumbnail capture, and CLI installation.
+944 tests across 106 files, including config migration/healing, hotkey/media-key recovery, models, grid rendering, navigation, themes, deep links, thumbnail capture, and CLI installation.
 
 ### Manual Testing Checklist
 - [ ] Launch app with yabai running → HUD opens on hotkey
