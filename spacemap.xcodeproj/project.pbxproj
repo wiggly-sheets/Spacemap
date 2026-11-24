@@ -113,6 +113,8 @@
 		9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = b7d3314c-155f-dbe8-85f2-1906777a55d4 /* SparkleConfig.swift */; };
 		bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40546599-37b2-62c3-e39d-badc4bbf56b7 /* SystemPermissions.swift */; };
 		8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = bbc9b464-a604-f50f-1c8e-a58e58234834 /* TOMLConfigCodec.swift */; };
+		403d5e5c-9983-6912-e81d-951d354b02f7 /* TOMLConfigDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = c8ed636e-44b8-dcaa-3bc0-e16111e534f2 /* TOMLConfigDecoder.swift */; };
+		6afa4fbc-fdf8-a660-4437-7f6d1897bec6 /* TOMLDocumentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 396733e9-728e-544c-59d5-664e0cb729b7 /* TOMLDocumentParser.swift */; };
 		70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 456218e3-6182-cce6-4267-7fd2d625d213 /* ThemeCatalogService.swift */; };
 		4867ab23-dc2b-a0d6-cfdc-c753f461adfc /* ThemeCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06a8b1ef-4f59-f79e-e2c9-d333c749457a /* ThemeCodec.swift */; };
 		f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13896eba-61a9-b49e-bd36-8132f599e8b5 /* ThemeLibraryWindow.swift */; };
@@ -247,6 +249,8 @@
 		b7d3314c-155f-dbe8-85f2-1906777a55d4 /* SparkleConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleConfig.swift; sourceTree = "<group>"; };
 		40546599-37b2-62c3-e39d-badc4bbf56b7 /* SystemPermissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPermissions.swift; sourceTree = "<group>"; };
 		bbc9b464-a604-f50f-1c8e-a58e58234834 /* TOMLConfigCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TOMLConfigCodec.swift; sourceTree = "<group>"; };
+		c8ed636e-44b8-dcaa-3bc0-e16111e534f2 /* TOMLConfigDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TOMLConfigDecoder.swift; sourceTree = "<group>"; };
+		396733e9-728e-544c-59d5-664e0cb729b7 /* TOMLDocumentParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TOMLDocumentParser.swift; sourceTree = "<group>"; };
 		456218e3-6182-cce6-4267-7fd2d625d213 /* ThemeCatalogService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCatalogService.swift; sourceTree = "<group>"; };
 		06a8b1ef-4f59-f79e-e2c9-d333c749457a /* ThemeCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCodec.swift; sourceTree = "<group>"; };
 		13896eba-61a9-b49e-bd36-8132f599e8b5 /* ThemeLibraryWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeLibraryWindow.swift; sourceTree = "<group>"; };
@@ -437,6 +441,8 @@
 				b7d3314c-155f-dbe8-85f2-1906777a55d4 /* SparkleConfig.swift */,
 				40546599-37b2-62c3-e39d-badc4bbf56b7 /* SystemPermissions.swift */,
 				bbc9b464-a604-f50f-1c8e-a58e58234834 /* TOMLConfigCodec.swift */,
+				c8ed636e-44b8-dcaa-3bc0-e16111e534f2 /* TOMLConfigDecoder.swift */,
+				396733e9-728e-544c-59d5-664e0cb729b7 /* TOMLDocumentParser.swift */,
 				456218e3-6182-cce6-4267-7fd2d625d213 /* ThemeCatalogService.swift */,
 				06a8b1ef-4f59-f79e-e2c9-d333c749457a /* ThemeCodec.swift */,
 				13896eba-61a9-b49e-bd36-8132f599e8b5 /* ThemeLibraryWindow.swift */,
@@ -730,6 +736,8 @@
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
 				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
+				403d5e5c-9983-6912-e81d-951d354b02f7 /* TOMLConfigDecoder.swift in Sources */,
+				6afa4fbc-fdf8-a660-4437-7f6d1897bec6 /* TOMLDocumentParser.swift in Sources */,
 				70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */,
 				4867ab23-dc2b-a0d6-cfdc-c753f461adfc /* ThemeCodec.swift in Sources */,
 				f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */,
@@ -865,6 +873,8 @@
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
 				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
+				403d5e5c-9983-6912-e81d-951d354b02f7 /* TOMLConfigDecoder.swift in Sources */,
+				6afa4fbc-fdf8-a660-4437-7f6d1897bec6 /* TOMLDocumentParser.swift in Sources */,
 				70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */,
 				4867ab23-dc2b-a0d6-cfdc-c753f461adfc /* ThemeCodec.swift in Sources */,
 				f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */,
@@ -1000,6 +1010,8 @@
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
 				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
+				403d5e5c-9983-6912-e81d-951d354b02f7 /* TOMLConfigDecoder.swift in Sources */,
+				6afa4fbc-fdf8-a660-4437-7f6d1897bec6 /* TOMLDocumentParser.swift in Sources */,
 				70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */,
 				4867ab23-dc2b-a0d6-cfdc-c753f461adfc /* ThemeCodec.swift in Sources */,
 				f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */,
@@ -1135,6 +1147,8 @@
 				9dc20544-35a3-8ec9-2bae-dd35ac9a9eb2 /* SparkleConfig.swift in Sources */,
 				bde0ef81-58f4-81a1-0b71-97aa94dd7eb8 /* SystemPermissions.swift in Sources */,
 				8142c996-936a-d22f-21b4-66500a3fbd78 /* TOMLConfigCodec.swift in Sources */,
+				403d5e5c-9983-6912-e81d-951d354b02f7 /* TOMLConfigDecoder.swift in Sources */,
+				6afa4fbc-fdf8-a660-4437-7f6d1897bec6 /* TOMLDocumentParser.swift in Sources */,
 				70593f46-441f-f803-542c-81383493f098 /* ThemeCatalogService.swift in Sources */,
 				4867ab23-dc2b-a0d6-cfdc-c753f461adfc /* ThemeCodec.swift in Sources */,
 				f1bc0d46-7039-d59f-216f-21f9a9907f9c /* ThemeLibraryWindow.swift in Sources */,
