@@ -95,6 +95,15 @@
 		e9c813d5-d556-50c6-0bbc-96de683716b2 /* ThumbnailRequestBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537f906a-7b1e-86e2-16a7-858e8f565f2f /* ThumbnailRequestBuilder.swift */; };
 		207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53f068fa-e530-80a8-3b6a-22bbd9be9d6d /* WindowDragHandler.swift */; };
 		4012f363-77e8-9055-f2f5-dbce73f03f9b /* WindowDragService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0de778d6-5440-310b-c1ca-664de9e3eb8d /* WindowDragService.swift */; };
+		231e8326-eeac-f9d4-a4b2-30aa53482d72 /* YabaiClientImpl+Decoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14a885db-f1f5-2219-283c-e6ca20c08fbd /* YabaiClientImpl+Decoding.swift */; };
+		efb29e5d-1e9d-60cc-57cc-5d03eb3ba09f /* YabaiClientImpl+Displays.swift in Sources */ = {isa = PBXBuildFile; fileRef = e8525579-decb-9116-916d-4e15f37568e0 /* YabaiClientImpl+Displays.swift */; };
+		150d27b9-55e6-8a53-5421-447b696ef008 /* YabaiClientImpl+GridState.swift in Sources */ = {isa = PBXBuildFile; fileRef = d87a975e-f7c3-b5f6-b017-06e78664a350 /* YabaiClientImpl+GridState.swift */; };
+		11d41cde-d58a-87e2-a811-bcaeaa8a26e9 /* YabaiClientImpl+Process.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018457cf-7de6-2e0f-4291-5b2932c5dedf /* YabaiClientImpl+Process.swift */; };
+		24ff3bf2-4860-f0fa-2301-a732af660af1 /* YabaiClientImpl+Signals.swift in Sources */ = {isa = PBXBuildFile; fileRef = c0a9be98-22f4-e3a4-b8bd-b69a17979646 /* YabaiClientImpl+Signals.swift */; };
+		972e7317-dd7a-f4cd-012c-b2482215938b /* YabaiClientImpl+Snapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5d43db7a-230a-3b43-501e-333d11be387c /* YabaiClientImpl+Snapshots.swift */; };
+		e44af4a1-877c-e2dc-22d3-0c19e5126403 /* YabaiClientImpl+SpaceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = ff091d65-7442-2998-7ef3-27a4b63ca59c /* YabaiClientImpl+SpaceCommands.swift */; };
+		7dc4f10a-76d2-d604-ff67-8531a78b0308 /* YabaiClientImpl+Trust.swift in Sources */ = {isa = PBXBuildFile; fileRef = d2ca5e6b-5a38-4a11-260c-9be06b8c6fc9 /* YabaiClientImpl+Trust.swift */; };
+		77cb40c1-0ddf-6fe4-bc11-3d543c40ba0a /* YabaiClientImpl+WindowCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9b250f90-5355-8235-c1ee-c21a273059f0 /* YabaiClientImpl+WindowCommands.swift */; };
 		880554b7-ce3a-80d2-855c-723c52baa4b0 /* YabaiClientImpl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9d525a6f-1f18-0487-af71-86d2e97255f9 /* YabaiClientImpl.swift */; };
 		e83c3766-6117-09e5-a531-f6a0bf2468cf /* YabaiModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ba63aed-64fa-6824-6910-26f1dd5431af /* YabaiModels.swift */; };
 		3429bfc3-4c4b-34fc-8c81-723962b44d22 /* YabaiService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5219502d-4455-5d13-f7e2-f7279d36b156 /* YabaiService.swift */; };
@@ -192,6 +201,15 @@
 		537f906a-7b1e-86e2-16a7-858e8f565f2f /* ThumbnailRequestBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailRequestBuilder.swift; sourceTree = "<group>"; };
 		53f068fa-e530-80a8-3b6a-22bbd9be9d6d /* WindowDragHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragHandler.swift; sourceTree = "<group>"; };
 		0de778d6-5440-310b-c1ca-664de9e3eb8d /* WindowDragService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragService.swift; sourceTree = "<group>"; };
+		14a885db-f1f5-2219-283c-e6ca20c08fbd /* YabaiClientImpl+Decoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl+Decoding.swift; sourceTree = "<group>"; };
+		e8525579-decb-9116-916d-4e15f37568e0 /* YabaiClientImpl+Displays.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl+Displays.swift; sourceTree = "<group>"; };
+		d87a975e-f7c3-b5f6-b017-06e78664a350 /* YabaiClientImpl+GridState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl+GridState.swift; sourceTree = "<group>"; };
+		018457cf-7de6-2e0f-4291-5b2932c5dedf /* YabaiClientImpl+Process.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl+Process.swift; sourceTree = "<group>"; };
+		c0a9be98-22f4-e3a4-b8bd-b69a17979646 /* YabaiClientImpl+Signals.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl+Signals.swift; sourceTree = "<group>"; };
+		5d43db7a-230a-3b43-501e-333d11be387c /* YabaiClientImpl+Snapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl+Snapshots.swift; sourceTree = "<group>"; };
+		ff091d65-7442-2998-7ef3-27a4b63ca59c /* YabaiClientImpl+SpaceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl+SpaceCommands.swift; sourceTree = "<group>"; };
+		d2ca5e6b-5a38-4a11-260c-9be06b8c6fc9 /* YabaiClientImpl+Trust.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl+Trust.swift; sourceTree = "<group>"; };
+		9b250f90-5355-8235-c1ee-c21a273059f0 /* YabaiClientImpl+WindowCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl+WindowCommands.swift; sourceTree = "<group>"; };
 		9d525a6f-1f18-0487-af71-86d2e97255f9 /* YabaiClientImpl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiClientImpl.swift; sourceTree = "<group>"; };
 		0ba63aed-64fa-6824-6910-26f1dd5431af /* YabaiModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiModels.swift; sourceTree = "<group>"; };
 		5219502d-4455-5d13-f7e2-f7279d36b156 /* YabaiService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YabaiService.swift; sourceTree = "<group>"; };
@@ -345,6 +363,15 @@
 				537f906a-7b1e-86e2-16a7-858e8f565f2f /* ThumbnailRequestBuilder.swift */,
 				53f068fa-e530-80a8-3b6a-22bbd9be9d6d /* WindowDragHandler.swift */,
 				0de778d6-5440-310b-c1ca-664de9e3eb8d /* WindowDragService.swift */,
+				14a885db-f1f5-2219-283c-e6ca20c08fbd /* YabaiClientImpl+Decoding.swift */,
+				e8525579-decb-9116-916d-4e15f37568e0 /* YabaiClientImpl+Displays.swift */,
+				d87a975e-f7c3-b5f6-b017-06e78664a350 /* YabaiClientImpl+GridState.swift */,
+				018457cf-7de6-2e0f-4291-5b2932c5dedf /* YabaiClientImpl+Process.swift */,
+				c0a9be98-22f4-e3a4-b8bd-b69a17979646 /* YabaiClientImpl+Signals.swift */,
+				5d43db7a-230a-3b43-501e-333d11be387c /* YabaiClientImpl+Snapshots.swift */,
+				ff091d65-7442-2998-7ef3-27a4b63ca59c /* YabaiClientImpl+SpaceCommands.swift */,
+				d2ca5e6b-5a38-4a11-260c-9be06b8c6fc9 /* YabaiClientImpl+Trust.swift */,
+				9b250f90-5355-8235-c1ee-c21a273059f0 /* YabaiClientImpl+WindowCommands.swift */,
 				9d525a6f-1f18-0487-af71-86d2e97255f9 /* YabaiClientImpl.swift */,
 				0ba63aed-64fa-6824-6910-26f1dd5431af /* YabaiModels.swift */,
 				5219502d-4455-5d13-f7e2-f7279d36b156 /* YabaiService.swift */,
@@ -601,6 +628,15 @@
 				e9c813d5-d556-50c6-0bbc-96de683716b2 /* ThumbnailRequestBuilder.swift in Sources */,
 				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
 				4012f363-77e8-9055-f2f5-dbce73f03f9b /* WindowDragService.swift in Sources */,
+				231e8326-eeac-f9d4-a4b2-30aa53482d72 /* YabaiClientImpl+Decoding.swift in Sources */,
+				efb29e5d-1e9d-60cc-57cc-5d03eb3ba09f /* YabaiClientImpl+Displays.swift in Sources */,
+				150d27b9-55e6-8a53-5421-447b696ef008 /* YabaiClientImpl+GridState.swift in Sources */,
+				11d41cde-d58a-87e2-a811-bcaeaa8a26e9 /* YabaiClientImpl+Process.swift in Sources */,
+				24ff3bf2-4860-f0fa-2301-a732af660af1 /* YabaiClientImpl+Signals.swift in Sources */,
+				972e7317-dd7a-f4cd-012c-b2482215938b /* YabaiClientImpl+Snapshots.swift in Sources */,
+				e44af4a1-877c-e2dc-22d3-0c19e5126403 /* YabaiClientImpl+SpaceCommands.swift in Sources */,
+				7dc4f10a-76d2-d604-ff67-8531a78b0308 /* YabaiClientImpl+Trust.swift in Sources */,
+				77cb40c1-0ddf-6fe4-bc11-3d543c40ba0a /* YabaiClientImpl+WindowCommands.swift in Sources */,
 				880554b7-ce3a-80d2-855c-723c52baa4b0 /* YabaiClientImpl.swift in Sources */,
 				e83c3766-6117-09e5-a531-f6a0bf2468cf /* YabaiModels.swift in Sources */,
 				3429bfc3-4c4b-34fc-8c81-723962b44d22 /* YabaiService.swift in Sources */,
@@ -699,6 +735,15 @@
 				e9c813d5-d556-50c6-0bbc-96de683716b2 /* ThumbnailRequestBuilder.swift in Sources */,
 				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
 				4012f363-77e8-9055-f2f5-dbce73f03f9b /* WindowDragService.swift in Sources */,
+				231e8326-eeac-f9d4-a4b2-30aa53482d72 /* YabaiClientImpl+Decoding.swift in Sources */,
+				efb29e5d-1e9d-60cc-57cc-5d03eb3ba09f /* YabaiClientImpl+Displays.swift in Sources */,
+				150d27b9-55e6-8a53-5421-447b696ef008 /* YabaiClientImpl+GridState.swift in Sources */,
+				11d41cde-d58a-87e2-a811-bcaeaa8a26e9 /* YabaiClientImpl+Process.swift in Sources */,
+				24ff3bf2-4860-f0fa-2301-a732af660af1 /* YabaiClientImpl+Signals.swift in Sources */,
+				972e7317-dd7a-f4cd-012c-b2482215938b /* YabaiClientImpl+Snapshots.swift in Sources */,
+				e44af4a1-877c-e2dc-22d3-0c19e5126403 /* YabaiClientImpl+SpaceCommands.swift in Sources */,
+				7dc4f10a-76d2-d604-ff67-8531a78b0308 /* YabaiClientImpl+Trust.swift in Sources */,
+				77cb40c1-0ddf-6fe4-bc11-3d543c40ba0a /* YabaiClientImpl+WindowCommands.swift in Sources */,
 				880554b7-ce3a-80d2-855c-723c52baa4b0 /* YabaiClientImpl.swift in Sources */,
 				e83c3766-6117-09e5-a531-f6a0bf2468cf /* YabaiModels.swift in Sources */,
 				3429bfc3-4c4b-34fc-8c81-723962b44d22 /* YabaiService.swift in Sources */,
@@ -797,6 +842,15 @@
 				e9c813d5-d556-50c6-0bbc-96de683716b2 /* ThumbnailRequestBuilder.swift in Sources */,
 				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
 				4012f363-77e8-9055-f2f5-dbce73f03f9b /* WindowDragService.swift in Sources */,
+				231e8326-eeac-f9d4-a4b2-30aa53482d72 /* YabaiClientImpl+Decoding.swift in Sources */,
+				efb29e5d-1e9d-60cc-57cc-5d03eb3ba09f /* YabaiClientImpl+Displays.swift in Sources */,
+				150d27b9-55e6-8a53-5421-447b696ef008 /* YabaiClientImpl+GridState.swift in Sources */,
+				11d41cde-d58a-87e2-a811-bcaeaa8a26e9 /* YabaiClientImpl+Process.swift in Sources */,
+				24ff3bf2-4860-f0fa-2301-a732af660af1 /* YabaiClientImpl+Signals.swift in Sources */,
+				972e7317-dd7a-f4cd-012c-b2482215938b /* YabaiClientImpl+Snapshots.swift in Sources */,
+				e44af4a1-877c-e2dc-22d3-0c19e5126403 /* YabaiClientImpl+SpaceCommands.swift in Sources */,
+				7dc4f10a-76d2-d604-ff67-8531a78b0308 /* YabaiClientImpl+Trust.swift in Sources */,
+				77cb40c1-0ddf-6fe4-bc11-3d543c40ba0a /* YabaiClientImpl+WindowCommands.swift in Sources */,
 				880554b7-ce3a-80d2-855c-723c52baa4b0 /* YabaiClientImpl.swift in Sources */,
 				e83c3766-6117-09e5-a531-f6a0bf2468cf /* YabaiModels.swift in Sources */,
 				3429bfc3-4c4b-34fc-8c81-723962b44d22 /* YabaiService.swift in Sources */,
@@ -895,6 +949,15 @@
 				e9c813d5-d556-50c6-0bbc-96de683716b2 /* ThumbnailRequestBuilder.swift in Sources */,
 				207779b4-7918-8f5e-e47d-f9436f361758 /* WindowDragHandler.swift in Sources */,
 				4012f363-77e8-9055-f2f5-dbce73f03f9b /* WindowDragService.swift in Sources */,
+				231e8326-eeac-f9d4-a4b2-30aa53482d72 /* YabaiClientImpl+Decoding.swift in Sources */,
+				efb29e5d-1e9d-60cc-57cc-5d03eb3ba09f /* YabaiClientImpl+Displays.swift in Sources */,
+				150d27b9-55e6-8a53-5421-447b696ef008 /* YabaiClientImpl+GridState.swift in Sources */,
+				11d41cde-d58a-87e2-a811-bcaeaa8a26e9 /* YabaiClientImpl+Process.swift in Sources */,
+				24ff3bf2-4860-f0fa-2301-a732af660af1 /* YabaiClientImpl+Signals.swift in Sources */,
+				972e7317-dd7a-f4cd-012c-b2482215938b /* YabaiClientImpl+Snapshots.swift in Sources */,
+				e44af4a1-877c-e2dc-22d3-0c19e5126403 /* YabaiClientImpl+SpaceCommands.swift in Sources */,
+				7dc4f10a-76d2-d604-ff67-8531a78b0308 /* YabaiClientImpl+Trust.swift in Sources */,
+				77cb40c1-0ddf-6fe4-bc11-3d543c40ba0a /* YabaiClientImpl+WindowCommands.swift in Sources */,
 				880554b7-ce3a-80d2-855c-723c52baa4b0 /* YabaiClientImpl.swift in Sources */,
 				e83c3766-6117-09e5-a531-f6a0bf2468cf /* YabaiModels.swift in Sources */,
 				3429bfc3-4c4b-34fc-8c81-723962b44d22 /* YabaiService.swift in Sources */,
